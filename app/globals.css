@@ -301,7 +301,7 @@
 
   /* Glass Morphism */
   .glass {
-    @apply backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800/50;
+    @apply backdrop-blur-xl bg-white/90 dark:bg-slate-900/90 border border-white/30 dark:border-slate-800/50;
   }
 
   /* Gradient backgrounds */

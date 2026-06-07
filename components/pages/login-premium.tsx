@@ -40,11 +40,11 @@ export function LoginPagePremium() {
             <div className="text-center space-y-2">
               <div className="text-4xl font-bold text-white mb-2">IshBor</div>
               <h1 className="text-2xl font-bold text-white">{t('login')}</h1>
-              <p className="text-white/70 text-sm">Platformaga xush kelibsiz</p>
+              <p className="text-white/80 text-sm font-medium">Platformaga xush kelibsiz</p>
             </div>
 
             {/* Role Tabs */}
-            <div className="flex gap-3 p-1 bg-white/10 rounded-lg">
+            <div className="flex gap-3 p-1 bg-white/15 rounded-lg">
               {['freelancer', 'client'].map((r) => (
                 <button
                   key={r}
@@ -52,10 +52,10 @@ export function LoginPagePremium() {
                     setRole(r as 'freelancer' | 'client')
                     setError('')
                   }}
-                  className={`flex-1 py-2 rounded-md font-medium transition-all ${
+                  className={`flex-1 py-2 rounded-md font-bold transition-all ${
                     role === r
                       ? 'bg-white text-indigo-600 shadow-lg'
-                      : 'text-white/70 hover:text-white'
+                      : 'text-white hover:text-white/90'
                   }`}
                 >
                   {r === 'freelancer' ? 'Freelancer' : 'Client'}
@@ -72,7 +72,7 @@ export function LoginPagePremium() {
 
             {/* Email Field */}
             <div className="space-y-2">
-              <label className="block text-white/90 font-medium text-sm">Email</label>
+              <label className="block text-white font-bold text-sm">Email</label>
               <Input
                 type="email"
                 value={email}
@@ -80,14 +80,14 @@ export function LoginPagePremium() {
                   setEmail(e.target.value)
                   setError('')
                 }}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-white focus:bg-white/15"
+                className="bg-white/40 border-white/50 text-white placeholder:text-white/80 focus:border-white focus:bg-white/45 font-medium text-base"
                 placeholder="your@email.com"
               />
             </div>
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label className="block text-white/90 font-medium text-sm">Parol</label>
+              <label className="block text-white font-bold text-sm">Parol</label>
               <div className="relative">
                 <Input
                   type={showPassword ? 'text' : 'password'}
@@ -96,12 +96,12 @@ export function LoginPagePremium() {
                     setPassword(e.target.value)
                     setError('')
                   }}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-white focus:bg-white/15 pr-10"
+                  className="bg-white/40 border-white/50 text-white placeholder:text-white/80 focus:border-white focus:bg-white/45 pr-10 font-medium text-base"
                   placeholder="••••••••"
                 />
                 <button
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -110,7 +110,7 @@ export function LoginPagePremium() {
 
             {/* Remember & Forgot */}
             <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-white/70 cursor-pointer hover:text-white transition-colors">
+              <label className="flex items-center gap-2 text-white/80 cursor-pointer hover:text-white transition-colors font-medium">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -121,7 +121,7 @@ export function LoginPagePremium() {
               </label>
               <button
                 onClick={() => alert('Password reset would be implemented')}
-                className="text-white/70 hover:text-white transition-colors underline"
+                className="text-white/80 hover:text-white transition-colors underline font-medium"
               >
                 Parolni unutdim?
               </button>
@@ -167,11 +167,11 @@ export function LoginPagePremium() {
 
             {/* Sign Up Link */}
             <div className="text-center space-y-2 pt-4 border-t border-white/20">
-              <p className="text-white/70 text-sm">
+              <p className="text-white/80 text-sm font-medium">
                 Hisob yo'qmi?{' '}
                 <button
                   onClick={() => setCurrentPage('register')}
-                  className="text-white font-semibold hover:text-white/80 transition-colors"
+                  className="text-white font-bold hover:text-white/90 transition-colors"
                 >
                   Ro'yxatdan O'tish
                 </button>
