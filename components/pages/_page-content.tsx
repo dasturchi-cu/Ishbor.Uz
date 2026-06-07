@@ -5,10 +5,10 @@ import { Navbar } from '@/components/global/navbar'
 import { LandingPagePremium } from './landing-premium'
 import { RegisterPage } from './register-premium'
 import { LoginPagePremium } from './login-premium'
-import { FreelancerDashboard } from './freelancer-dashboard'
-import { ClientDashboard } from './client-dashboard'
-import { ServicesCatalog } from './services-catalog'
-import { FreelancerProfile } from './freelancer-profile'
+import { FreelancerDashboardPremium } from './freelancer-dashboard-premium'
+import { ClientDashboardPremium } from './client-dashboard-premium'
+import { ServicesCatalogPremium } from './services-catalog-premium'
+import { FreelancerProfilePremium } from './freelancer-profile-premium'
 import { PostProject } from './post-project'
 import { MessagesPage } from './messages'
 import { WalletPage } from './wallet'
@@ -26,21 +26,21 @@ export function PageContent() {
       case 'login':
         return <LoginPagePremium />
       case 'freelancer-dashboard':
-        return isLoggedIn ? <FreelancerDashboard /> : <LoginPage />
+        return isLoggedIn ? <FreelancerDashboardPremium /> : <LoginPagePremium />
       case 'client-dashboard':
-        return isLoggedIn ? <ClientDashboard /> : <LoginPage />
+        return isLoggedIn ? <ClientDashboardPremium /> : <LoginPagePremium />
       case 'services-catalog':
-        return <ServicesCatalog />
+        return <ServicesCatalogPremium />
       case 'freelancer-profile':
-        return <FreelancerProfile />
+        return <FreelancerProfilePremium />
       case 'post-project':
-        return isLoggedIn ? <PostProject /> : <LoginPage />
+        return isLoggedIn ? <PostProject /> : <LoginPagePremium />
       case 'messages':
-        return isLoggedIn ? <MessagesPage /> : <LoginPage />
+        return isLoggedIn ? <MessagesPage /> : <LoginPagePremium />
       case 'wallet':
-        return isLoggedIn ? <WalletPage /> : <LoginPage />
+        return isLoggedIn ? <WalletPage /> : <LoginPagePremium />
       case 'profile-settings':
-        return isLoggedIn ? <ProfileSettings /> : <LoginPage />
+        return isLoggedIn ? <ProfileSettings /> : <LoginPagePremium />
       default:
         return <LandingPagePremium />
     }
