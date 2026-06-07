@@ -35,7 +35,7 @@ export function LoginPagePremium() {
       <div className="relative container-responsive py-12 min-h-screen flex items-center justify-center">
         <div className="w-full max-w-md animate-fadeInUp">
           {/* Card */}
-          <div className="glass rounded-3xl p-10 space-y-8">
+          <div className="glass-auth rounded-3xl p-10 space-y-8">
             {/* Header */}
             <div className="text-center space-y-2">
               <div className="text-4xl font-bold text-white mb-2">IshBor</div>
@@ -141,7 +141,7 @@ export function LoginPagePremium() {
                 <div className="w-full border-t border-white/20" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gradient-to-b from-indigo-600 to-purple-700 text-white/60">
+                <span className="px-3 text-white/70 backdrop-blur-sm">
                   yoki
                 </span>
               </div>
@@ -151,14 +151,14 @@ export function LoginPagePremium() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="outline"
-                className="border-white text-white hover:bg-white/10"
+                className="bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
               >
                 <span className="text-lg">G</span>
                 oogle
               </Button>
               <Button
                 variant="outline"
-                className="border-white text-white hover:bg-white/10"
+                className="bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
               >
                 <span className="text-lg">f</span>
                 acebook
@@ -180,7 +180,7 @@ export function LoginPagePremium() {
           </div>
 
           {/* Demo Credentials */}
-          <div className="mt-8 glass rounded-2xl p-6 text-sm">
+          <div className="mt-8 glass-auth rounded-2xl p-6 text-sm">
             <p className="text-white/60 mb-3 font-medium">Demo hisob (test uchun):</p>
             <div className="space-y-1 text-white/70">
               <p>Email: <span className="font-mono text-white">demo@ishbor.uz</span></p>
