@@ -60,7 +60,7 @@
   --secondary: #f0f4f8;
   --secondary-foreground: #1e293b;
   --muted: #e2e8f0;
-  --muted-foreground: #64748b;
+  --muted-foreground: #475569;
   --accent: #f59e0b;
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
@@ -95,7 +95,7 @@
   --secondary: #0f1729;
   --secondary-foreground: #e2e8f0;
   --muted: #475569;
-  --muted-foreground: #cbd5e1;
+  --muted-foreground: #d1d5db;
   --accent: #fbbf24;
   --accent-foreground: #0f172a;
   --destructive: #ff6b6b;
@@ -122,10 +122,21 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground leading-relaxed;
+    line-height: 1.6;
   }
   html {
     @apply font-sans scroll-smooth;
+  }
+  
+  p {
+    @apply leading-relaxed;
+    line-height: 1.75;
+  }
+  
+  small, .text-sm {
+    @apply leading-snug;
+    line-height: 1.4;
   }
 }
 
@@ -389,6 +400,47 @@
 /* Focus styles for accessibility */
 :focus-visible {
   @apply outline-2 outline-offset-2 outline-primary;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2), inset 0 0 0 1px rgba(99, 102, 241, 0.5);
+}
+
+/* Input field styling override */
+input, textarea, select {
+  @apply border-2 border-transparent;
+  border-color: rgb(255 255 255 / 0.6);
+  font-size: 16px; /* Prevent iOS zoom on input focus */
+}
+
+input:focus, textarea:focus, select:focus {
+  @apply border-2 border-white bg-white/50;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+input::placeholder, textarea::placeholder {
+  @apply text-foreground/60 font-medium;
+}
+
+/* Browser autofill override */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.4) inset !important;
+  -webkit-text-fill-color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  caret-color: white !important;
+}
+
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.45) inset !important;
+  border: 2px solid white !important;
+}
+
+/* Disabled button state */
+button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+  box-shadow: none !important;
+}
+
+button:disabled:hover {
+  transform: none !important;
+  background-color: inherit !important;
 }
 
 /* Smooth color transitions */

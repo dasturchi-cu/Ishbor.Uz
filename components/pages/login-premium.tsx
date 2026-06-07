@@ -65,14 +65,16 @@ export function LoginPagePremium() {
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">
-                <p className="text-red-200 text-sm">{error}</p>
+              <div className="bg-red-500/15 border-2 border-red-500/80 rounded-lg p-4 animate-slideDown">
+                <p className="text-red-600 dark:text-red-300 text-sm font-semibold flex items-center gap-2">
+                  <span>⚠️</span> {error}
+                </p>
               </div>
             )}
 
             {/* Email Field */}
             <div className="space-y-2">
-              <label className="block text-white font-bold text-sm">Email</label>
+              <label className="block text-white font-extrabold text-sm uppercase tracking-widest">Email</label>
               <Input
                 type="email"
                 value={email}
@@ -80,14 +82,14 @@ export function LoginPagePremium() {
                   setEmail(e.target.value)
                   setError('')
                 }}
-                className="bg-white/40 border-white/50 text-white placeholder:text-white/80 focus:border-white focus:bg-white/45 font-medium text-base"
+                className="bg-white/40 border-2 border-white/50 text-white placeholder:text-white/85 focus:border-white focus:bg-white/45 font-semibold text-base leading-6"
                 placeholder="your@email.com"
               />
             </div>
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label className="block text-white font-bold text-sm">Parol</label>
+              <label className="block text-white font-extrabold text-sm uppercase tracking-widest">Parol</label>
               <div className="relative">
                 <Input
                   type={showPassword ? 'text' : 'password'}
@@ -96,12 +98,13 @@ export function LoginPagePremium() {
                     setPassword(e.target.value)
                     setError('')
                   }}
-                  className="bg-white/40 border-white/50 text-white placeholder:text-white/80 focus:border-white focus:bg-white/45 pr-10 font-medium text-base"
+                  className="bg-white/40 border-2 border-white/50 text-white placeholder:text-white/85 focus:border-white focus:bg-white/45 pr-10 font-semibold text-base leading-6"
                   placeholder="••••••••"
                 />
                 <button
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors font-bold"
+                  title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -109,19 +112,20 @@ export function LoginPagePremium() {
             </div>
 
             {/* Remember & Forgot */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-white/80 cursor-pointer hover:text-white transition-colors font-medium">
+            <div className="flex items-center justify-between text-sm gap-3">
+              <label className="flex items-center gap-3 text-white/80 cursor-pointer hover:text-white transition-colors font-semibold">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded"
+                  className="rounded accent-white w-5 h-5 cursor-pointer mt-px"
+                  aria-label="Remember me"
                 />
-                Meni eslab qol
+                <span>Meni eslab qol</span>
               </label>
               <button
                 onClick={() => alert('Password reset would be implemented')}
-                className="text-white/80 hover:text-white transition-colors underline font-medium"
+                className="text-white font-semibold hover:text-white/90 transition-colors underline underline-offset-2"
               >
                 Parolni unutdim?
               </button>
@@ -130,7 +134,8 @@ export function LoginPagePremium() {
             {/* Login Button */}
             <Button
               onClick={handleLogin}
-              className="w-full bg-white text-indigo-600 hover:bg-white/90 font-bold py-3 h-auto text-base shadow-lg"
+              className="w-full bg-white text-indigo-600 hover:bg-white/90 font-extrabold py-4 h-12 text-base shadow-lg rounded-lg transition-all"
+              aria-label="Sign in to your account"
             >
               {t('sign_in')}
             </Button>
@@ -167,11 +172,12 @@ export function LoginPagePremium() {
 
             {/* Sign Up Link */}
             <div className="text-center space-y-2 pt-4 border-t border-white/20">
-              <p className="text-white/80 text-sm font-medium">
+              <p className="text-white/85 text-sm font-semibold">
                 Hisob yo'qmi?{' '}
                 <button
                   onClick={() => setCurrentPage('register')}
-                  className="text-white font-bold hover:text-white/90 transition-colors"
+                  className="text-white font-extrabold hover:text-white/90 transition-colors underline underline-offset-2"
+                  aria-label="Go to registration page"
                 >
                   Ro'yxatdan O'tish
                 </button>

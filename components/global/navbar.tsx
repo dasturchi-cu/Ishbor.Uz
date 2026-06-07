@@ -255,9 +255,9 @@ function NavButton({ onClick, active, children }: { onClick: () => void; active:
     <button
       onClick={onClick}
       className={cn(
-        'px-3 py-2 text-sm font-medium rounded-md transition-colors',
+        'px-3 py-2 text-sm font-extrabold rounded-md transition-all',
         active
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/50'
           : 'text-foreground hover:bg-secondary'
       )}
     >
@@ -271,9 +271,9 @@ function MobileNavButton({ onClick, active, children }: { onClick: () => void; a
     <button
       onClick={onClick}
       className={cn(
-        'w-full px-3 py-2 text-sm font-medium rounded-md transition-colors text-left',
+        'w-full px-3 py-2 text-sm font-extrabold rounded-md transition-all text-left',
         active
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-primary text-primary-foreground shadow-md shadow-primary/50'
           : 'text-foreground hover:bg-secondary'
       )}
     >
