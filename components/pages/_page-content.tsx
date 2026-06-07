@@ -2,6 +2,7 @@
 
 import { useApp } from '@/components/providers/app-provider'
 import { Navbar } from '@/components/global/navbar'
+import { Footer } from '@/components/global/footer'
 import { LandingPagePremium } from './landing-premium'
 import { RegisterPage } from './register-premium'
 import { LoginPagePremium } from './login-premium'
@@ -47,11 +48,12 @@ export function PageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       <main className="flex-1">
         {renderPage()}
       </main>
+      <Footer />
     </div>
   )
 }
