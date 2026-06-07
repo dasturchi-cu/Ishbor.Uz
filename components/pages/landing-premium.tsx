@@ -108,7 +108,7 @@ export function LandingPagePremium() {
 
               {/* Trust badges */}
               <div className="pt-8 space-y-3">
-                <p className="text-sm text-white/70 font-medium">Ishonch bilan birga:</p>
+                <p className="text-sm text-white font-bold">Ishonch bilan birga:</p>
                 <div className="flex flex-wrap gap-4">
                   {[
                     { icon: '✓', text: '0% Komissiya' },
@@ -172,7 +172,7 @@ export function LandingPagePremium() {
       {/* Categories Section */}
       <div className="py-20 bg-background">
         <div className="container-responsive">
-          <h2 className="text-4xl font-bold text-center mb-16 text-balance">
+          <h2 className="text-4xl font-bold text-center mb-16 text-balance text-foreground">
             {t('categories_title')}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -196,7 +196,7 @@ export function LandingPagePremium() {
       {/* How It Works */}
       <div className="py-20 bg-secondary/30">
         <div className="container-responsive">
-          <h2 className="text-4xl font-bold text-center mb-16 text-balance">
+          <h2 className="text-4xl font-bold text-center mb-16 text-balance text-foreground">
             {t('how_title')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
@@ -225,7 +225,7 @@ export function LandingPagePremium() {
       {/* Featured Freelancers */}
       <div className="py-20 bg-background">
         <div className="container-responsive">
-          <h2 className="text-4xl font-bold mb-16 text-balance">
+          <h2 className="text-4xl font-bold mb-16 text-balance text-foreground">
             Asosiy Freelancerlar
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -278,7 +278,7 @@ export function LandingPagePremium() {
       {/* Why IshBor vs Kwork */}
       <div className="py-20 bg-secondary/30">
         <div className="container-responsive">
-          <h2 className="text-4xl font-bold text-center mb-16 text-balance">
+          <h2 className="text-4xl font-bold text-center mb-16 text-balance text-foreground">
             Nima uchun IshBor?
           </h2>
           <div className="overflow-x-auto">
@@ -307,7 +307,7 @@ export function LandingPagePremium() {
       {/* Testimonials */}
       <div className="py-20 bg-background">
         <div className="container-responsive">
-          <h2 className="text-4xl font-bold text-center mb-16 text-balance">
+          <h2 className="text-4xl font-bold text-center mb-16 text-balance text-foreground">
             Foydalanuvchilar nima deyadi?
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

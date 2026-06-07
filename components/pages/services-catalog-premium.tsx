@@ -66,7 +66,7 @@ export function ServicesCatalogPremium() {
 
               {/* Categories */}
               <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-3">Category</h3>
+                <h3 className="font-bold text-foreground mb-3">Category</h3>
                 <div className="space-y-2">
                   {categories.map((cat) => (
                     <label key={cat} className="flex items-center gap-2 cursor-pointer">
@@ -84,7 +84,7 @@ export function ServicesCatalogPremium() {
 
               {/* Price Range */}
               <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-3">Price Range</h3>
+                <h3 className="font-bold text-foreground mb-3">Price Range</h3>
                 <div className="space-y-2">
                   <input
                     type="range"
@@ -103,7 +103,7 @@ export function ServicesCatalogPremium() {
 
               {/* Rating */}
               <div>
-                <h3 className="font-semibold text-foreground mb-3">Rating</h3>
+                <h3 className="font-bold text-foreground mb-3">Rating</h3>
                 <div className="space-y-2">
                   {[4.5, 4.0, 3.5, 3.0].map((rating) => (
                     <label key={rating} className="flex items-center gap-2 cursor-pointer">

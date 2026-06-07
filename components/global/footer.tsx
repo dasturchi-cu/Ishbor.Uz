@@ -15,7 +15,7 @@ export function Footer() {
           {/* Kompaniya Haqida */}
           <div className="animate-fadeInUp">
             <h3 className="font-bold text-lg text-foreground mb-3">IshBor.uz</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm text-foreground/70 leading-relaxed font-medium">
               O'zbekiston eng yetakchi freelance platfor masi. Iqtidorli mutaxassislar va usta kliyentlarni birlashtiradi.
             </p>
           </div>
@@ -28,7 +28,7 @@ export function Footer() {
                 <li key={item}>
                   <a
                     href="#"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="text-sm text-foreground/70 hover:text-primary transition-colors font-medium"
                   >
                     {item}
                   </a>
@@ -45,7 +45,7 @@ export function Footer() {
                 <li key={item}>
                   <a
                     href="#"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="text-sm text-foreground/70 hover:text-primary transition-colors font-medium"
                   >
                     {item}
                   </a>
@@ -60,14 +60,14 @@ export function Footer() {
             <div className="space-y-3">
               <a
                 href="mailto:info@ishbor.uz"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="flex items-center gap-2 text-sm text-foreground/70 hover:text-primary transition-colors font-medium"
               >
                 <Mail className="h-4 w-4" />
                 info@ishbor.uz
               </a>
               <a
                 href="https://t.me/ishboruz"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="flex items-center gap-2 text-sm text-foreground/70 hover:text-primary transition-colors font-medium"
               >
                 <MessageCircle className="h-4 w-4" />
                 @ishboruz
@@ -82,7 +82,7 @@ export function Footer() {
         {/* Bottom Section */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           {/* Copyright */}
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-foreground/70 font-medium">
             © {currentYear} IshBor.uz. Barcha huquqlar himoyalangan.
           </p>
 

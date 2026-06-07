@@ -181,8 +181,8 @@ export function LoginPagePremium() {
 
           {/* Demo Credentials */}
           <div className="mt-8 glass rounded-2xl p-6 text-sm">
-            <p className="text-white/60 mb-3 font-medium">Demo hisob (test uchun):</p>
-            <div className="space-y-1 text-white/70">
+            <p className="text-white font-bold mb-3">Demo hisob (test uchun):</p>
+            <div className="space-y-1 text-white/80 font-medium">
               <p>Email: <span className="font-mono text-white">demo@ishbor.uz</span></p>
               <p>Password: <span className="font-mono text-white">password123</span></p>
             </div>

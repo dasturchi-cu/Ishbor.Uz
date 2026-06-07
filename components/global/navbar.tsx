@@ -63,14 +63,13 @@ function NavbarInner() {
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Language Switcher - hidden on small screens */}
-          <div className="hidden sm:flex items-center gap-1 border border-border rounded-lg p-1">
+            <div className="flex gap-1 border border-border rounded-lg p-1">
             {(['uz', 'ru', 'en'] as const).map((lang) => (
               <button
                 key={lang}
                 onClick={() => setLanguage(lang)}
                 className={cn(
-                  'px-2 py-1 text-xs font-medium rounded transition-colors',
+                  'px-2 py-1 text-xs font-bold rounded transition-colors',
                   language === lang
                     ? 'bg-primary text-primary-foreground'
                     : 'text-foreground hover:bg-secondary'
@@ -147,9 +146,9 @@ function NavbarInner() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border bg-card animate-slideDown">
           <div className="px-4 py-3 space-y-2">
-            {/* Mobile Language Selector */}
+              {/* Mobile Language Selector */}
             <div className="pb-3 border-b border-border">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Language</p>
+              <p className="text-xs font-bold text-foreground mb-2">Language</p>
               <div className="flex gap-2">
                 {(['uz', 'ru', 'en'] as const).map((lang) => (
                   <button
@@ -158,7 +157,7 @@ function NavbarInner() {
                       setLanguage(lang)
                     }}
                     className={cn(
-                      'px-3 py-1 text-xs font-medium rounded transition-colors',
+                      'px-3 py-1 text-xs font-bold rounded transition-colors',
                       language === lang
                         ? 'bg-primary text-primary-foreground'
                         : 'text-foreground hover:bg-secondary'
