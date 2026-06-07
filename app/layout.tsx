@@ -1,17 +1,24 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import './globals.css'
+import { AppProvider } from '@/components/providers/app-provider'
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const plusJakartaSans = Plus_Jakarta_Sans({ 
+  variable: '--font-plus-jakarta-sans', 
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+})
+
+const inter = Inter({ 
+  variable: '--font-inter', 
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
 })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'IshBor.uz - Freelance Marketplace',
+  description: 'The leading freelance marketplace in Central Asia. Connect with top talent and grow your business.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -38,9 +45,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`bg-background ${plusJakartaSans.variable} ${inter.variable}`}>
       <body className="font-sans antialiased">
-        {children}
+        <AppProvider>
+          {children}
+        </AppProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
