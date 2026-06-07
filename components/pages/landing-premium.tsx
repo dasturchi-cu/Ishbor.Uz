@@ -99,8 +99,7 @@ export function LandingPagePremium() {
                 <Button
                   onClick={() => setCurrentPage('post-project')}
                   size="lg"
-                  variant="outline"
-                  className="border-white text-white hover:bg-white/10 font-semibold text-lg px-8 hover-scale"
+                  className="bg-white/20 backdrop-blur border-2 border-white text-white hover:bg-white/30 font-semibold text-lg px-8 hover-scale"
                 >
                   {t('btn_give_work')}
                 </Button>
@@ -390,8 +389,7 @@ export function LandingPagePremium() {
                 <Button
                   onClick={() => setCurrentPage('post-project')}
                   size="lg"
-                  variant="outline"
-                  className="border-2 border-white text-white hover:bg-white/10 font-extrabold text-lg px-8 py-4 h-14 hover-scale"
+                  className="bg-white/20 backdrop-blur border-2 border-white text-white hover:bg-white/30 font-extrabold text-lg px-8 py-4 h-14 hover-scale min-w-[200px]"
                 >
                   {t('btn_give_work')}
                 </Button>
