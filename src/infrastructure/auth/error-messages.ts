@@ -1,0 +1,23 @@
+import type { TranslationKey } from '@/infrastructure/i18n'
+
+export function mapAuthErrorMessage(
+  message: string,
+  t: (key: TranslationKey) => string
+): string {
+  const lower = message.toLowerCase()
+
+  if (lower.includes('rate limit')) {
+    return t('error_email_rate_limit')
+  }
+  if (lower.includes('already registered') || lower.includes('user already registered')) {
+    return t('error_email_taken')
+  }
+  if (lower.includes('invalid login credentials')) {
+    return t('error_invalid_credentials')
+  }
+  if (lower.includes('token') || lower.includes('yaroqsiz') || lower.includes('sessiya')) {
+    return t('error_invalid_token')
+  }
+
+  return message
+}

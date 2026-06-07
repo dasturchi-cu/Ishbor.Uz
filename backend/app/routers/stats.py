@@ -1,0 +1,76 @@
+from fastapi import APIRouter
+
+from app.database import get_supabase
+from app.review_stats import batch_min_service_prices, batch_review_stats
+
+router = APIRouter(prefix="/stats", tags=["stats"])
+
+
+@router.get("/public")
+def public_stats():
+    supabase = get_supabase()
+
+    freelancers = supabase.table("profiles").select("id", count="exact").eq("role", "freelancer").execute()
+    clients = supabase.table("profiles").select("id", count="exact").eq("role", "client").execute()
+    projects = supabase.table("projects").select("id", count="exact").execute()
+    services = supabase.table("services").select("id", count="exact").execute()
+    orders = supabase.table("orders").select("id", count="exact").execute()
+
+    reviews = supabase.table("reviews").select("rating").execute()
+    ratings = [r["rating"] for r in (reviews.data or [])]
+    avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0.0
+
+    services_list = supabase.table("services").select("category").execute()
+    category_counts: dict[str, int] = {}
+    for row in services_list.data or []:
+        cat = row.get("category") or "other"
+        category_counts[cat] = category_counts.get(cat, 0) + 1
+
+    top_services = (
+        supabase.table("services")
+        .select("id, title, price, category, profiles(full_name)")
+        .order("created_at", desc=True)
+        .limit(3)
+        .execute()
+    )
+
+    top_freelancers = (
+        supabase.table("profiles")
+        .select("id, full_name, specialty, region, role")
+        .eq("role", "freelancer")
+        .order("created_at", desc=True)
+        .limit(4)
+        .execute()
+    )
+
+    freelancer_rows = top_freelancers.data or []
+    freelancer_ids = [f["id"] for f in freelancer_rows]
+    review_stats = batch_review_stats(supabase, freelancer_ids)
+    min_prices = batch_min_service_prices(supabase, freelancer_ids)
+
+    enriched_freelancers = []
+    for f in freelancer_rows:
+        fid = f["id"]
+        avg, count = review_stats.get(fid, (0.0, 0))
+        enriched_freelancers.append(
+            {
+                **f,
+                "avg_rating": avg,
+                "review_count": count,
+                "min_price": min_prices.get(fid, 0),
+            }
+        )
+
+    project_total = (projects.count or 0) + (orders.count or 0)
+
+    return {
+        "freelancers": freelancers.count or 0,
+        "clients": clients.count or 0,
+        "projects": project_total,
+        "services": services.count or 0,
+        "avg_rating": avg_rating,
+        "review_count": len(ratings),
+        "category_counts": category_counts,
+        "top_services": top_services.data or [],
+        "featured_freelancers": enriched_freelancers,
+    }

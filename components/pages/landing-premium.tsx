@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'  
 import { useApp } from '@/components/providers/app-provider'
 import { Button } from '@/components/ui/button'
 import { ArrowDown, CheckCircle2, Shield, Zap, Send, MapPin, Star, Play } from 'lucide-react'
 
-export function LandingPagePremium() {
+export function LandingPagePremium() {  
   const { t, setCurrentPage, language } = useApp()
   const [counters, setCounters] = useState({ freelancers: 0, clients: 0, projects: 0, rating: 0 })
   const [scrollY, setScrollY] = useState(0)
@@ -40,9 +40,9 @@ export function LandingPagePremium() {
   ]
 
   const trustItems = [
-    { icon: CheckCircle2, text: '0% Komissiya', gradient: 'from-green-500 to-emerald-600' },
-    { icon: Shield, text: 'Escrow Himoya', gradient: 'from-blue-500 to-cyan-600' },
-    { icon: Zap, text: '24h Yechim', gradient: 'from-amber-500 to-orange-600' },
+    { icon: CheckCircle2, text: t('trust_commission'), gradient: 'from-green-500 to-emerald-600' },
+    { icon: Shield, text: t('trust_escrow'), gradient: 'from-blue-500 to-cyan-600' },
+    { icon: Zap, text: t('trust_withdrawal'), gradient: 'from-amber-500 to-orange-600' },
     { icon: Send, text: 'Click & Payme', gradient: 'from-red-500 to-pink-600' }
   ]
 
@@ -55,16 +55,16 @@ export function LandingPagePremium() {
   ]
 
   const featuredFreelancers = [
-    { name: 'Alisher Umarov', specialty: 'Web Developer', city: 'Toshkent', rating: 4.9, reviews: 245, price: 150000 },
-    { name: 'Gulnara Mirova', specialty: 'Graphic Designer', city: 'Samarqand', rating: 4.8, reviews: 198, price: 120000 },
-    { name: 'Sardor Karimov', specialty: 'UI/UX Designer', city: 'Toshkent', rating: 4.95, reviews: 312, price: 180000 },
-    { name: 'Zara Ismoilova', specialty: 'Content Writer', city: 'Buxoro', rating: 4.7, reviews: 156, price: 80000 }
+    { name: 'Alisher Umarov', specialty: 'Web Dasturchi', city: 'Toshkent', rating: 4.9, reviews: 245, price: 150000 },
+    { name: 'Gulnara Mirova', specialty: 'Grafik Dizaynchi', city: 'Samarqand', rating: 4.8, reviews: 198, price: 120000 },
+    { name: 'Sardor Karimov', specialty: 'UI/UX Dizaynchi', city: 'Toshkent', rating: 4.95, reviews: 312, price: 180000 },
+    { name: 'Zara Ismoilova', specialty: 'Kontent Yozuvchi', city: 'Buxoro', rating: 4.7, reviews: 156, price: 80000 }
   ]
 
   const testimonials = [
-    { quote: 'IshBor o\'zim uchun eng yaxshi platform. Xavfsiz va tez!', author: 'Anvar A.', role: 'Web Developer' },
-    { quote: 'Buyurtmalarim juda tez bajarildi. Mutaxassislar sifatli.', author: 'Gulnora K.', role: 'Client' },
-    { quote: 'Komissiya yo\'q, bu juda yaxshi! Tavsiya qilaman.', author: 'Javlon M.', role: 'Graphic Designer' }
+    { quote: 'IshBor o\'zim uchun eng yaxshi platform. Xavfsiz va tez!', author: 'Anvar A.', role: t('role_web_dev') },
+    { quote: 'Buyurtmalarim juda tez bajarildi. Mutaxassislar sifatli.', author: 'Gulnora K.', role: t('role_client_label') },
+    { quote: 'Komissiya yo\'q, bu juda yaxshi! Tavsiya qilaman.', author: 'Javlon M.', role: 'Grafik Dizaynchi' }
   ]
 
   return (
@@ -108,12 +108,12 @@ export function LandingPagePremium() {
 
               {/* Trust badges */}
               <div className="pt-8 space-y-3">
-                <p className="text-sm text-white/70 font-medium">Ishonch bilan birga:</p>
+                <p className="text-sm text-white/70 font-medium">{t('trust_with')}</p>
                 <div className="flex flex-wrap gap-4">
                   {[
-                    { icon: '✓', text: '0% Komissiya' },
-                    { icon: '🔒', text: 'Escrow Himoya' },
-                    { icon: '⚡', text: '24h Yechim' }
+                    { icon: '✓', text: t('trust_commission') },
+                    { icon: '🔒', text: t('trust_escrow') },
+                    { icon: '⚡', text: t('trust_withdrawal') }
                   ].map((badge, idx) => (
                     <div key={idx} className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-full">
                       <span>{badge.icon}</span>
@@ -133,7 +133,7 @@ export function LandingPagePremium() {
                     <div className="text-center space-y-4">
                       <div className="text-5xl">📱</div>
                       <p className="text-indigo-600 font-bold">IshBor.uz</p>
-                      <p className="text-sm text-gray-600">Freelance Marketplace</p>
+                      <p className="text-sm text-gray-600">{t('marketplace_tagline')}</p>
                     </div>
                   </div>
                 </div>
@@ -185,7 +185,7 @@ export function LandingPagePremium() {
                 <div className="text-5xl mb-4">{cat.icon}</div>
                 <h3 className="font-semibold mb-2 text-foreground">{cat.name}</h3>
                 <p className="text-sm text-muted-foreground group-hover:text-primary transition">
-                  {cat.count} xizmat
+                  {cat.count} {t('services_count_suffix')}
                 </p>
               </div>
             ))}
@@ -204,9 +204,9 @@ export function LandingPagePremium() {
             <div className="hidden md:block absolute top-24 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-transparent" />
 
             {[
-              { step: '1', title: t('step1'), desc: 'Profil yarating va ma\'lumotlaringizni kiriting' },
-              { step: '2', title: t('step2'), desc: 'O\'z xizmatlarini e\'lon qiling yoki loyiha joylashtiring' },
-              { step: '3', title: t('step3'), desc: 'Buyurtmalarni oling va pul topingiz' }
+              { step: '1', title: t('step1'), desc: t('step1_desc') },
+              { step: '2', title: t('step2'), desc: t('step2_desc') },
+              { step: '3', title: t('step3'), desc: t('step3_desc') }
             ].map((item, idx) => (
               <div key={idx} className="relative animate-fadeInUp" style={{ animationDelay: `${idx * 0.15}s` }}>
                 <div className="text-center space-y-4">
@@ -226,7 +226,7 @@ export function LandingPagePremium() {
       <div className="py-20 bg-background">
         <div className="container-responsive">
           <h2 className="text-4xl font-bold mb-16 text-balance">
-            Asosiy Freelancerlar
+            {t('featured_freelancers')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {featuredFreelancers.map((freelancer, idx) => (
@@ -261,12 +261,12 @@ export function LandingPagePremium() {
                   </div>
 
                   <div className="pt-4 border-t border-border">
-                    <p className="text-sm text-muted-foreground mb-2">dan</p>
+                    <p className="text-sm text-muted-foreground mb-2">{t('service_from')}</p>
                     <p className="text-2xl font-bold text-accent">{freelancer.price.toLocaleString()} so'm</p>
                   </div>
 
                   <Button className="w-full" variant="outline">
-                    Ko'rish
+                    {t('view')}
                   </Button>
                 </div>
               </div>
@@ -279,15 +279,15 @@ export function LandingPagePremium() {
       <div className="py-20 bg-secondary/30">
         <div className="container-responsive">
           <h2 className="text-4xl font-bold text-center mb-16 text-balance">
-            Nima uchun IshBor?
+            {t('why_title')}
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-center">
               <thead>
                 <tr className="border-b-2 border-primary/20">
-                  <th className="px-6 py-4 text-left font-bold">Xususiyat</th>
-                  <th className="px-6 py-4 font-bold text-indigo-600">IshBor.uz</th>
-                  <th className="px-6 py-4 font-bold text-gray-500">Kwork</th>
+                  <th className="px-6 py-4 text-left font-bold">{t('comparison_feature')}</th>
+                  <th className="px-6 py-4 font-bold text-indigo-600">{t('comparison_ishbor')}</th>
+                  <th className="px-6 py-4 font-bold text-gray-500">{t('comparison_kwork')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -308,7 +308,7 @@ export function LandingPagePremium() {
       <div className="py-20 bg-background">
         <div className="container-responsive">
           <h2 className="text-4xl font-bold text-center mb-16 text-balance">
-            Foydalanuvchilar nima deyadi?
+            {t('testimonials_title')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, idx) => (
@@ -338,59 +338,15 @@ export function LandingPagePremium() {
         <div className="container-responsive">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="text-white space-y-2">
-              <h3 className="text-3xl font-bold">Telegram Bot</h3>
-              <p className="text-white/90">Buyurtmalaringizni @IshBorBot dan kuzating</p>
+              <h3 className="text-3xl font-bold">{t('telegram_title')}</h3>
+              <p className="text-white/90">{t('telegram_subtitle')}</p>
             </div>
             <Button size="lg" className="bg-white text-indigo-600 hover:bg-white/90 font-semibold">
-              Ulang
+              {t('connect')}
             </Button>
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="py-12 bg-card border-t border-border">
-        <div className="container-responsive">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div className="space-y-4">
-              <h4 className="font-bold">IshBor.uz</h4>
-              <p className="text-sm text-muted-foreground">
-                O'zbekistonning eng yaxshi freelance platformasi
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-bold text-sm">Havolalar</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition">Bosh sahifa</a></li>
-                <li><a href="#" className="hover:text-primary transition">Xizmatlar</a></li>
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-bold text-sm">Kategoriyalar</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition">Web Dizayn</a></li>
-                <li><a href="#" className="hover:text-primary transition">Grafik Dizayn</a></li>
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-bold text-sm">Aloqa</h4>
-              <p className="text-sm text-muted-foreground">support@ishbor.uz</p>
-            </div>
-          </div>
-
-          <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              &copy; 2024 IshBor.uz - {t('footer_rights')}
-            </p>
-            <div className="flex gap-4 mt-4 md:mt-0">
-              <span className="text-sm">Click</span>
-              <span className="text-sm">Payme</span>
-              <span className="text-sm">Visa</span>
-              <span className="text-sm">Mastercard</span>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

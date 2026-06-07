@@ -1,33 +1,65 @@
-# Ishbor.Uz
+# IshBor.uz
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+O'zbekiston freelance marketplace — Next.js UI prototip (Clean Architecture).
 
-## Built with v0
+## Struktura
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+```
+app/              # Next.js App Router (/login, /services, ...)
+backend/          # FastAPI API (Python)
+supabase/         # SQL migrations
+src/
+  domain/         # entities, constants
+  application/    # providers
+  infrastructure/ # i18n, supabase, api client, mock
+  presentation/   # UI, features
+  shared/         # utils
+```
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_WKV89rJPXhI0iBdBQ6AZdgoUTMGm)
+## Stack
 
-## Getting Started
+| Qatlam | Texnologiya |
+|--------|-------------|
+| Frontend | Next.js 16, React 19, Tailwind 4 |
+| Auth + DB | **Supabase** (PostgreSQL, JWT) |
+| API | **FastAPI** (Python, port 8001) |
 
-First, run the development server:
+## Hujjatlar
+
+- [mvp.md](./mvp.md) — MVP scope va 8 haftalik reja
+- [plan.md](./plan.md) — to'liq biznes/texnik reja
+- [plan-status.md](./plan-status.md) — reja vs haqiqat, kamchiliklar
+- [.cursor/AGENTS.md](./.cursor/AGENTS.md) — Cursor AI yo'riqnomasi
+
+## Ishga tushirish
+
+### 1. Frontend
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+cp .env.example .env.local
+pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Supabase
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. [supabase.com](https://supabase.com) da loyiha yarating
+2. SQL Editor ga `supabase/migrations/20240607000000_initial.sql` ni joylashtiring
+3. `.env.local` ga URL va anon key qo'ying
 
-## Learn More
+### 3. FastAPI backend
 
-To learn more, take a look at the following resources:
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+uvicorn app.main:app --reload --port 8001
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+Swagger: http://localhost:8001/docs
+
+### 4. Yangi migration (loyihalar, chat, sharhlar)
+
+Supabase SQL Editor ga `supabase/migrations/20240608000000_projects_messages_reviews.sql` ni joylashtiring.

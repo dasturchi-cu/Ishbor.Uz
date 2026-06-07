@@ -309,6 +309,20 @@
     @apply backdrop-blur-xl bg-white/10 border border-white/25 shadow-2xl;
   }
 
+  /* Select on purple auth forms — closed: light text; open list: dark text on white */
+  .select-auth {
+    @apply w-full rounded-lg px-4 py-2 border border-white/20 bg-white/10 text-white appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    padding-right: 2.5rem;
+  }
+
+  .select-auth option {
+    color: #1e293b;
+    background-color: #ffffff;
+  }
+
   /* Gradient backgrounds */
   .gradient-hero {
     @apply bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-700;

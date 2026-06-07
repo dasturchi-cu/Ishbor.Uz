@@ -2,7 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import './globals.css'
-import { AppProvider } from '@/components/providers/app-provider'
+import { AppProvider } from '@/application/providers/app-provider'
 
 const plusJakartaSans = Plus_Jakarta_Sans({ 
   variable: '--font-plus-jakarta-sans', 
@@ -18,24 +18,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'IshBor.uz - Freelance Marketplace',
-  description: 'The leading freelance marketplace in Central Asia. Connect with top talent and grow your business.',
+  description: 'O\'zbekistonning yetakchi freelance platformasi. Iqtidorli mutaxassislar bilan bog\'laning va biznesingizni rivojlantiring.',
   generator: 'v0.app',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/icon.svg',
   },
 }
 
@@ -45,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`bg-background ${plusJakartaSans.variable} ${inter.variable}`}>
+    <html lang="uz" className={`bg-background ${plusJakartaSans.variable} ${inter.variable}`}>
       <body className="font-sans antialiased">
         <AppProvider>
           {children}

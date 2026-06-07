@@ -1,0 +1,49 @@
+"""Review statistikalarini batch so'rov bilan hisoblash (N+1 dan qochish)."""
+
+from supabase import Client
+
+
+def batch_review_stats(supabase: Client, freelancer_ids: list[str]) -> dict[str, tuple[float, int]]:
+    if not freelancer_ids:
+        return {}
+
+    result = (
+        supabase.table("reviews")
+        .select("freelancer_id, rating")
+        .in_("freelancer_id", freelancer_ids)
+        .execute()
+    )
+
+    buckets: dict[str, list[int]] = {}
+    for row in result.data or []:
+        fid = row["freelancer_id"]
+        buckets.setdefault(fid, []).append(row["rating"])
+
+    stats: dict[str, tuple[float, int]] = {}
+    for fid in freelancer_ids:
+        ratings = buckets.get(fid, [])
+        if ratings:
+            stats[fid] = (round(sum(ratings) / len(ratings), 1), len(ratings))
+        else:
+            stats[fid] = (0.0, 0)
+    return stats
+
+
+def batch_min_service_prices(supabase: Client, freelancer_ids: list[str]) -> dict[str, int]:
+    if not freelancer_ids:
+        return {}
+
+    result = (
+        supabase.table("services")
+        .select("freelancer_id, price")
+        .in_("freelancer_id", freelancer_ids)
+        .execute()
+    )
+
+    prices: dict[str, int] = {}
+    for row in result.data or []:
+        fid = row["freelancer_id"]
+        price = row["price"]
+        if fid not in prices or price < prices[fid]:
+            prices[fid] = price
+    return prices

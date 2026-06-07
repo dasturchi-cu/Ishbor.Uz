@@ -1,0 +1,257 @@
+'use client'
+
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useApp } from '@/application/providers/app-provider'
+import { Card } from '@/presentation/components/ui/card'
+import { Button } from '@/presentation/components/ui/button'
+import { Input } from '@/presentation/components/ui/input'
+import { api, ApiError } from '@/infrastructure/api/client'
+import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
+import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
+import { UZ_REGIONS, type UzRegion } from '@/domain/constants/regions'
+import type { TranslationKey } from '@/infrastructure/i18n'
+
+type ServiceForm = {
+  title: string
+  description: string
+  price: string
+  category: string
+  region: UzRegion
+}
+
+const TITLE_MAX = 200
+const MAX_PRICE = 2_147_483_647
+
+function fieldMsg(template: string, field: string, n?: number): string {
+  return template.replace('{field}', field).replace('{n}', String(n ?? ''))
+}
+
+function sanitizeTitle(value: string): string {
+  if (value.startsWith('data:')) return ''
+  return value.slice(0, TITLE_MAX)
+}
+
+function isInvalidTitle(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith('data:')) return true
+  if (trimmed.includes('base64,')) return true
+  return trimmed.length > TITLE_MAX
+}
+
+function parseApiError(e: unknown, translate: (key: TranslationKey) => string): string {
+  if (!(e instanceof ApiError)) {
+    return e instanceof Error ? e.message : translate('error_required')
+  }
+  const raw = e.message
+  try {
+    const parsed = JSON.parse(raw) as Array<{ msg?: string }>
+    if (Array.isArray(parsed) && parsed[0]?.msg) return parsed[0].msg
+  } catch {
+    // not JSON validation detail
+  }
+  return mapAuthErrorMessage(raw, translate)
+}
+
+export function CreateServicePage() {
+  const { t, profile, isAuthLoading, refreshProfile } = useApp()
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [form, setForm] = useState<ServiceForm>({
+    title: '',
+    description: '',
+    price: '',
+    category: 'web',
+    region: UZ_REGIONS[0],
+  })
+
+  useEffect(() => {
+    if (isAuthLoading) return
+    if (profile?.role === 'client') {
+      router.replace(PATHS.dashboardClient)
+    }
+  }, [isAuthLoading, profile?.role, router])
+
+  const updateField = <K extends keyof ServiceForm>(field: K, value: ServiceForm[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    setErrors((prev) => {
+      if (!prev[field] && !prev.submit) return prev
+      const next = { ...prev }
+      delete next[field]
+      delete next.submit
+      return next
+    })
+  }
+
+  const handleTitleChange = (value: string) => {
+    updateField('title', sanitizeTitle(value))
+  }
+
+  const handleTitlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text')
+    if (pasted.startsWith('data:') || pasted.includes('base64,')) {
+      e.preventDefault()
+      setErrors((prev) => ({ ...prev, title: t('error_title_invalid') }))
+    }
+  }
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+
+    const price = parseInt(form.price.replace(/\D/g, ''), 10)
+    const nextErrors: Record<string, string> = {}
+
+    const title = form.title.trim()
+    if (!title) nextErrors.title = fieldMsg(t('error_field_required'), t('service_title'))
+    else if (isInvalidTitle(title)) nextErrors.title = t('error_title_invalid')
+    else if (title.length < 3) nextErrors.title = t('error_title_short')
+    if (form.description.trim().length < 10) nextErrors.description = fieldMsg(t('error_field_min_chars'), t('project_description'), 10)
+    if (!price || price <= 0) nextErrors.price = fieldMsg(t('error_field_required'), t('price'))
+    else if (price > MAX_PRICE) nextErrors.price = t('error_price_too_large')
+
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
+    setLoading(true)
+    try {
+      await api.createService({
+        title,
+        description: form.description.trim(),
+        price,
+        category: form.category,
+        region: form.region,
+      })
+      await refreshProfile()
+      router.replace(`${dashboardPathForRole('freelancer')}?created=1`)
+    } catch (err) {
+      setErrors({ submit: parseApiError(err, t) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-[40vh] flex items-center justify-center text-muted-foreground">
+        {t('creating')}
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-10">
+      <Card className="p-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t('create_service_title')}</h1>
+          <p className="text-muted-foreground text-sm mt-1">{t('create_service_desc')}</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+          {errors.submit && (
+            <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{errors.submit}</p>
+          )}
+
+          <div>
+            <label htmlFor="service-title" className="text-sm font-semibold block mb-2">
+              {t('service_title')}
+            </label>
+            <Input
+              id="service-title"
+              name="service-title"
+              type="text"
+              autoComplete="off"
+              maxLength={TITLE_MAX}
+              placeholder={t('service_title')}
+              value={form.title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              onPaste={handleTitlePaste}
+              aria-invalid={Boolean(errors.title)}
+            />
+            {errors.title && <p className="text-sm text-destructive mt-1">{errors.title}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="service-description" className="text-sm font-semibold block mb-2">
+              {t('project_description')}
+            </label>
+            <textarea
+              id="service-description"
+              name="service-description"
+              autoComplete="off"
+              value={form.description}
+              onChange={(e) => updateField('description', e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-md bg-background min-h-28"
+              aria-invalid={Boolean(errors.description)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">{t('description_min_hint')}</p>
+            {errors.description && <p className="text-sm text-destructive mt-1">{errors.description}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="service-price" className="text-sm font-semibold block mb-2">
+              {t('price')} (so&apos;m)
+            </label>
+            <Input
+              id="service-price"
+              name="service-price"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="500000"
+              value={form.price}
+              onChange={(e) => updateField('price', e.target.value.replace(/\D/g, '').slice(0, 10))}
+              aria-invalid={Boolean(errors.price)}
+            />
+            {errors.price && <p className="text-sm text-destructive mt-1">{errors.price}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="service-category" className="text-sm font-semibold block mb-2">
+              {t('category')}
+            </label>
+            <select
+              id="service-category"
+              name="service-category"
+              value={form.category}
+              onChange={(e) => updateField('category', e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-md bg-background"
+            >
+              <option value="web">{t('cat_web')}</option>
+              <option value="mobile">{t('cat_mobile')}</option>
+              <option value="uiux">{t('cat_uiux')}</option>
+              <option value="graphic">{t('cat_graphic')}</option>
+              <option value="writing">{t('cat_writing')}</option>
+              <option value="video">{t('cat_video')}</option>
+              <option value="seo">{t('cat_seo')}</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="service-region" className="text-sm font-semibold block mb-2">
+              {t('region')}
+            </label>
+            <select
+              id="service-region"
+              name="service-region"
+              value={form.region}
+              onChange={(e) => updateField('region', e.target.value as UzRegion)}
+              className="w-full px-3 py-2 border border-input rounded-md bg-background"
+            >
+              {UZ_REGIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? t('creating') : t('btn_create_service')}
+          </Button>
+        </form>
+      </Card>
+    </div>
+  )
+}
