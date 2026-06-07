@@ -304,6 +304,11 @@
     @apply backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800/50;
   }
 
+  /* Glass variant for use on dark/gradient backgrounds with light text */
+  .glass-auth {
+    @apply backdrop-blur-xl bg-white/10 border border-white/25 shadow-2xl;
+  }
+
   /* Gradient backgrounds */
   .gradient-hero {
     @apply bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-700;

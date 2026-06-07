@@ -105,9 +105,8 @@ export function RegisterPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Freelancer Card */}
-                <button
-                  onClick={() => handleRoleSelect('freelancer')}
-                  className="group glass rounded-3xl p-8 text-center hover-lift transition-all cursor-pointer border-2 border-transparent hover:border-white/50"
+                <div
+                  className="group glass-auth rounded-3xl p-8 text-center hover-lift transition-all border-2 border-transparent hover:border-white/50"
                 >
                   <div className="text-6xl mb-4 group-hover:scale-110 transition-transform">
                     💼
@@ -119,15 +118,17 @@ export function RegisterPage() {
                     <p>✓ O'zingni ko'rsat</p>
                     <p>✓ Mijozlarni tap</p>
                   </div>
-                  <Button className="w-full bg-white text-indigo-600 hover:bg-white/90 font-semibold">
+                  <Button
+                    onClick={() => handleRoleSelect('freelancer')}
+                    className="w-full bg-white text-indigo-600 hover:bg-white/90 font-semibold"
+                  >
                     {t('continue')}
                   </Button>
-                </button>
+                </div>
 
                 {/* Client Card */}
-                <button
-                  onClick={() => handleRoleSelect('client')}
-                  className="group glass rounded-3xl p-8 text-center hover-lift transition-all cursor-pointer border-2 border-transparent hover:border-white/50"
+                <div
+                  className="group glass-auth rounded-3xl p-8 text-center hover-lift transition-all border-2 border-transparent hover:border-white/50"
                 >
                   <div className="text-6xl mb-4 group-hover:scale-110 transition-transform">
                     🎯
@@ -139,17 +140,20 @@ export function RegisterPage() {
                     <p>✓ Loyihani joylashtir</p>
                     <p>✓ Ishni tugatuvchi tap</p>
                   </div>
-                  <Button className="w-full bg-amber-400 text-indigo-600 hover:bg-amber-300 font-semibold">
+                  <Button
+                    onClick={() => handleRoleSelect('client')}
+                    className="w-full bg-amber-400 text-indigo-600 hover:bg-amber-300 font-semibold"
+                  >
                     {t('continue')}
                   </Button>
-                </button>
+                </div>
               </div>
             </div>
           )}
 
           {/* Step 2: User Information */}
           {step === 2 && role && (
-            <div className="glass rounded-3xl p-12 space-y-6 animate-fadeInUp max-w-xl mx-auto">
+            <div className="glass-auth rounded-3xl p-12 space-y-6 animate-fadeInUp max-w-xl mx-auto">
               <div className="space-y-2 mb-8">
                 <h2 className="text-3xl font-bold text-white">Ma'lumotlaringiz</h2>
                 <p className="text-white/70">Hisob yaratish uchun zarur ma'lumot</p>
@@ -224,7 +228,7 @@ export function RegisterPage() {
                 <Button
                   onClick={() => setStep(1)}
                   variant="outline"
-                  className="flex-1 border-white text-white hover:bg-white/10"
+                  className="flex-1 bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
                 >
                   Orqaga
                 </Button>
@@ -240,7 +244,7 @@ export function RegisterPage() {
 
           {/* Step 3: Complete Profile */}
           {step === 3 && role && (
-            <div className="glass rounded-3xl p-12 space-y-6 animate-fadeInUp max-w-xl mx-auto">
+            <div className="glass-auth rounded-3xl p-12 space-y-6 animate-fadeInUp max-w-xl mx-auto">
               <div className="space-y-2 mb-8">
                 <h2 className="text-3xl font-bold text-white">Profilingizni Yarating</h2>
                 <p className="text-white/70">Dastlabki o'rnatish</p>
@@ -334,7 +338,7 @@ export function RegisterPage() {
                 <Button
                   onClick={() => setStep(2)}
                   variant="outline"
-                  className="flex-1 border-white text-white hover:bg-white/10"
+                  className="flex-1 bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
                 >
                   Orqaga
                 </Button>
