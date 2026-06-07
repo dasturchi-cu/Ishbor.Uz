@@ -2,9 +2,9 @@
 
 import { useApp } from '@/components/providers/app-provider'
 import { Navbar } from '@/components/global/navbar'
-import { LandingPage } from './landing'
-import { RegisterPage } from './register'
-import { LoginPage } from './login'
+import { LandingPagePremium } from './landing-premium'
+import { RegisterPage } from './register-premium'
+import { LoginPagePremium } from './login-premium'
 import { FreelancerDashboard } from './freelancer-dashboard'
 import { ClientDashboard } from './client-dashboard'
 import { ServicesCatalog } from './services-catalog'
@@ -20,11 +20,11 @@ export function PageContent() {
   const renderPage = () => {
     switch (currentPage) {
       case 'landing':
-        return <LandingPage />
+        return <LandingPagePremium />
       case 'register':
         return <RegisterPage />
       case 'login':
-        return <LoginPage />
+        return <LoginPagePremium />
       case 'freelancer-dashboard':
         return isLoggedIn ? <FreelancerDashboard /> : <LoginPage />
       case 'client-dashboard':
@@ -42,7 +42,7 @@ export function PageContent() {
       case 'profile-settings':
         return isLoggedIn ? <ProfileSettings /> : <LoginPage />
       default:
-        return <LandingPage />
+        return <LandingPagePremium />
     }
   }
 

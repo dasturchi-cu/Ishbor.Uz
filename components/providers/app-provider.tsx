@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { t, type Language } from '@/lib/i18n'
 
 export interface AppContextType {
   currentUserRole: 'freelancer' | 'client'
@@ -9,10 +10,11 @@ export interface AppContextType {
   setCurrentPage: (page: string) => void
   theme: 'light' | 'dark'
   setTheme: (theme: 'light' | 'dark') => void
-  language: 'uz' | 'ru' | 'en'
-  setLanguage: (lang: 'uz' | 'ru' | 'en') => void
+  language: Language
+  setLanguage: (lang: Language) => void
   isLoggedIn: boolean
   setIsLoggedIn: (loggedIn: boolean) => void
+  t: (key: keyof typeof import('@/lib/i18n').translations.uz) => string
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -59,7 +61,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('userRole', role)
   }
 
-  const setLang = (lang: 'uz' | 'ru' | 'en') => {
+  const setLang = (lang: Language) => {
     setLanguage(lang)
     localStorage.setItem('language', lang)
   }
@@ -81,6 +83,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLanguage: setLang,
         isLoggedIn,
         setIsLoggedIn,
+        t: (key) => t(language, key),
       }}
     >
       {children}
