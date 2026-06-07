@@ -68,17 +68,21 @@ export function ServicesCatalogPremium() {
               <div className="mb-6">
                 <h3 className="font-bold text-foreground mb-3">Category</h3>
                 <div className="space-y-2">
-                  {categories.map((cat) => (
-                    <label key={cat} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategory === cat}
-                        onChange={() => setSelectedCategory(cat)}
-                        className="w-4 h-4 rounded border-primary"
-                      />
-                      <span className="text-sm text-foreground">{cat}</span>
-                    </label>
-                  ))}
+                  {categories.map((cat) => {
+                    const count = services.filter(s => selectedCategory === 'All' ? true : s.category === cat).length
+                    return (
+                      <label key={cat} className="flex items-center gap-2 cursor-pointer hover:text-primary transition">
+                        <input
+                          type="checkbox"
+                          checked={selectedCategory === cat}
+                          onChange={() => setSelectedCategory(cat)}
+                          className="w-4 h-4 rounded border-primary accent-primary"
+                        />
+                        <span className="text-sm text-foreground font-medium flex-1">{cat}</span>
+                        <span className="text-xs text-muted-foreground font-semibold bg-secondary px-2 py-1 rounded">{count}</span>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -182,21 +186,34 @@ export function ServicesCatalogPremium() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        <span className="font-semibold text-sm text-foreground">{service.rating}</span>
-                        <span className="text-xs text-muted-foreground">({service.reviews})</span>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-1 group/rating cursor-help">
+                      <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                      <span className="font-bold text-sm text-foreground group-hover/rating:text-amber-500 transition">{service.rating}</span>
+                      <span className="text-xs text-muted-foreground font-semibold group-hover/rating:text-amber-500/70 transition">({service.reviews})</span>
+                      
+                      {/* Rating tooltip */}
+                      <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover/rating:opacity-100 transition-opacity pointer-events-none z-20">
+                        <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded whitespace-nowrap font-medium space-y-1">
+                          <div>Based on {service.reviews} reviews</div>
+                          <div className="text-gray-300 text-xs">Quality: 4.9 • Speed: 4.8 • Comm: 4.7</div>
+                        </div>
+                        <div className="absolute top-full left-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
                       </div>
                     </div>
+                  </div>
 
                     <div className="flex items-center justify-between pt-4 border-t border-border">
                       <div>
-                        <p className="text-xs text-muted-foreground">Starting at</p>
-                        <p className="text-2xl font-bold text-primary">${service.price}</p>
+                        <p className="text-xs text-muted-foreground font-semibold">Starting at</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-2xl font-extrabold text-primary">${service.price}</p>
+                          <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded font-bold">USD</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">~{(service.price * 12000).toLocaleString()} so'm</p>
                       </div>
-                      <Button className="bg-primary hover:bg-primary/90" onClick={(e) => { e.stopPropagation(); setCurrentPage('freelancer-profile'); }}>
-                        View
+                      <Button className="bg-primary hover:bg-primary/90 font-bold" onClick={(e) => { e.stopPropagation(); setCurrentPage('freelancer-profile'); }}>
+                        Contact
                       </Button>
                     </div>
                   </div>

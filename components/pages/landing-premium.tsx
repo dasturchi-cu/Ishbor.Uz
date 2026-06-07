@@ -106,18 +106,28 @@ export function LandingPagePremium() {
                 </Button>
               </div>
 
-              {/* Trust badges */}
               <div className="pt-8 space-y-3">
                 <p className="text-sm text-white font-bold">Ishonch bilan birga:</p>
                 <div className="flex flex-wrap gap-4">
                   {[
-                    { icon: '✓', text: '0% Komissiya' },
-                    { icon: '🔒', text: 'Escrow Himoya' },
-                    { icon: '⚡', text: '24h Yechim' }
+                    { icon: '✓', text: '0% Komissiya', tooltip: 'Biz komissiya olmiz, to\'liq to\'lovni oling' },
+                    { icon: '🔒', text: 'Escrow Himoya', tooltip: 'Xavfsiz to\'lov - pul to\'liq bo\'lgunacha hold qilinadi' },
+                    { icon: '⚡', text: '24h Yechim', tooltip: 'Tezkor xizmat - 24 soat ichida muammo hal qilinadi' }
                   ].map((badge, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-full">
+                    <div 
+                      key={idx} 
+                      className="group relative flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-full hover:bg-white/15 transition cursor-help"
+                      title={badge.tooltip}
+                    >
                       <span>{badge.icon}</span>
-                      <span className="text-sm text-white">{badge.text}</span>
+                      <span className="text-sm text-white font-medium">{badge.text}</span>
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                        <div className="bg-gray-900 text-white text-xs px-3 py-1 rounded whitespace-nowrap font-medium">
+                          {badge.tooltip}
+                        </div>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -179,14 +189,22 @@ export function LandingPagePremium() {
             {categories.map((cat, idx) => (
               <div
                 key={idx}
-                className="group glass rounded-2xl p-8 text-center hover-lift cursor-pointer animate-fadeInUp"
+                className="group relative glass rounded-2xl p-8 text-center hover-lift cursor-pointer animate-fadeInUp overflow-hidden"
                 style={{ animationDelay: `${idx * 0.05}s` }}
               >
-                <div className="text-5xl mb-4">{cat.icon}</div>
-                <h3 className="font-semibold mb-2 text-foreground">{cat.name}</h3>
-                <p className="text-sm text-muted-foreground group-hover:text-primary transition">
-                  {cat.count} xizmat
-                </p>
+                {/* Gradient background on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                {/* Content */}
+                <div className="relative z-10">
+                  <div className="text-6xl mb-4 inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/10 group-hover:bg-white/20 transition" style={{lineHeight: '1'}}>
+                    {cat.icon}
+                  </div>
+                  <h3 className="font-bold text-lg mb-2 text-foreground group-hover:text-primary transition">{cat.name}</h3>
+                  <p className="text-sm text-muted-foreground group-hover:text-primary/70 transition font-medium">
+                    {cat.count} xizmat
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -253,11 +271,20 @@ export function LandingPagePremium() {
                     <span className="text-muted-foreground">{freelancer.city}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-sm group/rating cursor-help">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
                     ))}
-                    <span className="text-muted-foreground ml-auto">({freelancer.reviews})</span>
+                    <span className="text-muted-foreground ml-auto font-semibold group-hover/rating:text-amber-500 transition">({freelancer.reviews})</span>
+                    
+                    {/* Rating breakdown tooltip */}
+                    <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover/rating:opacity-100 transition-opacity pointer-events-none z-20">
+                      <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded whitespace-nowrap font-medium space-y-1">
+                        <div>Based on {freelancer.reviews} reviews</div>
+                        <div className="text-gray-300">Quality: 4.9 • Speed: 4.8 • Comm: 4.7</div>
+                      </div>
+                      <div className="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+                    </div>
                   </div>
 
                   <div className="pt-4 border-t border-border">
@@ -352,12 +379,23 @@ export function LandingPagePremium() {
       <footer className="py-12 bg-card border-t border-border">
         <div className="container-responsive">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div className="space-y-4">
-              <h4 className="font-bold">IshBor.uz</h4>
-              <p className="text-sm text-muted-foreground">
-                O'zbekistonning eng yaxshi freelance platformasi
-              </p>
-            </div>
+              <div className="space-y-6">
+                <Button
+                  onClick={() => setCurrentPage('services-catalog')}
+                  size="lg"
+                  className="bg-white text-indigo-600 hover:bg-white/90 font-extrabold text-lg px-8 py-4 h-14 shadow-lg hover-lift min-w-[200px]"
+                >
+                  {t('btn_find_work')}
+                </Button>
+                <Button
+                  onClick={() => setCurrentPage('post-project')}
+                  size="lg"
+                  variant="outline"
+                  className="border-2 border-white text-white hover:bg-white/10 font-extrabold text-lg px-8 py-4 h-14 hover-scale"
+                >
+                  {t('btn_give_work')}
+                </Button>
+              </div>
             <div className="space-y-2">
               <h4 className="font-bold text-sm">Havolalar</h4>
               <ul className="space-y-1 text-sm text-muted-foreground">
