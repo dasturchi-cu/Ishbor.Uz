@@ -1,11 +1,15 @@
 ﻿'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
+import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
+import { Textarea } from '@/presentation/components/ui/textarea'
+import { Select } from '@/presentation/components/ui/select'
 import { Card } from '@/presentation/components/ui/card'
+import { cn } from '@/shared/lib/utils'
 import { PATHS } from '@/domain/constants/routes'
 import { ChevronRight, ChevronLeft, Upload, Zap, X } from 'lucide-react'
 import { UZ_REGIONS } from '@/domain/constants/regions'
@@ -14,6 +18,9 @@ import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { uploadProjectImage, removeProjectImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { TranslationKey } from '@/infrastructure/i18n'
+import { useFormDraft } from '@/shared/lib/use-form-draft'
+import { postProjectSchema } from '@/domain/validators/project'
+import { toast } from '@/presentation/components/ui/toast'
 
 type UploadedFile = { url: string; name: string }
 
@@ -34,11 +41,11 @@ function formatFieldError(
 }
 
 export function PostProject() {
-  const { t, userId } = useApp()
+  const { t, userId, isLoggedIn, isAuthLoading } = useApp()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState(1)
-  const [formData, setFormData] = useState({
+  const initialForm = {
     title: '',
     description: '',
     category: 'design',
@@ -49,7 +56,18 @@ export function PostProject() {
     level: 'intermediate',
     city: 'Toshkent shahri',
     visibility: 'public',
-  })
+  }
+  const [formData, setFormData] = useState(initialForm)
+  const draft = useFormDraft('ishbor-post-project-draft', formData)
+
+  useEffect(() => {
+    const restored = draft.hydrate(initialForm)
+    if (restored.title || restored.description || restored.budget) {
+      setFormData(restored)
+      toast.info(t('draft_restored'))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [attachments, setAttachments] = useState<UploadedFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -95,15 +113,35 @@ export function PostProject() {
     return errs
   }
 
-  const validateAll = (): Record<string, string> => ({
-    ...validateStep1(),
-    ...validateStep2(),
-  })
+  const validateAll = (): Record<string, string> => {
+    const errs = { ...validateStep1(), ...validateStep2() }
+    if (Object.keys(errs).length > 0) return errs
+    const budget = parseInt(formData.budget.replace(/\D/g, ''), 10)
+    const parsed = postProjectSchema.safeParse({
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      region: formData.city,
+      budget,
+    })
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0]
+        if (key === 'title' && !errs.title) errs.title = formatFieldError(t, t('project_title'), 'required')
+        if (key === 'description' && !errs.description) {
+          errs.description = formatFieldError(t, t('project_description'), 'min')
+        }
+        if (key === 'budget' && !errs.budget) errs.budget = formatFieldError(t, t('budget_amount'), 'required')
+        if (key === 'category' && !errs.category) errs.category = formatFieldError(t, t('category'), 'required')
+      }
+    }
+    return errs
+  }
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length || !userId) return
     if (!isSupabaseConfigured()) {
-      setUploadError('Supabase sozlanmagan')
+      setUploadError(t('auth_supabase_not_configured'))
       return
     }
 
@@ -116,7 +154,7 @@ export function PostProject() {
         setAttachments((prev) => [...prev, { url, name: file.name }])
       }
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : 'Yuklash xatosi')
+      setUploadError(e instanceof Error ? e.message : t('upload_error'))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -187,13 +225,15 @@ export function PostProject() {
         level: formData.level,
         region: formData.city,
         attachment_urls: attachments.map((a) => a.url),
+        is_public: formData.visibility !== 'private',
       })
-      router.push(PATHS.dashboardClient)
+      draft.clear()
+      router.push(`${PATHS.dashboardProjects}?posted=1`)
     } catch (e) {
       if (e instanceof ApiError) {
         setError(mapAuthErrorMessage(e.message, t))
       } else {
-        setError(e instanceof Error ? e.message : 'Xatolik')
+        setError(e instanceof Error ? e.message : t('error_generic'))
       }
     } finally {
       setSubmitting(false)
@@ -221,254 +261,281 @@ export function PostProject() {
 
   const cities = UZ_REGIONS
 
+  const stepTitles = [t('tab_basic'), t('budget_type'), t('preview')]
+
+  useEffect(() => {
+    if (!isAuthLoading && !isLoggedIn) {
+      router.replace(PATHS.login)
+    }
+  }, [isAuthLoading, isLoggedIn, router])
+
+  if (isAuthLoading || !isLoggedIn) {
+    return <div className="flex min-h-[40vh] items-center justify-center">...</div>
+  }
+
   return (
-    <div className="min-h-[calc(100vh-64px)] px-4 sm:px-6 lg:px-8 py-12">
-      <div className="max-w-2xl mx-auto">
-        <Card className="p-8">
-          <div className="flex gap-2 mb-8">
-            {[1, 2, 3].map((num) => (
-              <div
-                key={num}
-                className={`flex-1 h-1 rounded-full transition ${
-                  num <= step ? 'bg-primary' : 'bg-secondary'
-                }`}
-              />
-            ))}
+    <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12 lg:px-8">
+      <div className="mx-auto max-w-2xl">
+        <div className="surface-panel overflow-hidden">
+          <div className="border-b border-[var(--kwork-border)] bg-gradient-to-r from-[var(--brand-50)] to-[var(--neutral-0)] px-6 py-6 sm:px-8">
+            <h1 className="text-[22px] font-bold text-[var(--kwork-text)] sm:text-[24px]">
+              {t('post_your_project')}
+            </h1>
+            <p className="mt-1 text-[14px] text-[var(--kwork-text-muted)]">
+              {t('register_step_label').replace('{n}', String(step)).replace('{total}', '3')}
+            </p>
+
+            <div className="mt-5 flex gap-2">
+              {[1, 2, 3].map((num) => (
+                <div key={num} className="flex flex-1 flex-col gap-1.5">
+                  <div
+                    className={cn(
+                      'h-1.5 rounded-full transition',
+                      num <= step ? 'bg-[var(--color-primary)]' : 'bg-[var(--neutral-200)]'
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'hidden text-[11px] font-medium sm:block',
+                      num === step ? 'text-[var(--color-primary)]' : 'text-[var(--kwork-text-muted)]'
+                    )}
+                  >
+                    {stepTitles[num - 1]}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <h1 className="text-2xl font-bold mb-2 text-foreground">{t('post_your_project')}</h1>
-          <p className="text-muted-foreground mb-8">{t('step_of')} {step} {t('of')} 3</p>
+          <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
+            {step === 1 && (
+              <div className="space-y-5">
+                <div className="feature-pill feature-pill-blue w-full justify-center py-3 sm:justify-start">
+                  <Zap className="h-4 w-4 shrink-0" />
+                  <span>{t('ai_assistant_hint')}</span>
+                </div>
 
-          {step === 1 && (
-            <div className="space-y-6 mb-8">
-              <div className="flex items-center gap-2 p-4 bg-primary/10 rounded-lg mb-6">
-                <Zap className="h-5 w-5 text-primary" />
-                <span className="text-sm text-primary font-semibold">{t('ai_assistant_hint')}</span>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-2">{t('project_title')}</label>
                 <Input
+                  label={t('project_title')}
                   placeholder={t('project_title_placeholder')}
                   value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
-                  aria-invalid={Boolean(fieldErrors.title)}
+                  error={fieldErrors.title}
                 />
-                {fieldErrors.title && (
-                  <p className="text-sm text-destructive mt-1">{fieldErrors.title}</p>
-                )}
-              </div>
 
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-2">{t('project_description')}</label>
-                <textarea
+                <Textarea
+                  label={t('project_description')}
                   placeholder={t('description_placeholder')}
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground resize-none h-32"
-                  aria-invalid={Boolean(fieldErrors.description)}
+                  error={fieldErrors.description}
+                  rows={5}
+                  className="min-h-[120px]"
                 />
-                {fieldErrors.description && (
-                  <p className="text-sm text-destructive mt-1">{fieldErrors.description}</p>
-                )}
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-foreground block mb-2">{t('project_category')}</label>
-                  <select
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Select
+                    label={t('project_category')}
                     value={formData.category}
                     onChange={(e) => handleInputChange('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold text-foreground block mb-2">{t('experience_level')}</label>
-                  <select
+                    options={categories.map((cat) => ({ value: cat.id, label: cat.label }))}
+                    className="catalog-control"
+                  />
+                  <Select
+                    label={t('experience_level')}
                     value={formData.level}
                     onChange={(e) => handleInputChange('level', e.target.value)}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                  >
-                    {levels.map((level) => (
-                      <option key={level.id} value={level.id}>{level.label}</option>
-                    ))}
-                  </select>
+                    options={levels.map((level) => ({ value: level.id, label: level.label }))}
+                    className="catalog-control"
+                  />
                 </div>
-              </div>
 
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-2">{t('skills')}</label>
                 <Input
+                  label={t('skills')}
                   placeholder={t('skills_placeholder')}
-                  onChange={(e) => handleInputChange('skills', e.target.value.split(',').map((s) => s.trim()))}
+                  className="catalog-control !h-[42px] border-[var(--kwork-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-xs)]"
+                  onChange={(e) =>
+                    handleInputChange('skills', e.target.value.split(',').map((s) => s.trim()))
+                  }
                 />
               </div>
-            </div>
-          )}
+            )}
 
-          {step === 2 && (
-            <div className="space-y-6 mb-8">
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-3">{t('budget_type')}</label>
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { id: 'fixed', label: t('fixed_price'), desc: t('total_cost') },
-                    { id: 'hourly', label: t('hourly_label'), desc: t('pay_per_hour') },
-                  ].map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => handleInputChange('budgetType', option.id)}
-                      className={`p-4 border-2 rounded-lg transition ${
-                        formData.budgetType === option.id
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="font-bold text-foreground">{option.label}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{option.desc}</div>
-                    </button>
-                  ))}
+            {step === 2 && (
+              <div className="space-y-5">
+                <div>
+                  <p className="mb-3 text-[13px] font-medium text-[var(--kwork-text-sub)]">
+                    {t('budget_type')}
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      { id: 'fixed', label: t('fixed_price'), desc: t('total_cost') },
+                      { id: 'hourly', label: t('hourly_label'), desc: t('pay_per_hour') },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => handleInputChange('budgetType', option.id)}
+                        className={cn(
+                          'rounded-xl border-2 p-4 text-left transition-[var(--transition)]',
+                          formData.budgetType === option.id
+                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] shadow-[var(--shadow-xs)]'
+                            : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--kwork-border))]'
+                        )}
+                      >
+                        <div className="text-[14px] font-bold text-[var(--kwork-text)]">{option.label}</div>
+                        <div className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{option.desc}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-2">{t('budget_amount')}</label>
                 <Input
+                  label={t('budget_amount')}
                   type="text"
                   inputMode="numeric"
                   placeholder={t('budget_placeholder')}
                   value={formData.budget}
-                  onChange={(e) => handleInputChange('budget', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  aria-invalid={Boolean(fieldErrors.budget)}
+                  onChange={(e) =>
+                    handleInputChange('budget', e.target.value.replace(/\D/g, '').slice(0, 10))
+                  }
+                  error={fieldErrors.budget}
                 />
-                {fieldErrors.budget && (
-                  <p className="text-sm text-destructive mt-1">{fieldErrors.budget}</p>
-                )}
-              </div>
 
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-2">{t('project_deadline')}</label>
                 <Input
+                  label={t('project_deadline')}
                   type="date"
                   value={formData.deadline}
                   onChange={(e) => handleInputChange('deadline', e.target.value)}
                 />
-              </div>
 
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-2">{t('preferred_city')}</label>
-                <select
+                <Select
+                  label={t('preferred_city')}
                   value={formData.city}
                   onChange={(e) => handleInputChange('city', e.target.value)}
-                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                >
-                  {cities.map((city) => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-6 mb-8">
-              <div>
-                <label className="text-sm font-semibold text-foreground block mb-2">{t('attachments')}</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleFiles(e.target.files)}
+                  options={cities.map((city) => ({ value: city, label: city }))}
+                  className="catalog-control"
                 />
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => fileInputRef.current?.click()}
-                  onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    handleFiles(e.dataTransfer.files)
-                  }}
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition cursor-pointer"
-                >
-                  <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-                  <p className="font-semibold text-foreground mb-1">
-                    {uploading ? '...' : t('upload_files')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{t('drag_drop')}</p>
-                  <p className="text-xs text-muted-foreground mt-2">JPG, PNG, WebP, GIF — max 5 MB</p>
-                </div>
-                {uploadError && <p className="text-sm text-destructive mt-2">{uploadError}</p>}
-                {attachments.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
-                    {attachments.map((file) => (
-                      <div key={file.url} className="relative group rounded-lg overflow-hidden border border-border">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={file.url} alt={file.name} className="w-full h-24 object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => removeAttachment(file)}
-                          className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition"
-                          aria-label={t('remove')}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                        <p className="text-xs p-1 truncate text-muted-foreground">{file.name}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4" />
-                  <span className="text-sm text-foreground">{t('visible_to_all')}</span>
-                </label>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-foreground mb-4">{t('preview')}</h3>
-                <Card className="p-6 bg-secondary">
-                  <h4 className="font-bold text-foreground mb-2">{formData.title || t('project_title_default')}</h4>
-                  <p className="text-sm text-muted-foreground mb-4">{formData.description || t('project_desc_default')}</p>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-xs text-muted-foreground">{t('project_budget')}</p>
-                      <p className="font-bold text-foreground">{formData.budget || '0'} so'm</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{t('project_deadline')}</p>
-                      <p className="font-bold text-foreground">{formData.deadline || t('not_set')}</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            </div>
-          )}
-
-          {error && <p className="text-sm text-destructive mb-4">{error}</p>}
-
-          <div className="flex gap-3">
-            {step > 1 && (
-              <Button variant="outline" onClick={handlePrevStep} className="flex-1 gap-2">
-                <ChevronLeft className="h-4 w-4" /> {t('back')}
-              </Button>
             )}
-            <Button onClick={handleNextStep} disabled={submitting} className="flex-1 gap-2">
-              {submitting ? '...' : step === 3 ? t('post_project') : t('next')} <ChevronRight className="h-4 w-4" />
-            </Button>
+
+            {step === 3 && (
+              <div className="space-y-5">
+                <div>
+                  <p className="mb-2 text-[13px] font-medium text-[var(--kwork-text-sub)]">
+                    {t('attachments')}
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleFiles(e.target.files)}
+                  />
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleFiles(e.dataTransfer.files)
+                    }}
+                    className="cursor-pointer rounded-xl border-2 border-dashed border-[var(--kwork-border)] bg-[var(--neutral-50)] p-8 text-center transition hover:border-[var(--color-primary)] hover:bg-[var(--brand-50)]"
+                  >
+                    <Upload className="mx-auto mb-3 h-8 w-8 text-[var(--kwork-text-muted)]" />
+                    <p className="font-semibold text-[var(--kwork-text)]">
+                      {uploading ? '...' : t('upload_files')}
+                    </p>
+                    <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('drag_drop')}</p>
+                    <p className="mt-2 text-[11px] text-[var(--kwork-text-muted)]">
+                      JPG, PNG, WebP, GIF — max 5 MB
+                    </p>
+                  </div>
+                  {uploadError && <p className="mt-2 text-[13px] text-[var(--error)]">{uploadError}</p>}
+                  {attachments.length > 0 && (
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {attachments.map((file) => (
+                        <div
+                          key={file.url}
+                          className="group relative overflow-hidden rounded-lg border border-[var(--kwork-border)]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={file.url} alt={file.name} className="h-24 w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(file)}
+                            className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
+                            aria-label={t('remove')}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          <p className="truncate p-1 text-[11px] text-[var(--kwork-text-muted)]">{file.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-4 py-3">
+                  <input type="checkbox" className="h-4 w-4 accent-[var(--color-primary)]" />
+                  <span className="text-[13px] text-[var(--kwork-text)]">{t('visible_to_all')}</span>
+                </label>
+
+                <div>
+                  <h3 className="settings-section-title mb-3">{t('preview')}</h3>
+                  <Card className="border border-[var(--kwork-border)] bg-[var(--neutral-50)] p-5">
+                    <h4 className="mb-2 font-bold text-[var(--kwork-text)]">
+                      {formData.title || t('project_title_default')}
+                    </h4>
+                    <p className="mb-4 text-[13px] leading-relaxed text-[var(--kwork-text-muted)]">
+                      {formData.description || t('project_desc_default')}
+                    </p>
+                    <div className="flex items-center justify-between gap-4 border-t border-[var(--kwork-border)] pt-4">
+                      <div>
+                        <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('project_budget')}</p>
+                        <p className="font-bold text-[var(--color-primary)]">
+                          {formData.budget || '0'} so&apos;m
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('project_deadline')}</p>
+                        <p className="font-bold text-[var(--kwork-text)]">
+                          {formData.deadline || t('not_set')}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {error && <Alert variant="error">{error}</Alert>}
+
+            <div className="flex gap-3 border-t border-[var(--kwork-border)] pt-6">
+              {step > 1 && (
+                <Button variant="outline" onClick={handlePrevStep} className="flex-1 gap-2">
+                  <ChevronLeft className="h-4 w-4" /> {t('back')}
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                onClick={handleNextStep}
+                disabled={submitting}
+                className="flex-1 gap-2"
+              >
+                {submitting ? '...' : step === 3 ? t('post_project') : t('next')}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   )

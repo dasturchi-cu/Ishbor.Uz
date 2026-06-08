@@ -16,7 +16,31 @@ export interface ApiProfile {
 
   specialty: string | null
 
+  avatar_url?: string | null
+
   is_admin?: boolean
+
+  wallet_balance?: number
+
+  profile_views?: number
+
+  onboarding_completed?: boolean
+
+  username?: string | null
+
+  is_banned?: boolean
+
+  is_verified?: boolean
+
+  portfolio_urls?: string[]
+
+  skills?: string[]
+
+  hourly_rate?: number | null
+
+  experience_level?: string | null
+
+  languages?: { lang: string; level: string }[]
 
   created_at?: string
 
@@ -38,15 +62,32 @@ export interface ApiProfilePublic {
 
   specialty: string | null
 
+  avatar_url?: string | null
+
   avg_rating?: number
 
   review_count?: number
+
+  completed_orders?: number
+
+  profile_views?: number
+
+  is_verified?: boolean
+
+  portfolio_urls?: string[]
 
   created_at?: string
 
 }
 
 
+
+export interface ApiServicePackage {
+  id: string
+  label_key: string
+  price: number
+  delivery_days: number
+}
 
 export interface ApiService {
 
@@ -64,6 +105,16 @@ export interface ApiService {
 
   region: string
 
+  image_urls?: string[]
+
+  delivery_days?: number
+
+  packages?: ApiServicePackage[]
+
+  view_count?: number
+
+  is_hidden?: boolean
+
   created_at?: string
 
   profiles?: {
@@ -75,6 +126,10 @@ export interface ApiService {
     region?: string
 
     bio?: string
+
+    avg_rating?: number
+
+    review_count?: number
 
   }
 
@@ -96,7 +151,15 @@ export interface ApiOrder {
 
   status: string
 
+  payment_status?: 'unpaid' | 'held' | 'released' | 'refunded' | string | null
+
   notes: string | null
+
+  delivery_notes?: string | null
+
+  dispute_reason?: string | null
+
+  package_id?: string | null
 
   created_at?: string
 
@@ -136,12 +199,42 @@ export interface ApiProject {
 
   status: string
 
+  is_public?: boolean
+
+  application_count?: number
+
   attachment_urls?: string[]
 
   created_at?: string
 
   profiles?: { full_name?: string; region?: string }
 
+}
+
+export interface ApiProjectApplication {
+  id: string
+  project_id: string
+  freelancer_id: string
+  cover_letter: string
+  proposed_budget: number
+  proposed_days: number
+  status: 'submitted' | 'shortlisted' | 'rejected' | 'hired'
+  created_at?: string
+  updated_at?: string
+  freelancer_profile?: {
+    id: string
+    full_name?: string
+    specialty?: string
+    region?: string
+    avatar_url?: string
+  }
+  project?: {
+    id: string
+    title: string
+    client_id: string
+    status: string
+    budget: number
+  }
 }
 
 
@@ -201,6 +294,10 @@ export interface ApiReview {
   rating: number
 
   comment: string | null
+
+  reply?: string | null
+
+  replied_at?: string | null
 
   created_at?: string
 
@@ -270,6 +367,59 @@ export interface ServiceCreateInput {
 
   region: string
 
+  image_urls?: string[]
+
+  delivery_days?: number
+
+  packages?: ApiServicePackage[]
+
+}
+
+export interface ServiceUpdateInput {
+  title?: string
+  description?: string
+  price?: number
+  category?: string
+  region?: string
+  image_urls?: string[]
+  delivery_days?: number
+  packages?: ApiServicePackage[]
+}
+
+export interface ApiTransaction {
+  id: string
+  user_id: string
+  type: string
+  amount: number
+  provider?: string | null
+  status?: string | null
+  order_id?: string | null
+  created_at?: string
+}
+
+export interface ApiWithdrawalRequest {
+  id: string
+  freelancer_id: string
+  amount: number
+  status: string
+  note?: string | null
+  created_at?: string
+  profiles?: { full_name?: string | null; email?: string | null }
+}
+
+export interface ApiNotification {
+  id: string
+  type: 'order' | 'message' | 'review'
+  title: string
+  body: string
+  created_at: string
+  href?: string | null
+  unread: boolean
+}
+
+export interface ApiReferralStats {
+  count: number
+  bonus_earned?: number
 }
 
 
@@ -295,6 +445,8 @@ export interface ProjectCreateInput {
   region: string
 
   attachment_urls?: string[]
+
+  is_public?: boolean
 
 }
 

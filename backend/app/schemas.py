@@ -13,7 +13,19 @@ class ProfileResponse(BaseModel):
     bio: str | None = None
     region: str | None = None
     specialty: str | None = None
+    avatar_url: str | None = None
     is_admin: bool = False
+    is_verified: bool = False
+    wallet_balance: int = 0
+    profile_views: int = 0
+    onboarding_completed: bool = False
+    username: str | None = None
+    is_banned: bool = False
+    portfolio_urls: list[str] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    hourly_rate: int | None = None
+    experience_level: str | None = None
+    languages: list[dict] = Field(default_factory=list)
     created_at: datetime | None = None
 
 
@@ -24,21 +36,41 @@ class ProfilePublicResponse(BaseModel):
     bio: str | None = None
     region: str | None = None
     specialty: str | None = None
+    avatar_url: str | None = None
     created_at: datetime | None = None
     avg_rating: float | None = None
     review_count: int = 0
+    completed_orders: int = 0
+    profile_views: int = 0
+    is_verified: bool = False
+    portfolio_urls: list[str] = Field(default_factory=list)
 
 
 class ProfileUpdate(BaseModel):
+    role: Literal["freelancer", "client"] | None = None
     full_name: str | None = None
     phone: str | None = None
     bio: str | None = None
     region: str | None = None
     specialty: str | None = None
-    role: Literal["freelancer", "client"] | None = None
+    avatar_url: str | None = None
+    onboarding_completed: bool | None = None
+    username: str | None = Field(default=None, min_length=3, max_length=30)
+    skills: list[str] | None = None
+    hourly_rate: int | None = Field(default=None, ge=0, le=MAX_MONEY)
+    experience_level: str | None = None
+    languages: list[dict] | None = None
+    portfolio_urls: list[str] | None = None
 
 
 MAX_MONEY = 2_147_483_647
+
+
+class ServicePackage(BaseModel):
+    id: str
+    label_key: str
+    price: int
+    delivery_days: int
 
 
 class ServiceCreate(BaseModel):
@@ -47,6 +79,20 @@ class ServiceCreate(BaseModel):
     price: int = Field(gt=0, le=MAX_MONEY)
     category: str = Field(min_length=2)
     region: str = Field(min_length=2)
+    image_urls: list[str] = Field(default_factory=list)
+    delivery_days: int = Field(default=5, gt=0, le=365)
+    packages: list[ServicePackage] = Field(default_factory=list)
+
+
+class ServiceUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=3, max_length=200)
+    description: str | None = Field(default=None, min_length=10)
+    price: int | None = Field(default=None, gt=0, le=MAX_MONEY)
+    category: str | None = Field(default=None, min_length=2)
+    region: str | None = Field(default=None, min_length=2)
+    image_urls: list[str] | None = None
+    delivery_days: int | None = Field(default=None, gt=0, le=365)
+    packages: list[ServicePackage] | None = None
 
 
 class ServiceResponse(BaseModel):
@@ -57,6 +103,10 @@ class ServiceResponse(BaseModel):
     price: int
     category: str
     region: str
+    image_urls: list[str] = Field(default_factory=list)
+    delivery_days: int = 5
+    packages: list[dict] = Field(default_factory=list)
+    view_count: int = 0
     created_at: datetime | None = None
     profiles: dict | None = None
 
@@ -64,10 +114,58 @@ class ServiceResponse(BaseModel):
 class OrderCreate(BaseModel):
     service_id: str
     notes: str | None = None
+    package_id: str | None = None
+
+
+class ReferralApply(BaseModel):
+    referrer_id: str
+
+
+class ReferralStatsResponse(BaseModel):
+    count: int
+    bonus_earned: int = 0
+
+
+class NotificationPrefsResponse(BaseModel):
+    emailNewOrders: bool = True
+    emailPromotions: bool = False
+    smsUrgent: bool = False
+    telegramConnect: bool = False
+    chatMuted: bool = False
+
+
+class NotificationPrefsUpdate(BaseModel):
+    emailNewOrders: bool | None = None
+    emailPromotions: bool | None = None
+    smsUrgent: bool | None = None
+    telegramConnect: bool | None = None
+    chatMuted: bool | None = None
+
+
+class UsernameCheckResponse(BaseModel):
+    available: bool
+
+
+class AdminUserUpdate(BaseModel):
+    role: Literal["freelancer", "client"] | None = None
+    is_banned: bool | None = None
+    is_verified: bool | None = None
+
+
+class NotificationResponse(BaseModel):
+    id: str
+    type: Literal["order", "message", "review"]
+    title: str
+    body: str
+    created_at: datetime
+    href: str | None = None
+    unread: bool = True
 
 
 class OrderStatusUpdate(BaseModel):
     status: Literal["pending", "active", "delivered", "completed", "disputed", "cancelled"]
+    delivery_notes: str | None = None
+    dispute_reason: str | None = None
 
 
 class OrderResponse(BaseModel):
@@ -77,11 +175,35 @@ class OrderResponse(BaseModel):
     freelancer_id: str
     amount: int
     status: str
+    payment_status: str | None = "unpaid"
     notes: str | None = None
+    delivery_notes: str | None = None
+    dispute_reason: str | None = None
+    package_id: str | None = None
     created_at: datetime | None = None
     services: dict | None = None
     client_profile: dict | None = None
     freelancer_profile: dict | None = None
+
+
+class TransactionResponse(BaseModel):
+    id: str
+    order_id: str | None = None
+    user_id: str
+    type: str
+    amount: int
+    provider: str | None = None
+    status: str
+    created_at: datetime | None = None
+
+
+class WithdrawalResponse(BaseModel):
+    id: str
+    freelancer_id: str
+    amount: int
+    status: str
+    note: str | None = None
+    created_at: datetime | None = None
 
 
 class ProjectCreate(BaseModel):
@@ -95,6 +217,7 @@ class ProjectCreate(BaseModel):
     level: str = "intermediate"
     region: str = Field(min_length=2)
     attachment_urls: list[str] = Field(default_factory=list)
+    is_public: bool = True
 
 
 class ProjectStatusUpdate(BaseModel):
@@ -114,9 +237,36 @@ class ProjectResponse(BaseModel):
     level: str
     region: str
     status: str
+    is_public: bool = True
     attachment_urls: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     profiles: dict | None = None
+    application_count: int = 0
+
+
+class ApplicationCreate(BaseModel):
+    project_id: str
+    cover_letter: str = Field(min_length=10, max_length=4000)
+    proposed_budget: int = Field(gt=0, le=MAX_MONEY)
+    proposed_days: int = Field(default=7, gt=0, le=365)
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: Literal["submitted", "shortlisted", "rejected", "hired"]
+
+
+class ApplicationResponse(BaseModel):
+    id: str
+    project_id: str
+    freelancer_id: str
+    cover_letter: str
+    proposed_budget: int
+    proposed_days: int
+    status: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    freelancer_profile: dict | None = None
+    project: dict | None = None
 
 
 class MessageCreate(BaseModel):
@@ -158,8 +308,14 @@ class ReviewResponse(BaseModel):
     freelancer_id: str
     rating: int
     comment: str | None = None
+    reply: str | None = None
+    replied_at: datetime | None = None
     created_at: datetime | None = None
     profiles: dict | None = None
+
+
+class ReviewReplyUpdate(BaseModel):
+    reply: str = Field(min_length=1, max_length=2000)
 
 
 class PublicReviewResponse(BaseModel):

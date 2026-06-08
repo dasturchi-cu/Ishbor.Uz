@@ -11,11 +11,15 @@ import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
 import { UZ_REGIONS, type UzRegion } from '@/domain/constants/regions'
 import type { TranslationKey } from '@/infrastructure/i18n'
+import { useFormDraft } from '@/shared/lib/use-form-draft'
+import { toast } from '@/presentation/components/ui/toast'
+import { serviceCreateSchema } from '@/domain/validators/service'
 
 type ServiceForm = {
   title: string
   description: string
   price: string
+  deliveryDays: string
   category: string
   region: UzRegion
 }
@@ -59,13 +63,25 @@ export function CreateServicePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [form, setForm] = useState<ServiceForm>({
+  const initialForm: ServiceForm = {
     title: '',
     description: '',
     price: '',
+    deliveryDays: '5',
     category: 'web',
     region: UZ_REGIONS[0],
-  })
+  }
+  const [form, setForm] = useState<ServiceForm>(initialForm)
+  const draft = useFormDraft('ishbor-create-service-draft', form)
+
+  useEffect(() => {
+    const restored = draft.hydrate(initialForm)
+    if (restored.title || restored.description || restored.price) {
+      setForm(restored)
+      toast.info(t('draft_restored'))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -101,18 +117,29 @@ export function CreateServicePage() {
     e?.preventDefault()
 
     const price = parseInt(form.price.replace(/\D/g, ''), 10)
-    const nextErrors: Record<string, string> = {}
-
     const title = form.title.trim()
-    if (!title) nextErrors.title = fieldMsg(t('error_field_required'), t('service_title'))
-    else if (isInvalidTitle(title)) nextErrors.title = t('error_title_invalid')
-    else if (title.length < 3) nextErrors.title = t('error_title_short')
-    if (form.description.trim().length < 10) nextErrors.description = fieldMsg(t('error_field_min_chars'), t('project_description'), 10)
-    if (!price || price <= 0) nextErrors.price = fieldMsg(t('error_field_required'), t('price'))
-    else if (price > MAX_PRICE) nextErrors.price = t('error_price_too_large')
-
-    setErrors(nextErrors)
-    if (Object.keys(nextErrors).length > 0) return
+    if (isInvalidTitle(title)) {
+      setErrors({ title: t('error_title_invalid') })
+      return
+    }
+    const days = parseInt(form.deliveryDays, 10) || 5
+    const parsed = serviceCreateSchema.safeParse({
+      title,
+      description: form.description,
+      category: form.category,
+      region: form.region,
+      price,
+      delivery_days: days,
+    })
+    if (!parsed.success) {
+      setErrors({ submit: t('error_required') })
+      return
+    }
+    if (price > MAX_PRICE) {
+      setErrors({ price: t('error_price_too_large') })
+      return
+    }
+    const safeDays = Math.min(365, Math.max(1, days))
 
     setLoading(true)
     try {
@@ -122,7 +149,24 @@ export function CreateServicePage() {
         price,
         category: form.category,
         region: form.region,
+        delivery_days: safeDays,
+        packages: [
+          { id: 'basic', label_key: 'package_basic', price, delivery_days: safeDays },
+          {
+            id: 'standard',
+            label_key: 'package_standard',
+            price: Math.round(price * 1.5),
+            delivery_days: Math.max(1, safeDays - 1),
+          },
+          {
+            id: 'premium',
+            label_key: 'package_premium',
+            price: Math.round(price * 2.2),
+            delivery_days: Math.max(1, safeDays - 2),
+          },
+        ],
       })
+      draft.clear()
       await refreshProfile()
       router.replace(`${dashboardPathForRole('freelancer')}?created=1`)
     } catch (err) {
@@ -187,6 +231,22 @@ export function CreateServicePage() {
             />
             <p className="text-xs text-muted-foreground mt-1">{t('description_min_hint')}</p>
             {errors.description && <p className="text-sm text-destructive mt-1">{errors.description}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="service-delivery" className="text-sm font-semibold block mb-2">
+              {t('delivery_time')}
+            </label>
+            <Input
+              id="service-delivery"
+              name="service-delivery"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="5"
+              value={form.deliveryDays}
+              onChange={(e) => updateField('deliveryDays', e.target.value.replace(/\D/g, '').slice(0, 3))}
+            />
           </div>
 
           <div>

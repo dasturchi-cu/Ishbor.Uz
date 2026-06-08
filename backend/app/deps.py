@@ -4,8 +4,16 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.jwt_verify import verify_supabase_token
+from app.database import get_supabase
 
 security = HTTPBearer(auto_error=False)
+
+
+def _assert_not_banned(user_id: str) -> None:
+    supabase = get_supabase()
+    row = supabase.table("profiles").select("is_banned").eq("id", user_id).single().execute()
+    if row.data and row.data.get("is_banned"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob bloklangan")
 
 
 def get_current_user_id(
@@ -18,6 +26,7 @@ def get_current_user_id(
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
+    _assert_not_banned(user_id)
     return user_id
 
 

@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'  
-import { useApp } from '@/components/providers/app-provider'
-import { Button } from '@/components/ui/button'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useApp } from '@/application/providers/app-provider'
+import { PATHS } from '@/domain/constants/routes'
+import { Button } from '@/presentation/components/ui/button'
 import { ArrowDown, CheckCircle2, Shield, Zap, Send, MapPin, Star, Play } from 'lucide-react'
 
 export function LandingPagePremium() {  
-  const { t, setCurrentPage, language } = useApp()
+  const { t, language } = useApp()
+  const router = useRouter()
   const [counters, setCounters] = useState({ freelancers: 0, clients: 0, projects: 0, rating: 0 })
   const [scrollY, setScrollY] = useState(0)
 
@@ -90,14 +93,14 @@ export function LandingPagePremium() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
-                  onClick={() => setCurrentPage('services-catalog')}
+                  onClick={() => router.push(PATHS.services)}
                   size="lg"
                   className="bg-white text-indigo-600 hover:bg-white/90 font-semibold text-lg px-8 hover-scale"
                 >
                   {t('btn_find_work')}
                 </Button>
                 <Button
-                  onClick={() => setCurrentPage('post-project')}
+                  onClick={() => router.push(PATHS.postProject)}
                   size="lg"
                   variant="outline"
                   className="bg-white/10 border-white text-white hover:bg-white/20 hover:text-white font-semibold text-lg px-8 hover-scale"
@@ -234,7 +237,7 @@ export function LandingPagePremium() {
                 key={idx}
                 className="glass rounded-2xl overflow-hidden hover-lift cursor-pointer group animate-fadeInUp"
                 style={{ animationDelay: `${idx * 0.1}s` }}
-                onClick={() => setCurrentPage('freelancer-profile')}
+                onClick={() => router.push(PATHS.freelancers)}
               >
                 {/* Avatar placeholder */}
                 <div className="h-40 bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-4xl font-bold">

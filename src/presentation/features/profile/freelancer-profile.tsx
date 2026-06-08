@@ -1,24 +1,57 @@
 ﻿'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import {
+  Bookmark,
+  Calendar,
+  Clock,
+  MapPin,
+  MessageCircle,
+  Settings,
+  Share2,
+  Star,
+} from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
-import { Card } from '@/presentation/components/ui/card'
+import { Avatar } from '@/presentation/components/ui/avatar'
+import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
-import { Star, MapPin, Clock } from 'lucide-react'
+import { RatingStars } from '@/presentation/components/ui/rating-stars'
+import { ServiceCard } from '@/presentation/components/features/service-card'
 import { api } from '@/infrastructure/api/client'
 import type { ApiProfilePublic, ApiReview, ApiService } from '@/infrastructure/api/types'
-import { formatPrice } from '@/shared/lib/format'
-import { servicePath } from '@/domain/constants/routes'
+import { PATHS, servicePath } from '@/domain/constants/routes'
+import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
+import { initialsFromName } from '@/shared/lib/avatar'
+import { cn } from '@/shared/lib/utils'
+import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
+import { toast } from '@/presentation/components/ui/toast'
+import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
+
+type ProfileTab = 'about' | 'services' | 'portfolio' | 'reviews'
+
+function yearsOnPlatform(iso: string | undefined): number {
+  if (!iso) return 1
+  const years = Math.floor((Date.now() - new Date(iso).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+  return Math.max(1, years)
+}
 
 export function FreelancerProfile({ profileId }: { profileId: string }) {
-  const { t, isLoggedIn, currentUserRole } = useApp()
+  const { t, isLoggedIn, currentUserRole, userId } = useApp()
   const router = useRouter()
   const [profile, setProfile] = useState<ApiProfilePublic | null>(null)
   const [services, setServices] = useState<ApiService[]>([])
   const [reviews, setReviews] = useState<ApiReview[]>([])
-  const [activeTab, setActiveTab] = useState('overview')
   const [loading, setLoading] = useState(true)
+  const [favorite, setFavorite] = useState(false)
+  const [contactHint, setContactHint] = useState(false)
+  const [activeTab, setActiveTab] = useState<ProfileTab>('about')
+  const [shareHint, setShareHint] = useState('')
+
+  useEffect(() => {
+    api.recordProfileView(profileId).catch(() => undefined)
+  }, [profileId])
 
   useEffect(() => {
     Promise.all([
@@ -35,98 +68,435 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
       .finally(() => setLoading(false))
   }, [profileId])
 
-  if (loading) return <div className="p-10 text-center text-muted-foreground">...</div>
-  if (!profile) return <div className="p-10 text-center text-muted-foreground">Profil topilmadi</div>
+  useEffect(() => {
+    if (!isLoggedIn) return
+    syncSavedFreelancersFromApi().then(() => setFavorite(isFreelancerSaved(profileId)))
+  }, [profileId, isLoggedIn])
 
-  const name = profile.full_name ?? 'Freelancer'
-  const tabs = [
-    { id: 'overview', label: t('tab_overview') },
-    { id: 'services', label: t('nav_services') },
-    { id: 'reviews', label: t('tab_reviews') },
+  const stats = useMemo(() => {
+    const rating = profile?.avg_rating ?? 0
+    const reviewCount = profile?.review_count ?? reviews.length
+    const completed = profile?.completed_orders ?? 0
+    return { rating, reviewCount, completed }
+  }, [profile, reviews.length])
+
+  const handleContact = async () => {
+    if (!isLoggedIn || currentUserRole !== 'client') return
+    const orders = await api.listOrders().catch(() => [])
+    const existing = orders.find(
+      (o) =>
+        o.freelancer_id === profileId &&
+        ['pending', 'active', 'delivered', 'disputed'].includes(o.status)
+    )
+    if (existing) {
+      router.push(`${PATHS.dashboardMessages}?order=${existing.id}`)
+      return
+    }
+    if (services[0]) {
+      router.push(servicePath(services[0].id))
+      return
+    }
+    setContactHint(true)
+  }
+
+  const handleShare = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : ''
+    try {
+      if (navigator.share) {
+        await navigator.share({ url, title: profile?.full_name ?? 'IshBor' })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      setShareHint(t('profile_link_copied'))
+      window.setTimeout(() => setShareHint(''), 2000)
+    } catch {
+      /* cancelled or unsupported */
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--kwork-border)] border-t-[var(--color-primary)]" />
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-[var(--kwork-text-muted)]">
+        {t('no_services_found')}
+      </div>
+    )
+  }
+
+  const name = profile.full_name ?? t('freelancer')
+  const isOwnProfile = userId === profileId
+  const memberYears = yearsOnPlatform(profile.created_at)
+  const locationLabel = profile.region ? `${profile.region}, O'zbekiston` : "O'zbekiston"
+  const bioText = profile.bio?.trim()
+
+  const portfolioImages = useMemo(() => {
+    const fromProfile = (profile?.portfolio_urls ?? []).map((url) => ({
+      url,
+      title: t('portfolio'),
+      serviceId: '',
+    }))
+    const fromServices = services.flatMap((s) =>
+      (s.image_urls ?? []).map((url) => ({ url, title: s.title, serviceId: s.id }))
+    )
+    return [...fromProfile, ...fromServices]
+  }, [services, profile?.portfolio_urls, t])
+
+  const tabs: { id: ProfileTab; label: string }[] = [
+    { id: 'about', label: t('tab_about') },
+    { id: 'services', label: `${t('nav_services')} (${services.length})` },
+    { id: 'portfolio', label: `${t('tab_portfolio')} (${portfolioImages.length})` },
+    { id: 'reviews', label: `${t('tab_reviews')} (${stats.reviewCount})` },
   ]
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <Card className="p-8 mb-8">
-          <div className="flex items-start gap-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white text-3xl font-bold">
-              {name.charAt(0)}
-            </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold">{name}</h1>
-              <p className="text-primary mt-1">{profile.specialty ?? t('role_freelancer')}</p>
-              <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
-                {profile.region && (
-                  <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />{profile.region}</span>
-                )}
-                <span className="flex items-center gap-1">
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  {profile.avg_rating ?? 0} ({profile.review_count ?? 0})
-                </span>
-                <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{services.length} {t('nav_services').toLowerCase()}</span>
-              </div>
-              {profile.bio && <p className="mt-4 text-foreground">{profile.bio}</p>}
-            </div>
-          </div>
-        </Card>
-
-        <div className="flex gap-4 border-b border-border mb-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 px-1 font-medium text-sm border-b-2 ${
-                activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'overview' && (
-          <Card className="p-6">
-            <p className="text-muted-foreground">{profile.bio ?? t('describe_yourself')}</p>
-          </Card>
-        )}
-
-        {activeTab === 'services' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {services.map((s) => (
-              <Card key={s.id} className="p-4 cursor-pointer hover:border-primary/50" onClick={() => router.push(servicePath(s.id))}>
-                <h3 className="font-semibold">{s.title}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{s.description}</p>
-                <p className="text-primary font-bold mt-2">{formatPrice(s.price)}</p>
-              </Card>
-            ))}
-            {services.length === 0 && <p className="text-muted-foreground">{t('no_services_found')}</p>}
-          </div>
-        )}
-
-        {activeTab === 'reviews' && (
-          <div className="space-y-4">
-            {reviews.map((r) => (
-              <Card key={r.id} className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  <span className="font-semibold">{r.rating}/5</span>
-                  <span className="text-sm text-muted-foreground">{r.profiles?.full_name ?? 'Mijoz'}</span>
-                </div>
-                {r.comment && <p className="text-sm">{r.comment}</p>}
-              </Card>
-            ))}
-            {reviews.length === 0 && <p className="text-muted-foreground">{t('no_orders_yet')}</p>}
-          </div>
-        )}
-
-        {isLoggedIn && currentUserRole === 'client' && services[0] && (
-          <div className="mt-8">
-            <Button onClick={() => router.push(servicePath(services[0].id))}>{t('order_now')}</Button>
-          </div>
-        )}
+    <div className="min-h-screen bg-[var(--body-bg)] pb-12">
+      <JsonLdPerson
+        id={profileId}
+        name={name}
+        description={bioText ?? profile.specialty ?? undefined}
+        imageUrl={profile.avatar_url || undefined}
+        rating={stats.rating > 0 ? stats.rating : undefined}
+        reviewCount={stats.reviewCount > 0 ? stats.reviewCount : undefined}
+      />
+      <JsonLdBreadcrumb
+        items={[
+          { name: t('home'), path: PATHS.home },
+          { name: t('nav_freelancers'), path: PATHS.freelancers },
+          { name, path: `/freelancer/${profileId}` },
+        ]}
+      />
+      <div className="mx-auto max-w-[1140px] px-4 pt-5 sm:px-5">
+        <Breadcrumb
+          items={[
+            { label: t('home'), href: PATHS.home },
+            { label: t('nav_freelancers'), href: PATHS.freelancers },
+            { label: name },
+          ]}
+        />
       </div>
+      <div className="freelancer-profile-cover" aria-hidden />
+      <div className="freelancer-profile">
+        <section className="freelancer-profile-hero freelancer-profile-hero--overlap">
+          <div className="freelancer-profile-hero-inner">
+            <div className="freelancer-profile-hero-top">
+              <div className="freelancer-profile-hero-main">
+                <Avatar name={name} size={96} />
+                <div className="freelancer-profile-info">
+                  <div className="freelancer-profile-badges">
+                    {profile.is_verified && (
+                      <span className="freelancer-profile-badge freelancer-profile-badge--pro">
+                        {t('badge_verified')}
+                      </span>
+                    )}
+                  </div>
+                  <h1 className="freelancer-profile-name">{name}</h1>
+                  {profile.specialty && (
+                    <p className="freelancer-profile-specialty">{profile.specialty}</p>
+                  )}
+                  <ul className="freelancer-profile-meta-list">
+                    <li className="freelancer-profile-meta-item">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      {locationLabel}
+                    </li>
+                    <li className="freelancer-profile-meta-item">
+                      <Calendar className="h-4 w-4 shrink-0" />
+                      {t('member_since').replace('{n}', String(memberYears))}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="freelancer-profile-actions">
+                {isOwnProfile ? (
+                  <Link href={PATHS.dashboardSettings}>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      leftIcon={<Settings className="h-4 w-4" />}
+                    >
+                      {t('profile_account_settings')}
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    {contactHint && (
+                      <Alert variant="info" className="mb-3 w-full">
+                        <p>{t('contact_order_hint')}</p>
+                        {services[0] && (
+                          <Link href={servicePath(services[0].id)} className="mt-3 inline-block">
+                            <Button variant="primary" size="sm">
+                              {t('contact_order_cta')}
+                            </Button>
+                          </Link>
+                        )}
+                      </Alert>
+                    )}
+                    {isLoggedIn && currentUserRole === 'client' && (
+                      <Button
+                        variant="primary"
+                        size="md"
+                        leftIcon={<MessageCircle className="h-4 w-4" />}
+                        onClick={handleContact}
+                      >
+                        {t('send_message')}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="md"
+                      leftIcon={<Bookmark className="h-4 w-4" fill={favorite ? 'currentColor' : 'none'} />}
+                      onClick={() => toggleSavedFreelancer(profileId).then(setFavorite)}
+                    >
+                      {t('profile_favorite')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label={t('profile_share')}
+                      className="h-10 w-10"
+                      onClick={handleShare}
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {shareHint && (
+              <p className="mt-2 text-[12px] text-[var(--success-dark)]">{shareHint}</p>
+            )}
+
+            <div className="freelancer-profile-stats">
+              <div className="freelancer-profile-stat">
+                <div className="freelancer-profile-stat-value">
+                  <Star className="h-4 w-4 fill-[var(--rating-filled)] text-[var(--rating-filled)]" />
+                  {stats.rating.toFixed(1)}
+                </div>
+                <p className="freelancer-profile-stat-label">{t('average_rating')}</p>
+              </div>
+              <div className="freelancer-profile-stat">
+                <p className="freelancer-profile-stat-value">{stats.reviewCount}</p>
+                <p className="freelancer-profile-stat-label">{t('stat_reviews')}</p>
+              </div>
+              <div className="freelancer-profile-stat">
+                <p className="freelancer-profile-stat-value">{stats.completed}</p>
+                <p className="freelancer-profile-stat-label">{t('stat_completed')}</p>
+              </div>
+              <div className="freelancer-profile-stat">
+                <p className="freelancer-profile-stat-value">{services.length}</p>
+                <p className="freelancer-profile-stat-label">{t('nav_services')}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="freelancer-profile-body">
+          <div className="freelancer-profile-main">
+            <div className="freelancer-profile-tabs" role="tablist">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'freelancer-profile-tab',
+                    activeTab === tab.id && 'freelancer-profile-tab--active'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="freelancer-profile-panel" role="tabpanel">
+              {activeTab === 'about' && (
+                bioText ? (
+                  <p className="freelancer-profile-about-text">{bioText}</p>
+                ) : (
+                  <p className="freelancer-profile-empty">{t('profile_about_empty')}</p>
+                )
+              )}
+
+              {activeTab === 'services' && (
+                services.length > 0 ? (
+                  <div className="freelancer-profile-services-grid">
+                    {services.map((s) => (
+                      <ServiceCard
+                        key={s.id}
+                        title={s.title}
+                        sellerName={name}
+                        sellerInitials={initialsFromName(name)}
+                        rating={stats.rating}
+                        reviewCount={stats.reviewCount}
+                        price={s.price}
+                        category={s.category}
+                        isPro
+                        onClick={() => router.push(servicePath(s.id))}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="freelancer-profile-empty">
+                    {t('profile_no_kworks').replace('{name}', name)}
+                  </p>
+                )
+              )}
+
+              {activeTab === 'portfolio' && (
+                portfolioImages.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {portfolioImages.map((item, i) => (
+                      <button
+                        key={`${item.serviceId}-${i}`}
+                        type="button"
+                        onClick={() => router.push(servicePath(item.serviceId))}
+                        className="group overflow-hidden rounded-lg border border-[var(--kwork-border)]"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.url}
+                          alt={item.title}
+                          className="aspect-square w-full object-cover transition group-hover:scale-105"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="freelancer-profile-empty">{t('portfolio_empty')}</p>
+                )
+              )}
+
+              {activeTab === 'reviews' && (
+                reviews.length > 0 ? (
+                  <div>
+                    {reviews.map((r) => (
+                      <div key={r.id} className="freelancer-profile-review">
+                        <div className="mb-2 flex items-center justify-between gap-4">
+                          <RatingStars rating={r.rating} size="sm" />
+                          <span className="flex items-center gap-1 text-xs text-[var(--kwork-text-muted)]">
+                            <Clock className="h-3.5 w-3.5" />
+                            {r.profiles?.full_name ?? t('role_client_label')}
+                          </span>
+                        </div>
+                        {r.comment && (
+                          <p className="text-sm leading-relaxed text-[var(--kwork-text-muted)]">{r.comment}</p>
+                        )}
+                        {r.reply && (
+                          <p className="mt-2 rounded-lg bg-[var(--color-primary-light)] px-3 py-2 text-sm text-[var(--kwork-text-sub)]">
+                            <span className="font-semibold text-[var(--color-primary)]">{t('review_reply')}: </span>
+                            {r.reply}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="freelancer-profile-empty">
+                    {t('profile_no_reviews').replace('{name}', name)}
+                  </p>
+                )
+              )}
+            </div>
+          </div>
+
+          <aside className="freelancer-profile-sidebar">
+            <div className="freelancer-profile-side-card">
+              <span className="freelancer-profile-side-title">{t('last_30_days')}</span>
+              <div className="freelancer-profile-side-stat">
+                <span className="freelancer-profile-side-stat-label">{t('response_time')}</span>
+                <span className="freelancer-profile-side-stat-value">{t('response_time_unknown')}</span>
+              </div>
+              <div className="freelancer-profile-side-stat">
+                <span className="freelancer-profile-side-stat-label">{t('stat_completed')}</span>
+                <span className="freelancer-profile-side-stat-value">
+                  {stats.completed > 0 ? String(stats.completed) : '—'}
+                </span>
+              </div>
+              <div className="freelancer-profile-side-stat">
+                <span className="freelancer-profile-side-stat-label">{t('stat_reviews')}</span>
+                <span className="freelancer-profile-side-stat-value">
+                  {stats.reviewCount > 0 ? String(stats.reviewCount) : '—'}
+                </span>
+              </div>
+              <div className="freelancer-profile-side-stat">
+                <span className="freelancer-profile-side-stat-label">{t('last_active_today')}</span>
+                <span className="freelancer-profile-side-stat-value">{t('online_status')}</span>
+              </div>
+
+              {!isOwnProfile && isLoggedIn && currentUserRole === 'client' && (
+                <div className="freelancer-profile-side-actions">
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    leftIcon={<MessageCircle className="h-4 w-4" />}
+                    onClick={handleContact}
+                  >
+                    {t('send_message')}
+                  </Button>
+                  {services.length > 0 && (
+                    <Button
+                      variant="outline"
+                      fullWidth
+                      onClick={() => setActiveTab('services')}
+                    >
+                      {t('nav_services')}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="freelancer-profile-side-card">
+              <h3 className="text-[14px] font-bold text-[var(--kwork-text)]">{t('languages_label')}</h3>
+              <div className="mt-3">
+                <div className="freelancer-profile-lang-row">
+                  <span className="freelancer-profile-lang-name">{t('lang_uzbek')}</span>
+                  <span className="freelancer-profile-lang-level">{t('native_language')}</span>
+                </div>
+                <div className="freelancer-profile-lang-row">
+                  <span className="freelancer-profile-lang-name">{t('lang_russian')}</span>
+                  <span className="freelancer-profile-lang-level">{t('fluent')}</span>
+                </div>
+                <div className="freelancer-profile-lang-row">
+                  <span className="freelancer-profile-lang-name">{t('lang_english')}</span>
+                  <span className="freelancer-profile-lang-level">{t('lang_level_intermediate')}</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      {!isOwnProfile && isLoggedIn && currentUserRole === 'client' && (
+        <div className="mobile-sticky-cta show-mobile">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[13px] font-semibold text-[var(--kwork-text)]">{name}</span>
+            <span className="text-[11px] text-[var(--kwork-text-muted)]">
+              {stats.reviewCount > 0
+                ? `${stats.rating.toFixed(1)} · ${stats.reviewCount} ${t('stat_reviews').toLowerCase()}`
+                : t('freelancer')}
+            </span>
+          </div>
+          <Button
+            variant="primary"
+            leftIcon={<MessageCircle className="h-4 w-4" />}
+            onClick={handleContact}
+            className="shrink-0 px-5"
+          >
+            {t('send_message')}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

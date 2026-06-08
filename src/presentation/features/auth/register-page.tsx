@@ -1,21 +1,29 @@
 ﻿'use client'
 
-import React, { useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
+import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
-import { ChevronRight, Check, Briefcase, Target } from 'lucide-react'
+import { Textarea } from '@/presentation/components/ui/textarea'
+import { Check, Briefcase, Users } from 'lucide-react'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { api } from '@/infrastructure/api/client'
-import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
+import { PATHS } from '@/domain/constants/routes'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
+import { cn } from '@/shared/lib/utils'
+import { signInWithGoogle } from '@/infrastructure/auth/oauth'
+import { isGoogleAuthEnabled } from '@/infrastructure/auth/google-auth'
+import { storeReferralRef, consumeReferralRef } from '@/shared/lib/referral'
+import { registerStep2Schema } from '@/domain/validators/auth'
 
-export function RegisterPage() {
+function RegisterPageContent() {
   const { t, setCurrentUserRole, refreshProfile } = useApp()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [role, setRole] = useState<'freelancer' | 'client' | null>(null)
   const [formData, setFormData] = useState({
@@ -27,48 +35,89 @@ export function RegisterPage() {
     specialty: '',
     city: '',
     bio: '',
-    agreeTerms: false
+    agreeTerms: false,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+
+  useEffect(() => {
+    storeReferralRef(searchParams.get('ref'))
+  }, [searchParams])
 
   const cities = UZ_REGIONS
 
   const handleRoleSelect = (selectedRole: 'freelancer' | 'client') => {
     setRole(selectedRole)
-    setCurrentUserRole(selectedRole)
+  }
+
+  const handleRoleContinue = () => {
+    if (!role) return
+    setCurrentUserRole(role)
     setStep(2)
   }
 
+  function passwordStrengthLevel(pw: string): 0 | 1 | 2 | 3 {
+    if (!pw || pw.length < 8) return 0
+    let score = 1
+    if (/[A-Z]/.test(pw) && /[0-9]/.test(pw)) score = 2
+    if (pw.length >= 12 && /[^A-Za-z0-9]/.test(pw)) score = 3
+    return score as 0 | 1 | 2 | 3
+  }
+
+  const strengthLevel = passwordStrengthLevel(formData.password)
+  const strengthLabel =
+    strengthLevel === 0
+      ? ''
+      : strengthLevel === 1
+        ? t('password_strength_weak')
+        : strengthLevel === 2
+          ? t('password_strength_medium')
+          : t('password_strength_strong')
+
   const validateStep2 = () => {
+    const phoneDigits = formData.phone.replace(/\D/g, '')
+    const parsed = registerStep2Schema.safeParse({
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: phoneDigits.length > 3 ? `+${phoneDigits}` : formData.phone,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      agreeTerms: formData.agreeTerms,
+    })
+    if (parsed.success) {
+      setErrors({})
+      return true
+    }
     const newErrors: Record<string, string> = {}
-    if (!formData.fullName.trim()) newErrors.fullName = t('error_required')
-    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = t('error_email')
-    if (!formData.password || formData.password.length < 8) newErrors.password = t('error_password_short')
-    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = t('error_password_mismatch')
-    if (!formData.agreeTerms) newErrors.agreeTerms = t('error_agree_terms')
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0]
+      if (typeof key !== 'string' || newErrors[key]) continue
+      if (key === 'email') newErrors.email = t('error_email')
+      else if (key === 'phone') newErrors.phone = t('error_phone_invalid')
+      else if (key === 'password') newErrors.password = t('error_password_short')
+      else if (key === 'confirmPassword') newErrors.confirmPassword = t('error_password_mismatch')
+      else if (key === 'agreeTerms') newErrors.agreeTerms = t('error_agree_terms')
+      else newErrors[key] = t('error_required')
+    }
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return false
   }
 
   const handleNextStep = () => {
     setSuccessMessage(null)
-    if (validateStep2()) {
-      setStep(3)
-    }
+    if (validateStep2()) setStep(3)
   }
 
   const handleRegister = async () => {
     setSuccessMessage(null)
-
     if (!formData.agreeTerms) {
       setErrors({ agreeTerms: t('error_agree_terms') })
       return
     }
-
     if (!isSupabaseConfigured()) {
-      setErrors({ submit: 'Supabase sozlanmagan. .env.local faylini tekshiring.' })
+      setErrors({ submit: t('auth_supabase_not_configured') })
       return
     }
 
@@ -81,12 +130,7 @@ export function RegisterPage() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            role: selectedRole,
-          },
-        },
+        options: { data: { full_name: formData.fullName, role: selectedRole } },
       })
 
       if (signUpError) {
@@ -98,7 +142,6 @@ export function RegisterPage() {
         setCurrentUserRole(selectedRole)
         try {
           await api.updateProfile({
-            role: selectedRole,
             full_name: formData.fullName,
             phone: formData.phone,
             region: formData.city,
@@ -109,238 +152,256 @@ export function RegisterPage() {
           // trigger profil yaratgan bo'lishi mumkin
         }
         await refreshProfile()
-        router.push(dashboardPathForRole(selectedRole))
+        const ref = consumeReferralRef() ?? searchParams.get('ref')
+        if (ref) {
+          await api.applyReferral(ref).catch(() => {})
+        }
+        router.push(PATHS.onboarding)
       } else {
-        setSuccessMessage(
-          'Email tasdiqlash havolasi yuborildi. Pochtangizni tekshiring, tasdiqlang va kirish qiling.'
-        )
+        setSuccessMessage(t('auth_email_confirm_sent'))
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Ro'yxatdan o'tishda xatolik yuz berdi"
-      setErrors({ submit: message })
+      setErrors({ submit: mapAuthErrorMessage(message, t) })
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen gradient-hero relative overflow-hidden">
-      {/* Background shapes */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 right-10 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
-        <div className="absolute bottom-20 left-10 w-72 h-72 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
+  const googleEnabled = isGoogleAuthEnabled()
+
+  const handleGoogleRegister = async () => {
+    if (!googleEnabled) {
+      setErrors({ submit: t('google_auth_not_enabled') })
+      return
+    }
+    if (!isSupabaseConfigured()) {
+      setErrors({ submit: t('auth_supabase_not_configured') })
+      return
+    }
+    setGoogleLoading(true)
+    try {
+      storeReferralRef(searchParams.get('ref'))
+      await signInWithGoogle(PATHS.onboarding)
+    } catch (e) {
+      setErrors({ submit: e instanceof Error ? e.message : t('error_required') })
+      setGoogleLoading(false)
+    }
+  }
+
+  if (step === 1) {
+    return (
+      <div className="auth-layout">
+        <div className="auth-page-panel">
+          <div className="auth-page-inner max-w-[560px]">
+            <div className="auth-page-brand">
+              <Link href={PATHS.home} className="auth-page-brand__logo">
+                <span className="auth-page-brand__mark" aria-hidden />
+                ISH<span>BOR</span>
+              </Link>
+            </div>
+
+            <div className="auth-form-card">
+              <header className="auth-form-header">
+                <span className="auth-step-badge">
+                  {t('register_step_label').replace('{n}', '1').replace('{total}', '3')}
+                </span>
+                <h1>{t('register_role_title')}</h1>
+                <p>{t('register_role_subtitle')}</p>
+              </header>
+
+          <div className="auth-form-fields">
+          <div className="auth-role-grid">
+            <RoleCard
+              selected={role === 'freelancer'}
+              icon={<Briefcase className="h-8 w-8 text-[var(--color-primary)]" />}
+              title={t('register_seeker_title')}
+              subtitle={t('freelancer_desc')}
+              bullets={[t('register_freelancer_bullet_1'), t('register_freelancer_bullet_2'), t('register_freelancer_bullet_3')]}
+              onSelect={() => handleRoleSelect('freelancer')}
+            />
+            <RoleCard
+              selected={role === 'client'}
+              icon={<Users className="h-8 w-8 text-[var(--success)]" />}
+              iconBg="var(--success-bg)"
+              title={t('register_employer_title')}
+              subtitle={t('client_desc')}
+              bullets={[t('register_client_bullet_1'), t('register_client_bullet_2'), t('register_client_bullet_3')]}
+              onSelect={() => handleRoleSelect('client')}
+            />
+          </div>
+
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            disabled={!role}
+            onClick={handleRoleContinue}
+          >
+            {t('continue')} →
+          </Button>
+          {!role && (
+            <p className="text-center text-[12px] text-[var(--kwork-text-muted)]">{t('select_role_first')}</p>
+          )}
+
+          <Button
+            variant="outline"
+            size="lg"
+            fullWidth
+            className="gap-2"
+            loading={googleLoading}
+            disabled={!googleEnabled}
+            title={!googleEnabled ? t('google_auth_setup_hint') : undefined}
+            onClick={handleGoogleRegister}
+          >
+            {googleEnabled ? t('google_sign_in') : `${t('google_sign_in')} (${t('google_sign_in_soon')})`}
+          </Button>
+
+          <p className="auth-footer-link">
+            {t('already_have_account')}{' '}
+            <Link href={PATHS.login}>{t('login')} →</Link>
+          </p>
+          </div>
+            </div>
+          </div>
+        </div>
       </div>
+    )
+  }
 
-      <div className="relative container-responsive py-12 min-h-screen flex items-center">
-        <div className="w-full max-w-2xl mx-auto">
-          {/* Step indicator */}
-          {step > 1 && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                {[1, 2, 3].map((s) => (
-                  <div key={s} className="flex items-center flex-1">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
-                        s <= step
-                          ? 'bg-white text-indigo-600 shadow-lg'
-                          : 'bg-white/20 text-white/50'
-                      }`}
-                    >
-                      {s < step ? <Check className="w-5 h-5" /> : s}
-                    </div>
-                    {s < 3 && (
-                      <div
-                        className={`flex-1 h-1 mx-2 rounded transition-all ${
-                          s < step ? 'bg-white' : 'bg-white/20'
-                        }`}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+  return (
+    <div className="auth-layout">
+      <a href="#register-form" className="skip-link">
+        {t('skip_to_content')}
+      </a>
 
-          {/* Step 1: Role Selection */}
-          {step === 1 && (
-            <div className="space-y-8 animate-fadeInUp">
-              <div className="text-center space-y-2 mb-12">
-                <h1 className="text-4xl font-bold text-white">{t('select_role')}</h1>
-                <p className="text-white/80">{t('register')}</p>
-              </div>
+      <div className="auth-page-panel">
+        <div className="auth-page-inner">
+          <div className="auth-page-brand">
+            <Link href={PATHS.home} className="auth-page-brand__logo">
+              <span className="auth-page-brand__mark" aria-hidden />
+              ISH<span>BOR</span>
+            </Link>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Freelancer Card */}
-                <div
-                  className="group glass-auth rounded-3xl p-8 text-center hover-lift transition-all border-2 border-transparent hover:border-white/50"
-                >
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/15 text-white mb-4 group-hover:scale-105 transition-transform">
-                    <Briefcase className="w-8 h-8" strokeWidth={1.75} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">{t('role_freelancer')}</h2>
-                  <p className="text-white/70 mb-6 text-sm">{t('freelancer_desc')}</p>
-                  <div className="space-y-2 text-sm text-white/60 mb-6 text-left">
-                    <p className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0" /> Xizmat berib daromad qil</p>
-                    <p className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0" /> O'zingni ko'rsat</p>
-                    <p className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0" /> Mijozlarni tap</p>
-                  </div>
-                  <Button
-                    onClick={() => handleRoleSelect('freelancer')}
-                    className="w-full bg-white text-indigo-600 hover:bg-white/90 font-semibold"
-                  >
-                    {t('continue')}
-                  </Button>
-                </div>
+          <div id="register-form" className="auth-form-card">
+            <header className="auth-form-header">
+              <span className="auth-step-badge">
+                {t('register_step_label').replace('{n}', String(step)).replace('{total}', '3')}
+              </span>
+              <h1>{step === 2 ? t('your_info') : t('create_profile_title')}</h1>
+              <p>{step === 2 ? t('account_info_desc') : t('initial_setup')}</p>
+            </header>
 
-                {/* Client Card */}
-                <div
-                  className="group glass-auth rounded-3xl p-8 text-center hover-lift transition-all border-2 border-transparent hover:border-white/50"
-                >
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/15 text-white mb-4 group-hover:scale-105 transition-transform">
-                    <Target className="w-8 h-8" strokeWidth={1.75} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">{t('role_client')}</h2>
-                  <p className="text-white/70 mb-6 text-sm">{t('client_desc')}</p>
-                  <div className="space-y-2 text-sm text-white/60 mb-6 text-left">
-                    <p className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0" /> Freelancerlarga buyurtma ber</p>
-                    <p className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0" /> Loyihani joylashtir</p>
-                    <p className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0" /> Ishni tugatuvchi tap</p>
-                  </div>
-                  <Button
-                    onClick={() => handleRoleSelect('client')}
-                    className="w-full bg-amber-400 text-indigo-600 hover:bg-amber-300 font-semibold"
-                  >
-                    {t('continue')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="auth-form-fields">
 
-          {/* Step 2: User Information */}
           {step === 2 && role && (
-            <div className="glass-auth rounded-3xl p-12 space-y-6 animate-fadeInUp max-w-xl mx-auto">
-              <div className="space-y-2 mb-8">
-                <h2 className="text-3xl font-bold text-white">{t('your_info')}</h2>
-                <p className="text-white/70">{t('account_info_desc')}</p>
-              </div>
-
-              <div>
-                <label className="block text-white font-medium mb-2">{t('full_name')}</label>
-                <Input
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
-                  placeholder="Alisher Umarov"
-                />
-                {errors.fullName && <p className="text-red-300 text-sm mt-1">{errors.fullName}</p>}
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-white font-medium mb-2">{t('email')}</label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
-                  placeholder="alisher@example.com"
-                />
-                {errors.email && <p className="text-red-300 text-sm mt-1">{errors.email}</p>}
-              </div>
-
-              {/* Password */}
-              <div>
-                <label className="block text-white font-medium mb-2">{t('password')}</label>
-                <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
-                  placeholder="••••••••"
-                />
-                {errors.password && <p className="text-red-300 text-sm mt-1">{errors.password}</p>}
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-white font-medium mb-2">{t('confirm_password')}</label>
-                <Input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
-                  placeholder="••••••••"
-                />
-                {errors.confirmPassword && <p className="text-red-300 text-sm mt-1">{errors.confirmPassword}</p>}
-              </div>
-
-              {/* Terms Checkbox */}
-              <div className="flex items-start gap-3 pt-4">
+            <>
+              <Input
+                label={t('full_name')}
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                error={errors.fullName}
+              />
+              <Input
+                label={t('email')}
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                error={errors.email}
+              />
+              <Input
+                label={t('phone')}
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                error={errors.phone}
+              />
+              <Input
+                label={t('password')}
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                error={errors.password}
+              />
+              {formData.password.length > 0 && (
+                <div className="password-strength">
+                  <div className="password-strength-track">
+                    <span
+                      className={cn(
+                        'password-strength-bar',
+                        strengthLevel >= 1 && 'password-strength-bar--1',
+                        strengthLevel >= 2 && 'password-strength-bar--2',
+                        strengthLevel >= 3 && 'password-strength-bar--3'
+                      )}
+                    />
+                  </div>
+                  {strengthLabel && (
+                    <span className="password-strength-label">{strengthLabel}</span>
+                  )}
+                </div>
+              )}
+              <Input
+                label={t('confirm_password')}
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                error={errors.confirmPassword}
+              />
+              <label className="flex items-start gap-2 text-[13px] text-[var(--color-text-sub)]">
                 <input
                   type="checkbox"
                   checked={formData.agreeTerms}
                   onChange={(e) => setFormData({ ...formData, agreeTerms: e.target.checked })}
-                  className="mt-1"
+                  className="mt-0.5 accent-[var(--color-primary)]"
                 />
-                <label className="text-white/80 text-sm">
-                  {t('agree_terms')}
-                </label>
-              </div>
-              {errors.agreeTerms && <p className="text-red-300 text-sm">{errors.agreeTerms}</p>}
-
-              <div className="flex gap-4 pt-6">
-                <Button
-                  onClick={() => setStep(1)}
-                  variant="outline"
-                  className="flex-1 bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
-                >
+                <span>
+                  {t('agree_terms_prefix')}{' '}
+                  <Link href={PATHS.terms} className="font-medium text-[var(--color-primary)] hover:underline" target="_blank">
+                    {t('agree_terms_link')}
+                  </Link>
+                  {t('agree_terms_suffix') ? ` ${t('agree_terms_suffix')}` : ''}
+                </span>
+              </label>
+              {errors.agreeTerms && (
+                <Alert variant="error" className="py-2 text-[12px]">
+                  {errors.agreeTerms}
+                </Alert>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
                   {t('back')}
                 </Button>
-                <Button
-                  onClick={handleNextStep}
-                  className="flex-1 bg-white text-indigo-600 hover:bg-white/90 font-semibold"
-                >
-                  {t('continue')}
+                <Button variant="primary" onClick={handleNextStep} className="flex-1">
+                  {t('continue')} →
                 </Button>
               </div>
-            </div>
+            </>
           )}
 
-          {/* Step 3: Complete Profile */}
           {step === 3 && role && (
-            <div className="glass-auth rounded-3xl p-12 space-y-6 animate-fadeInUp max-w-xl mx-auto">
-              <div className="space-y-2 mb-8">
-                <h2 className="text-3xl font-bold text-white">{t('create_profile_title')}</h2>
-                <p className="text-white/70">{t('initial_setup')}</p>
-              </div>
-
+            <>
               {successMessage && (
-                <div className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-4 py-3 text-emerald-100 text-sm space-y-2">
+                <Alert variant="success">
                   <p>{successMessage}</p>
-                  <Link href={PATHS.login} className="font-semibold underline hover:text-white">
+                  <Link href={PATHS.login} className="font-semibold underline">
                     {t('login')}
                   </Link>
-                </div>
+                </Alert>
               )}
 
-              {Object.keys(errors).length > 0 && (
-                <div className="rounded-lg bg-red-500/20 border border-red-400/40 px-4 py-3 text-red-100 text-sm">
-                  {Object.values(errors).map((msg) => (
-                    <p key={msg}>{msg}</p>
-                  ))}
-                </div>
-              )}
+              {errors.submit && <Alert variant="error">{errors.submit}</Alert>}
 
               {role === 'freelancer' ? (
                 <>
-                  {/* Specialty */}
                   <div>
-                    <label className="block text-white font-medium mb-2">{t('specialty')}</label>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
+                      {t('specialty')}
+                    </label>
                     <select
                       value={formData.specialty}
                       onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                      className="select-auth"
+                      className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
                     >
                       <option value="">{t('select')}</option>
                       <option>{t('web_developer')}</option>
@@ -349,13 +410,14 @@ export function RegisterPage() {
                       <option>{t('content_writer_opt')}</option>
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-white font-medium mb-2">{t('region')}</label>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
+                      {t('region')}
+                    </label>
                     <select
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="select-auth"
+                      className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
                     >
                       <option value="">{t('select')}</option>
                       {cities.map((city) => (
@@ -363,45 +425,24 @@ export function RegisterPage() {
                       ))}
                     </select>
                   </div>
-
-                  {/* Bio */}
-                  <div>
-                    <label className="block text-white font-medium mb-2">{t('bio')}</label>
-                    <textarea
-                      value={formData.bio}
-                      onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                      className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-2 h-24 placeholder:text-white/40"
-                      placeholder={t('describe_yourself')}
-                    />
-                  </div>
+                  <Textarea
+                    label={t('bio')}
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    placeholder={t('describe_yourself')}
+                  />
                 </>
               ) : (
                 <>
-                  {/* Company Name (for clients) */}
+                  <Input label={t('company_optional')} placeholder={t('company_name')} />
                   <div>
-                    <label className="block text-white font-medium mb-2">{t('company_optional')}</label>
-                    <Input
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
-                      placeholder={t('company_name')}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white font-medium mb-2">{t('industry')}</label>
-                    <select className="select-auth">
-                      <option value="">{t('select')}</option>
-                      <option>{t('technology')}</option>
-                      <option>{t('marketing_industry')}</option>
-                      <option>{t('ecommerce')}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-white font-medium mb-2">{t('region')}</label>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
+                      {t('region')}
+                    </label>
                     <select
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="select-auth"
+                      className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
                     >
                       <option value="">{t('select')}</option>
                       {cities.map((city) => (
@@ -412,59 +453,87 @@ export function RegisterPage() {
                 </>
               )}
 
-              <div className="flex items-start gap-3 pt-2">
-                <input
-                  type="checkbox"
-                  id="agreeTermsStep3"
-                  checked={formData.agreeTerms}
-                  onChange={(e) => {
-                    setFormData({ ...formData, agreeTerms: e.target.checked })
-                    if (e.target.checked) {
-                      setErrors((prev) => {
-                        const next = { ...prev }
-                        delete next.agreeTerms
-                        return next
-                      })
-                    }
-                  }}
-                  className="mt-1"
-                />
-                <label htmlFor="agreeTermsStep3" className="text-white/80 text-sm">
-                  {t('agree_terms')}
-                </label>
-              </div>
-
-              <div className="flex gap-4 pt-6">
-                <Button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  variant="outline"
-                  className="flex-1 bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
-                >
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
                   {t('back')}
                 </Button>
                 <Button
-                  type="button"
+                  variant="primary"
+                  loading={loading}
+                  disabled={Boolean(successMessage)}
                   onClick={handleRegister}
-                  disabled={loading || Boolean(successMessage)}
-                  className="flex-1 bg-white text-indigo-600 hover:bg-white/90 font-semibold"
+                  className="flex-1"
                 >
-                  {loading ? '...' : t('sign_up')}
+                  {t('sign_up')}
                 </Button>
               </div>
-            </div>
+            </>
           )}
 
-          <div className="text-center mt-8">
-            <p className="text-white/70">
-              {t('already_have_account')}{' '}
-              <Link href={PATHS.login} className="text-white font-semibold hover:underline">
-                {t('login')}
-              </Link>
-            </p>
+          <p className="auth-footer-link">
+            {t('already_have_account')}{' '}
+            <Link href={PATHS.login}>{t('login')} →</Link>
+          </p>
+          </div>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function RoleCard({
+  selected,
+  icon,
+  iconBg,
+  title,
+  subtitle,
+  bullets,
+  onSelect,
+}: {
+  selected: boolean
+  icon: React.ReactNode
+  iconBg?: string
+  title: string
+  subtitle: string
+  bullets: string[]
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn('auth-role-card', selected && 'auth-role-card--selected')}
+    >
+      {selected && (
+        <span className="auth-role-card__check">
+          <Check className="h-3.5 w-3.5" />
+        </span>
+      )}
+      <div
+        className="mb-3 flex h-11 w-11 items-center justify-center rounded-[var(--r-md)]"
+        style={{ backgroundColor: iconBg ?? 'var(--color-primary-light)' }}
+      >
+        {icon}
+      </div>
+      <h3 className="text-[16px] font-bold text-[var(--kwork-text)]">{title}</h3>
+      <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{subtitle}</p>
+      <ul className="mt-3 space-y-1.5">
+        {bullets.map((b) => (
+          <li key={b} className="flex items-start gap-2 text-[12px] text-[var(--kwork-text-muted)]">
+            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--kwork-text-muted)]" />
+            {b}
+          </li>
+        ))}
+      </ul>
+    </button>
+  )
+}
+
+export function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">...</div>}>
+      <RegisterPageContent />
+    </Suspense>
   )
 }

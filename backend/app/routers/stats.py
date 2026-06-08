@@ -28,11 +28,25 @@ def public_stats():
 
     top_services = (
         supabase.table("services")
-        .select("id, title, price, category, profiles(full_name)")
+        .select("id, title, price, category, freelancer_id, profiles(full_name)")
         .order("created_at", desc=True)
-        .limit(3)
+        .limit(8)
         .execute()
     )
+    service_rows = top_services.data or []
+    service_freelancer_ids = list({s["freelancer_id"] for s in service_rows if s.get("freelancer_id")})
+    service_review_stats = batch_review_stats(supabase, service_freelancer_ids)
+    enriched_services = []
+    for s in service_rows:
+        fid = s.get("freelancer_id")
+        avg, count = service_review_stats.get(fid, (0.0, 0)) if fid else (0.0, 0)
+        profile = s.get("profiles") or {}
+        enriched_services.append(
+            {
+                **s,
+                "profiles": {**profile, "avg_rating": avg, "review_count": count},
+            }
+        )
 
     top_freelancers = (
         supabase.table("profiles")
@@ -71,6 +85,6 @@ def public_stats():
         "avg_rating": avg_rating,
         "review_count": len(ratings),
         "category_counts": category_counts,
-        "top_services": top_services.data or [],
+        "top_services": enriched_services,
         "featured_freelancers": enriched_freelancers,
     }

@@ -1,0 +1,162 @@
+:root {
+  /* Brand — sync with .cursor/design/figma-tokens.json */
+  --brand-50: #EFF6FF;
+  --brand-100: #DBEAFE;
+  --brand-200: #BFDBFE;
+  --brand-300: #93C5FD;
+  --brand-400: #60A5FA;
+  --brand-500: #3B82F6;
+  --brand-600: #2563EB;
+  --brand-700: #1D4ED8;
+  --brand-800: #1E40AF;
+  --brand-900: #1E3A5F;
+
+  /* Neutral */
+  --neutral-0: #FFFFFF;
+  --neutral-50: #F8FAFC;
+  --neutral-100: #F1F5F9;
+  --neutral-200: #E2E8F0;
+  --neutral-300: #CBD5E1;
+  --neutral-400: #94A3B8;
+  --neutral-500: #64748B;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1E293B;
+  --neutral-900: #0F172A;
+
+  /* Semantic */
+  --success-bg: #DCFCE7;
+  --success: #16A34A;
+  --success-dark: #14532D;
+  --warning-bg: #FEF3C7;
+  --warning: #D97706;
+  --warning-dark: #92400E;
+  --error-bg: #FEE2E2;
+  --error: #DC2626;
+  --error-dark: #7F1D1D;
+  --info-bg: #DBEAFE;
+  --info: #2563EB;
+  --info-dark: #1E3A5F;
+
+  /* Semantic aliases — use ONLY these in components */
+  --color-bg: var(--neutral-0);
+  --color-bg-subtle: var(--neutral-50);
+  --color-bg-muted: var(--neutral-100);
+  --color-border: var(--neutral-200);
+  --color-border-strong: var(--neutral-300);
+  --color-text: var(--neutral-900);
+  --color-text-sub: var(--neutral-600);
+  --color-text-muted: var(--neutral-400);
+  --color-primary: var(--brand-600);
+  --color-primary-hover: var(--brand-700);
+  --color-primary-active: var(--brand-800);
+  --color-primary-light: var(--brand-50);
+  --color-primary-text: var(--brand-900);
+  --color-primary-disabled-bg: var(--brand-200);
+  --color-primary-disabled-text: var(--brand-300);
+  --color-on-primary: var(--neutral-0);
+
+  /* Spacing scale (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Radius — Kwork: card 8px, input 8px */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-card: 8px;
+  --r-lg: 10px;
+  --r-dropdown: 8px;
+  --r-xl: 20px;
+  --r-2xl: 28px;
+  --r-full: 9999px;
+
+  /* Shadow — Kwork: flat cards, subtle lift on hover */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-sm: 0 1px 4px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 8px 28px rgba(15, 23, 42, 0.09);
+  --shadow-card: 0 1px 0 rgba(15, 23, 42, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.16);
+
+  /* Typography scale — Figma Design System Page 1 */
+  --text-display: 48px;
+  --text-h1: 36px;
+  --text-h2: 28px;
+  --text-h3: 22px;
+  --text-h4: 18px;
+  --text-body-lg: 16px;
+  --text-body-md: 14px;
+  --text-body-sm: 13px;
+  --text-caption: 12px;
+  --text-overline: 11px;
+
+  /* Rating */
+  --rating-filled: #F59E0B;
+  --rating-empty: #E2E8F0;
+
+  /* Avatar palette — figma-tokens.json */
+  --avatar-purple: #7C3AED;
+  --avatar-green: #059669;
+  --avatar-red: #DC2626;
+  --avatar-amber: #D97706;
+  --avatar-sky: #0284C7;
+  --avatar-pink: #DB2777;
+
+  /* Overlays */
+  --overlay-dark: color-mix(in srgb, var(--neutral-900) 72%, transparent);
+  --overlay-light: color-mix(in srgb, var(--neutral-0) 88%, transparent);
+  --overlay-primary: color-mix(in srgb, var(--color-primary) 20%, transparent);
+
+  /* Component heights — components-spec.md */
+  --btn-h-sm: 32px;
+  --btn-h-md: 40px;
+  --btn-h-lg: 48px;
+  --input-h: 40px;
+
+  /* Marketplace surface — Kwork uslubi (kulrang fon, oq kartalar) */
+  --kwork-border: var(--color-border);
+  --kwork-bg: #f4f4f4;
+  --kwork-text: #222222;
+  --kwork-text-muted: var(--neutral-500);
+  --kwork-search-bg: #ffffff;
+  --body-bg: #f4f4f4;
+  --kwork-header-h: 60px;
+  --kwork-nav-h: 42px;
+  --kwork-header-total: calc(var(--kwork-header-h) + var(--kwork-nav-h));
+  --layout-max-w: 1280px;
+
+  /* Transition */
+  --transition: all 0.2s ease;
+}
+
+.dark {
+  --kwork-border: var(--neutral-700);
+  --kwork-bg: var(--neutral-800);
+  --kwork-text: var(--neutral-100);
+  --kwork-text-muted: var(--neutral-400);
+  --kwork-search-bg: var(--neutral-800);
+  --body-bg: var(--neutral-900);
+  --color-bg: var(--neutral-900);
+  --color-bg-subtle: var(--neutral-800);
+  --color-bg-muted: var(--neutral-700);
+  --color-border: var(--neutral-700);
+  --color-border-strong: var(--neutral-600);
+  --color-text: var(--neutral-100);
+  --color-text-sub: var(--neutral-400);
+  --color-text-muted: var(--neutral-500);
+  --color-primary: var(--brand-500);
+  --color-primary-hover: var(--brand-600);
+  --color-primary-light: var(--brand-900);
+  --color-primary-text: var(--brand-200);
+}

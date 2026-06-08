@@ -6,9 +6,14 @@ import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
+import { Textarea } from '@/presentation/components/ui/textarea'
+import { Skeleton } from '@/presentation/components/ui/skeleton'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { ShoppingBag } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
 import type { ApiOrder } from '@/infrastructure/api/types'
-import { formatPrice, orderProgress, orderStatusLabel } from '@/shared/lib/format'
+import { formatPrice, orderProgress } from '@/shared/lib/format'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { PATHS } from '@/domain/constants/routes'
 
@@ -83,14 +88,25 @@ export function OrdersList({ role }: { role: RoleView }) {
   }
 
   if (loading) {
-    return <p className="text-muted-foreground text-sm">{t('loading_data')}</p>
+    return (
+      <div className="space-y-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-24 w-full rounded-[var(--r-lg)]" />
+        ))}
+      </div>
+    )
   }
 
   if (orders.length === 0) {
     return (
-      <Card className="p-6 text-center text-muted-foreground">
-        {t('no_orders_yet')}
-      </Card>
+      <EmptyState
+        icon={<ShoppingBag />}
+        title={t('no_orders_yet')}
+        action={{
+          label: t('browse_services'),
+          onClick: () => router.push(PATHS.services),
+        }}
+      />
     )
   }
 
@@ -113,12 +129,15 @@ export function OrdersList({ role }: { role: RoleView }) {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground">{title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {counterparty ?? '—'} · {orderStatusLabel(order.status, t)}
+                <p className="text-sm text-[var(--color-text-sub)]">
+                  {counterparty ?? '—'}
                 </p>
-                <div className="w-full max-w-xs bg-secondary rounded-full h-2 mt-2">
+                <div className="mt-1">
+                  <OrderStatusBadge status={order.status} />
+                </div>
+                <div className="mt-2 h-2 w-full max-w-xs rounded-full bg-[var(--color-bg-muted)]">
                   <div
-                    className="bg-primary h-2 rounded-full"
+                    className="h-2 rounded-full bg-[var(--color-primary)]"
                     style={{ width: `${orderProgress(order.status)}%` }}
                   />
                 </div>
@@ -159,17 +178,14 @@ export function OrdersList({ role }: { role: RoleView }) {
               onChange={(e) => setRating(Number(e.target.value))}
             />
           </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">{t('review_comment')}</label>
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-md bg-background min-h-20"
-            />
-          </div>
+          <Textarea
+            label={t('review_comment')}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
           <div className="flex gap-2">
             <Button onClick={submitReview}>{t('submit_review')}</Button>
-            <Button variant="outline" onClick={() => setReviewOrderId(null)}>{t('cancel')}</Button>
+            <Button variant="outline" onClick={() => setReviewOrderId(null)}>{t('back')}</Button>
           </div>
         </Card>
       )}

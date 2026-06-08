@@ -1,0 +1,47 @@
+export const profileI18nUz = {
+  profile_user_kworks: 'Bu foydalanuvchi xizmatlari',
+  profile_no_kworks: '{name} ko\'rsatadigan xizmatlari yo\'q.',
+  profile_reviews_for: '{name} haqida qoldirilgan sharhlar',
+  profile_no_reviews: '{name} hali sharh olmagan.',
+  profile_no_info: 'Foydalanuvchi haqida ma\'lumot yo\'q.',
+  profile_account_settings: 'Hisob sozlamalari',
+  profile_joined: 'Qo\'shilgan: {date}',
+  profile_favorite: 'Saqlash',
+  profile_share: 'Ulashish',
+  profile_pro_badge: 'Pro',
+  profile_about_empty: 'Freelancer hali o\'zini tanishtirmagan.',
+  profile_one_hour: '1 soat',
+  profile_link_copied: 'Havola nusxalandi',
+} as const
+
+export const profileI18nRu = {
+  profile_user_kworks: 'Услуги пользователя',
+  profile_no_kworks: 'У {name} пока нет услуг для отображения.',
+  profile_reviews_for: 'Отзывы о {name}',
+  profile_no_reviews: 'У {name} пока нет отзывов.',
+  profile_no_info: 'Нет информации о пользователе.',
+  profile_account_settings: 'Настройки аккаунта',
+  profile_joined: 'На сайте с: {date}',
+  profile_favorite: 'В избранное',
+  profile_share: 'Поделиться',
+  profile_pro_badge: 'Pro',
+  profile_about_empty: 'Фрилансер ещё не заполнил информацию о себе.',
+  profile_one_hour: '1 час',
+  profile_link_copied: 'Ссылка скопирована',
+} as const
+
+export const profileI18nEn = {
+  profile_user_kworks: "This User's Services",
+  profile_no_kworks: "{name} doesn't have any services to display.",
+  profile_reviews_for: 'Reviews left for {name}',
+  profile_no_reviews: "{name} doesn't have any reviews yet.",
+  profile_no_info: 'No user information to display.',
+  profile_account_settings: 'Account Settings',
+  profile_joined: 'Joined {date}',
+  profile_favorite: 'Save',
+  profile_share: 'Share',
+  profile_pro_badge: 'Pro',
+  profile_about_empty: 'This freelancer has not added an about section yet.',
+  profile_one_hour: '1 hour',
+  profile_link_copied: 'Link copied',
+} as const

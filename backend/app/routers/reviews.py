@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase
+from app.notification_service import create_notification
 from app.deps import CurrentUserId
-from app.schemas import PublicReviewResponse, ReviewCreate, ReviewResponse
+from datetime import datetime, timezone
+
+from app.schemas import PublicReviewResponse, ReviewCreate, ReviewReplyUpdate, ReviewResponse
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -54,6 +57,40 @@ def recent_public_reviews(limit: int = Query(default=6, le=12)):
     return enriched
 
 
+@router.get("/service/{service_id}", response_model=list[ReviewResponse])
+def list_service_reviews(service_id: str):
+    supabase = get_supabase()
+    orders = (
+        supabase.table("orders")
+        .select("id")
+        .eq("service_id", service_id)
+        .execute()
+    )
+    order_ids = [o["id"] for o in (orders.data or [])]
+    if not order_ids:
+        return []
+
+    result = (
+        supabase.table("reviews")
+        .select("*")
+        .in_("order_id", order_ids)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    reviews = result.data or []
+    enriched = []
+    for review in reviews:
+        reviewer = (
+            supabase.table("profiles")
+            .select("full_name")
+            .eq("id", review["reviewer_id"])
+            .single()
+            .execute()
+        )
+        enriched.append({**review, "profiles": reviewer.data})
+    return enriched
+
+
 @router.get("/freelancer/{freelancer_id}", response_model=list[ReviewResponse])
 def list_freelancer_reviews(freelancer_id: str):
     supabase = get_supabase()
@@ -94,6 +131,31 @@ def freelancer_review_stats(freelancer_id: str):
     return {"average": round(sum(ratings) / len(ratings), 1), "count": len(ratings)}
 
 
+@router.patch("/{review_id}/reply", response_model=ReviewResponse)
+def reply_to_review(review_id: str, payload: ReviewReplyUpdate, user_id: CurrentUserId):
+    supabase = get_supabase()
+    existing = supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sharh topilmadi")
+    if existing.data["freelancer_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat freelancer javob bera oladi")
+
+    result = (
+        supabase.table("reviews")
+        .update(
+            {
+                "reply": payload.reply.strip(),
+                "replied_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        .eq("id", review_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Javob saqlanmadi")
+    return result.data[0]
+
+
 @router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
 def create_review(payload: ReviewCreate, user_id: CurrentUserId):
     supabase = get_supabase()
@@ -125,4 +187,25 @@ def create_review(payload: ReviewCreate, user_id: CurrentUserId):
     result = supabase.table("reviews").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sharh yaratilmadi")
+
+    service_title = None
+    if order_row.get("service_id"):
+        svc = (
+            supabase.table("services")
+            .select("title")
+            .eq("id", order_row["service_id"])
+            .limit(1)
+            .execute()
+        )
+        if svc.data:
+            service_title = svc.data[0].get("title")
+
+    create_notification(
+        supabase,
+        user_id=order_row["freelancer_id"],
+        type="review",
+        title=service_title or "Yangi sharh",
+        body=f"{payload.rating}/5",
+        href="/dashboard/reviews",
+    )
     return result.data[0]

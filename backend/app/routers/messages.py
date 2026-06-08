@@ -4,13 +4,18 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase
 from app.deps import CurrentUserId
+from app.notification_service import create_notification
 from app.schemas import ConversationResponse, MessageCreate, MessageResponse
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
 
 @router.get("/conversations", response_model=list[ConversationResponse])
-def list_conversations(user_id: CurrentUserId):
+def list_conversations(
+    user_id: CurrentUserId,
+    limit: int = Query(default=50, le=100),
+    offset: int = Query(default=0, ge=0),
+):
     supabase = get_supabase()
 
     orders_result = (
@@ -18,6 +23,7 @@ def list_conversations(user_id: CurrentUserId):
         .select("id, client_id, freelancer_id, status, services(title), created_at")
         .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
         .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
         .execute()
     )
     orders = orders_result.data or []
@@ -130,4 +136,26 @@ def send_message(payload: MessageCreate, user_id: CurrentUserId):
     result = supabase.table("messages").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xabar yuborilmadi")
+
+    service_title = (order_row.get("services") or {}).get("title") if isinstance(order_row.get("services"), dict) else None
+    if not service_title and order_row.get("service_id"):
+        svc = (
+            supabase.table("services")
+            .select("title")
+            .eq("id", order_row["service_id"])
+            .limit(1)
+            .execute()
+        )
+        if svc.data:
+            service_title = svc.data[0].get("title")
+
+    create_notification(
+        supabase,
+        user_id=receiver_id,
+        type="message",
+        title=service_title or "Yangi xabar",
+        body=payload.content[:120],
+        href=f"/dashboard/messages?order={payload.order_id}",
+    )
+
     return result.data[0]

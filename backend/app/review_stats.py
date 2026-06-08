@@ -2,13 +2,17 @@
 
 from supabase import Client
 
+from app.database import get_supabase
+from app.db_utils import run_query
+
 
 def batch_review_stats(supabase: Client, freelancer_ids: list[str]) -> dict[str, tuple[float, int]]:
     if not freelancer_ids:
         return {}
 
-    result = (
-        supabase.table("reviews")
+    result = run_query(
+        lambda: get_supabase()
+        .table("reviews")
         .select("freelancer_id, rating")
         .in_("freelancer_id", freelancer_ids)
         .execute()

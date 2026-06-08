@@ -3,16 +3,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { t, type Language, type TranslationKey } from '@/infrastructure/i18n'
 import { isSupabaseConfigured, getSupabase } from '@/infrastructure/supabase/client'
+import { clearAuthCache, getCachedSession } from '@/infrastructure/auth/session-cache'
 import { api } from '@/infrastructure/api/client'
 import type { ApiProfile } from '@/infrastructure/api/types'
-import type { AppRoute } from '@/domain/constants/routes'
-import { APP_ROUTES } from '@/domain/constants/routes'
-
 export interface AppContextType {
   currentUserRole: 'freelancer' | 'client'
   setCurrentUserRole: (role: 'freelancer' | 'client') => void
-  currentPage: AppRoute
-  setCurrentPage: (page: AppRoute) => void
   theme: 'light' | 'dark'
   setTheme: (theme: 'light' | 'dark') => void
   language: Language
@@ -31,7 +27,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUserRole, setCurrentUserRole] = useState<'freelancer' | 'client'>('freelancer')
-  const [currentPage, setCurrentPage] = useState<AppRoute>(APP_ROUTES.landing)
   const [theme, setThemeState] = useState<'light' | 'dark'>('light')
   const [language, setLanguage] = useState<'uz' | 'ru' | 'en'>('uz')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -43,13 +38,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (!isSupabaseConfigured()) return
     try {
-      const supabase = getSupabase()
-      const { data: sessionData } = await supabase.auth.getSession()
-      const session = sessionData.session
-      if (session?.user?.id) {
-        setUserId(session.user.id)
-        setIsLoggedIn(true)
-      }
+      const session = await getCachedSession()
+      if (!session) return
+
+      setUserId(session.userId)
+      setIsLoggedIn(true)
+
       const loaded = await api.getProfile()
       setProfile(loaded)
       if (loaded.role === 'freelancer' || loaded.role === 'client') {
@@ -62,6 +56,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    clearAuthCache()
     if (isSupabaseConfigured()) {
       const supabase = getSupabase()
       await supabase.auth.signOut()
@@ -98,30 +93,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const supabase = getSupabase()
 
     const syncSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      const session = data.session
-      setIsLoggedIn(Boolean(session))
-      setUserId(session?.user.id ?? null)
-      if (session) {
-        // onAuthStateChange deadlock dan qochish uchun defer
-        setTimeout(() => {
-          refreshProfile().catch(() => {})
-        }, 0)
+      try {
+        const session = await getCachedSession()
+        if (session) {
+          setIsLoggedIn(true)
+          setUserId(session.userId)
+          setTimeout(() => {
+            refreshProfile().catch(() => {})
+          }, 0)
+        } else {
+          setIsLoggedIn(false)
+          setUserId(null)
+        }
+      } catch {
+        setIsLoggedIn(false)
+        setUserId(null)
+      } finally {
+        setIsAuthLoading(false)
       }
-      setIsAuthLoading(false)
     }
 
     syncSession()
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        clearAuthCache()
+        return
+      }
+
       setIsLoggedIn(Boolean(session))
       setUserId(session?.user.id ?? null)
-      if (session) {
-        // Supabase: async ishni callback ichida to'g'ridan-to'g'ri chaqirmang — deadlock
+
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED')) {
+        if (event === 'SIGNED_IN') clearAuthCache()
         setTimeout(() => {
           refreshProfile().catch(() => {})
         }, 0)
-      } else {
+      } else if (!session) {
+        clearAuthCache()
         setProfile(null)
       }
     })
@@ -155,8 +164,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         value={{
           currentUserRole,
           setCurrentUserRole: setRole,
-          currentPage,
-          setCurrentPage,
           theme,
           setTheme,
           language,
@@ -181,8 +188,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentUserRole,
         setCurrentUserRole: setRole,
-        currentPage,
-        setCurrentPage,
         theme,
         setTheme,
         language,

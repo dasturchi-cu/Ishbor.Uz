@@ -2,40 +2,67 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { useApp } from '@/application/providers/app-provider'
+import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
-import { Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { api } from '@/infrastructure/api/client'
-import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
+import { PATHS } from '@/domain/constants/routes'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
+import { clearAuthCache } from '@/infrastructure/auth/session-cache'
+import { toast } from '@/presentation/components/ui/toast'
+import { resolvePostAuthDestination } from '@/shared/lib/auth-redirect'
+import { signInWithGoogle } from '@/infrastructure/auth/oauth'
+import { isGoogleAuthEnabled } from '@/infrastructure/auth/google-auth'
+import { requestPasswordReset } from '@/infrastructure/auth/password'
 
-export function LoginPage() {
-  const { t, setCurrentUserRole, refreshProfile, isLoggedIn, isAuthLoading, currentUserRole } = useApp()
+function LoginPageContent() {
+  const { t, refreshProfile, isLoggedIn, isAuthLoading, currentUserRole, profile } = useApp()
   const router = useRouter()
-  const [role, setRole] = useState<'freelancer' | 'client'>('freelancer')
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const { hash, search } = window.location
+      if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+        router.replace(`/auth/reset-password${search}${hash}`)
+        return
+      }
+    }
     if (isAuthLoading || !isLoggedIn) return
-    router.replace(dashboardPathForRole(currentUserRole))
-  }, [isAuthLoading, isLoggedIn, currentUserRole, router])
+    if (!profile) return
+    router.replace(resolvePostAuthDestination(searchParams, profile, currentUserRole))
+  }, [isAuthLoading, isLoggedIn, currentUserRole, profile, router, searchParams])
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError(t('error_credentials_required'))
+  const handleLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const nextFieldErrors: { email?: string; password?: string } = {}
+    if (!email.trim()) nextFieldErrors.email = t('error_email')
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) nextFieldErrors.email = t('error_email')
+    if (!password) nextFieldErrors.password = t('error_password_required')
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors)
+      setError('')
       return
     }
 
     setLoading(true)
     setError('')
+    setFieldErrors({})
 
     try {
       if (isSupabaseConfigured()) {
@@ -45,185 +72,211 @@ export function LoginPage() {
           setError(mapAuthErrorMessage(authError.message, t))
           return
         }
-        setCurrentUserRole(role)
-        try {
-          await api.updateProfile({ role })
-        } catch {
-          // profil keyin yangilanadi
-        }
+        clearAuthCache()
         await refreshProfile()
-        router.replace(dashboardPathForRole(role))
+        const me = await api.getProfile().catch(() => null)
+        const role = me?.role === 'client' ? 'client' : 'freelancer'
+        const name = me?.full_name ?? profile?.full_name ?? email.split('@')[0]
+        toast.success(`${t('login_title')}, ${name}!`)
+        router.refresh()
+        router.replace(resolvePostAuthDestination(searchParams, me, role))
       } else {
-        setError('Supabase sozlanmagan. .env.local faylini tekshiring.')
+        setError(t('auth_supabase_not_configured'))
       }
     } finally {
       setLoading(false)
     }
   }
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError(t('error_email'))
+      return
+    }
+    if (!isSupabaseConfigured()) {
+      setError(t('auth_supabase_not_configured'))
+      return
+    }
+    setResetLoading(true)
+    setError('')
+    setResetMessage('')
+    try {
+      await requestPasswordReset(email.trim())
+      setResetMessage(t('password_reset_sent'))
+    } catch (err) {
+      setError(err instanceof Error ? mapAuthErrorMessage(err.message, t) : t('error_required'))
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const googleEnabled = isGoogleAuthEnabled()
+
+  const handleGoogleLogin = async () => {
+    if (!googleEnabled) {
+      setError(t('google_auth_not_enabled'))
+      return
+    }
+    if (!isSupabaseConfigured()) {
+      setError(t('auth_supabase_not_configured'))
+      return
+    }
+    setGoogleLoading(true)
+    setError('')
+    try {
+      const returnTo = searchParams.get('returnTo')
+      await signInWithGoogle(returnTo && returnTo.startsWith('/') ? returnTo : undefined)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('error_required'))
+      setGoogleLoading(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen gradient-hero relative overflow-hidden">
-      {/* Background shapes */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 right-10 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
-        <div className="absolute bottom-20 left-10 w-72 h-72 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
-      </div>
+    <div className="auth-layout">
+      <a href="#login-form" className="skip-link">
+        {t('skip_to_content')}
+      </a>
+      <div className="auth-page-panel">
+        <div className="auth-page-panel__grid" aria-hidden />
 
-      <div className="relative container-responsive py-12 min-h-screen flex items-center justify-center">
-        <div className="w-full max-w-md animate-fadeInUp">
-          {/* Card */}
-          <div className="glass-auth rounded-3xl p-10 space-y-8">
-            {/* Header */}
-            <div className="text-center space-y-2">
-              <div className="text-4xl font-bold text-white mb-2">IshBor</div>
-              <h1 className="text-2xl font-bold text-white">{t('login')}</h1>
-              <p className="text-white/70 text-sm">{t('login_welcome')}</p>
-            </div>
+        <div className="auth-page-inner">
+          <Link href={PATHS.home} className="auth-back-link show-mobile">
+            <ArrowLeft className="h-4 w-4" />
+            {t('nav_home')}
+          </Link>
 
-            {/* Role Tabs */}
-            <div className="flex gap-3 p-1 bg-white/10 rounded-lg">
-              {['freelancer', 'client'].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => {
-                    setRole(r as 'freelancer' | 'client')
-                    setError('')
-                  }}
-                  className={`flex-1 py-2 rounded-md font-medium transition-all ${
-                    role === r
-                      ? 'bg-white text-indigo-600 shadow-lg'
-                      : 'text-white/70 hover:text-white'
-                  }`}
-                >
-                  {r === 'freelancer' ? t('role_freelancer_label') : t('role_client_label')}
-                </button>
-              ))}
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">
-                <p className="text-red-200 text-sm">{error}</p>
-              </div>
-            )}
-
-            {/* Email Field */}
-            <div className="space-y-2">
-              <label className="block text-white/90 font-medium text-sm">{t('email')}</label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  setError('')
-                }}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-white focus:bg-white/15"
-                placeholder="your@email.com"
-              />
-            </div>
-
-            {/* Password Field */}
-            <div className="space-y-2">
-              <label className="block text-white/90 font-medium text-sm">{t('password')}</label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value)
-                    setError('')
-                  }}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-white focus:bg-white/15 pr-10"
-                  placeholder="••••••••"
-                />
-                <button
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-white/70 cursor-pointer hover:text-white transition-colors">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded"
-                />
-                {t('remember_me')}
-              </label>
-              <button
-                onClick={() => alert('Parol tiklash tez orada qo\'shiladi')}
-                className="text-white/70 hover:text-white transition-colors underline"
-              >
-                {t('forgot_password')}
-              </button>
-            </div>
-
-            {/* Login Button */}
-            <Button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full bg-white text-indigo-600 hover:bg-white/90 font-bold py-3 h-auto text-base shadow-lg"
-            >
-              {loading ? '...' : t('sign_in')}
-            </Button>
-
-            {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/20" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-3 text-white/70 backdrop-blur-sm">
-                  {t('or')}
-                </span>
-              </div>
-            </div>
-
-            {/* OAuth Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
-              >
-                <span className="text-lg">G</span>
-                oogle
-              </Button>
-              <Button
-                variant="outline"
-                className="bg-white/10 border-white/40 text-white hover:bg-white/20 hover:text-white"
-              >
-                <span className="text-lg">f</span>
-                acebook
-              </Button>
-            </div>
-
-            {/* Sign Up Link */}
-            <div className="text-center space-y-2 pt-4 border-t border-white/20">
-              <p className="text-white/70 text-sm">
-                {t('no_account')}{' '}
-                <Link href={PATHS.register} className="text-white font-semibold hover:text-white/80 transition-colors">
-                  {t('sign_up')}
-                </Link>
-              </p>
-            </div>
+          <div className="auth-page-brand">
+            <Link href={PATHS.home} className="auth-page-brand__logo">
+              <span className="auth-page-brand__mark" aria-hidden />
+              ISH<span>BOR</span>
+            </Link>
           </div>
 
-          {/* Demo Credentials */}
-          <div className="mt-8 glass-auth rounded-2xl p-6 text-sm">
-            <p className="text-white/60 mb-3 font-medium">{t('demo_account')}</p>
-            <div className="space-y-1 text-white/70">
-              <p>{t('email')}: <span className="font-mono text-white">demo@ishbor.uz</span></p>
-              <p>{t('password')}: <span className="font-mono text-white">password123</span></p>
+          <div className="auth-form-card">
+            <header className="auth-form-header">
+              <h1>{t('login_title')}</h1>
+              <p>{t('login_subtitle')}</p>
+            </header>
+
+          {error && (
+            <Alert variant="error" className="mb-4">
+              {error}
+            </Alert>
+          )}
+
+          {resetMessage && (
+            <Alert variant="success" className="mb-4">
+              {resetMessage}
+            </Alert>
+          )}
+
+          <form id="login-form" className="auth-form-fields" onSubmit={handleLogin} noValidate>
+            <Input
+              label={t('email')}
+              type="email"
+              autoComplete="email"
+              inputSize="lg"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setError('')
+                setFieldErrors((prev) => ({ ...prev, email: undefined }))
+              }}
+              placeholder="name@example.com"
+              leftIcon={<Mail className="h-4 w-4" />}
+              error={fieldErrors.email}
+            />
+
+            <div className="space-y-2">
+              <Input
+                label={t('password')}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                inputSize="lg"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setError('')
+                  setFieldErrors((prev) => ({ ...prev, password: undefined }))
+                }}
+                placeholder="••••••••"
+                leftIcon={<Lock className="h-4 w-4" />}
+                error={fieldErrors.password}
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? t('hide_password') : t('show_password')}
+                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[var(--kwork-text-muted)] transition hover:bg-[var(--color-bg-subtle)] hover:text-[var(--kwork-text)]"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                }
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={resetLoading}
+                  onClick={handleForgotPassword}
+                  className="text-[14px] font-medium text-[var(--color-primary)] transition hover:underline disabled:opacity-50"
+                >
+                  {resetLoading ? '...' : t('forgot_password')}
+                </button>
+              </div>
             </div>
+
+            <Button variant="primary" fullWidth size="lg" loading={loading} type="submit" className="!min-h-[48px]">
+              {t('sign_in')}
+            </Button>
+          </form>
+
+          <div className="auth-divider mt-5" aria-hidden>
+            {t('or')}
+          </div>
+
+          <button
+            type="button"
+            className="auth-google-btn mt-4"
+            disabled={googleLoading || !googleEnabled}
+            title={!googleEnabled ? t('google_auth_setup_hint') : undefined}
+            onClick={handleGoogleLogin}
+          >
+            {googleLoading ? (
+              <span>...</span>
+            ) : (
+              <>
+                <svg className="h-[18px] w-[18px] shrink-0" viewBox="0 0 24 24" aria-hidden>
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                {googleEnabled ? t('google_sign_in') : `${t('google_sign_in')} (${t('google_sign_in_soon')})`}
+              </>
+            )}
+          </button>
+          {!googleEnabled && (
+            <p className="mt-2 text-center text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">
+              {t('google_auth_setup_hint')}
+            </p>
+          )}
+
+          <p className="auth-footer-link">
+            {t('no_account')}{' '}
+            <Link href={PATHS.register}>{t('sign_up')} →</Link>
+          </p>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">...</div>}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
