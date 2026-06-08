@@ -15,6 +15,7 @@ import { useFormDraft } from '@/shared/lib/use-form-draft'
 import { toast } from '@/presentation/components/ui/toast'
 import { serviceCreateSchema } from '@/domain/validators/service'
 import { cn } from '@/shared/lib/utils'
+import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
 
 const DELIVERY_PRESETS = [3, 5, 7, 14, 30] as const
 
@@ -209,9 +210,16 @@ export function CreateServicePage() {
           )}
 
           <div>
-            <label htmlFor="service-title" className="text-sm font-semibold block mb-2">
-              {t('service_title')}
-            </label>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="service-title" className="text-sm font-semibold">
+                {t('service_title')}
+              </label>
+              <AiSuggestButton
+                kind="service_title"
+                context={{ category: form.category, region: form.region }}
+                onApply={(text) => handleTitleChange(text)}
+              />
+            </div>
             <Input
               id="service-title"
               name="service-title"
@@ -228,9 +236,16 @@ export function CreateServicePage() {
           </div>
 
           <div>
-            <label htmlFor="service-description" className="text-sm font-semibold block mb-2">
-              {t('project_description')}
-            </label>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="service-description" className="text-sm font-semibold">
+                {t('project_description')}
+              </label>
+              <AiSuggestButton
+                kind="service_description"
+                context={{ title: form.title, category: form.category, region: form.region }}
+                onApply={(text) => updateField('description', text)}
+              />
+            </div>
             <textarea
               id="service-description"
               name="service-description"

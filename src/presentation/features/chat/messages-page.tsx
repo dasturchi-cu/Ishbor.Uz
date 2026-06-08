@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
-import { ArrowLeft, BellOff, ExternalLink, Paperclip, Search, Send } from 'lucide-react'
+import { ArrowLeft, BellOff, Check, CheckCheck, ExternalLink, Paperclip, Search, Send } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
 import type { ApiConversation, ApiMessage, ApiOrder } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
@@ -13,6 +13,7 @@ import { toast } from '@/presentation/components/ui/toast'
 import { formatDateShort, formatTime } from '@/shared/lib/format-date'
 import { useOrderMessagesRealtime } from '@/shared/lib/use-order-messages-realtime'
 import { useInboxRealtime } from '@/shared/lib/use-inbox-realtime'
+import { useOrderTyping } from '@/shared/lib/use-order-typing'
 import { uploadChatImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { Language } from '@/infrastructure/i18n'
@@ -134,6 +135,9 @@ export function MessagesPage() {
   const [messagesLoadError, setMessagesLoadError] = useState(false)
   const [sendLoading, setSendLoading] = useState(false)
   const [unreadOnly, setUnreadOnly] = useState(false)
+  const [activeOnly, setActiveOnly] = useState(false)
+  const [peerTyping, setPeerTyping] = useState(false)
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (orderFromUrl) {
@@ -203,9 +207,16 @@ export function MessagesPage() {
 
   const onRealtimeMessage = useCallback((msg: ApiMessage) => {
     setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+    setPeerTyping(false)
   }, [])
 
-  useOrderMessagesRealtime(selectedOrderId, onRealtimeMessage)
+  const onRealtimeMessageUpdate = useCallback((msg: ApiMessage) => {
+    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)))
+  }, [])
+
+  useOrderMessagesRealtime(selectedOrderId, onRealtimeMessage, onRealtimeMessageUpdate)
+
+  const sendTyping = useOrderTyping(selectedOrderId, userId, setPeerTyping)
 
   useEffect(() => {
     if (!selectedOrderId) return
@@ -219,7 +230,8 @@ export function MessagesPage() {
         setMessagesLoadError(true)
       })
       .finally(() => setMessagesLoading(false))
-  }, [selectedOrderId])
+    refreshConversations()
+  }, [selectedOrderId, refreshConversations])
 
   const handleAttach = async (file: File) => {
     if (!selectedOrderId || !userId || !active) return
@@ -273,9 +285,24 @@ export function MessagesPage() {
     }
   }
 
+  useEffect(() => {
+    if (!selectedOrderId || !messageText.trim()) {
+      sendTyping(false)
+      return
+    }
+    sendTyping(true)
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current)
+    typingDebounceRef.current = setTimeout(() => sendTyping(false), 2000)
+    return () => {
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current)
+    }
+  }, [messageText, selectedOrderId, sendTyping])
+
   const filtered = useMemo(() => {
+    const activeStatuses = new Set(['pending', 'active', 'delivered'])
     return conversations.filter((c) => {
       if (unreadOnly && (c.unread_count ?? 0) === 0) return false
+      if (activeOnly && c.order_status && !activeStatuses.has(c.order_status)) return false
       const q = searchQuery.toLowerCase()
       return (
         c.other_user_name.toLowerCase().includes(q) ||
@@ -283,7 +310,7 @@ export function MessagesPage() {
         (c.last_message?.toLowerCase().includes(q) ?? false)
       )
     })
-  }, [conversations, searchQuery, unreadOnly])
+  }, [conversations, searchQuery, unreadOnly, activeOnly])
 
   const active = useMemo(
     () => conversations.find((c) => c.order_id === selectedOrderId) ?? null,
@@ -314,6 +341,13 @@ export function MessagesPage() {
               onClick={() => setUnreadOnly((v) => !v)}
             >
               {t('messages_filter_unread')}
+            </button>
+            <button
+              type="button"
+              className={cn('chat-filter-btn', activeOnly && 'chat-filter-btn--active')}
+              onClick={() => setActiveOnly((v) => !v)}
+            >
+              {t('messages_filter_active')}
             </button>
             <button
               type="button"
@@ -419,7 +453,9 @@ export function MessagesPage() {
               <Avatar name={active.other_user_name} size={40} />
               <div className="min-w-0 flex-1">
                 <p className="chat-header-name">{active.other_user_name}</p>
-                <p className="chat-header-sub">{active.order_title}</p>
+                <p className="chat-header-sub">
+                  {peerTyping ? t('chat_typing') : active.order_title}
+                </p>
                 {active.order_status && (
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <OrderStatusBadge status={active.order_status} />
@@ -533,9 +569,24 @@ export function MessagesPage() {
                           }
                           return <span>{msg.content}</span>
                         })()}
-                        {msg.created_at && (
-                          <p className="chat-bubble-time">{formatMessageTime(msg.created_at, language)}</p>
-                        )}
+                        <div className="chat-bubble-meta">
+                          {msg.created_at && (
+                            <p className="chat-bubble-time">{formatMessageTime(msg.created_at, language)}</p>
+                          )}
+                          {isMine && !msg.id.startsWith('temp-') && (
+                            <span
+                              className="chat-bubble-read"
+                              title={msg.read_at ? t('chat_read') : undefined}
+                              aria-label={msg.read_at ? t('chat_read') : undefined}
+                            >
+                              {msg.read_at ? (
+                                <CheckCheck className="h-3 w-3" />
+                              ) : (
+                                <Check className="h-3 w-3 opacity-60" />
+                              )}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </Fragment>

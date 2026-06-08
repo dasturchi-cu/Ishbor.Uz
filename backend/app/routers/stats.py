@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from app.database import get_supabase_admin
 from app.review_stats import batch_min_service_prices, batch_review_stats
@@ -13,14 +14,21 @@ def public_stats():
     freelancers = supabase.table("profiles").select("id", count="exact").eq("role", "freelancer").execute()
     clients = supabase.table("profiles").select("id", count="exact").eq("role", "client").execute()
     projects = supabase.table("projects").select("id", count="exact").execute()
-    services = supabase.table("services").select("id", count="exact").execute()
+    services = (
+        supabase.table("services")
+        .select("id", count="exact")
+        .eq("is_hidden", False)
+        .execute()
+    )
     orders = supabase.table("orders").select("id", count="exact").execute()
 
     reviews = supabase.table("reviews").select("rating").execute()
     ratings = [r["rating"] for r in (reviews.data or [])]
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0.0
 
-    services_list = supabase.table("services").select("category").execute()
+    services_list = (
+        supabase.table("services").select("category").eq("is_hidden", False).execute()
+    )
     category_counts: dict[str, int] = {}
     for row in services_list.data or []:
         cat = row.get("category") or "other"
@@ -79,7 +87,10 @@ def public_stats():
 
     project_total = (projects.count or 0) + (orders.count or 0)
 
-    return {
+    payload = {
+        "commission_percent": 10,
+        "commission_bps": 1000,
+        "freelancer_payout_percent": 90,
         "freelancers": freelancers.count or 0,
         "clients": clients.count or 0,
         "projects": project_total,
@@ -90,3 +101,7 @@ def public_stats():
         "top_services": enriched_services,
         "featured_freelancers": enriched_freelancers,
     }
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=600"},
+    )

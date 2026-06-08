@@ -27,6 +27,44 @@ def test_health_ready_unconfigured(client, monkeypatch):
     assert response.status_code == 503
 
 
+def test_public_stats_includes_commission(client, monkeypatch):
+    from app.routers import stats as stats_router
+
+    class _CountResult:
+        count = 0
+        data = []
+
+    class _FakeQuery:
+        def select(self, *args, **kwargs):
+            return self
+
+        def eq(self, *args, **kwargs):
+            return self
+
+        def order(self, *args, **kwargs):
+            return self
+
+        def limit(self, *args, **kwargs):
+            return self
+
+        def execute(self):
+            return _CountResult()
+
+    class _FakeSupabase:
+        def table(self, _name):
+            return _FakeQuery()
+
+    monkeypatch.setattr(stats_router, "get_supabase_admin", lambda: _FakeSupabase())
+    monkeypatch.setattr(stats_router, "batch_review_stats", lambda *_a, **_k: {})
+    monkeypatch.setattr(stats_router, "batch_min_service_prices", lambda *_a, **_k: {})
+
+    response = client.get("/api/v1/stats/public")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["commission_percent"] == 10
+    assert body["freelancer_payout_percent"] == 90
+
+
 def test_payments_config(client):
     response = client.get("/api/v1/payments/config")
     assert response.status_code == 200
@@ -95,6 +133,17 @@ def test_private_project_hidden_without_auth(client):
 def test_mark_all_read_requires_auth(client):
     response = client.post("/api/v1/notifications/mark-all-read")
     assert response.status_code == 401
+
+
+def test_services_accepts_delivery_filters(client):
+    response = client.get(
+        "/api/v1/services",
+        params={"max_delivery_days": 7, "sort": "delivery-fast", "limit": 5},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "items" in body
+    assert "total" in body
 
 
 def test_sandbox_checkout_blocked_in_production(monkeypatch, client):

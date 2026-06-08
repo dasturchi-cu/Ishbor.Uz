@@ -21,9 +21,10 @@ import { formatDate } from '@/shared/lib/format-date'
 import { Bookmark, Briefcase } from 'lucide-react'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { isProjectSaved, syncSavedProjectsFromApi, toggleSavedProject } from '@/shared/lib/saved-items'
+import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
 
 export function ProjectDetailPage({ projectId }: { projectId: string }) {
-  const { t, isLoggedIn, currentUserRole, userId, language } = useApp()
+  const { t, isLoggedIn, currentUserRole, userId, language, profile } = useApp()
   const router = useRouter()
   const [project, setProject] = useState<ApiProject | null>(null)
   const [applications, setApplications] = useState<ApiProjectApplication[]>([])
@@ -313,8 +314,21 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
                   {error}
                 </Alert>
               )}
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[13px] font-medium text-[var(--kwork-text-sub)]">
+                  {t('project_cover_letter')}
+                </span>
+                <AiSuggestButton
+                  kind="cover_letter"
+                  context={{
+                    title: project.title,
+                    project_description: project.description,
+                    specialty: profile?.specialty ?? profile?.full_name ?? undefined,
+                  }}
+                  onApply={setCoverLetter}
+                />
+              </div>
               <Textarea
-                label={t('project_cover_letter')}
                 value={coverLetter}
                 onChange={(e) => setCoverLetter(e.target.value)}
                 rows={4}

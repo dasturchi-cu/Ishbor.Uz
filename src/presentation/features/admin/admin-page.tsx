@@ -14,8 +14,10 @@ import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { downloadCsv } from '@/shared/lib/csv-export'
 
 const ADMIN_PAGE_SIZE = 50
+const ADMIN_EXPORT_PAGE_SIZE = 200
 
 export function AdminPage() {
   const { t, profile, isAuthLoading, isLoggedIn, currentUserRole, refreshProfile } = useApp()
@@ -42,6 +44,7 @@ export function AdminPage() {
   const [disputesTotal, setDisputesTotal] = useState(0)
   const [waitlist, setWaitlist] = useState<ApiWaitlistEntry[]>([])
   const [waitlistTotal, setWaitlistTotal] = useState(0)
+  const [exporting, setExporting] = useState<'users' | 'orders' | 'waitlist' | 'disputes' | 'services' | null>(null)
 
   useEffect(() => {
     if (isAuthLoading || !isLoggedIn || profile || profileLoading) return
@@ -233,6 +236,185 @@ export function AdminPage() {
     }
   }
 
+  const fetchAllAdminUsers = async () => {
+    const all: ApiProfile[] = []
+    let offset = 0
+    while (true) {
+      const res = await api.adminUsers({ limit: ADMIN_EXPORT_PAGE_SIZE, offset })
+      all.push(...res.items)
+      if (all.length >= res.total || res.items.length === 0) break
+      offset += ADMIN_EXPORT_PAGE_SIZE
+    }
+    return all
+  }
+
+  const fetchAllAdminOrders = async () => {
+    const all: ApiOrder[] = []
+    let offset = 0
+    while (true) {
+      const res = await api.adminOrders({ limit: ADMIN_EXPORT_PAGE_SIZE, offset })
+      all.push(...res.items)
+      if (all.length >= res.total || res.items.length === 0) break
+      offset += ADMIN_EXPORT_PAGE_SIZE
+    }
+    return all
+  }
+
+  const fetchAllAdminWaitlist = async () => {
+    const all: ApiWaitlistEntry[] = []
+    let offset = 0
+    while (true) {
+      const res = await api.adminWaitlist({ limit: ADMIN_EXPORT_PAGE_SIZE, offset })
+      all.push(...res.items)
+      if (all.length >= res.total || res.items.length === 0) break
+      offset += ADMIN_EXPORT_PAGE_SIZE
+    }
+    return all
+  }
+
+  const handleExportUsers = async () => {
+    setExporting('users')
+    setError('')
+    try {
+      const rows = await fetchAllAdminUsers()
+      downloadCsv(
+        'ishbor-users.csv',
+        [t('full_name'), t('email'), t('select_role'), t('region'), t('date'), 'is_verified', 'is_banned'],
+        rows.map((u) => [
+          u.full_name ?? '',
+          u.email ?? '',
+          u.role,
+          u.region ?? '',
+          u.created_at?.slice(0, 10) ?? '',
+          String(!!u.is_verified),
+          String(!!u.is_banned),
+        ])
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  const handleExportOrders = async () => {
+    setExporting('orders')
+    setError('')
+    try {
+      const rows = await fetchAllAdminOrders()
+      downloadCsv(
+        'ishbor-orders.csv',
+        ['id', 'status', 'amount', 'payment_status', 'client_id', 'freelancer_id', t('date')],
+        rows.map((o) => [
+          o.id,
+          o.status,
+          String(o.amount),
+          o.payment_status ?? '',
+          o.client_id,
+          o.freelancer_id,
+          o.created_at?.slice(0, 10) ?? '',
+        ])
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  const handleExportWaitlist = async () => {
+    setExporting('waitlist')
+    setError('')
+    try {
+      const rows = await fetchAllAdminWaitlist()
+      downloadCsv(
+        'ishbor-waitlist.csv',
+        [t('email'), t('admin_waitlist_source'), t('date')],
+        rows.map((w) => [w.email, w.source, w.created_at?.slice(0, 10) ?? ''])
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  const fetchAllAdminDisputes = async () => {
+    const all: ApiOrder[] = []
+    let offset = 0
+    while (true) {
+      const res = await api.adminDisputes({ limit: ADMIN_EXPORT_PAGE_SIZE, offset })
+      all.push(...res.items)
+      if (all.length >= res.total || res.items.length === 0) break
+      offset += ADMIN_EXPORT_PAGE_SIZE
+    }
+    return all
+  }
+
+  const fetchAllAdminServices = async () => {
+    const all: ApiService[] = []
+    let offset = 0
+    while (true) {
+      const batch = await api.adminListServices({ limit: ADMIN_EXPORT_PAGE_SIZE, offset })
+      all.push(...batch)
+      if (batch.length < ADMIN_EXPORT_PAGE_SIZE) break
+      offset += ADMIN_EXPORT_PAGE_SIZE
+    }
+    return all
+  }
+
+  const handleExportDisputes = async () => {
+    setExporting('disputes')
+    setError('')
+    try {
+      const rows = await fetchAllAdminDisputes()
+      downloadCsv(
+        'ishbor-disputes.csv',
+        ['id', 'status', 'amount', 'payment_status', 'dispute_reason', 'client_id', 'freelancer_id', t('date')],
+        rows.map((o) => [
+          o.id,
+          o.status,
+          String(o.amount),
+          o.payment_status ?? '',
+          o.dispute_reason ?? '',
+          o.client_id,
+          o.freelancer_id,
+          o.created_at?.slice(0, 10) ?? '',
+        ])
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  const handleExportServices = async () => {
+    setExporting('services')
+    setError('')
+    try {
+      const rows = await fetchAllAdminServices()
+      downloadCsv(
+        'ishbor-services.csv',
+        ['id', 'title', 'category', 'price', 'delivery_days', 'freelancer', 'is_hidden', t('date')],
+        rows.map((s) => [
+          s.id,
+          s.title,
+          s.category,
+          String(s.price),
+          String(s.delivery_days ?? ''),
+          s.profiles?.full_name ?? '',
+          String(!!s.is_hidden),
+          s.created_at?.slice(0, 10) ?? '',
+        ])
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setExporting(null)
+    }
+  }
+
   const profileReady = !isAuthLoading && !profileLoading && (!isLoggedIn || profile !== null)
 
   if (!profileReady) {
@@ -289,12 +471,22 @@ export function AdminPage() {
       <Card className="p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-bold text-[var(--kwork-text)]">{t('admin_users')}</h2>
-          <Input
-            value={userSearch}
-            onChange={(e) => setUserSearch(e.target.value)}
-            placeholder={t('admin_search_ph')}
-            className="max-w-xs"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              loading={exporting === 'users'}
+              onClick={handleExportUsers}
+            >
+              {exporting === 'users' ? t('admin_exporting') : t('admin_export_csv')}
+            </Button>
+            <Input
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder={t('admin_search_ph')}
+              className="max-w-xs"
+            />
+          </div>
         </div>
         {usersTotal > 0 && (
           <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
@@ -401,14 +593,25 @@ export function AdminPage() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="mb-4 font-bold text-[var(--kwork-text)]">
-          {t('admin_disputes')}
-          {disputesTotal > 0 && (
-            <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
-              ({disputesTotal})
-            </span>
-          )}
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-bold text-[var(--kwork-text)]">
+            {t('admin_disputes')}
+            {disputesTotal > 0 && (
+              <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
+                ({disputesTotal})
+              </span>
+            )}
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={exporting === 'disputes'}
+            disabled={disputesTotal === 0}
+            onClick={handleExportDisputes}
+          >
+            {exporting === 'disputes' ? t('admin_exporting') : t('admin_export_csv')}
+          </Button>
+        </div>
         {disputedOrders.length === 0 ? (
           <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_empty_disputes')}</p>
         ) : (
@@ -463,7 +666,18 @@ export function AdminPage() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('nav_services')}</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-bold text-[var(--kwork-text)]">{t('nav_services')}</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={exporting === 'services'}
+            disabled={services.length === 0}
+            onClick={handleExportServices}
+          >
+            {exporting === 'services' ? t('admin_exporting') : t('admin_export_csv')}
+          </Button>
+        </div>
         {services.length === 0 ? (
           <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_empty_services')}</p>
         ) : (
@@ -577,14 +791,25 @@ export function AdminPage() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="mb-4 font-bold text-[var(--kwork-text)]">
-          {t('admin_waitlist')}
-          {waitlistTotal > 0 && (
-            <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
-              ({waitlistTotal})
-            </span>
-          )}
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-bold text-[var(--kwork-text)]">
+            {t('admin_waitlist')}
+            {waitlistTotal > 0 && (
+              <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
+                ({waitlistTotal})
+              </span>
+            )}
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={exporting === 'waitlist'}
+            disabled={waitlistTotal === 0}
+            onClick={handleExportWaitlist}
+          >
+            {exporting === 'waitlist' ? t('admin_exporting') : t('admin_export_csv')}
+          </Button>
+        </div>
         {waitlist.length === 0 ? (
           <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_waitlist_empty')}</p>
         ) : (
@@ -617,12 +842,22 @@ export function AdminPage() {
       <Card className="p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-bold text-[var(--kwork-text)]">{t('admin_orders')}</h2>
-          <Input
-            value={orderSearch}
-            onChange={(e) => setOrderSearch(e.target.value)}
-            placeholder={t('search_orders_ph')}
-            className="max-w-xs"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              loading={exporting === 'orders'}
+              onClick={handleExportOrders}
+            >
+              {exporting === 'orders' ? t('admin_exporting') : t('admin_export_csv')}
+            </Button>
+            <Input
+              value={orderSearch}
+              onChange={(e) => setOrderSearch(e.target.value)}
+              placeholder={t('search_orders_ph')}
+              className="max-w-xs"
+            />
+          </div>
         </div>
         {ordersTotal > 0 && (
           <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">

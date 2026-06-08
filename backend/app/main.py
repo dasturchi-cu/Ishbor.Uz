@@ -12,6 +12,7 @@ from app.idempotency import idempotency_middleware
 from app.sentry_init import init_sentry
 from app.routers import (
     admin,
+    ai,
     applications,
     health,
     messages,
@@ -76,6 +77,7 @@ app.include_router(reviews.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(waitlist.router, prefix="/api/v1")
+app.include_router(ai.router, prefix="/api/v1")
 
 app.add_exception_handler(APIError, supabase_api_error_handler)
 
@@ -85,6 +87,7 @@ _RATE_PATHS = (
     "/api/v1/orders",
     "/api/v1/waitlist",
     "/api/v1/profiles/me/referral",
+    "/api/v1/ai",
 )
 _WEBHOOK_PATH_PREFIX = "/api/v1/payments/webhooks"
 

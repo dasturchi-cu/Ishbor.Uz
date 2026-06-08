@@ -18,7 +18,7 @@ import { SkeletonCard } from '@/presentation/components/ui/skeleton'
 
 import { PATHS, servicePath, defaultAuthDestination } from '@/domain/constants/routes'
 
-import { api } from '@/infrastructure/api/client'
+import { fetchPublicStatsCached } from '@/shared/lib/public-stats-cache'
 
 import type { ApiPublicStats } from '@/infrastructure/api/types'
 
@@ -195,9 +195,7 @@ export function LandingPage() {
 
   useEffect(() => {
 
-    api
-
-      .publicStats()
+    fetchPublicStatsCached()
 
       .then(setStats)
 

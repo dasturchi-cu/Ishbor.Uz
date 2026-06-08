@@ -72,7 +72,7 @@ export async function updateSession(request: NextRequest) {
   if (user && isProtected(pathname)) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_banned')
+      .select('is_banned, onboarding_completed')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -82,6 +82,20 @@ export async function updateSession(request: NextRequest) {
       loginUrl.pathname = '/login'
       loginUrl.searchParams.set('banned', '1')
       return NextResponse.redirect(loginUrl)
+    }
+
+    const onDashboard =
+      pathname === '/dashboard' || pathname.startsWith('/dashboard/')
+    const onOnboarding = pathname === '/onboarding' || pathname.startsWith('/onboarding/')
+
+    if (onDashboard && profile && profile.onboarding_completed === false) {
+      const onboardingUrl = request.nextUrl.clone()
+      onboardingUrl.pathname = '/onboarding'
+      return NextResponse.redirect(onboardingUrl)
+    }
+
+    if (onOnboarding && profile?.onboarding_completed === true) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 

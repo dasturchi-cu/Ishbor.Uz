@@ -46,6 +46,7 @@ def list_services(
     sort: str | None = Query(default=None),
     min_price: int | None = Query(default=None, ge=0),
     max_price: int | None = Query(default=None, ge=0),
+    max_delivery_days: int | None = Query(default=None, ge=1, le=365),
     limit: int = Query(default=100, le=200),
     offset: int = Query(default=0, ge=0),
 ):
@@ -67,6 +68,8 @@ def list_services(
         query = query.gte("price", min_price)
     if max_price is not None:
         query = query.lte("price", max_price)
+    if max_delivery_days is not None:
+        query = query.lte("delivery_days", max_delivery_days)
 
     if sort in ("price-low", "price_asc"):
         query = query.order("price", desc=False)
@@ -74,6 +77,8 @@ def list_services(
         query = query.order("price", desc=True)
     elif sort == "popular":
         query = query.order("view_count", desc=True)
+    elif sort in ("delivery", "delivery-fast", "delivery_asc"):
+        query = query.order("delivery_days", desc=False)
     else:
         query = query.order("created_at", desc=True)
 

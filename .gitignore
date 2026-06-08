@@ -26,6 +26,12 @@ node_modules
 # OS
 .DS_Store
 
-# Legacy empty dirs (Windows lock residue)
-components/
-lib/
+# Test artifacts
+test-results/
+playwright-report/
+blob-report/
+coverage/
+
+# Legacy empty dirs at repo root (Windows lock residue)
+/components/
+/lib/

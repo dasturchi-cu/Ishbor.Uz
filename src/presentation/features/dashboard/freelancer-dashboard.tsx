@@ -34,7 +34,7 @@ import { ActivityTimeline } from '@/presentation/components/dashboard/activity-t
 import { FreelancerOnboardingChecklist } from '@/presentation/components/dashboard/freelancer-onboarding-checklist'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-banner'
-import { profileCompletionPercent } from '@/shared/lib/profile-completion'
+import { ProfileCompletionBar } from '@/presentation/components/layout/profile-completion-bar'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'delivered'])
 
@@ -263,8 +263,6 @@ export function FreelancerDashboard() {
     [orders],
   )
 
-  const profileCompletion = profileCompletionPercent(profile, 'freelancer')
-
   const recentOrders = useMemo(
     () =>
       [...orders]
@@ -323,19 +321,7 @@ export function FreelancerDashboard() {
         </Alert>
       )}
 
-      {profileCompletion < 100 && (
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
-          <div className="flex items-center justify-between gap-3 text-[12px] text-[var(--kwork-text-muted)]">
-            <span>{t('profile_completion').replace('{n}', String(profileCompletion))}</span>
-            <Link href={PATHS.dashboardProfile} className="font-medium text-[var(--color-primary)]">
-              {t('profile_complete_link')}
-            </Link>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--kwork-border)]">
-            <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${profileCompletion}%` }} />
-          </div>
-        </div>
-      )}
+      <ProfileCompletionBar />
 
       <AdminPanelBanner />
 

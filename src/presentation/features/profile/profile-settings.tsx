@@ -27,6 +27,7 @@ import { toast } from '@/presentation/components/ui/toast'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/shared/lib/notification-prefs'
 import { profileUpdateSchema } from '@/domain/validators/profile'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
+import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 
@@ -70,19 +71,28 @@ function ToggleRow({
   label,
   checked,
   onChange,
+  disabled,
+  hint,
 }: {
   label: string
   checked: boolean
   onChange: (v: boolean) => void
+  disabled?: boolean
+  hint?: string
 }) {
   return (
-    <div className="settings-toggle-row">
-      <span className="settings-toggle-label">{label}</span>
+    <div className={cn('settings-toggle-row', disabled && 'opacity-60')}>
+      <div className="min-w-0">
+        <span className="settings-toggle-label">{label}</span>
+        {hint ? <p className="mt-0.5 text-[11px] text-[var(--kwork-text-muted)]">{hint}</p> : null}
+      </div>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
+        aria-disabled={disabled}
+        disabled={disabled}
+        onClick={() => !disabled && onChange(!checked)}
         className={cn('settings-switch', checked ? 'settings-switch--on' : 'settings-switch--off')}
       >
         <span className="settings-switch-knob" />
@@ -541,7 +551,18 @@ export function ProfileSettings() {
                   </div>
 
                   <div>
-                    <label className="settings-field-label">{t('settings_about_you')}</label>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 max-w-[520px]">
+                      <label className="settings-field-label">{t('settings_about_you')}</label>
+                      <AiSuggestButton
+                        kind="profile_bio"
+                        context={{
+                          specialty: title,
+                          skills,
+                          region: formData.city,
+                        }}
+                        onApply={setBio}
+                      />
+                    </div>
                     <Textarea
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
@@ -834,8 +855,10 @@ export function ProfileSettings() {
                   <h3 className="settings-notif-card-title">{t('sms_notifications')}</h3>
                   <ToggleRow
                     label={t('urgent_messages')}
-                    checked={simpleNotif.smsUrgent}
-                    onChange={(v) => updateNotifPref('smsUrgent', v)}
+                    checked={false}
+                    disabled
+                    hint={t('notif_integration_soon')}
+                    onChange={() => undefined}
                   />
                 </div>
 
@@ -843,8 +866,10 @@ export function ProfileSettings() {
                   <h3 className="settings-notif-card-title">{t('telegram_notifications')}</h3>
                   <ToggleRow
                     label={t('connect_telegram')}
-                    checked={simpleNotif.telegramConnect}
-                    onChange={(v) => updateNotifPref('telegramConnect', v)}
+                    checked={false}
+                    disabled
+                    hint={t('notif_integration_soon')}
+                    onChange={() => undefined}
                   />
                 </div>
 

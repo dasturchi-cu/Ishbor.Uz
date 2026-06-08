@@ -17,6 +17,8 @@ import type {
   ApiPublicReview,
   ApiPublicStats,
   ApiReferralStats,
+  ApiAiSuggestResponse,
+  ApiAnalytics,
   ApiReview,
   ApiService,
   ApiServiceList,
@@ -165,6 +167,7 @@ export const api = {
     sort?: string
     min_price?: number
     max_price?: number
+    max_delivery_days?: number
     limit?: number
     offset?: number
   }) => {
@@ -175,6 +178,7 @@ export const api = {
     if (params?.sort) q.set('sort', params.sort)
     if (params?.min_price != null) q.set('min_price', String(params.min_price))
     if (params?.max_price != null) q.set('max_price', String(params.max_price))
+    if (params?.max_delivery_days != null) q.set('max_delivery_days', String(params.max_delivery_days))
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
     const qs = q.toString()
@@ -433,4 +437,22 @@ export const api = {
     apiFetch<void>(`/api/v1/admin/services/${serviceId}`, { method: 'DELETE' }),
 
   publicStats: () => apiFetch<ApiPublicStats>('/api/v1/stats/public'),
+
+  aiSuggest: (body: {
+    kind: 'project_description' | 'service_description' | 'service_title' | 'profile_bio' | 'cover_letter'
+    title?: string
+    category?: string
+    skills?: string[]
+    region?: string
+    project_description?: string
+    specialty?: string
+    language?: 'uz' | 'ru' | 'en'
+  }) =>
+    apiFetch<ApiAiSuggestResponse>('/api/v1/ai/suggest', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getAnalytics: (period: '7d' | '30d' | '3m' | '1y' = '30d') =>
+    apiFetch<ApiAnalytics>(`/api/v1/profiles/me/analytics?period=${period}`),
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const AnalyticsCharts = dynamic(
   () => import('./analytics-charts').then((m) => m.AnalyticsCharts),
@@ -13,61 +13,38 @@ const AnalyticsCharts = dynamic(
 import { useApp } from '@/application/providers/app-provider'
 import { StatCard } from '@/presentation/components/ui/stat-card'
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder } from '@/infrastructure/api/types'
-import {
-  buyerRegions,
-  ordersByStatus,
-  ordersInPeriod,
-  revenueByMonth,
-} from '@/shared/lib/order-analytics'
+import type { ApiAnalytics } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
 import { DollarSign, ShoppingBag, Eye } from 'lucide-react'
 import { Button } from '@/presentation/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 import { Alert } from '@/presentation/components/ui/alert'
 
-const PERIODS = { '7d': 7, '30d': 30, '3m': 90, '1y': 365 } as const
+const PERIODS = ['7d', '30d', '3m', '1y'] as const
 
 export function DashboardAnalyticsPage() {
   const { t } = useApp()
-  const [period, setPeriod] = useState<keyof typeof PERIODS>('30d')
-  const [orders, setOrders] = useState<ApiOrder[]>([])
-  const [profileViews, setProfileViews] = useState(0)
-  const [serviceViews, setServiceViews] = useState(0)
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]>('30d')
+  const [data, setData] = useState<ApiAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
-  const loadAnalytics = () => {
+  const loadAnalytics = useCallback(() => {
     setLoading(true)
     setLoadError(false)
-    Promise.all([
-      api.listOrders().catch(() => {
+    api
+      .getAnalytics(period)
+      .then(setData)
+      .catch(() => {
+        setData(null)
         setLoadError(true)
-        return [] as ApiOrder[]
-      }),
-      api.listMyServices().catch(() => []),
-      api.getProfile().catch(() => null),
-    ])
-      .then(([ord, svc, profile]) => {
-        setOrders(ord)
-        setProfileViews(profile?.profile_views ?? 0)
-        setServiceViews(svc.reduce((sum, s) => sum + (s.view_count ?? 0), 0))
       })
       .finally(() => setLoading(false))
-  }
+  }, [period])
 
   useEffect(() => {
     loadAnalytics()
-  }, [])
-
-  const periodOrders = useMemo(() => ordersInPeriod(orders, PERIODS[period]), [orders, period])
-  const completedRevenue = useMemo(
-    () => periodOrders.filter((o) => o.status === 'completed').reduce((sum, o) => sum + o.amount, 0),
-    [periodOrders]
-  )
-  const chartData = useMemo(() => revenueByMonth(periodOrders, period === '7d' ? 4 : 6), [periodOrders, period])
-  const pieData = useMemo(() => ordersByStatus(periodOrders), [periodOrders])
-  const regions = useMemo(() => buyerRegions(periodOrders), [periodOrders])
+  }, [loadAnalytics])
 
   const periodLabel = {
     '7d': t('analytics_period_7d'),
@@ -76,14 +53,18 @@ export function DashboardAnalyticsPage() {
     '1y': t('analytics_period_1y'),
   }
 
-  if (loading) {
+  if (loading && !data) {
     return <div className="h-64 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
   }
+
+  const chartData = data?.chart_data ?? []
+  const pieData = data?.pie_data ?? []
+  const regions = data?.regions ?? []
 
   return (
     <div>
       <div className="mb-5 flex justify-end gap-2">
-        {(Object.keys(PERIODS) as Array<keyof typeof PERIODS>).map((p) => (
+        {PERIODS.map((p) => (
           <button
             key={p}
             type="button"
@@ -111,17 +92,25 @@ export function DashboardAnalyticsPage() {
         </Alert>
       )}
 
-      {periodOrders.length === 0 && !loadError && (
+      {(data?.order_count ?? 0) === 0 && !loadError && (
         <Alert variant="info" className="mb-4 text-[13px]">
           {t('analytics_empty_note')}
         </Alert>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={DollarSign} label={t('stat_revenue')} value={formatPrice(completedRevenue)} />
-        <StatCard icon={ShoppingBag} label={t('stat_orders_analytics')} value={String(periodOrders.length)} />
-        <StatCard icon={Eye} label={t('stat_profile_views')} value={String(profileViews)} />
-        <StatCard icon={Eye} label={t('stat_service_views')} value={String(serviceViews)} />
+        <StatCard
+          icon={DollarSign}
+          label={t('stat_revenue')}
+          value={formatPrice(data?.completed_revenue ?? 0)}
+        />
+        <StatCard
+          icon={ShoppingBag}
+          label={t('stat_orders_analytics')}
+          value={String(data?.order_count ?? 0)}
+        />
+        <StatCard icon={Eye} label={t('stat_profile_views')} value={String(data?.profile_views ?? 0)} />
+        <StatCard icon={Eye} label={t('stat_service_views')} value={String(data?.service_views ?? 0)} />
       </div>
 
       <AnalyticsCharts

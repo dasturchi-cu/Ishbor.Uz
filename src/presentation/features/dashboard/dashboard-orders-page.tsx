@@ -24,12 +24,14 @@ import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
 
 const TABS = ['all', 'pending', 'active', 'delivered', 'disputed', 'completed', 'cancelled'] as const
+const PAYMENT_FILTERS = ['all', 'unpaid', 'escrow'] as const
 
 export function DashboardOrdersPage() {
   const { t, language } = useApp()
   const router = useRouter()
   const role = useDashboardRole()
   const [tab, setTab] = useState<(typeof TABS)[number]>('all')
+  const [paymentFilter, setPaymentFilter] = useState<(typeof PAYMENT_FILTERS)[number]>('all')
   const [search, setSearch] = useState('')
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +57,13 @@ export function DashboardOrdersPage() {
 
   const filtered = orders.filter((o) => {
     if (tab !== 'all' && o.status !== tab) return false
+    if (
+      paymentFilter === 'unpaid' &&
+      (o.payment_status === 'held' || o.status === 'completed' || o.status === 'cancelled')
+    ) {
+      return false
+    }
+    if (paymentFilter === 'escrow' && o.payment_status !== 'held') return false
     const title = o.services?.title?.toLowerCase() ?? ''
     const other =
       role === 'freelancer'
@@ -104,7 +113,30 @@ export function DashboardOrdersPage() {
             </button>
           ))}
         </div>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('search_orders_ph')} className="max-w-xs" />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            {PAYMENT_FILTERS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setPaymentFilter(key)}
+                className={cn(
+                  'rounded-full px-3 py-1 text-[12px] font-medium',
+                  paymentFilter === key
+                    ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
+                    : 'bg-[var(--neutral-0)] text-[var(--kwork-text-muted)] border border-[var(--kwork-border)]'
+                )}
+              >
+                {key === 'all'
+                  ? t('tab_all')
+                  : key === 'unpaid'
+                    ? t('orders_filter_unpaid')
+                    : t('orders_filter_escrow')}
+              </button>
+            ))}
+          </div>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('search_orders_ph')} className="max-w-xs" />
+        </div>
       </div>
 
       {loadError && (

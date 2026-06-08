@@ -8,6 +8,7 @@ from app.database import get_supabase_admin
 
 from app.deps import OptionalUserId, UserAuthDep
 
+from app.analytics_service import build_user_analytics
 from app.review_stats import batch_review_stats
 
 from app.schemas import (
@@ -96,6 +97,16 @@ def referral_stats(auth: UserAuthDep):
         "count": all_refs.count or 0,
         "bonus_earned": (credited.count or 0) * REFERRAL_BONUS,
     }
+
+
+@router.get("/me/analytics")
+def my_analytics(auth: UserAuthDep, period: str = Query(default="30d", pattern="^(7d|30d|3m|1y)$")):
+    supabase = auth.supabase
+    profile = supabase.table("profiles").select("role").eq("id", auth.user_id).single().execute()
+    if not profile.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+    role = profile.data.get("role") or "client"
+    return build_user_analytics(auth.user_id, role, period)
 
 
 @router.get("/me", response_model=ProfileResponse)

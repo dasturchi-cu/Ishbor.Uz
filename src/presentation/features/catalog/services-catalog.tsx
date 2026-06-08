@@ -162,12 +162,16 @@ function ServicesCatalogContent() {
   const [savedTick, setSavedTick] = useState(0)
   const [loadError, setLoadError] = useState(false)
   const [reloadTick, setReloadTick] = useState(0)
+  const [maxDeliveryDays, setMaxDeliveryDays] = useState(0)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     category: true,
     price: true,
+    delivery: true,
     region: true,
     experience: true,
   })
+
+  const DELIVERY_FILTER_OPTIONS = [0, 3, 7, 14, 30] as const
 
   useEffect(() => {
     const q = searchParams.get('q')
@@ -209,6 +213,7 @@ function ServicesCatalogContent() {
         sort: sortBy,
         min_price: minPrice > 0 ? minPrice : undefined,
         max_price: maxPrice < priceCeiling ? maxPrice : undefined,
+        max_delivery_days: maxDeliveryDays > 0 ? maxDeliveryDays : undefined,
         limit: PAGE_SIZE,
         offset: (currentPage - 1) * PAGE_SIZE,
       })
@@ -232,7 +237,7 @@ function ServicesCatalogContent() {
         setLoadError(true)
       })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, priceCeiling, reloadTick, t])
+  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, maxDeliveryDays, priceCeiling, reloadTick, t])
 
   const categories = [
     { id: 'all', label: t('cat_all') },
@@ -252,6 +257,7 @@ function ServicesCatalogContent() {
     selectedCategory !== 'all' ||
     debouncedSearch !== '' ||
     priceFilterActive ||
+    maxDeliveryDays > 0 ||
     selectedRegion !== '' ||
     experienceFilters.length > 0
 
@@ -259,6 +265,7 @@ function ServicesCatalogContent() {
     selectedCategory !== 'all',
     debouncedSearch !== '',
     priceFilterActive,
+    maxDeliveryDays > 0,
     selectedRegion !== '',
     experienceFilters.length > 0,
   ].filter(Boolean).length
@@ -294,7 +301,7 @@ function ServicesCatalogContent() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, selectedCategory, selectedRegion, minPrice, maxPrice, sortBy, viewMode])
+  }, [debouncedSearch, selectedCategory, selectedRegion, minPrice, maxPrice, maxDeliveryDays, sortBy, viewMode])
 
   const paginatedServices = filteredServices
 
@@ -305,6 +312,7 @@ function ServicesCatalogContent() {
     setSortBy('popular')
     setSelectedRegion('')
     setExperienceFilters([])
+    setMaxDeliveryDays(0)
     setPriceRange([0, priceCeiling])
     router.replace(pathname, { scroll: false })
   }, [pathname, priceCeiling, router])
@@ -372,6 +380,34 @@ function ServicesCatalogContent() {
           fromLabel={t('service_from')}
           toLabel={t('price_to')}
         />
+      </FilterSection>
+
+      <FilterSection
+        title={t('filter_delivery')}
+        open={expandedSections.delivery}
+        onToggle={() => setExpandedSections((s) => ({ ...s, delivery: !s.delivery }))}
+      >
+        <div className="catalog-filter-options">
+          {DELIVERY_FILTER_OPTIONS.map((days) => (
+            <label
+              key={days}
+              className={cn(
+                'catalog-filter-option',
+                maxDeliveryDays === days && 'catalog-filter-option--active'
+              )}
+            >
+              <input
+                type="radio"
+                name="delivery"
+                checked={maxDeliveryDays === days}
+                onChange={() => setMaxDeliveryDays(days)}
+              />
+              {days === 0
+                ? t('filter_delivery_all')
+                : t('filter_delivery_within').replace('{n}', String(days))}
+            </label>
+          ))}
+        </div>
       </FilterSection>
 
       <FilterSection
@@ -505,6 +541,7 @@ function ServicesCatalogContent() {
                     options={[
                       { value: 'popular', label: t('sort_popular') },
                       { value: 'rating', label: t('sort_rating') },
+                      { value: 'delivery-fast', label: t('sort_delivery_fast') },
                       { value: 'price-low', label: t('sort_price_asc') },
                       { value: 'price-high', label: t('sort_price_desc') },
                     ]}
@@ -551,6 +588,12 @@ function ServicesCatalogContent() {
                   <FilterChip
                     label={`≤ ${formatPrice(maxPrice)}`}
                     onRemove={() => setPriceRange(([low]) => [low, priceCeiling])}
+                  />
+                )}
+                {maxDeliveryDays > 0 && (
+                  <FilterChip
+                    label={t('filter_delivery_within').replace('{n}', String(maxDeliveryDays))}
+                    onRemove={() => setMaxDeliveryDays(0)}
                   />
                 )}
               </div>

@@ -46,4 +46,14 @@ test.describe('smoke', () => {
     await page.goto('/cv-builder')
     await expect(page.locator('#main-content')).toBeVisible()
   })
+
+  test('companies page loads catalog', async ({ page }) => {
+    await page.goto('/companies')
+    await expect(page.locator('body')).toBeVisible()
+  })
+
+  test('freelancers page loads', async ({ page }) => {
+    await page.goto('/freelancers')
+    await expect(page.locator('body')).toBeVisible()
+  })
 })

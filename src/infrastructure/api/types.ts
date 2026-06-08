@@ -498,6 +498,22 @@ export interface ApiReferralStats {
   bonus_earned?: number
 }
 
+export interface ApiAiSuggestResponse {
+  text: string
+  kind: 'project_description' | 'service_description' | 'service_title' | 'profile_bio' | 'cover_letter'
+}
+
+export interface ApiAnalytics {
+  period: string
+  completed_revenue: number
+  order_count: number
+  profile_views: number
+  service_views: number
+  chart_data: { date: string; amount: number }[]
+  pie_data: { name: string; value: number; color: string }[]
+  regions: { region: string; pct: number }[]
+}
+
 
 
 export interface ProjectCreateInput {

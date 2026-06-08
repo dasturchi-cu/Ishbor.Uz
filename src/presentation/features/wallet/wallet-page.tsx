@@ -20,6 +20,7 @@ import { formatDate } from '@/shared/lib/format-date'
 import { withdrawalSchema } from '@/domain/validators/withdrawal'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
+import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 
 export function WalletPage() {
   const { t, currentUserRole, language, profile, refreshProfile } = useApp()
@@ -150,6 +151,8 @@ export function WalletPage() {
           {t('wallet_payment_note')}
         </span>
       </div>
+
+      {currentUserRole === 'freelancer' && <ReferralBanner className="mb-4" />}
 
       <div className="wallet-balance-card">
         <div className="wallet-balance-top">

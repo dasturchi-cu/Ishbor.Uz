@@ -29,7 +29,7 @@ import { formatPrice, orderProgress } from '@/shared/lib/format'
 import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
-import { profileCompletionPercent } from '@/shared/lib/profile-completion'
+import { ProfileCompletionBar } from '@/presentation/components/layout/profile-completion-bar'
 
 function DashboardPanel({
   title,
@@ -149,7 +149,6 @@ export function ClientDashboard() {
   )
 
   const firstName = profile?.full_name?.split(/\s+/)[0]
-  const profileCompletion = profileCompletionPercent(profile, 'client')
   const unpaidOrders = useMemo(
     () => orders.filter((o) => o.status === 'pending' && o.payment_status !== 'held'),
     [orders],
@@ -203,19 +202,7 @@ export function ClientDashboard() {
         </Alert>
       )}
 
-      {profileCompletion < 100 && (
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
-          <div className="flex items-center justify-between gap-3 text-[12px] text-[var(--kwork-text-muted)]">
-            <span>{t('profile_completion').replace('{n}', String(profileCompletion))}</span>
-            <Link href={PATHS.dashboardProfile} className="font-medium text-[var(--color-primary)]">
-              {t('profile_complete_link')}
-            </Link>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--kwork-border)]">
-            <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${profileCompletion}%` }} />
-          </div>
-        </div>
-      )}
+      <ProfileCompletionBar />
 
       <ReferralBanner className="mb-1" />
 

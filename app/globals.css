@@ -2964,10 +2964,20 @@
     background: var(--neutral-0);
     color: var(--kwork-text);
   }
-  .chat-bubble-time {
+  .chat-bubble-meta {
     margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .chat-bubble-time {
     font-size: 10px;
     opacity: 0.75;
+  }
+  .chat-bubble-read {
+    display: inline-flex;
+    opacity: 0.85;
   }
   .chat-composer {
     display: flex;

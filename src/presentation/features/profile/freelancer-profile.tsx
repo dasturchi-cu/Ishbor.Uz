@@ -28,6 +28,7 @@ import { loginPath, registerPath } from '@/shared/lib/auth-redirect'
 import { toast } from '@/presentation/components/ui/toast'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
+import { PortfolioLightbox } from '@/presentation/components/ui/portfolio-lightbox'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
 import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
@@ -69,6 +70,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   const [contactHint, setContactHint] = useState(false)
   const [activeTab, setActiveTab] = useState<ProfileTab>('about')
   const [shareHint, setShareHint] = useState('')
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   useEffect(() => {
     api.recordProfileView(profileId).catch(() => undefined)
@@ -438,34 +440,47 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
               {activeTab === 'portfolio' && (
                 portfolioImages.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {portfolioImages.map((item, i) => {
-                      const img = (
-                        <img
-                          src={item.url}
-                          alt={item.title}
-                          className="aspect-square w-full object-cover transition group-hover:scale-105"
-                        />
-                      )
-                      return item.serviceId ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {portfolioImages.map((item, i) => (
                         <button
-                          key={`${item.serviceId}-${i}`}
+                          key={`${item.serviceId || 'portfolio'}-${i}`}
                           type="button"
-                          onClick={() => router.push(servicePath(item.serviceId))}
-                          className="group overflow-hidden rounded-lg border border-[var(--kwork-border)]"
+                          onClick={() => setLightboxIndex(i)}
+                          className="group relative overflow-hidden rounded-lg border border-[var(--kwork-border)] text-left"
                         >
-                          {img}
+                          <img
+                            src={item.url}
+                            alt={item.title}
+                            className="aspect-square w-full object-cover transition group-hover:scale-105"
+                          />
+                          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-2 text-[11px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+                            {item.title}
+                          </span>
                         </button>
-                      ) : (
-                        <div
-                          key={`portfolio-${i}`}
-                          className="group overflow-hidden rounded-lg border border-[var(--kwork-border)]"
-                        >
-                          {img}
-                        </div>
-                      )
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                    {lightboxIndex !== null && (
+                      <PortfolioLightbox
+                        items={portfolioImages}
+                        index={lightboxIndex}
+                        onClose={() => setLightboxIndex(null)}
+                        onPrev={() =>
+                          setLightboxIndex((idx) =>
+                            idx === null ? null : (idx - 1 + portfolioImages.length) % portfolioImages.length
+                          )
+                        }
+                        onNext={() =>
+                          setLightboxIndex((idx) =>
+                            idx === null ? null : (idx + 1) % portfolioImages.length
+                          )
+                        }
+                        closeAriaLabel={t('close')}
+                        openServiceLabel={t('portfolio_view_service')}
+                        onOpenService={(id) => router.push(servicePath(id))}
+                      />
+                    )}
+                  </>
                 ) : (
                   <p className="freelancer-profile-empty">{t('portfolio_empty')}</p>
                 )

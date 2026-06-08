@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
@@ -15,6 +15,7 @@ import { applyReadState, markAllNotifsRead, markNotifRead } from '@/shared/lib/n
 import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { PATHS } from '@/domain/constants/routes'
+import { useNotificationsRealtime } from '@/shared/lib/use-notifications-realtime'
 
 const TYPE_ICON = {
   order: ShoppingBag,
@@ -23,29 +24,37 @@ const TYPE_ICON = {
 } as const
 
 export function NotificationsPage() {
-  const { t, language } = useApp()
+  const { t, language, userId } = useApp()
   const router = useRouter()
   const [items, setItems] = useState<ApiNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
 
-  const loadNotifications = () => {
-    setLoading(true)
-    setLoadError(false)
+  const loadNotifications = useCallback((silent = false) => {
+    if (!silent) {
+      setLoading(true)
+      setLoadError(false)
+    }
     api
       .listNotifications()
       .then((data) => setItems(applyReadState(data)))
       .catch(() => {
-        setItems([])
-        setLoadError(true)
+        if (!silent) {
+          setItems([])
+          setLoadError(true)
+        }
       })
-      .finally(() => setLoading(false))
-  }
+      .finally(() => {
+        if (!silent) setLoading(false)
+      })
+  }, [])
+
+  useNotificationsRealtime(userId, () => loadNotifications(true))
 
   useEffect(() => {
     loadNotifications()
-  }, [])
+  }, [loadNotifications])
 
   const filtered = useMemo(
     () => (filter === 'unread' ? items.filter((n) => n.unread) : items),
@@ -107,7 +116,7 @@ export function NotificationsPage() {
         <Alert variant="error" className="mb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadNotifications}>
+            <Button variant="outline" size="sm" onClick={() => loadNotifications()}>
               {t('catalog_retry')}
             </Button>
           </div>
@@ -124,10 +133,16 @@ export function NotificationsPage() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-16 text-center">
             <Bell className="h-10 w-10 text-[var(--kwork-text-muted)]" />
-            <p className="text-[14px] text-[var(--kwork-text-muted)]">{t('notifications_empty')}</p>
-            <Button variant="primary" size="sm" onClick={() => router.push(PATHS.services)}>
-              {t('notifications_browse_cta')}
-            </Button>
+            <p className="text-[14px] text-[var(--kwork-text-muted)]">
+              {filter === 'unread' && items.length > 0
+                ? t('notifications_empty_unread')
+                : t('notifications_empty')}
+            </p>
+            {!(filter === 'unread' && items.length > 0) && (
+              <Button variant="primary" size="sm" onClick={() => router.push(PATHS.services)}>
+                {t('notifications_browse_cta')}
+              </Button>
+            )}
           </div>
         ) : (
           <ul className="divide-y divide-[var(--kwork-border)]">

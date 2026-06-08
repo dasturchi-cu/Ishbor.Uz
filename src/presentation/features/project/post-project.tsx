@@ -25,6 +25,7 @@ import { formatPrice } from '@/shared/lib/format'
 import { ensureProfileRole } from '@/shared/lib/ensure-profile-role'
 import { toast } from '@/presentation/components/ui/toast'
 import { SkeletonFormPanel } from '@/presentation/components/ui/skeleton'
+import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
 
 type UploadedFile = { url: string; name: string }
 
@@ -401,9 +402,20 @@ export function PostProject() {
           <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
             {step === 1 && (
               <div className="space-y-5">
-                <div className="feature-pill feature-pill-blue w-full justify-center py-3 sm:justify-start">
-                  <Zap className="h-4 w-4 shrink-0" />
-                  <span>{t('ai_assistant_hint')}</span>
+                <div className="flex flex-col gap-2 rounded-xl border border-[var(--color-primary)]/20 bg-[var(--color-primary-light)]/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 text-[13px] text-[var(--kwork-text-muted)]">
+                    <Zap className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                    <span>{t('ai_assistant_hint')}</span>
+                  </div>
+                  <AiSuggestButton
+                    kind="project_description"
+                    context={{
+                      title: formData.title,
+                      category: formData.category,
+                      skills: formData.skills,
+                    }}
+                    onApply={(text) => handleInputChange('description', text)}
+                  />
                 </div>
 
                 <Input
