@@ -113,9 +113,14 @@ export function PricingPage() {
         ))}
       </div>
 
-      <p className="mx-auto mt-8 max-w-[560px] text-center text-[13px] text-[var(--kwork-text-muted)]">
-        {t('wallet_payment_note')}
-      </p>
+      <div className="mx-auto mt-8 flex max-w-[560px] flex-col items-center gap-3 text-center">
+        <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('wallet_payment_note')}</p>
+        <Link href={PATHS.services}>
+          <Button variant="outline" size="sm">
+            {t('browse_services')}
+          </Button>
+        </Link>
+      </div>
     </PageWrapper>
   )
 }

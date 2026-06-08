@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Briefcase, Users } from 'lucide-react'
+import { ArrowLeft, Briefcase, Users } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { api } from '@/infrastructure/api/client'
 import { PATHS } from '@/domain/constants/routes'
 import { resolvePostAuthDestination } from '@/shared/lib/auth-redirect'
-import { AuthBrandPanel } from '@/presentation/components/auth/auth-brand-panel'
+import { AuthBrandPanel, AuthMobileTrust } from '@/presentation/components/auth/auth-brand-panel'
 import { toast } from '@/presentation/components/ui/toast'
 
 function RoleCard({
@@ -63,15 +63,23 @@ export function AuthRolePage() {
   return (
     <div className="auth-layout">
       <AuthBrandPanel />
+      <a href="#auth-role-form" className="skip-link">
+        {t('skip_to_content')}
+      </a>
       <div className="auth-page-panel">
         <div className="auth-page-inner max-w-[560px]">
+          <Link href={PATHS.home} className="auth-back-link show-mobile">
+            <ArrowLeft className="h-4 w-4" />
+            {t('nav_home')}
+          </Link>
           <div className="auth-page-brand">
             <Link href={PATHS.home} className="auth-page-brand__logo">
               <span className="auth-page-brand__mark" aria-hidden />
               ISH<span>BOR</span>
             </Link>
           </div>
-          <div className="auth-form-card">
+          <div id="auth-role-form" className="auth-form-card">
+            <AuthMobileTrust />
             <header className="auth-form-header">
               <h1>{t('register_role_title')}</h1>
               <p>{t('register_role_subtitle')}</p>

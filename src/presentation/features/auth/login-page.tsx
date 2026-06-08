@@ -208,7 +208,7 @@ function LoginPageContent() {
                   setError('')
                   setFieldErrors((prev) => ({ ...prev, password: undefined }))
                 }}
-                placeholder="••••••••"
+                placeholder={t('password_placeholder')}
                 leftIcon={<Lock className="h-4 w-4" />}
                 error={fieldErrors.password}
                 rightIcon={

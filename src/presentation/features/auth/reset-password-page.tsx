@@ -145,6 +145,7 @@ function ResetPasswordContent() {
                     setPassword(e.target.value)
                     setError('')
                   }}
+                  placeholder={t('password_placeholder')}
                 />
                 <Input
                   label={t('confirm_password')}
@@ -154,13 +155,21 @@ function ResetPasswordContent() {
                     setConfirm(e.target.value)
                     setError('')
                   }}
+                  placeholder={t('password_placeholder')}
                 />
+                <p className="text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">
+                  {t('reset_password_relogin_note')}
+                </p>
                 <Button type="submit" variant="primary" fullWidth size="lg" loading={loading}>
                   {t('update_password')}
                 </Button>
               </form>
             ) : (
-              !error && <p className="text-sm text-[var(--kwork-text-muted)]">...</p>
+              !error && (
+                <p className="text-sm text-[var(--kwork-text-muted)]" role="status">
+                  {t('auth_callback_loading')}
+                </p>
+              )
             )}
 
             <p className="auth-footer-link">

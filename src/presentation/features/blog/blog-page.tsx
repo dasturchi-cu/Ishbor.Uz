@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Button } from '@/presentation/components/ui/button'
 import { useApp } from '@/application/providers/app-provider'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
 import { PATHS } from '@/domain/constants/routes'
@@ -49,6 +50,12 @@ export function BlogPage() {
             </Link>
           </article>
         ))}
+      </div>
+
+      <div className="mt-8 text-center">
+        <Link href={PATHS.services}>
+          <Button variant="outline">{t('browse_services')}</Button>
+        </Link>
       </div>
     </PageWrapper>
   )

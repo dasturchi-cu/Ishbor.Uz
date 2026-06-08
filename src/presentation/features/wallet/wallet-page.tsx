@@ -165,12 +165,12 @@ export function WalletPage() {
                 formatPrice(currentUserRole === 'client' ? completed : balance)
               )}
             </p>
-            <p className="wallet-balance-escrow">
+            <div className="wallet-balance-escrow">
               <Shield className="h-3.5 w-3.5" />
               {t('escrow')} —{' '}
               {loading ? <Skeleton className="inline-block h-4 w-24 align-middle" /> : formatPrice(active + pending)}{' '}
               {currentUserRole === 'client' ? t('client_wallet_escrow_note') : t('protected_in_escrow')}
-            </p>
+            </div>
           </div>
           <div className="wallet-balance-actions">
             {currentUserRole === 'freelancer' && (
@@ -223,9 +223,9 @@ export function WalletPage() {
           <div className="wallet-stat-icon">
             <Lock />
           </div>
-          <p className="wallet-stat-value">
+          <div className="wallet-stat-value">
             {loading ? <Skeleton className="mx-auto h-7 w-28" /> : formatPrice(active + pending)}
-          </p>
+          </div>
           <p className="wallet-stat-label">{t('escrow_balance')}</p>
           <p className="wallet-stat-hint">{t('protected_orders')}</p>
         </div>
@@ -233,7 +233,9 @@ export function WalletPage() {
           <div className="wallet-stat-icon">
             <ArrowUpRight />
           </div>
-          <p className="wallet-stat-value">{loading ? '…' : String(activeCount)}</p>
+          <p className="wallet-stat-value">
+            {loading ? <Skeleton className="inline-block h-6 w-8" /> : String(activeCount)}
+          </p>
           <p className="wallet-stat-label">{t('active_orders')}</p>
         </div>
       </div>
@@ -246,7 +248,7 @@ export function WalletPage() {
               label={t('withdraw_amount_label')}
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value.replace(/\D/g, ''))}
-              placeholder="0"
+              placeholder={t('withdraw_amount_ph')}
             />
             <Input
               label={t('withdraw_note_label')}

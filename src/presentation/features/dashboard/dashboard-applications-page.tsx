@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Badge } from '@/presentation/components/ui/badge'
@@ -13,16 +14,27 @@ import { FileText } from 'lucide-react'
 
 export function DashboardApplicationsPage() {
   const { t } = useApp()
+  const router = useRouter()
   const [apps, setApps] = useState<ApiProjectApplication[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
-  useEffect(() => {
+  const loadApps = useCallback(() => {
+    setLoading(true)
+    setLoadError(false)
     api
       .listMyApplications()
       .then(setApps)
-      .catch(() => setApps([]))
+      .catch(() => {
+        setApps([])
+        setLoadError(true)
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadApps()
+  }, [loadApps])
 
   const statusLabel: Record<ApiProjectApplication['status'], string> = {
     submitted: t('application_status_submitted'),
@@ -40,6 +52,20 @@ export function DashboardApplicationsPage() {
 
   return (
     <div>
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-[var(--error)]/30 bg-[var(--error-bg)] px-4 py-3 text-[13px] text-[var(--error-dark)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <button
+              type="button"
+              className="font-semibold text-[var(--color-primary)] hover:underline"
+              onClick={loadApps}
+            >
+              {t('catalog_retry')}
+            </button>
+          </div>
+        </div>
+      )}
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
@@ -51,7 +77,12 @@ export function DashboardApplicationsPage() {
           icon={<FileText />}
           title={t('my_applications_empty')}
           description={t('my_applications_empty_desc')}
-          action={{ label: t('projects_title'), onClick: () => window.location.assign(PATHS.projects) }}
+          action={{ label: t('projects_title'), onClick: () => router.push(PATHS.projects) }}
+          secondaryAction={{
+            label: t('nav_freelancers'),
+            onClick: () => router.push(PATHS.freelancers),
+            variant: 'outline',
+          }}
         />
       ) : (
         <div className="space-y-3">

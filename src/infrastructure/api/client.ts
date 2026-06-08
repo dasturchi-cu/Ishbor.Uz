@@ -96,7 +96,7 @@ export async function apiFetch<T>(
     }
     if (e instanceof TypeError && e.message.toLowerCase().includes('fetch')) {
       throw new ApiError(
-        'Backend ishlamayapti. Terminalda backend ni ishga tushiring: cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8001',
+        'Backend ishlamayapti. Terminalda: pnpm dev:api (port 8002)',
         0
       )
     }

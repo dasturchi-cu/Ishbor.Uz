@@ -18,7 +18,8 @@ import { formatPrice } from '@/shared/lib/format'
 import { loginPath } from '@/shared/lib/auth-redirect'
 import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, Briefcase } from 'lucide-react'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { isProjectSaved, syncSavedProjectsFromApi, toggleSavedProject } from '@/shared/lib/saved-items'
 
 export function ProjectDetailPage({ projectId }: { projectId: string }) {
@@ -27,6 +28,8 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<ApiProject | null>(null)
   const [applications, setApplications] = useState<ApiProjectApplication[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [appsLoadError, setAppsLoadError] = useState(false)
   const [coverLetter, setCoverLetter] = useState('')
   const [proposedBudget, setProposedBudget] = useState('')
   const [proposedDays, setProposedDays] = useState('7')
@@ -37,16 +40,24 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const isOwner = Boolean(userId && project?.client_id === userId)
   const isFreelancer = currentUserRole === 'freelancer'
 
-  useEffect(() => {
+  const loadProject = () => {
     setLoading(true)
+    setLoadError(false)
     api
       .getProject(projectId)
       .then((p) => {
         setProject(p)
         setProposedBudget(String(p.budget))
       })
-      .catch(() => setProject(null))
+      .catch((e) => {
+        setProject(null)
+        setLoadError(!(e instanceof ApiError && e.status === 404))
+      })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadProject()
   }, [projectId])
 
   useEffect(() => {
@@ -56,10 +67,14 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     if (!isOwner || !project) return
+    setAppsLoadError(false)
     api
       .listProjectApplications(projectId)
       .then(setApplications)
-      .catch(() => setApplications([]))
+      .catch(() => {
+        setApplications([])
+        setAppsLoadError(true)
+      })
   }, [isOwner, project, projectId])
 
   const handleSave = async () => {
@@ -140,10 +155,34 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   if (!project) {
     return (
       <PageWrapper className="bg-[var(--kwork-bg)] pt-5">
-        <p className="text-[14px] text-[var(--kwork-text-muted)]">{t('project_not_found')}</p>
+        {loadError ? (
+          <Alert variant="error">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t('data_load_failed')}</span>
+              <Button variant="outline" size="sm" onClick={loadProject}>
+                {t('catalog_retry')}
+              </Button>
+            </div>
+          </Alert>
+        ) : (
+          <EmptyState
+            icon={<Briefcase />}
+            title={t('project_not_found')}
+            description={t('project_not_found_desc')}
+            action={{ label: t('nav_projects'), onClick: () => router.push(PATHS.projects) }}
+            secondaryAction={{
+              label: t('post_project'),
+              onClick: () => router.push(PATHS.postProject),
+              variant: 'outline',
+            }}
+          />
+        )}
       </PageWrapper>
     )
   }
+
+  const projectStatusLabel =
+    project.status === 'open' ? t('project_status_open') : project.status === 'closed' ? t('project_status_closed') : project.status
 
   return (
     <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
@@ -163,6 +202,9 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
               <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">
                 {project.region} · {project.category} · {project.level}
               </p>
+              <Badge variant={project.status === 'open' ? 'success' : 'outline'} size="xs" className="mt-2">
+                {projectStatusLabel}
+              </Badge>
             </div>
             <div className="flex items-center gap-2">
               {!isOwner && (
@@ -210,6 +252,26 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
           {isOwner ? (
             <div className="surface-panel p-5">
               <h2 className="settings-section-title mb-3">{t('project_applications_title')}</h2>
+              {appsLoadError && (
+                <Alert variant="error" className="mb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span>{t('data_load_failed')}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setAppsLoadError(false)
+                        api
+                          .listProjectApplications(projectId)
+                          .then(setApplications)
+                          .catch(() => setAppsLoadError(true))
+                      }}
+                    >
+                      {t('catalog_retry')}
+                    </Button>
+                  </div>
+                </Alert>
+              )}
               {applications.length === 0 ? (
                 <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('project_no_applications')}</p>
               ) : (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 import { Button } from '@/presentation/components/ui/button'
@@ -10,6 +11,7 @@ import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiTransaction } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
 import { Receipt } from 'lucide-react'
+import { PATHS } from '@/domain/constants/routes'
 import { Alert } from '@/presentation/components/ui/alert'
 import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
@@ -17,6 +19,7 @@ import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 
 export function DashboardPaymentsPage() {
   const { t, language } = useApp()
+  const router = useRouter()
   const role = useDashboardRole()
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [ledger, setLedger] = useState<ApiTransaction[]>([])
@@ -92,7 +95,13 @@ export function DashboardPaymentsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  toast.info(paymentsLive ? t('feature_coming_soon') : t('payment_provider_sandbox'))
+                  toast.info(
+                    paymentsLive
+                      ? t('payment_connect_live_soon')
+                      : method === 'Click'
+                        ? t('payment_click_soon')
+                        : t('payment_payme_soon')
+                  )
                 }
               >
                 {method === 'Click' ? t('connect_click') : t('connect_payme')}
@@ -100,13 +109,18 @@ export function DashboardPaymentsPage() {
             </div>
           ))}
         </div>
+        <p className="mt-3 text-[12px] text-[var(--kwork-text-muted)]">{t('payment_provider_sandbox')}</p>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
         {loading ? (
           <div className="h-32 animate-pulse bg-[var(--color-bg-muted)]" />
         ) : transactions.length === 0 ? (
-          <EmptyState icon={<Receipt />} title={t('no_orders_yet')} />
+          <EmptyState
+            icon={<Receipt />}
+            title={t('no_orders_yet')}
+            action={{ label: t('nav_orders'), onClick: () => router.push(PATHS.dashboardOrders) }}
+          />
         ) : (
           <>
           <div className="show-mobile divide-y divide-[var(--kwork-border)]">

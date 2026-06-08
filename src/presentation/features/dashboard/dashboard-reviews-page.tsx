@@ -23,15 +23,20 @@ export function DashboardReviewsPage() {
   const [reviews, setReviews] = useState<ApiReview[]>([])
   const [stats, setStats] = useState({ average: 0, count: 0 })
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [replyLoading, setReplyLoading] = useState(false)
 
-  useEffect(() => {
+  const loadReviews = () => {
     if (!userId) return
     setLoading(true)
+    setLoadError(false)
     Promise.all([
-      api.listFreelancerReviews(userId).catch(() => [] as ApiReview[]),
+      api.listFreelancerReviews(userId).catch(() => {
+        setLoadError(true)
+        return [] as ApiReview[]
+      }),
       api.getFreelancerReviewStats(userId).catch(() => ({ average: 0, count: 0 })),
     ])
       .then(([revs, st]) => {
@@ -39,6 +44,10 @@ export function DashboardReviewsPage() {
         setStats(st)
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadReviews()
   }, [userId])
 
   const filtered = reviews.filter((r) => {
@@ -59,6 +68,16 @@ export function DashboardReviewsPage() {
 
   return (
     <div>
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-[var(--error)]/30 bg-[var(--error-bg)] px-4 py-3 text-[13px] text-[var(--error-dark)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadReviews}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="mb-5 rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 sm:p-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="text-center sm:text-left">
@@ -73,7 +92,10 @@ export function DashboardReviewsPage() {
           <div className="flex-1 space-y-2">
             {bars.map((b) => (
               <div key={b.star} className="flex items-center gap-2 text-[12px]">
-                <span className="w-8">{b.star} ⭐</span>
+                <span className="flex w-8 items-center gap-0.5">
+                  {b.star}
+                  <Star className="h-3 w-3 fill-[var(--rating-filled)] text-[var(--rating-filled)]" aria-hidden />
+                </span>
                 <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--kwork-border)]">
                   <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${b.pct}%` }} />
                 </div>

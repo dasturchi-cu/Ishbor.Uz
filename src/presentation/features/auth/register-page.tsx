@@ -8,7 +8,7 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { Textarea } from '@/presentation/components/ui/textarea'
-import { Check, Briefcase, Users } from 'lucide-react'
+import { ArrowLeft, Check, Briefcase, Users } from 'lucide-react'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { api } from '@/infrastructure/api/client'
@@ -213,8 +213,15 @@ function RegisterPageContent() {
     return (
       <div className="auth-layout">
         <AuthBrandPanel />
+        <a href="#register-form" className="skip-link">
+          {t('skip_to_content')}
+        </a>
         <div className="auth-page-panel">
           <div className="auth-page-inner max-w-[560px]">
+            <Link href={PATHS.home} className="auth-back-link show-mobile">
+              <ArrowLeft className="h-4 w-4" />
+              {t('nav_home')}
+            </Link>
             <div className="auth-page-brand">
               <Link href={PATHS.home} className="auth-page-brand__logo">
                 <span className="auth-page-brand__mark" aria-hidden />
@@ -222,7 +229,8 @@ function RegisterPageContent() {
               </Link>
             </div>
 
-            <div className="auth-form-card">
+            <div id="register-form" className="auth-form-card">
+              <AuthMobileTrust />
               <header className="auth-form-header">
                 <span className="auth-step-badge">
                   {t('register_step_label').replace('{n}', '1').replace('{total}', '3')}
@@ -299,6 +307,10 @@ function RegisterPageContent() {
 
       <div className="auth-page-panel">
         <div className="auth-page-inner">
+          <Link href={PATHS.home} className="auth-back-link show-mobile">
+            <ArrowLeft className="h-4 w-4" />
+            {t('nav_home')}
+          </Link>
           <div className="auth-page-brand">
             <Link href={PATHS.home} className="auth-page-brand__logo">
               <span className="auth-page-brand__mark" aria-hidden />
@@ -345,6 +357,7 @@ function RegisterPageContent() {
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder={t('password_placeholder')}
                 error={errors.password}
               />
               {formData.password.length > 0 && (
@@ -369,6 +382,7 @@ function RegisterPageContent() {
                 type="password"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                placeholder={t('password_placeholder')}
                 error={errors.confirmPassword}
               />
               <label className="flex items-start gap-2 text-[13px] text-[var(--color-text-sub)]">
@@ -415,7 +429,7 @@ function RegisterPageContent() {
 
               {errors.submit && <Alert variant="error">{errors.submit}</Alert>}
 
-              {role === 'freelancer' ? (
+              {!successMessage && role === 'freelancer' ? (
                 <>
                   <div>
                     <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
@@ -425,6 +439,7 @@ function RegisterPageContent() {
                       value={formData.specialty}
                       onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
                       className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
+                      aria-invalid={Boolean(errors.specialty)}
                     >
                       <option value="">{t('select')}</option>
                       {KWORK_CATEGORY_ITEMS.map((item) => (
@@ -433,6 +448,9 @@ function RegisterPageContent() {
                         </option>
                       ))}
                     </select>
+                    {errors.specialty && (
+                      <p className="mt-1 text-[12px] text-[var(--error)]">{errors.specialty}</p>
+                    )}
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
@@ -442,12 +460,16 @@ function RegisterPageContent() {
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
+                      aria-invalid={Boolean(errors.city)}
                     >
                       <option value="">{t('select')}</option>
                       {cities.map((city) => (
                         <option key={city}>{city}</option>
                       ))}
                     </select>
+                    {errors.city && (
+                      <p className="mt-1 text-[12px] text-[var(--error)]">{errors.city}</p>
+                    )}
                   </div>
                   <Textarea
                     label={t('bio')}
@@ -456,7 +478,7 @@ function RegisterPageContent() {
                     placeholder={t('describe_yourself')}
                   />
                 </>
-              ) : (
+              ) : !successMessage ? (
                 <>
                   <Input
                     label={t('company_optional')}
@@ -472,16 +494,21 @@ function RegisterPageContent() {
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
+                      aria-invalid={Boolean(errors.city)}
                     >
                       <option value="">{t('select')}</option>
                       {cities.map((city) => (
                         <option key={city}>{city}</option>
                       ))}
                     </select>
+                    {errors.city && (
+                      <p className="mt-1 text-[12px] text-[var(--error)]">{errors.city}</p>
+                    )}
                   </div>
                 </>
-              )}
+              ) : null}
 
+              {!successMessage && (
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
                   {t('back')}
@@ -496,6 +523,7 @@ function RegisterPageContent() {
                   {t('sign_up')}
                 </Button>
               </div>
+              )}
             </>
           )}
 

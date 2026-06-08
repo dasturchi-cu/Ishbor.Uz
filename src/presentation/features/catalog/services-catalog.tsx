@@ -446,18 +446,18 @@ function ServicesCatalogContent() {
 
           <div className="catalog-main">
             <div className="catalog-toolbar-row">
-              <div className="catalog-results-meta">
-                <div className="catalog-toolbar min-w-0 flex-1">
-                  <SearchAutocomplete
-                    value={searchTerm}
-                    onChange={setSearchTerm}
-                    onSubmit={() => setDebouncedSearch(searchTerm.trim())}
-                    placeholder={t('search_services')}
-                    className="catalog-toolbar-search w-full"
-                    inputClassName="kwork-search-input"
-                    variant="header"
-                  />
-                </div>
+              <div className="catalog-toolbar-search-wrap">
+                <SearchAutocomplete
+                  value={searchTerm}
+                  onChange={setSearchTerm}
+                  onSubmit={() => setDebouncedSearch(searchTerm.trim())}
+                  placeholder={t('search_services')}
+                  className="w-full"
+                  variant="catalog"
+                />
+              </div>
+
+              <div className="catalog-toolbar-controls">
                 {isLoggedIn && debouncedSearch ? (
                   <p className="catalog-results-query">
                     {t('search_services')}: <strong>{debouncedSearch}</strong>
@@ -475,9 +475,7 @@ function ServicesCatalogContent() {
                     )}
                   </span>
                 )}
-              </div>
 
-              <div className="flex shrink-0 items-center gap-2">
                 <div className="catalog-view-toggle">
                   <button
                     type="button"
@@ -496,21 +494,8 @@ function ServicesCatalogContent() {
                     <List className="h-4 w-4" />
                   </button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="md"
-                  className="show-mobile h-[40px] shrink-0 px-3"
-                  onClick={() => setFilterOpen(true)}
-                  leftIcon={<SlidersHorizontal className="h-4 w-4" />}
-                >
-                  {t('filter')}
-                  {activeFilterCount > 0 && (
-                    <Badge variant="primary" className="ml-0.5">
-                      {activeFilterCount}
-                    </Badge>
-                  )}
-                </Button>
-                <div className="catalog-toolbar-sort min-w-[160px] max-w-[220px] shrink-0 flex-1 sm:flex-none">
+
+                <div className="catalog-toolbar-sort">
                   <span className="catalog-toolbar-sort-label">{t('sort_label')}</span>
                   <Select
                     value={sortBy}
@@ -521,10 +506,25 @@ function ServicesCatalogContent() {
                       { value: 'price-low', label: t('sort_price_asc') },
                       { value: 'price-high', label: t('sort_price_desc') },
                     ]}
-                    wrapperClassName="min-w-0 flex-1"
-                    className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+                    wrapperClassName="catalog-toolbar-sort__select"
+                    className="catalog-toolbar-sort__native"
                   />
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="md"
+                  className="show-mobile catalog-toolbar-filter-btn"
+                  onClick={() => setFilterOpen(true)}
+                  leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+                >
+                  {t('filter')}
+                  {activeFilterCount > 0 && (
+                    <Badge variant="primary" className="ml-0.5">
+                      {activeFilterCount}
+                    </Badge>
+                  )}
+                </Button>
               </div>
             </div>
 

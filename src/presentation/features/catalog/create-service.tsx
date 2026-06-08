@@ -216,7 +216,7 @@ export function CreateServicePage() {
               type="text"
               autoComplete="off"
               maxLength={TITLE_MAX}
-              placeholder={t('service_title')}
+              placeholder={t('service_title_ph')}
               value={form.title}
               onChange={(e) => handleTitleChange(e.target.value)}
               onPaste={handleTitlePaste}
@@ -252,7 +252,7 @@ export function CreateServicePage() {
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              placeholder="5"
+              placeholder={t('delivery_days_ph')}
               value={form.deliveryDays}
               onChange={(e) => updateField('deliveryDays', e.target.value.replace(/\D/g, '').slice(0, 3))}
             />
@@ -268,7 +268,7 @@ export function CreateServicePage() {
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              placeholder="500000"
+              placeholder={t('price_placeholder')}
               value={form.price}
               onChange={(e) => updateField('price', e.target.value.replace(/\D/g, '').slice(0, 10))}
               aria-invalid={Boolean(errors.price)}

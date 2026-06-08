@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Package, Pencil, Trash2 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -29,6 +30,7 @@ const CATEGORY_KEYS: Record<string, TranslationKey> = {
 
 export function DashboardServicesPage() {
   const { t } = useApp()
+  const router = useRouter()
   const [services, setServices] = useState<ApiService[]>([])
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -141,7 +143,7 @@ export function DashboardServicesPage() {
             icon={<Package />}
             title={t('no_services_dashboard')}
             description={t('no_services_dashboard_desc')}
-            action={{ label: t('first_service_btn'), onClick: () => window.location.assign(PATHS.dashboardServicesNew) }}
+            action={{ label: t('first_service_btn'), onClick: () => router.push(PATHS.dashboardServicesNew) }}
           />
         </div>
       ) : (

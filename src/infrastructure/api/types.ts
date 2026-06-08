@@ -172,6 +172,8 @@ export interface ApiOrder {
 
   created_at?: string
 
+  updated_at?: string
+
   services?: { title?: string; category?: string }
 
   client_profile?: { full_name?: string; region?: string }

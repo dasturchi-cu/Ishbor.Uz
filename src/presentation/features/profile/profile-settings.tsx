@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Bell, CreditCard, Globe, HelpCircle, Monitor, Plus, Shield, Trash2, User, UserCircle, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -137,6 +137,7 @@ function SettingsNav({
 export function ProfileSettings() {
   const { t, profile, refreshProfile, userId, currentUserRole, language, setLanguage, theme, setTheme } = useApp()
   const pathname = usePathname()
+  const router = useRouter()
   const inDashboard = pathname.startsWith('/dashboard')
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [saving, setSaving] = useState(false)
@@ -273,7 +274,7 @@ export function ProfileSettings() {
     if (enabled && typeof window !== 'undefined' && 'Notification' in window) {
       const perm = await Notification.requestPermission()
       if (perm !== 'granted') {
-        toast.info(t('feature_coming_soon'))
+        toast.info(t('notifications_permission_denied'))
         return
       }
     }
@@ -609,7 +610,7 @@ export function ProfileSettings() {
                         value={portfolioUrls}
                         onChange={(e) => setPortfolioUrls(e.target.value)}
                         rows={3}
-                        placeholder="https://..."
+                        placeholder={t('settings_url_placeholder')}
                       />
                     </div>
                   )}
@@ -671,7 +672,7 @@ export function ProfileSettings() {
                           type="password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="••••••••"
+                          placeholder={t('password_placeholder')}
                           className="catalog-control !h-[42px]"
                         />
                       </div>
@@ -681,7 +682,7 @@ export function ProfileSettings() {
                           type="password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="••••••••"
+                          placeholder={t('password_placeholder')}
                           className="catalog-control !h-[42px]"
                         />
                       </div>
@@ -701,7 +702,7 @@ export function ProfileSettings() {
                     variant="outline"
                     size="sm"
                     className="mt-4"
-                    onClick={() => toast.info(t('feature_coming_soon'))}
+                    onClick={() => toast.info(t('two_factor_soon'))}
                   >
                     {t('enable_2fa')}
                   </Button>
@@ -788,7 +789,7 @@ export function ProfileSettings() {
                               await api.deleteAccount()
                               const { getSupabase } = await import('@/infrastructure/supabase/client')
                               await getSupabase().auth.signOut()
-                              window.location.href = PATHS.home
+                              router.push(PATHS.home)
                             } catch {
                               toast.error(t('error_required'))
                               setDeleting(false)

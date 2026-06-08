@@ -8,6 +8,7 @@ import { api } from '@/infrastructure/api/client'
 import { PATHS } from '@/domain/constants/routes'
 import { resolvePostAuthDestination } from '@/shared/lib/auth-redirect'
 import { consumeReferralRef } from '@/shared/lib/referral'
+import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallback'
 
 function AuthCallbackContent() {
   const router = useRouter()
@@ -37,10 +38,7 @@ function AuthCallbackContent() {
           await api.applyReferral(ref).catch(() => {})
         }
 
-        const user = data.session.user
-        const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0
-        const isNewOAuth = createdMs > 0 && Date.now() - createdMs < 10 * 60 * 1000
-        const needsRole = isNewOAuth && !me?.onboarding_completed
+        const needsRole = !me?.onboarding_completed
 
         if (needsRole) {
           const qs = searchParams.toString()
@@ -77,13 +75,7 @@ function AuthCallbackContent() {
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)]">
-          <p className="text-sm text-[var(--kwork-text-muted)]">Kirish...</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthPageFallback />}>
       <AuthCallbackContent />
     </Suspense>
   )

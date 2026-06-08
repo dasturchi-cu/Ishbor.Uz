@@ -33,12 +33,6 @@ const HOW_STEPS: { num: string; titleKey: TranslationKey; descKey: TranslationKe
   { num: '03', titleKey: 'how_step3_title', descKey: 'how_step3_desc' },
 ]
 
-const TESTIMONIALS: { quoteKey: TranslationKey; authorKey: TranslationKey }[] = [
-  { quoteKey: 'landing_testimonial_1_quote', authorKey: 'landing_testimonial_1_author' },
-  { quoteKey: 'landing_testimonial_2_quote', authorKey: 'landing_testimonial_2_author' },
-  { quoteKey: 'landing_testimonial_3_quote', authorKey: 'landing_testimonial_3_author' },
-]
-
 const TRUST_ITEMS: { icon: LucideIcon; labelKey: TranslationKey }[] = [
   { icon: Shield, labelKey: 'trust_escrow' },
   { icon: CreditCard, labelKey: 'trust_item_pay' },
@@ -213,34 +207,64 @@ export function filterServicesByTab<T extends { category: string }>(
 
 type TestimonialCard = { quote: string; author: string; rating: number }
 
+const FALLBACK_TESTIMONIAL_KEYS = [
+  { quoteKey: 'landing_testimonial_1_quote' as TranslationKey, authorKey: 'landing_testimonial_1_author' as TranslationKey },
+  { quoteKey: 'landing_testimonial_2_quote' as TranslationKey, authorKey: 'landing_testimonial_2_author' as TranslationKey },
+  { quoteKey: 'landing_testimonial_3_quote' as TranslationKey, authorKey: 'landing_testimonial_3_author' as TranslationKey },
+] as const
+
 export function LandingTestimonials() {
   const { t } = useApp()
   const [items, setItems] = useState<TestimonialCard[]>([])
   const [ready, setReady] = useState(false)
+  const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
     api
       .listPublicReviews(3)
       .then((revs: ApiPublicReview[]) => {
+        if (revs.length > 0) {
+          setItems(
+            revs.map((r) => ({
+              quote: r.comment,
+              author: `${r.author_name}${r.author_role ? `, ${r.author_role}` : ''}`,
+              rating: r.rating,
+            }))
+          )
+          setIsDemo(false)
+        } else {
+          setItems(
+            FALLBACK_TESTIMONIAL_KEYS.map((k) => ({
+              quote: t(k.quoteKey),
+              author: t(k.authorKey),
+              rating: 5,
+            }))
+          )
+          setIsDemo(true)
+        }
+      })
+      .catch(() => {
         setItems(
-          revs.map((r) => ({
-            quote: r.comment,
-            author: `${r.author_name}${r.author_role ? `, ${r.author_role}` : ''}`,
-            rating: r.rating,
+          FALLBACK_TESTIMONIAL_KEYS.map((k) => ({
+            quote: t(k.quoteKey),
+            author: t(k.authorKey),
+            rating: 5,
           }))
         )
+        setIsDemo(true)
       })
-      .catch(() => setItems([]))
       .finally(() => setReady(true))
   }, [t])
 
   if (!ready) return null
-  if (items.length === 0) return null
 
   return (
     <section className="landing-testimonials-section">
       <div className="layout-container max-w-[1280px]">
         <h2 className="landing-section-heading">{t('clients_say')}</h2>
+        {isDemo && (
+          <p className="mb-4 text-center text-[12px] text-[var(--kwork-text-muted)]">{t('landing_testimonials_demo_note')}</p>
+        )}
         <div className="landing-testimonials-grid">
           {items.map((item, idx) => (
             <article key={idx} className="landing-testimonial-card">
@@ -279,7 +303,13 @@ export function LandingDarkTrust() {
               <span className="landing-dark-trust-icon">
                 <Icon className="h-5 w-5" />
               </span>
-              <span>{t(labelKey)}</span>
+              {labelKey === 'trust_item_support' || labelKey === 'trust_item_cert' ? (
+                <Link href={PATHS.help} className="hover:text-[var(--color-primary)] hover:underline">
+                  {t(labelKey)}
+                </Link>
+              ) : (
+                <span>{t(labelKey)}</span>
+              )}
             </li>
           ))}
         </ul>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
@@ -28,6 +29,7 @@ const CATEGORY_OPTIONS = [
 
 export function ProjectsCatalog() {
   const { t } = useApp()
+  const router = useRouter()
   const [projects, setProjects] = useState<ApiProject[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -128,7 +130,12 @@ export function ProjectsCatalog() {
           icon={<Briefcase />}
           title={t('no_projects_yet')}
           description={t('projects_subtitle')}
-          action={{ label: t('post_project'), onClick: () => window.location.assign(PATHS.postProject) }}
+          action={{ label: t('post_project'), onClick: () => router.push(PATHS.postProject) }}
+          secondaryAction={{
+            label: t('nav_freelancers'),
+            onClick: () => router.push(PATHS.freelancers),
+            variant: 'outline',
+          }}
         />
       ) : (
         <div className="space-y-3">

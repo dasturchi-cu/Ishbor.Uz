@@ -75,6 +75,7 @@ export function ClientDashboard() {
   const [freelancers, setFreelancers] = useState<ApiProfilePublic[]>([])
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null)
 
   const deliveredForReview = useMemo(
@@ -82,19 +83,39 @@ export function ClientDashboard() {
     [orders],
   )
 
-  useEffect(() => {
+  const loadDashboard = () => {
     setLoading(true)
+    setLoadError(false)
+    let failed = false
     Promise.all([
-      userId ? api.listProjects({ client_id: userId }).catch(() => [] as ApiProject[]) : Promise.resolve([]),
-      api.listFreelancers().catch(() => [] as ApiProfilePublic[]),
-      userId ? api.listOrders().catch(() => [] as ApiOrder[]) : Promise.resolve([]),
+      userId
+        ? api.listProjects({ client_id: userId }).catch(() => {
+            failed = true
+            return [] as ApiProject[]
+          })
+        : Promise.resolve([]),
+      api.listFreelancers().catch(() => {
+        failed = true
+        return [] as ApiProfilePublic[]
+      }),
+      userId
+        ? api.listOrders().catch(() => {
+            failed = true
+            return [] as ApiOrder[]
+          })
+        : Promise.resolve([]),
     ])
       .then(([projectsData, freelancersData, ordersData]) => {
         setProjects(projectsData)
         setFreelancers(freelancersData)
         setOrders(ordersData)
+        if (failed) setLoadError(true)
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadDashboard()
   }, [userId])
 
   const metrics = useMemo(() => {
@@ -144,6 +165,16 @@ export function ClientDashboard() {
 
   return (
     <div className="space-y-5 pb-2">
+      {loadError && (
+        <Alert variant="error">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadDashboard}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
       <div className="dashboard-welcome flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-primary)]">
@@ -206,6 +237,7 @@ export function ClientDashboard() {
         <StatCard icon={Clock} label={t('client_stat_in_progress')} value={metrics.inProgress} loading={loading} />
         <StatCard icon={Wallet} label={t('client_stat_total_spent')} value={metrics.totalSpent} loading={loading} />
       </div>
+      <p className="-mt-1 text-[11px] text-[var(--kwork-text-muted)]">{t('client_stat_spent_note')}</p>
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <DashboardPanel title={t('nav_orders')} action={postProjectBtn}>

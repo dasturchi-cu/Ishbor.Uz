@@ -129,7 +129,23 @@ export function DashboardOrdersPage() {
           icon={<ShoppingBag />}
           title={orders.length > 0 ? t('no_orders_match') : t('no_orders_yet')}
           description={orders.length === 0 ? t('no_orders_desc') : undefined}
-          action={orders.length === 0 ? { label: t('nav_services'), onClick: () => router.push(PATHS.services) } : undefined}
+          action={
+            orders.length === 0
+              ? {
+                  label: role === 'freelancer' ? t('btn_create_service') : t('post_project'),
+                  onClick: () => router.push(role === 'freelancer' ? PATHS.createService : PATHS.postProject),
+                }
+              : undefined
+          }
+          secondaryAction={
+            orders.length === 0
+              ? {
+                  label: t('nav_services'),
+                  onClick: () => router.push(PATHS.services),
+                  variant: 'outline',
+                }
+              : undefined
+          }
         />
       ) : (
         <div className="space-y-3">

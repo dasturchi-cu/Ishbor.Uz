@@ -13,6 +13,8 @@ import { api } from '@/infrastructure/api/client'
 import type { ApiProfilePublic } from '@/infrastructure/api/types'
 import { freelancerPath } from '@/domain/constants/routes'
 import { UZ_REGIONS } from '@/domain/constants/regions'
+import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
+import { PATHS } from '@/domain/constants/routes'
 
 export function FreelancersCatalog() {
   const { t } = useApp()
@@ -21,6 +23,7 @@ export function FreelancersCatalog() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [region, setRegion] = useState('')
+  const [specialty, setSpecialty] = useState('')
   const [sortBy, setSortBy] = useState<'rating' | 'reviews' | 'newest'>('rating')
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [offset, setOffset] = useState(0)
@@ -31,7 +34,7 @@ export function FreelancersCatalog() {
 
   useEffect(() => {
     setOffset(0)
-  }, [search, region, sortBy])
+  }, [search, region, specialty, sortBy])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -41,6 +44,7 @@ export function FreelancersCatalog() {
         .listFreelancers({
           q: search.trim() || undefined,
           region: region || undefined,
+          specialty: specialty || undefined,
           sort: sortBy,
           limit: pageSize,
           offset,
@@ -56,7 +60,7 @@ export function FreelancersCatalog() {
         .finally(() => setLoading(false))
     }, search ? 300 : 0)
     return () => clearTimeout(timer)
-  }, [search, region, offset, sortBy, reloadTick])
+  }, [search, region, specialty, offset, sortBy, reloadTick])
 
   const filtered = freelancers
 
@@ -172,6 +176,23 @@ export function FreelancersCatalog() {
                 aria-label={t('region')}
               />
             </div>
+            <div className="catalog-toolbar-sort min-w-0 flex-1">
+              <span className="catalog-toolbar-sort-label">{t('specialty')}</span>
+              <Select
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                options={[
+                  { value: '', label: t('filter_all_categories') },
+                  ...KWORK_CATEGORY_ITEMS.map((item) => ({
+                    value: item.cat,
+                    label: t(item.labelKey),
+                  })),
+                ]}
+                wrapperClassName="min-w-0 flex-1"
+                className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+                aria-label={t('specialty')}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -191,7 +212,13 @@ export function FreelancersCatalog() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Users />} title={t('no_freelancers_yet')} description={t('kwork_freelancers_sub')} />
+        <EmptyState
+          icon={<Users />}
+          title={t('no_freelancers_yet')}
+          description={t('kwork_freelancers_sub')}
+          action={{ label: t('browse_services'), onClick: () => router.push(PATHS.services) }}
+          secondaryAction={{ label: t('register'), onClick: () => router.push(PATHS.register), variant: 'outline' }}
+        />
       ) : (
         <div className="freelancer-grid">
           {filtered.map((f) => (

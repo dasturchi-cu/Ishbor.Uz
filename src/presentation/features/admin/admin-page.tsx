@@ -82,10 +82,22 @@ export function AdminPage() {
 
       if (withdrawalsRes.status === 'fulfilled') {
         setWithdrawals(withdrawalsRes.value)
+      } else {
+        failures.push(
+          withdrawalsRes.reason instanceof Error
+            ? withdrawalsRes.reason.message
+            : t('admin_load_withdrawals_failed')
+        )
       }
 
       if (servicesRes.status === 'fulfilled') {
         setServices(servicesRes.value)
+      } else {
+        failures.push(
+          servicesRes.reason instanceof Error
+            ? servicesRes.reason.message
+            : t('admin_load_services_failed')
+        )
       }
 
       if (failures.length > 0) {
@@ -169,9 +181,14 @@ export function AdminPage() {
             {t('admin_setup_sql_hint').replace('{email}', profile.email)}
           </p>
         )}
-        <Link href={dashboardPathForRole(currentUserRole)}>
-          <Button variant="outline">{t('nav_dashboard')}</Button>
-        </Link>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Link href={PATHS.home}>
+            <Button variant="outline">{t('nav_home')}</Button>
+          </Link>
+          <Link href={dashboardPathForRole(currentUserRole)}>
+            <Button variant="primary">{t('nav_dashboard')}</Button>
+          </Link>
+        </div>
       </div>
     )
   }

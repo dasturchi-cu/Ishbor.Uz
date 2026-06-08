@@ -21,15 +21,28 @@ export function DashboardProjectsPage() {
   const justPosted = searchParams.get('posted') === '1'
   const [projects, setProjects] = useState<ApiProject[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
-  useEffect(() => {
+  const loadProjects = () => {
     if (!userId) return
+    setLoading(true)
+    setLoadError(false)
     api
       .listProjects({ client_id: userId })
       .then(setProjects)
-      .catch(() => setProjects([]))
+      .catch(() => {
+        setProjects([])
+        setLoadError(true)
+      })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadProjects()
   }, [userId])
+
+  const projectStatusLabel = (status: string) =>
+    status === 'open' ? t('project_status_open') : status === 'closed' ? t('project_status_closed') : status
 
   return (
     <div>
@@ -49,17 +62,33 @@ export function DashboardProjectsPage() {
         </Button>
       </div>
 
+      {loadError && (
+        <Alert variant="error" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadProjects}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[0, 1].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
           ))}
         </div>
-      ) : projects.length === 0 ? (
+      ) : projects.length === 0 && !loadError ? (
         <EmptyState
           icon={<Briefcase />}
           title={t('no_projects_yet')}
           action={{ label: t('post_project'), onClick: () => router.push(PATHS.postProject) }}
+          secondaryAction={{
+            label: t('nav_freelancers'),
+            onClick: () => router.push(PATHS.freelancers),
+            variant: 'outline',
+          }}
         />
       ) : (
         <div className="space-y-3">
@@ -75,7 +104,7 @@ export function DashboardProjectsPage() {
                   </p>
                 </div>
                 <Badge variant={p.status === 'open' ? 'success' : 'outline'} size="xs">
-                  {p.status}
+                  {projectStatusLabel(p.status)}
                 </Badge>
               </div>
               <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">

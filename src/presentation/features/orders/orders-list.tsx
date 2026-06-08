@@ -10,6 +10,8 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
+import { Alert } from '@/presentation/components/ui/alert'
 import { ShoppingBag } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
 import type { ApiOrder } from '@/infrastructure/api/types'
@@ -46,6 +48,7 @@ export function OrdersList({ role }: { role: RoleView }) {
   const router = useRouter()
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null)
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
@@ -53,10 +56,14 @@ export function OrdersList({ role }: { role: RoleView }) {
 
   const load = () => {
     setLoading(true)
+    setLoadError(false)
     api
       .listOrders()
       .then(setOrders)
-      .catch(() => setOrders([]))
+      .catch(() => {
+        setOrders([])
+        setLoadError(true)
+      })
       .finally(() => setLoading(false))
   }
 
@@ -97,21 +104,37 @@ export function OrdersList({ role }: { role: RoleView }) {
     )
   }
 
-  if (orders.length === 0) {
+  if (!loadError && orders.length === 0) {
     return (
       <EmptyState
         icon={<ShoppingBag />}
         title={t('no_orders_yet')}
+        description={t('no_orders_desc')}
         action={{
-          label: t('browse_services'),
-          onClick: () => router.push(PATHS.services),
+          label: role === 'freelancer' ? t('nav_services') : t('post_project'),
+          onClick: () => router.push(role === 'freelancer' ? PATHS.services : PATHS.postProject),
         }}
+        secondaryAction={
+          role === 'client'
+            ? { label: t('nav_services'), onClick: () => router.push(PATHS.services), variant: 'outline' }
+            : undefined
+        }
       />
     )
   }
 
   return (
     <div className="space-y-4">
+      {loadError && (
+        <Alert variant="error">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={load}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
       {actionError && (
         <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{actionError}</p>
       )}
@@ -134,9 +157,15 @@ export function OrdersList({ role }: { role: RoleView }) {
                 <p className="text-sm text-[var(--color-text-sub)]">
                   {counterparty ?? '—'}
                 </p>
-                <div className="mt-1">
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   <OrderStatusBadge status={order.status} />
+                  <PaymentStatusBadge status={order.payment_status} />
                 </div>
+                {role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held' && (
+                  <Alert variant="info" className="mt-2 text-[12px]">
+                    {t('payment_waiting_freelancer')}
+                  </Alert>
+                )}
                 <div className="mt-2 h-2 w-full max-w-xs rounded-full bg-[var(--color-bg-muted)]">
                   <div
                     className="h-2 rounded-full bg-[var(--color-primary)]"

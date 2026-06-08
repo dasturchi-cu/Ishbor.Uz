@@ -155,6 +155,7 @@ export function LandingPage() {
   const [stats, setStats] = useState<ApiPublicStats>(EMPTY_STATS)
 
   const [loading, setLoading] = useState(true)
+  const [statsUnavailable, setStatsUnavailable] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -196,7 +197,10 @@ export function LandingPage() {
 
       .then(setStats)
 
-      .catch(() => setStats(EMPTY_STATS))
+      .catch(() => {
+        setStats(EMPTY_STATS)
+        setStatsUnavailable(true)
+      })
 
       .finally(() => setLoading(false))
 
@@ -403,6 +407,9 @@ export function LandingPage() {
 
 
           <LandingStatsRow stats={stats} />
+          {statsUnavailable && (
+            <p className="mt-2 text-center text-[11px] text-[var(--kwork-text-muted)]">{t('landing_stats_unavailable')}</p>
+          )}
 
         </div>
 
@@ -469,8 +476,8 @@ export function LandingPage() {
                 icon={<Search />}
                 title={t('no_services_yet')}
                 description={t('no_services_dashboard_desc')}
-                action={{ label: t('register'), onClick: () => router.push(PATHS.register) }}
-                secondaryAction={{ label: t('nav_services'), onClick: () => router.push(PATHS.services), variant: 'outline' }}
+                action={{ label: t('browse_services'), onClick: () => router.push(PATHS.services) }}
+                secondaryAction={{ label: t('register'), onClick: () => router.push(PATHS.register), variant: 'outline' }}
               />
             ) : (
 

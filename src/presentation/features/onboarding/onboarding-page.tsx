@@ -14,7 +14,7 @@ import { UZ_REGIONS } from '@/domain/constants/regions'
 import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
 import { POPULAR_SKILLS } from '@/domain/constants/skills'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
-import { api } from '@/infrastructure/api/client'
+import { api, ApiError } from '@/infrastructure/api/client'
 import { cn } from '@/shared/lib/utils'
 import { uploadAvatar } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
@@ -163,8 +163,9 @@ export function OnboardingPage() {
         languages: !isClient ? languages : undefined,
         onboarding_completed: true,
       })
-    } catch {
-      toast.error(t('onboarding_save_error'))
+    } catch (e) {
+      const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
+      toast.error(detail || t('onboarding_save_error'))
       return
     }
 
@@ -244,7 +245,7 @@ export function OnboardingPage() {
                 label={t('username')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="@username"
+                placeholder={t('username_ph')}
               />
               {usernameStatus === 'checking' && (
                 <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('username_checking')}</p>
@@ -415,7 +416,7 @@ export function OnboardingPage() {
               label={t('hourly_rate_label')}
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
-              placeholder="50 000"
+              placeholder={t('price_placeholder')}
             />
 
             {languages.map((row, i) => (

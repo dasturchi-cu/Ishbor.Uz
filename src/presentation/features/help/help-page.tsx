@@ -47,7 +47,7 @@ const BOTTOM_CATEGORIES: {
   iconClass: string
 }[] = [
   { id: 'account', labelKey: 'help_cat_account', icon: UserCircle, iconClass: 'text-[var(--color-primary)]' },
-  { id: 'payments', labelKey: 'help_cat_payments', icon: CreditCard, iconClass: 'text-[#EAB308]' },
+  { id: 'payments', labelKey: 'help_cat_payments', icon: CreditCard, iconClass: 'text-[var(--warning)]' },
 ]
 
 const HELP_ARTICLES: HelpArticle[] = [
@@ -128,6 +128,14 @@ export function HelpPage() {
 
   const handleSupportSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!formMessage.trim() || formMessage.trim().length < 10) {
+      toast.error(t('help_form_required'))
+      return
+    }
+    if (formEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formEmail.trim())) {
+      toast.error(t('help_form_email_invalid'))
+      return
+    }
     const subject = encodeURIComponent(
       t('help_support_subject').replace('{name}', formName.trim() || t('help_form_name'))
     )

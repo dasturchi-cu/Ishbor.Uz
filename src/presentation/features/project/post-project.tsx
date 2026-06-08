@@ -93,11 +93,11 @@ export function PostProject() {
 
   const validateStep1 = (): Record<string, string> => {
     const errs: Record<string, string> = {}
-    if (!formData.title.trim()) {
-      errs.title = formatFieldError(t, t('project_title'), 'required')
+    if (formData.title.trim().length < 3) {
+      errs.title = formatFieldError(t, t('project_title'), 'min', 3)
     }
     if (formData.description.trim().length < 10) {
-      errs.description = formatFieldError(t, t('project_description'), 'min')
+      errs.description = formatFieldError(t, t('project_description'), 'min', 10)
     }
     return errs
   }
@@ -125,14 +125,24 @@ export function PostProject() {
       budget,
     })
     if (!parsed.success) {
+      const fieldLabels: Record<string, string> = {
+        title: t('project_title'),
+        description: t('project_description'),
+        budget: t('budget_amount'),
+        category: t('category'),
+        region: t('city'),
+      }
       for (const issue of parsed.error.issues) {
-        const key = issue.path[0]
-        if (key === 'title' && !errs.title) errs.title = formatFieldError(t, t('project_title'), 'required')
-        if (key === 'description' && !errs.description) {
-          errs.description = formatFieldError(t, t('project_description'), 'min')
+        const key = String(issue.path[0] ?? '')
+        if (!key || errs[key]) continue
+        const label = fieldLabels[key] ?? key
+        if (issue.code === 'too_small' && key !== 'budget') {
+          errs[key] = formatFieldError(t, label, 'min', Number(issue.minimum))
+        } else if (issue.code === 'too_small') {
+          errs[key] = formatFieldError(t, label, 'required')
+        } else {
+          errs[key] = formatFieldError(t, label, 'required')
         }
-        if (key === 'budget' && !errs.budget) errs.budget = formatFieldError(t, t('budget_amount'), 'required')
-        if (key === 'category' && !errs.category) errs.category = formatFieldError(t, t('category'), 'required')
       }
     }
     return errs

@@ -242,12 +242,13 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         {role === 'freelancer' && order.status === 'active' && (
           <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
             <h3 className="text-[14px] font-bold">{t('deliver_work')}</h3>
+            <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('deliver_work_hint')}</p>
             <Textarea
               className="mt-3"
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder={t('type_message_ph')}
+              placeholder={t('deliver_notes_ph')}
             />
             <Button variant="primary" className="mt-4" loading={updating} onClick={handleStatus}>
               {t('mark_delivered')}

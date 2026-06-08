@@ -20,7 +20,7 @@ import {
   MessageCircle,
   Bookmark,
 } from 'lucide-react'
-import { api } from '@/infrastructure/api/client'
+import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiService, ApiReview } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
 import { dashboardOrderPath, freelancerPath, PATHS } from '@/domain/constants/routes'
@@ -37,6 +37,19 @@ import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 
+const SERVICE_INCLUDES: TranslationKey[] = [
+  'service_include_1',
+  'service_include_2',
+  'service_include_3',
+  'service_include_4',
+]
+
+const SERVICE_FAQ: { q: TranslationKey; a: TranslationKey }[] = [
+  { q: 'service_faq_1_q', a: 'service_faq_1_a' },
+  { q: 'service_faq_2_q', a: 'service_faq_2_a' },
+  { q: 'service_faq_3_q', a: 'service_faq_3_a' },
+]
+
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
   web: 'cat_web',
   mobile: 'cat_mobile',
@@ -52,6 +65,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const router = useRouter()
   const [service, setService] = useState<ApiService | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [ordering, setOrdering] = useState(false)
   const [error, setError] = useState('')
   const [activePackage, setActivePackage] = useState<'basic' | 'standard' | 'premium'>('basic')
@@ -67,12 +81,21 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   useFocusTrap(orderModalOpen, orderModalRef)
   useBodyScrollLock(orderModalOpen)
 
-  useEffect(() => {
+  const loadService = () => {
+    setLoading(true)
+    setLoadError(false)
     api
       .getService(serviceId)
       .then(setService)
-      .catch(() => setService(null))
+      .catch((e) => {
+        setService(null)
+        setLoadError(!(e instanceof ApiError && e.status === 404))
+      })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadService()
     api.recordServiceView(serviceId).catch(() => undefined)
   }, [serviceId])
 
@@ -199,16 +222,18 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   if (loading) {
     return (
       <PageWrapper>
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-6 animate-pulse">
-            <div className="aspect-[16/10] rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
-            <div className="h-8 w-2/3 rounded bg-[var(--color-bg-muted)]" />
-            <div className="h-4 w-1/2 rounded bg-[var(--color-bg-muted)]" />
-            <div className="h-32 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
-          </div>
-          <div className="hide-mobile space-y-4">
-            <div className="h-56 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
-            <div className="h-40 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-2/3 rounded bg-[var(--color-bg-muted)]" />
+          <div className="h-4 w-1/2 rounded bg-[var(--color-bg-muted)]" />
+          <div className="service-detail-layout">
+            <div className="space-y-4">
+              <div className="aspect-[16/10] rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+              <div className="h-32 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+            </div>
+            <div className="hide-mobile space-y-4">
+              <div className="h-56 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+              <div className="h-40 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+            </div>
           </div>
         </div>
       </PageWrapper>
@@ -218,12 +243,28 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   if (!service) {
     return (
       <PageWrapper>
-        <EmptyState
-          icon={<Shield />}
-          title={t('service_not_found_title')}
-          description={t('service_not_found_desc')}
-          action={{ label: t('nav_services'), onClick: () => router.push(PATHS.services) }}
-        />
+        {loadError ? (
+          <Alert variant="error">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t('data_load_failed')}</span>
+              <Button variant="outline" size="sm" onClick={loadService}>
+                {t('catalog_retry')}
+              </Button>
+            </div>
+          </Alert>
+        ) : (
+          <EmptyState
+            icon={<Shield />}
+            title={t('service_not_found_title')}
+            description={t('service_not_found_desc')}
+            action={{ label: t('nav_services'), onClick: () => router.push(PATHS.services) }}
+            secondaryAction={{
+              label: t('nav_freelancers'),
+              onClick: () => router.push(PATHS.freelancers),
+              variant: 'outline',
+            }}
+          />
+        )}
       </PageWrapper>
     )
   }
@@ -266,7 +307,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       />
       <PageWrapper className="service-detail-page">
         <Breadcrumb
-          className="mb-4"
+          className="mb-3"
           items={[
             { label: t('home'), href: PATHS.home },
             { label: t('nav_services'), href: PATHS.services },
@@ -274,21 +315,68 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
           ]}
         />
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
-          <div className="min-w-0 space-y-6">
+        <header className="service-detail-header">
+          <div className="service-detail-header__top">
+            <h1 className="service-detail-title">{service.title}</h1>
+            {isLoggedIn && currentUserRole === 'client' && (
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                className="service-detail-save"
+                aria-label={saved ? t('unsave') : t('save')}
+              >
+                <Bookmark className="h-4 w-4" fill={saved ? 'currentColor' : 'none'} />
+              </button>
+            )}
+          </div>
+          <div className="service-detail-meta">
+            {serviceReviews > 0 ? (
+              <button
+                type="button"
+                onClick={() => document.getElementById('service-reviews')?.scrollIntoView({ behavior: 'smooth' })}
+                className="service-detail-meta__item hover:opacity-80"
+              >
+                <RatingStars
+                  rating={serviceRating}
+                  showValue
+                  reviewCount={serviceReviews}
+                  reviewLabel={t('reviews_count_short')}
+                />
+              </button>
+            ) : (
+              <span className="service-detail-meta__badge">{t('badge_new_seller')}</span>
+            )}
+            {categoryKey && (
+              <span className="service-detail-meta__chip">{t(categoryKey)}</span>
+            )}
+            <span className="service-detail-meta__item">
+              <MapPin className="h-3.5 w-3.5" />
+              {service.region}
+            </span>
+            {deliveryDays != null && deliveryDays > 0 && (
+              <span className="service-detail-meta__item">
+                <Clock className="h-3.5 w-3.5" />
+                {t('service_delivery_days').replace('{n}', String(deliveryDays))}
+              </span>
+            )}
+          </div>
+        </header>
+
+        <div className="service-detail-layout">
+          <div className="service-detail-main min-w-0 space-y-6">
             <div className="service-gallery">
-              <div className="service-gallery-main relative aspect-[16/10] overflow-hidden rounded-[var(--r-card)] border border-[var(--kwork-border)] bg-gradient-to-br from-[var(--brand-50)] to-[var(--brand-100)]">
+              <div className="service-gallery-main relative aspect-[16/10] overflow-hidden">
                 {galleryItems[activeThumb] && 'url' in galleryItems[activeThumb] ? (
                   <Image
                     src={galleryItems[activeThumb].url}
                     alt={service.title}
                     fill
-                    sizes="(max-width: 1024px) 100vw, 640px"
-                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 720px"
+                    className="object-contain"
                     priority
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-[48px] font-bold text-[var(--color-primary)]/25">
+                  <div className="service-gallery-placeholder">
                     {galleryItems[activeThumb] && 'ch' in galleryItems[activeThumb]
                       ? galleryItems[activeThumb].ch
                       : service.title.charAt(0).toUpperCase()}
@@ -331,65 +419,15 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                         activePackage === pkg.id && 'service-package-tab--active'
                       )}
                     >
-                      {t(pkg.labelKey)}
+                      <span>{t(pkg.labelKey)}</span>
+                      <span className="service-package-tab__price">{formatPrice(pkg.price)}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            <div>
-              <div className="flex items-start justify-between gap-3">
-                <h1 className="text-[22px] font-bold leading-snug text-[var(--kwork-text)] md:text-[28px]">
-                  {service.title}
-                </h1>
-                {isLoggedIn && currentUserRole === 'client' && (
-                  <button
-                    type="button"
-                    onClick={handleToggleSave}
-                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-[var(--kwork-border)] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]"
-                    aria-label={saved ? t('unsave') : t('save')}
-                  >
-                    <Bookmark className="h-4 w-4" fill={saved ? 'currentColor' : 'none'} />
-                  </button>
-                )}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-4 text-[13px] text-[var(--kwork-text-muted)]">
-                {serviceReviews > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('service-reviews')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="hover:opacity-80"
-                  >
-                    <RatingStars
-                      rating={serviceRating}
-                      showValue
-                      reviewCount={serviceReviews}
-                      reviewLabel={t('reviews_count_short')}
-                    />
-                  </button>
-                ) : (
-                  <span className="text-[var(--kwork-text-muted)]">{t('no_reviews_yet')}</span>
-                )}
-                {categoryKey && (
-                  <span className="rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 font-medium text-[var(--color-primary)]">
-                    {t(categoryKey)}
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {service.region}
-                </span>
-                {deliveryDays != null && deliveryDays > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {t('service_delivery_days').replace('{n}', String(deliveryDays))}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <section className="kwork-card p-5">
+            <section className="service-detail-section">
               <h2 className="mb-3 text-[16px] font-semibold text-[var(--kwork-text)]">
                 {t('service_description')}
               </h2>
@@ -398,9 +436,22 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               </p>
             </section>
 
-            {reviews.length > 0 && (
-              <section id="service-reviews" className="kwork-card p-5">
-                <h2 className="mb-4 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_reviews_title')}</h2>
+            <section className="service-detail-section">
+              <h2 className="mb-2 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_what_included')}</h2>
+              <p className="mb-4 text-[12px] text-[var(--kwork-text-muted)]">{t('service_includes_general_note')}</p>
+              <ul className="space-y-2">
+                {SERVICE_INCLUDES.map((key) => (
+                  <li key={key} className="flex items-start gap-2 text-[13px] text-[var(--kwork-text-sub)]">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" aria-hidden />
+                    {t(key)}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section id="service-reviews" className="service-detail-section">
+              <h2 className="mb-4 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_reviews_title')}</h2>
+              {reviews.length > 0 ? (
                 <div className="space-y-4">
                   {reviews.slice(0, 6).map((r) => (
                     <div key={r.id} className="border-b border-[var(--kwork-border)] pb-4 last:border-0 last:pb-0">
@@ -412,8 +463,23 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                     </div>
                   ))}
                 </div>
-              </section>
-            )}
+              ) : (
+                <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('service_reviews_empty_desc')}</p>
+              )}
+            </section>
+
+            <section className="service-detail-section">
+              <h2 className="mb-2 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_faq')}</h2>
+              <p className="mb-4 text-[12px] text-[var(--kwork-text-muted)]">{t('service_faq_general_note')}</p>
+              <dl className="space-y-4">
+                {SERVICE_FAQ.map((item) => (
+                  <div key={item.q}>
+                    <dt className="text-[14px] font-semibold text-[var(--kwork-text)]">{t(item.q)}</dt>
+                    <dd className="mt-1 text-[13px] leading-relaxed text-[var(--kwork-text-muted)]">{t(item.a)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
 
             <div className="show-mobile">
               <div className="service-seller-card">
@@ -453,56 +519,79 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                     </Button>
                   </div>
                 )}
+                {!isLoggedIn && !isOwnService && (
+                  <div className="service-seller-contact space-y-2">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      className="min-h-11 w-full"
+                      onClick={() => router.push(loginPath(`/services/${serviceId}`))}
+                    >
+                      {t('login')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="md"
+                      className="min-h-11 w-full"
+                      onClick={() => router.push(PATHS.register)}
+                    >
+                      {t('register')}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <aside className="service-sidebar-sticky hide-mobile space-y-4">
-            <div className="kwork-card service-order-card p-5">
+          <aside className="service-sidebar-sticky hide-mobile">
+            <div className="service-order-card">
               {packages.length > 1 && (
-              <div className="service-package-tabs">
-                {packages.map((pkg) => (
-                  <button
-                    key={pkg.id}
-                    type="button"
-                    onClick={() => setActivePackage(pkg.id)}
-                    className={cn(
-                      'service-package-tab',
-                      activePackage === pkg.id && 'service-package-tab--active'
-                    )}
-                  >
-                    {t(pkg.labelKey)}
-                  </button>
-                ))}
-              </div>
+                <div className="service-package-tabs">
+                  {packages.map((pkg) => (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => setActivePackage(pkg.id)}
+                      className={cn(
+                        'service-package-tab',
+                        activePackage === pkg.id && 'service-package-tab--active'
+                      )}
+                    >
+                      <span>{t(pkg.labelKey)}</span>
+                      <span className="service-package-tab__price">{formatPrice(pkg.price)}</span>
+                    </button>
+                  ))}
+                </div>
               )}
-              <p className={cn('text-[13px] text-[var(--kwork-text-muted)]', packages.length > 1 ? 'mt-4' : '')}>{t('starting_at')}</p>
-              <p className="service-price-lg mt-1">
-                {formatPrice(selectedPackage?.price ?? service.price)}
-              </p>
-              {(selectedPackage?.days ?? deliveryDays) != null &&
-                (selectedPackage?.days ?? deliveryDays)! > 0 && (
-                  <p className="mt-2 flex items-center gap-1.5 text-[13px] text-[var(--kwork-text-muted)]">
-                    <Clock className="h-3.5 w-3.5" />
-                    {t('service_delivery_days').replace(
-                      '{n}',
-                      String(selectedPackage?.days ?? deliveryDays)
-                    )}
-                  </p>
+              <div className="service-order-card__body">
+                <p className="service-order-card__label">{t('starting_at')}</p>
+                <p className="service-price-lg">
+                  {formatPrice(selectedPackage?.price ?? service.price)}
+                </p>
+                {(selectedPackage?.days ?? deliveryDays) != null &&
+                  (selectedPackage?.days ?? deliveryDays)! > 0 && (
+                    <p className="service-order-card__delivery">
+                      <Clock className="h-4 w-4" />
+                      {t('service_delivery_days').replace(
+                        '{n}',
+                        String(selectedPackage?.days ?? deliveryDays)
+                      )}
+                    </p>
+                  )}
+
+                {error && (
+                  <Alert variant="error" className="mt-3">
+                    {error}
+                  </Alert>
                 )}
 
-              {error && (
-                <Alert variant="error" className="mt-3">
-                  {error}
-                </Alert>
-              )}
+                {!isOwnService && <div className="service-order-card__cta">{orderButton}</div>}
 
-              {!isOwnService && <div className="mt-4">{orderButton}</div>}
-
-              <Alert variant="info" className="mt-4 flex items-center gap-2 text-[12px]">
-                <Shield className="h-4 w-4 shrink-0" aria-hidden />
-                <span>{t('escrow_after_payment')}</span>
-              </Alert>
+                <div className="service-escrow-banner">
+                  <Shield className="h-4 w-4 shrink-0" aria-hidden />
+                  <span>{t('escrow_after_payment')}</span>
+                </div>
+              </div>
             </div>
 
             <div className="service-seller-card">
@@ -549,14 +638,36 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   </Button>
                 </div>
               )}
+              {!isLoggedIn && !isOwnService && (
+                <div className="service-seller-contact space-y-2">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="min-h-11 w-full"
+                    onClick={() => router.push(loginPath(`/services/${serviceId}`))}
+                  >
+                    {t('login')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    className="min-h-11 w-full"
+                    onClick={() => router.push(PATHS.register)}
+                  >
+                    {t('register')}
+                  </Button>
+                </div>
+              )}
             </div>
           </aside>
         </div>
 
         {related.length > 0 && (
-          <section className="mt-10">
-            <h2 className="mb-4 text-[16px] font-semibold text-[var(--kwork-text)]">{t('related_services_title')}</h2>
-            <div className="kwork-grid">
+          <section className="related-services-section">
+            <div className="related-services-section__head">
+              <h2 className="related-services-section__title">{t('related_services_title')}</h2>
+            </div>
+            <div className="related-services-grid">
               {related.map((svc) => (
                 <ServiceCard
                   key={svc.id}
@@ -567,6 +678,8 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   reviewCount={svc.profiles?.review_count ?? 0}
                   price={svc.price}
                   category={svc.category}
+                  thumbnailUrl={svc.image_urls?.[0]}
+                  deliveryDays={svc.delivery_days}
                   onClick={() => router.push(`/services/${svc.id}`)}
                 />
               ))}

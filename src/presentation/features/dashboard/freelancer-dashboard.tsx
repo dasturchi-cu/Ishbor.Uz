@@ -54,6 +54,10 @@ function isThisMonth(dateStr?: string): boolean {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
 }
 
+function orderEarningsDate(order: ApiOrder): string | undefined {
+  return order.updated_at ?? order.created_at
+}
+
 function isLastMonth(dateStr?: string): boolean {
   if (!dateStr) return false
   const d = new Date(dateStr)
@@ -150,6 +154,7 @@ export function FreelancerDashboard() {
   const [services, setServices] = useState<ApiService[]>([])
   const [reviewStats, setReviewStats] = useState({ average: 0, count: 0 })
   const [showCreatedBanner, setShowCreatedBanner] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('created') === '1') {
@@ -165,16 +170,25 @@ export function FreelancerDashboard() {
     }
 
     setLoading(true)
+    setLoadError(false)
+    let failed = false
     Promise.all([
-      api.listOrders().catch(() => [] as ApiOrder[]),
+      api.listOrders().catch(() => {
+        failed = true
+        return [] as ApiOrder[]
+      }),
       api.getFreelancerReviewStats(userId).catch(() => ({ average: 0, count: 0 })),
-      api.listMyServices().catch(() => [] as ApiService[]),
+      api.listMyServices().catch(() => {
+        failed = true
+        return [] as ApiService[]
+      }),
       refreshProfile().catch(() => undefined),
     ])
       .then(([ordersData, stats, servicesData]) => {
         setOrders(ordersData)
         setReviewStats(stats)
         setServices(servicesData)
+        if (failed) setLoadError(true)
       })
       .finally(() => setLoading(false))
   }, [userId])
@@ -183,10 +197,10 @@ export function FreelancerDashboard() {
     const completed = orders.filter((o) => o.status === 'completed')
     const active = orders.filter((o) => ACTIVE_STATUSES.has(o.status))
     const monthlyEarnings = completed
-      .filter((o) => isThisMonth(o.created_at))
+      .filter((o) => isThisMonth(orderEarningsDate(o)))
       .reduce((sum, o) => sum + o.amount, 0)
     const lastMonthEarnings = completed
-      .filter((o) => isLastMonth(o.created_at))
+      .filter((o) => isLastMonth(orderEarningsDate(o)))
       .reduce((sum, o) => sum + o.amount, 0)
     const earningsPct =
       lastMonthEarnings > 0
@@ -265,8 +279,44 @@ export function FreelancerDashboard() {
     </Link>
   )
 
+  const reloadDashboard = () => {
+    if (!userId) return
+    setLoading(true)
+    setLoadError(false)
+    let failed = false
+    Promise.all([
+      api.listOrders().catch(() => {
+        failed = true
+        return [] as ApiOrder[]
+      }),
+      api.getFreelancerReviewStats(userId).catch(() => ({ average: 0, count: 0 })),
+      api.listMyServices().catch(() => {
+        failed = true
+        return [] as ApiService[]
+      }),
+      refreshProfile().catch(() => undefined),
+    ])
+      .then(([ordersData, stats, servicesData]) => {
+        setOrders(ordersData)
+        setReviewStats(stats)
+        setServices(servicesData)
+        if (failed) setLoadError(true)
+      })
+      .finally(() => setLoading(false))
+  }
+
   return (
     <div className="space-y-5 pb-2">
+      {loadError && (
+        <Alert variant="error">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={reloadDashboard}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
       {showCreatedBanner && (
         <Alert variant="success">{t('service_created')}</Alert>
       )}
@@ -518,9 +568,9 @@ export function FreelancerDashboard() {
                 <h2 className="text-[16px] font-semibold">{t('wallet')}</h2>
               </div>
               <p className="text-[12px] text-white/75">{t('wallet_balance_label')}</p>
-              <p className="mt-1 text-[28px] font-bold tabular-nums tracking-tight">
+              <div className="mt-1 text-[28px] font-bold tabular-nums tracking-tight">
                 {loading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatPrice(metrics.walletTotal)}
-              </p>
+              </div>
               <p className="mt-1 text-[12px] text-white/70">{t('wallet_balance_hint')}</p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <Link href={PATHS.dashboardWallet} className="flex-1">

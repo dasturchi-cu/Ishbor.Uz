@@ -19,16 +19,16 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { RatingStars } from '@/presentation/components/ui/rating-stars'
 import { ServiceCard } from '@/presentation/components/features/service-card'
-import { api } from '@/infrastructure/api/client'
+import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiProfilePublic, ApiReview, ApiService } from '@/infrastructure/api/types'
 import { PATHS, servicePath } from '@/domain/constants/routes'
 import { loginPath } from '@/shared/lib/auth-redirect'
+import { toast } from '@/presentation/components/ui/toast'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
 import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
-import { toast } from '@/presentation/components/ui/toast'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { UserX } from 'lucide-react'
 import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
@@ -61,6 +61,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   const [services, setServices] = useState<ApiService[]>([])
   const [reviews, setReviews] = useState<ApiReview[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [favorite, setFavorite] = useState(false)
   const [contactHint, setContactHint] = useState(false)
   const [activeTab, setActiveTab] = useState<ProfileTab>('about')
@@ -70,7 +71,9 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
     api.recordProfileView(profileId).catch(() => undefined)
   }, [profileId])
 
-  useEffect(() => {
+  const loadProfile = () => {
+    setLoading(true)
+    setLoadError(false)
     Promise.all([
       api.getProfileById(profileId),
       api.listFreelancerServices(profileId),
@@ -81,8 +84,15 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
         setServices(s)
         setReviews(r)
       })
-      .catch(() => setProfile(null))
+      .catch((e) => {
+        setProfile(null)
+        setLoadError(!(e instanceof ApiError && e.status === 404))
+      })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadProfile()
   }, [profileId])
 
   useEffect(() => {
@@ -142,12 +152,23 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   if (!profile) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16">
-        <EmptyState
-          icon={<UserX />}
-          title={t('profile_not_found_title')}
-          description={t('profile_not_found_desc')}
-          action={{ label: t('nav_freelancers'), onClick: () => router.push(PATHS.freelancers) }}
-        />
+        {loadError ? (
+          <Alert variant="error">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t('data_load_failed')}</span>
+              <Button variant="outline" size="sm" onClick={loadProfile}>
+                {t('catalog_retry')}
+              </Button>
+            </div>
+          </Alert>
+        ) : (
+          <EmptyState
+            icon={<UserX />}
+            title={t('profile_not_found_title')}
+            description={t('profile_not_found_desc')}
+            action={{ label: t('nav_freelancers'), onClick: () => router.push(PATHS.freelancers) }}
+          />
+        )}
       </div>
     )
   }
@@ -155,7 +176,9 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   const name = profile.full_name ?? t('freelancer')
   const isOwnProfile = userId === profileId
   const memberYears = yearsOnPlatform(profile.created_at)
-  const locationLabel = profile.region ? `${profile.region}, O'zbekiston` : "O'zbekiston"
+  const locationLabel = profile.region
+    ? t('profile_location_format').replace('{region}', profile.region)
+    : t('country_uzbekistan')
   const bioText = profile.bio?.trim()
 
   const portfolioImages = useMemo(() => {
@@ -276,14 +299,22 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                         {t('send_message')}
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="md"
-                      leftIcon={<Bookmark className="h-4 w-4" fill={favorite ? 'currentColor' : 'none'} />}
-                      onClick={() => toggleSavedFreelancer(profileId).then(setFavorite)}
-                    >
-                      {t('profile_favorite')}
-                    </Button>
+                    {isLoggedIn && (
+                      <Button
+                        variant="outline"
+                        size="md"
+                        leftIcon={<Bookmark className="h-4 w-4" fill={favorite ? 'currentColor' : 'none'} />}
+                        onClick={() => {
+                          if (currentUserRole !== 'client') {
+                            toast.info(t('client_only_saved'))
+                            return
+                          }
+                          toggleSavedFreelancer(profileId).then(setFavorite)
+                        }}
+                      >
+                        {t('profile_favorite')}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="icon"

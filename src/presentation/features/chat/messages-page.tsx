@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { ArrowLeft, BellOff, ExternalLink, Paperclip, Search, Send } from 'lucide-react'
@@ -19,6 +19,7 @@ import type { Language } from '@/infrastructure/i18n'
 import { Skeleton, SkeletonAvatar } from '@/presentation/components/ui/skeleton'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { Button } from '@/presentation/components/ui/button'
+import { Alert } from '@/presentation/components/ui/alert'
 import { dashboardOrderPath, PATHS } from '@/domain/constants/routes'
 
 function orderToConversation(order: ApiOrder, userId: string, orderTitleFallback: string): ApiConversation {
@@ -109,6 +110,7 @@ function ChatEmptyState({
 
 export function MessagesPage() {
   const { t, userId, language } = useApp()
+  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const orderFromUrl = searchParams.get('order')
@@ -124,7 +126,9 @@ export function MessagesPage() {
   const [attachLoading, setAttachLoading] = useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
+  const [inboxLoadError, setInboxLoadError] = useState(false)
   const [messagesLoading, setMessagesLoading] = useState(false)
+  const [messagesLoadError, setMessagesLoadError] = useState(false)
   const [sendLoading, setSendLoading] = useState(false)
   const [unreadOnly, setUnreadOnly] = useState(false)
 
@@ -146,9 +150,16 @@ export function MessagesPage() {
 
   const refreshConversations = useCallback(() => {
     if (!userId) return
+    setInboxLoadError(false)
     Promise.all([
-      api.listConversations().catch(() => [] as ApiConversation[]),
-      api.listOrders().catch(() => [] as ApiOrder[]),
+      api.listConversations().catch(() => {
+        setInboxLoadError(true)
+        return [] as ApiConversation[]
+      }),
+      api.listOrders().catch(() => {
+        setInboxLoadError(true)
+        return [] as ApiOrder[]
+      }),
     ]).then(([convs, orders]) => {
       setConversations(mergeConversations(convs, orders, userId, t('order_title_fallback')))
     })
@@ -161,9 +172,16 @@ export function MessagesPage() {
     }
 
     setLoading(true)
+    setInboxLoadError(false)
     Promise.all([
-      api.listConversations().catch(() => [] as ApiConversation[]),
-      api.listOrders().catch(() => [] as ApiOrder[]),
+      api.listConversations().catch(() => {
+        setInboxLoadError(true)
+        return [] as ApiConversation[]
+      }),
+      api.listOrders().catch(() => {
+        setInboxLoadError(true)
+        return [] as ApiOrder[]
+      }),
     ])
       .then(([convs, orders]) => {
         const merged = mergeConversations(convs, orders, userId, t('order_title_fallback'))
@@ -189,17 +207,21 @@ export function MessagesPage() {
   useEffect(() => {
     if (!selectedOrderId) return
     setMessagesLoading(true)
+    setMessagesLoadError(false)
     api
       .listMessages(selectedOrderId)
       .then(setMessages)
-      .catch(() => setMessages([]))
+      .catch(() => {
+        setMessages([])
+        setMessagesLoadError(true)
+      })
       .finally(() => setMessagesLoading(false))
   }, [selectedOrderId])
 
   const handleAttach = async (file: File) => {
     if (!selectedOrderId || !userId || !active) return
     if (!isSupabaseConfigured()) {
-      toast.info(t('feature_coming_soon'))
+      toast.error(t('auth_supabase_not_configured'))
       return
     }
     setAttachLoading(true)
@@ -308,6 +330,17 @@ export function MessagesPage() {
           </div>
         </div>
 
+        {inboxLoadError && !loading && (
+          <Alert variant="error" className="mx-2 mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t('data_load_failed')}</span>
+              <Button variant="outline" size="sm" onClick={refreshConversations}>
+                {t('catalog_retry')}
+              </Button>
+            </div>
+          </Alert>
+        )}
+
         <div className="chat-list">
           {loading && (
             <div className="space-y-2 p-2" role="status" aria-live="polite">
@@ -322,12 +355,18 @@ export function MessagesPage() {
               ))}
             </div>
           )}
-          {!loading && filtered.length === 0 && (
+          {!loading && !inboxLoadError && filtered.length === 0 && (
             <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
               <p className="chat-list-empty">{t('messages_no_conversations')}</p>
-              <Button variant="outline" size="sm" onClick={() => window.location.assign(PATHS.services)}>
-                {t('messages_browse_cta')}
-              </Button>
+              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('messages_empty_hint')}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => router.push(PATHS.services)}>
+                  {t('messages_browse_cta')}
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => router.push(PATHS.dashboardOrders)}>
+                  {t('nav_orders')}
+                </Button>
+              </div>
             </div>
           )}
           {filtered.map((conv) => (
@@ -404,7 +443,35 @@ export function MessagesPage() {
                   ))}
                 </div>
               )}
-              {!messagesLoading && messages.length === 0 && (
+              {!messagesLoading && messagesLoadError && (
+                <div className="p-4">
+                  <Alert variant="error">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span>{t('data_load_failed')}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!selectedOrderId) return
+                          setMessagesLoading(true)
+                          setMessagesLoadError(false)
+                          api
+                            .listMessages(selectedOrderId)
+                            .then(setMessages)
+                            .catch(() => {
+                              setMessages([])
+                              setMessagesLoadError(true)
+                            })
+                            .finally(() => setMessagesLoading(false))
+                        }}
+                      >
+                        {t('catalog_retry')}
+                      </Button>
+                    </div>
+                  </Alert>
+                </div>
+              )}
+              {!messagesLoading && !messagesLoadError && messages.length === 0 && (
                 <ChatEmptyState text={t('messages_no_messages_yet')} />
               )}
               {!messagesLoading && messages.map((msg, idx) => {

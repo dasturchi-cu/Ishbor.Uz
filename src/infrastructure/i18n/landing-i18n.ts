@@ -28,6 +28,7 @@ export const landingI18nUz = {
   landing_testimonial_3_quote:
     "Web sayt loyihasini tez va sifatli topshirdilar. Qayta murojaat qilaman.",
   landing_testimonial_3_author: 'Jasur T., IT direktor',
+  landing_testimonials_demo_note: "Namuna sharhlar — haqiqiy foydalanuvchi sharhlari tez orada ko'rinadi",
   trust_section_title: 'Nega IshBor.uz?',
   trust_item_cert: 'Tasdiqlangan freelancerlar',
   trust_item_lang: "O'zbek, rus va ingliz tillari",
@@ -123,6 +124,7 @@ export const landingI18nRu = {
   landing_testimonial_3_quote:
     'Сайт сдали быстро и качественно. Обращусь снова.',
   landing_testimonial_3_author: 'Жасур Т., IT-директор',
+  landing_testimonials_demo_note: 'Примеры отзывов — реальные отзывы пользователей появятся скоро',
   trust_section_title: 'Почему IshBor.uz?',
   trust_item_cert: 'Проверенные фрилансеры',
   trust_item_lang: 'Узбекский, русский и английский',
@@ -218,6 +220,7 @@ export const landingI18nEn = {
   landing_testimonial_3_quote:
     'Website project delivered fast and with quality. Will use again.',
   landing_testimonial_3_author: 'Jasur T., IT Director',
+  landing_testimonials_demo_note: 'Sample reviews — real user reviews will appear soon',
   trust_section_title: 'Why IshBor.uz?',
   trust_item_cert: 'Verified freelancers',
   trust_item_lang: 'Uzbek, Russian and English',

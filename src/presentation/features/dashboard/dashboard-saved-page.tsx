@@ -19,6 +19,7 @@ import { ServiceCard } from '@/presentation/components/features/service-card'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 
 import { Button } from '@/presentation/components/ui/button'
+import { Alert } from '@/presentation/components/ui/alert'
 
 import { api } from '@/infrastructure/api/client'
 
@@ -65,65 +66,44 @@ export function DashboardSavedPage() {
   const [projects, setProjects] = useState<ApiProject[]>([])
 
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
 
+
+  const loadSaved = () => {
+    setLoading(true)
+    setLoadError(false)
+    Promise.all([syncSavedServicesFromApi(), syncSavedFreelancersFromApi(), syncSavedProjectsFromApi()])
+      .then(([serviceIds, freelancerIds, projectIds]) =>
+        Promise.all([
+          serviceIds.length
+            ? Promise.all(serviceIds.map((id) => api.getService(id).catch(() => null))).then(
+                (r) => r.filter(Boolean) as ApiService[]
+              )
+            : Promise.resolve([]),
+          freelancerIds.length
+            ? Promise.all(freelancerIds.map((id) => api.getProfileById(id).catch(() => null))).then(
+                (r) => r.filter(Boolean) as Awaited<ReturnType<typeof api.listFreelancers>>
+              )
+            : Promise.resolve([]),
+          projectIds.length
+            ? api.listSavedProjects().then((rows) =>
+                rows.map((r) => r.projects).filter(Boolean) as ApiProject[]
+              )
+            : Promise.resolve([]),
+        ])
+      )
+      .then(([svc, fr, pr]) => {
+        setServices(svc)
+        setFreelancers(fr)
+        setProjects(pr)
+      })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
-
-    setLoading(true)
-
-    Promise.all([syncSavedServicesFromApi(), syncSavedFreelancersFromApi(), syncSavedProjectsFromApi()])
-
-      .then(([serviceIds, freelancerIds, projectIds]) =>
-
-        Promise.all([
-
-          serviceIds.length
-
-            ? Promise.all(serviceIds.map((id) => api.getService(id).catch(() => null))).then(
-
-                (r) => r.filter(Boolean) as ApiService[]
-
-              )
-
-            : Promise.resolve([]),
-
-          freelancerIds.length
-
-            ? Promise.all(freelancerIds.map((id) => api.getProfileById(id).catch(() => null))).then(
-
-                (r) => r.filter(Boolean) as Awaited<ReturnType<typeof api.listFreelancers>>
-
-              )
-
-            : Promise.resolve([]),
-
-          projectIds.length
-
-            ? api.listSavedProjects().then((rows) =>
-
-                rows.map((r) => r.projects).filter(Boolean) as ApiProject[]
-
-              )
-
-            : Promise.resolve([]),
-
-        ])
-
-      )
-
-      .then(([svc, fr, pr]) => {
-
-        setServices(svc)
-
-        setFreelancers(fr)
-
-        setProjects(pr)
-
-      })
-
-      .finally(() => setLoading(false))
-
+    loadSaved()
   }, [tab])
 
 
@@ -180,13 +160,22 @@ export function DashboardSavedPage() {
 
       </div>
 
-
+      {loadError && (
+        <Alert variant="error" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadSaved}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
 
       {loading ? (
 
         <div className="h-40 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
 
-      ) : !hasItems ? (
+      ) : !hasItems && !loadError ? (
 
         <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
 
