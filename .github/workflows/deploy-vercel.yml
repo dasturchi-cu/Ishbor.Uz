@@ -1,8 +1,7 @@
 name: Deploy to Vercel
 
+# Faqat qo'lda — VERCEL_TOKEN secrets bo'lmaganda avtomatik push deploy xato beradi
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:

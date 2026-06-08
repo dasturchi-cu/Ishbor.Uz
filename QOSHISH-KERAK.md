@@ -3,6 +3,15 @@
 Lokal, Supabase, backend host, Vercel va GitHub bo‘yicha to‘liq checklist.  
 ✅ = odatda allaqachon qilingan | ⬜ = sizda tekshirish/qo‘shish kerak
 
+> **Kod holati (2026-06):** MVP + production hardening **yakunlandi** (~100% kod).  
+> Qolgan ishlar faqat **tashqi credential** va **host deploy** (Render, Vercel, domen).
+
+| Tekshiruv | Buyruq |
+|-----------|--------|
+| To‘liq lokal test | `pnpm verify` |
+| Deploy checklist | `pnpm setup:production` |
+| Supabase sync | `supabase db push --linked --yes` |
+
 ---
 
 ## 1. Lokal kompyuter (development)
@@ -307,17 +316,22 @@ pnpm verify
 
 ## 8. MVP ustuvorligi (qisqa)
 
-Hozirgi holat bo‘yicha **birinchi navbatda** (faqat tashqi sozlama):
+### ✅ Kodda bajarilgan
 
-1. ⬜ Render deploy + Vercel `NEXT_PUBLIC_API_URL`
-2. ✅ Supabase migrationlar sync (`db push --linked`)
-3. ⬜ Admin user + production redirect URL lar (Dashboard)
-4. ✅ Escrow xavfsizligi (atomik RPC, cancel refund)
-5. ⬜ Click/Payme **live** credential + webhook URL
-6. ⬜ `RESEND_API_KEY` / `ESKIZ_*` / `TELEGRAM_BOT_TOKEN` production
-7. ✅ Testlar + CI (tsc, lint, vitest, pytest 53, E2E, Docker)
+Auth, katalog, buyurtma, escrow (sandbox), chat (typing/read), bildirishnomalar (in-app + email/SMS/Telegram kod), admin CSV, AI suggest, analytics, Redis rate limit, 30 migration, CI/E2E.
 
-Batafsil backend audit: suhbatdagi **Backend Architecture Audit** hisoboti.
+### ⬜ Sizning qadamlaringiz (deploy)
+
+1. **Render** — `render.yaml` import → env to‘ldirish → deploy
+2. **Vercel** — repo import → `NEXT_PUBLIC_API_URL` = Render URL
+3. **Supabase Auth** — redirect: `https://ishbor.uz/**`
+4. **Admin SQL** — `update profiles set is_admin=true where email='...'`
+5. **Ixtiyoriy integratsiyalar** — `RESEND_*`, `ESKIZ_*`, `TELEGRAM_*`, `REDIS_URL`
+6. **Keyinroq** — Click/Payme live merchant + webhook URL
+
+```powershell
+pnpm setup:production   # batafsil checklist
+```
 
 ---
 
@@ -325,8 +339,7 @@ Batafsil backend audit: suhbatdagi **Backend Architecture Audit** hisoboti.
 
 | Fayl | Maqsad |
 |------|--------|
-| [DEV-SERVER.md](./DEV-SERVER.md) | Lokal server start/stop |
 | [README.md](./README.md) | Umumiy loyiha + deploy |
-| [.env.example](./.env.example) | Frontend env namunasi |
-| [backend/.env.example](./backend/.env.example) | Backend env namunasi |
-| [.cursor/AGENTS.md](./.cursor/AGENTS.md) | Kod arxitekturasi |
+| [DEV-SERVER.md](./DEV-SERVER.md) | Lokal server start/stop |
+| [scripts/setup-production.ps1](./scripts/setup-production.ps1) | Production qadamlar |
+| [.vercel/project.json.example](./.vercel/project.json.example) | Vercel org/project ID |

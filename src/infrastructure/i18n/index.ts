@@ -1012,7 +1012,7 @@ export const translations = {
     urgent_messages: "Shoshilinch xabarlar",
     telegram_notifications: "Telegram bildirishnomalar",
     connect_telegram: "Telegramni ulash",
-    notif_integration_soon: "Tez orada — hozircha faqat email ishlaydi",
+    notif_integration_soon: "Telegram bot sozlanmagan — TELEGRAM_BOT_TOKEN kerak",
     notif_sms_hint: "Shoshilinch buyurtma va xabarlar uchun SMS (+998)",
     notif_sms_needs_phone: "SMS yoqish uchun profilda telefon raqamini kiriting",
     notif_email_hint: "Buyurtma va xabarlar haqida email",

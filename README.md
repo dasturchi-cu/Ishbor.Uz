@@ -43,30 +43,41 @@ src/
 | `NEXT_PUBLIC_SITE_URL` | `https://your-app.vercel.app` yoki `https://ishbor.uz` |
 | `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | `true` / `false` |
 
-5. **Deploy** — har `main` push da avtomatik yangilanadi.
+5. **Deploy** — Vercel Dashboard orqali (tavsiya) yoki GitHub Actions `workflow_dispatch`.
+
+### Tezkor buyruqlar
+
+```powershell
+pnpm dev              # frontend :3000
+pnpm dev:api          # backend :8002
+pnpm verify           # tsc + lint + test + build
+pnpm setup:production # deploy checklist
+```
 
 ### 2. GitHub Actions (ixtiyoriy)
 
-Repo → **Settings → Secrets** ga qo'shing:
+Repo → **Settings → Secrets** ga qo'shing (`.vercel/project.json.example` ga qarang):
 
 - `VERCEL_TOKEN` — [vercel.com/account/tokens](https://vercel.com/account/tokens)
-- `VERCEL_ORG_ID` — `.vercel/project.json` dan
-- `VERCEL_PROJECT_ID` — `.vercel/project.json` dan
+- `VERCEL_ORG_ID` — Vercel project settings
+- `VERCEL_PROJECT_ID` — Vercel project settings
 
-Keyin `.github/workflows/deploy-vercel.yml` har push da deploy qiladi.
+Keyin GitHub → Actions → **Deploy to Vercel** → Run workflow (qo'lda).
 
-### 3. Backend (FastAPI)
+### 3. Backend (Render)
 
-Frontend Vercelda, API alohida hostda bo'lishi kerak (Render, Railway, Fly.io):
+`render.yaml` blueprint import qiling yoki Docker:
 
 ```bash
-# Render/Railway: root = backend/, start = uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# backend/Dockerfile — health: /api/v1/health/ready
 ```
 
-Vercel `NEXT_PUBLIC_API_URL` ni shu backend URL ga qo'ying.
+Vercel `NEXT_PUBLIC_API_URL` ni Render service URL ga qo'ying.
 
 ## Hujjatlar
 
+- [QOSHISH-KERAK.md](./QOSHISH-KERAK.md) — to'liq deploy checklist
+- [DEV-SERVER.md](./DEV-SERVER.md) — lokal ishga tushirish
 - [.cursor/AGENTS.md](./.cursor/AGENTS.md) — Cursor AI yo'riqnomasi
 
 ## Ishga tushirish
