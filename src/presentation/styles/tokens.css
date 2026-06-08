@@ -126,9 +126,10 @@
 
   /* Marketplace surface — Kwork uslubi (kulrang fon, oq kartalar) */
   --kwork-border: var(--color-border);
-  --kwork-bg: #f4f4f4;
-  --kwork-text: #222222;
-  --kwork-text-muted: var(--neutral-500);
+  --kwork-bg: var(--color-bg-subtle);
+  --kwork-text: var(--color-text);
+  --kwork-text-sub: var(--color-text-sub);
+  --kwork-text-muted: var(--color-text-sub);
   --kwork-search-bg: #ffffff;
   --body-bg: #f4f4f4;
   --kwork-header-h: 60px;

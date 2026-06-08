@@ -10,8 +10,10 @@ import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiTransaction } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
 import { Receipt } from 'lucide-react'
+import { Alert } from '@/presentation/components/ui/alert'
 import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
+import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 
 export function DashboardPaymentsPage() {
   const { t, language } = useApp()
@@ -19,18 +21,31 @@ export function DashboardPaymentsPage() {
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [ledger, setLedger] = useState<ApiTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const paymentsLive = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true'
 
-  useEffect(() => {
+  const loadPayments = () => {
+    setLoading(true)
+    setLoadError(false)
     Promise.all([
-      api.listOrders().catch(() => [] as ApiOrder[]),
-      api.listTransactions().catch(() => [] as ApiTransaction[]),
+      api.listOrders().catch(() => {
+        setLoadError(true)
+        return [] as ApiOrder[]
+      }),
+      api.listTransactions().catch(() => {
+        setLoadError(true)
+        return [] as ApiTransaction[]
+      }),
     ])
       .then(([ord, tx]) => {
         setOrders(ord)
         setLedger(tx)
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadPayments()
   }, [])
 
   const transactions = useMemo(() => {
@@ -38,7 +53,7 @@ export function DashboardPaymentsPage() {
       return ledger.map((tx) => ({
         id: tx.id,
         date: tx.created_at ? formatDate(tx.created_at, language) : '—',
-        desc: tx.type,
+        desc: transactionTypeLabel(tx.type, t),
         amount: tx.type === 'withdrawal' ? -tx.amount : tx.amount,
         status: tx.status === 'completed' ? 'completed' : 'pending',
       }))
@@ -57,6 +72,16 @@ export function DashboardPaymentsPage() {
 
   return (
     <div className="space-y-5">
+      {loadError && (
+        <Alert variant="error">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadPayments}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
       <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5">
         <h3 className="settings-section-title">{t('payments_methods_title')}</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">

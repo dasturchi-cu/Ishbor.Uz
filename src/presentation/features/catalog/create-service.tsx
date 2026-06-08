@@ -132,7 +132,16 @@ export function CreateServicePage() {
       delivery_days: days,
     })
     if (!parsed.success) {
-      setErrors({ submit: t('error_required') })
+      const next: Record<string, string> = {}
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? '')
+        if (key === 'title') next.title = t('error_required')
+        else if (key === 'description') next.description = t('error_required')
+        else if (key === 'category') next.category = t('error_required')
+        else if (key === 'region') next.region = t('error_required')
+        else if (key === 'price') next.price = t('error_required')
+      }
+      setErrors(Object.keys(next).length > 0 ? next : { submit: t('error_required') })
       return
     }
     if (price > MAX_PRICE) {

@@ -9,6 +9,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { StatCard } from '@/presentation/components/ui/stat-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import {
   DollarSign,
   Package,
@@ -25,12 +26,14 @@ import { PATHS, servicePath, dashboardOrderPath } from '@/domain/constants/route
 import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiService } from '@/infrastructure/api/types'
 import { formatPrice, orderProgress } from '@/shared/lib/format'
+import { Skeleton } from '@/presentation/components/ui/skeleton'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
 import { FreelancerOnboardingChecklist } from '@/presentation/components/dashboard/freelancer-onboarding-checklist'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-banner'
+import { profileCompletionPercent } from '@/shared/lib/profile-completion'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'delivered'])
 
@@ -232,6 +235,18 @@ export function FreelancerDashboard() {
     }
   }, [orders, reviewStats, services.length, t, profile?.wallet_balance, profile?.profile_views])
 
+  const readyToAccept = useMemo(
+    () => orders.filter((o) => o.status === 'pending' && o.payment_status === 'held'),
+    [orders],
+  )
+
+  const awaitingClientPayment = useMemo(
+    () => orders.filter((o) => o.status === 'pending' && o.payment_status !== 'held'),
+    [orders],
+  )
+
+  const profileCompletion = profileCompletionPercent(profile, 'freelancer')
+
   const recentOrders = useMemo(
     () =>
       [...orders]
@@ -256,6 +271,42 @@ export function FreelancerDashboard() {
         <Alert variant="success">{t('service_created')}</Alert>
       )}
 
+      {readyToAccept.length > 0 && (
+        <Alert variant="info">
+          <p className="text-[13px] font-medium">
+            {t('freelancer_ready_accept_banner').replace('{n}', String(readyToAccept.length))}
+          </p>
+          <Link
+            href={dashboardOrderPath(readyToAccept[0].id)}
+            className="mt-2 inline-block text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
+          >
+            {t('accept_order')} →
+          </Link>
+        </Alert>
+      )}
+
+      {awaitingClientPayment.length > 0 && (
+        <Alert variant="info">
+          <p className="text-[13px] text-[var(--kwork-text-muted)]">
+            {t('freelancer_awaiting_payment_banner').replace('{n}', String(awaitingClientPayment.length))}
+          </p>
+        </Alert>
+      )}
+
+      {profileCompletion < 100 && (
+        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
+          <div className="flex items-center justify-between gap-3 text-[12px] text-[var(--kwork-text-muted)]">
+            <span>{t('profile_completion').replace('{n}', String(profileCompletion))}</span>
+            <Link href={PATHS.dashboardProfile} className="font-medium text-[var(--color-primary)]">
+              {t('profile_complete_link')}
+            </Link>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--kwork-border)]">
+            <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${profileCompletion}%` }} />
+          </div>
+        </div>
+      )}
+
       <AdminPanelBanner />
 
       <div className="dashboard-welcome flex flex-col gap-4">
@@ -264,10 +315,10 @@ export function FreelancerDashboard() {
             <p className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-primary)]">
               {t('freelancer_dashboard')}
             </p>
-            <h1 className="mt-1 text-[22px] font-bold text-[var(--kwork-text)] md:text-[26px]">
+            <h2 className="mt-1 text-[22px] font-bold text-[var(--kwork-text)] md:text-[26px]">
               {t('welcome_back')}
               {firstName ? `, ${firstName}` : ''}
-            </h1>
+            </h2>
             <p className="mt-1.5 max-w-xl text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">
               {t('freelancer_dashboard_sub')}
             </p>
@@ -431,10 +482,13 @@ export function FreelancerDashboard() {
                           {order.services?.title ?? t('nav_orders')}
                         </h3>
                         <p className="mt-0.5 text-[12px] text-[var(--kwork-text-muted)]">
-                          {order.client_profile?.full_name ?? '—'} · {formatPrice(order.amount)}
+                          {order.client_profile?.full_name ?? t('value_not_available')} · {formatPrice(order.amount)}
                         </p>
                       </div>
-                      <OrderStatusBadge status={order.status} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <OrderStatusBadge status={order.status} />
+                        <PaymentStatusBadge status={order.payment_status} />
+                      </div>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-bg-muted)]">
                       <div
@@ -465,9 +519,9 @@ export function FreelancerDashboard() {
               </div>
               <p className="text-[12px] text-white/75">{t('wallet_balance_label')}</p>
               <p className="mt-1 text-[28px] font-bold tabular-nums tracking-tight">
-                {loading ? '…' : formatPrice(metrics.walletTotal)}
+                {loading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatPrice(metrics.walletTotal)}
               </p>
-              <p className="mt-1 text-[12px] text-white/70">{t('all_time_earnings')}</p>
+              <p className="mt-1 text-[12px] text-white/70">{t('wallet_balance_hint')}</p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <Link href={PATHS.dashboardWallet} className="flex-1">
                   <Button

@@ -454,9 +454,7 @@ export function PostProject() {
                       {uploading ? '...' : t('upload_files')}
                     </p>
                     <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('drag_drop')}</p>
-                    <p className="mt-2 text-[11px] text-[var(--kwork-text-muted)]">
-                      JPG, PNG, WebP, GIF — max 5 MB
-                    </p>
+                    <p className="mt-2 text-[11px] text-[var(--kwork-text-muted)]">{t('upload_formats_hint')}</p>
                   </div>
                   {uploadError && <p className="mt-2 text-[13px] text-[var(--error)]">{uploadError}</p>}
                   {attachments.length > 0 && (

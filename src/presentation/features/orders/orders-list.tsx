@@ -123,6 +123,8 @@ export function OrdersList({ role }: { role: RoleView }) {
             : order.freelancer_profile?.full_name
         const next = NEXT_STATUS[role]?.[order.status]
         const actionKey = ACTION_LABEL[role]?.[order.status]
+        const canAccept =
+          !(role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held')
 
         return (
           <Card key={order.id} className="p-4 border border-border">
@@ -148,7 +150,7 @@ export function OrdersList({ role }: { role: RoleView }) {
                   <Button size="sm" variant="outline" onClick={() => router.push(`${PATHS.messages}?order=${order.id}`)}>
                     {t('nav_messages')}
                   </Button>
-                  {next && actionKey && (
+                  {next && actionKey && canAccept && (
                     <Button size="sm" onClick={() => updateStatus(order.id, next)}>
                       {t(actionKey)}
                     </Button>

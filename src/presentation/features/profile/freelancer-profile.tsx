@@ -22,14 +22,31 @@ import { ServiceCard } from '@/presentation/components/features/service-card'
 import { api } from '@/infrastructure/api/client'
 import type { ApiProfilePublic, ApiReview, ApiService } from '@/infrastructure/api/types'
 import { PATHS, servicePath } from '@/domain/constants/routes'
+import { loginPath } from '@/shared/lib/auth-redirect'
+import type { TranslationKey } from '@/infrastructure/i18n'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
 import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
 import { toast } from '@/presentation/components/ui/toast'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { UserX } from 'lucide-react'
 import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
 
 type ProfileTab = 'about' | 'services' | 'portfolio' | 'reviews'
+
+const LANG_LABELS: Record<string, TranslationKey> = {
+  uz: 'lang_uzbek',
+  ru: 'lang_russian',
+  en: 'lang_english',
+}
+
+const LEVEL_LABELS: Record<string, TranslationKey> = {
+  beginner: 'lang_level_beginner',
+  intermediate: 'lang_level_intermediate',
+  fluent: 'lang_level_fluent',
+  native: 'lang_level_native',
+}
 
 function yearsOnPlatform(iso: string | undefined): number {
   if (!iso) return 1
@@ -124,8 +141,13 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
   if (!profile) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-[var(--kwork-text-muted)]">
-        {t('no_services_found')}
+      <div className="mx-auto max-w-lg px-4 py-16">
+        <EmptyState
+          icon={<UserX />}
+          title={t('profile_not_found_title')}
+          description={t('profile_not_found_desc')}
+          action={{ label: t('nav_freelancers'), onClick: () => router.push(PATHS.freelancers) }}
+        />
       </div>
     )
   }
@@ -187,7 +209,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
           <div className="freelancer-profile-hero-inner">
             <div className="freelancer-profile-hero-top">
               <div className="freelancer-profile-hero-main">
-                <Avatar name={name} size={96} />
+                <Avatar name={name} size={96} verified={profile.is_verified} />
                 <div className="freelancer-profile-info">
                   <div className="freelancer-profile-badges">
                     {profile.is_verified && (
@@ -228,11 +250,17 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   <>
                     {contactHint && (
                       <Alert variant="info" className="mb-3 w-full">
-                        <p>{t('contact_order_hint')}</p>
-                        {services[0] && (
+                        <p>{t('contact_requires_order')}</p>
+                        {services[0] ? (
                           <Link href={servicePath(services[0].id)} className="mt-3 inline-block">
                             <Button variant="primary" size="sm">
                               {t('contact_order_cta')}
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Link href={PATHS.services} className="mt-3 inline-block">
+                            <Button variant="outline" size="sm">
+                              {t('contact_browse_services')}
                             </Button>
                           </Link>
                         )}
@@ -340,7 +368,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                         reviewCount={stats.reviewCount}
                         price={s.price}
                         category={s.category}
-                        isPro
+                        isPro={profile.is_verified}
                         onClick={() => router.push(servicePath(s.id))}
                       />
                     ))}
@@ -355,21 +383,33 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
               {activeTab === 'portfolio' && (
                 portfolioImages.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {portfolioImages.map((item, i) => (
-                      <button
-                        key={`${item.serviceId}-${i}`}
-                        type="button"
-                        onClick={() => router.push(servicePath(item.serviceId))}
-                        className="group overflow-hidden rounded-lg border border-[var(--kwork-border)]"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {portfolioImages.map((item, i) => {
+                      const img = (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={item.url}
                           alt={item.title}
                           className="aspect-square w-full object-cover transition group-hover:scale-105"
                         />
-                      </button>
-                    ))}
+                      )
+                      return item.serviceId ? (
+                        <button
+                          key={`${item.serviceId}-${i}`}
+                          type="button"
+                          onClick={() => router.push(servicePath(item.serviceId))}
+                          className="group overflow-hidden rounded-lg border border-[var(--kwork-border)]"
+                        >
+                          {img}
+                        </button>
+                      ) : (
+                        <div
+                          key={`portfolio-${i}`}
+                          className="group overflow-hidden rounded-lg border border-[var(--kwork-border)]"
+                        >
+                          {img}
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className="freelancer-profile-empty">{t('portfolio_empty')}</p>
@@ -413,10 +453,6 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
             <div className="freelancer-profile-side-card">
               <span className="freelancer-profile-side-title">{t('last_30_days')}</span>
               <div className="freelancer-profile-side-stat">
-                <span className="freelancer-profile-side-stat-label">{t('response_time')}</span>
-                <span className="freelancer-profile-side-stat-value">{t('response_time_unknown')}</span>
-              </div>
-              <div className="freelancer-profile-side-stat">
                 <span className="freelancer-profile-side-stat-label">{t('stat_completed')}</span>
                 <span className="freelancer-profile-side-stat-value">
                   {stats.completed > 0 ? String(stats.completed) : '—'}
@@ -428,11 +464,6 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   {stats.reviewCount > 0 ? String(stats.reviewCount) : '—'}
                 </span>
               </div>
-              <div className="freelancer-profile-side-stat">
-                <span className="freelancer-profile-side-stat-label">{t('last_active_today')}</span>
-                <span className="freelancer-profile-side-stat-value">{t('online_status')}</span>
-              </div>
-
               {!isOwnProfile && isLoggedIn && currentUserRole === 'client' && (
                 <div className="freelancer-profile-side-actions">
                   <Button
@@ -454,30 +485,40 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   )}
                 </div>
               )}
+              {!isOwnProfile && !isLoggedIn && (
+                <div className="freelancer-profile-side-actions hide-mobile">
+                  <Button variant="primary" fullWidth onClick={() => router.push(loginPath(`/freelancer/${profileId}`))}>
+                    {t('login')}
+                  </Button>
+                  <Button variant="outline" fullWidth onClick={() => router.push(PATHS.register)}>
+                    {t('register')}
+                  </Button>
+                </div>
+              )}
             </div>
 
-            <div className="freelancer-profile-side-card">
-              <h3 className="text-[14px] font-bold text-[var(--kwork-text)]">{t('languages_label')}</h3>
-              <div className="mt-3">
-                <div className="freelancer-profile-lang-row">
-                  <span className="freelancer-profile-lang-name">{t('lang_uzbek')}</span>
-                  <span className="freelancer-profile-lang-level">{t('native_language')}</span>
-                </div>
-                <div className="freelancer-profile-lang-row">
-                  <span className="freelancer-profile-lang-name">{t('lang_russian')}</span>
-                  <span className="freelancer-profile-lang-level">{t('fluent')}</span>
-                </div>
-                <div className="freelancer-profile-lang-row">
-                  <span className="freelancer-profile-lang-name">{t('lang_english')}</span>
-                  <span className="freelancer-profile-lang-level">{t('lang_level_intermediate')}</span>
+            {(profile.languages?.length ?? 0) > 0 && (
+              <div className="freelancer-profile-side-card">
+                <h3 className="text-[14px] font-bold text-[var(--kwork-text)]">{t('languages_label')}</h3>
+                <div className="mt-3">
+                  {profile.languages!.map((row, i) => (
+                    <div key={`${row.lang}-${i}`} className="freelancer-profile-lang-row">
+                      <span className="freelancer-profile-lang-name">
+                        {t(LANG_LABELS[row.lang] ?? 'lang_uzbek')}
+                      </span>
+                      <span className="freelancer-profile-lang-level">
+                        {t(LEVEL_LABELS[row.level] ?? 'lang_level_fluent')}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
           </aside>
         </div>
       </div>
 
-      {!isOwnProfile && isLoggedIn && currentUserRole === 'client' && (
+      {!isOwnProfile && (
         <div className="mobile-sticky-cta show-mobile">
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-[13px] font-semibold text-[var(--kwork-text)]">{name}</span>
@@ -487,14 +528,25 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                 : t('freelancer')}
             </span>
           </div>
-          <Button
-            variant="primary"
-            leftIcon={<MessageCircle className="h-4 w-4" />}
-            onClick={handleContact}
-            className="shrink-0 px-5"
-          >
-            {t('send_message')}
-          </Button>
+          {isLoggedIn && currentUserRole === 'client' ? (
+            <Button
+              variant="primary"
+              leftIcon={<MessageCircle className="h-4 w-4" />}
+              onClick={handleContact}
+              className="shrink-0 px-5"
+            >
+              {t('send_message')}
+            </Button>
+          ) : (
+            <div className="flex shrink-0 gap-2">
+              <Button variant="outline" size="sm" onClick={() => router.push(loginPath(`/freelancer/${profileId}`))}>
+                {t('login')}
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => router.push(PATHS.register)}>
+                {t('register')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

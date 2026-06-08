@@ -13,6 +13,7 @@ const MAX_BYTES = {
 } as const
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+const CHAT_ALLOWED = new Set([...ALLOWED, 'application/pdf'])
 
 type UploadBucket = keyof typeof BUCKETS
 
@@ -108,7 +109,43 @@ export async function uploadServiceImages(
   return urls
 }
 
-/** Chat rasm biriktirish (project-attachments/chat/) */
+async function uploadChatFile(file: File, userId: string, orderId: string): Promise<string> {
+  if (!CHAT_ALLOWED.has(file.type)) {
+    throw new Error('Faqat rasm yoki PDF yuklash mumkin')
+  }
+  const maxBytes = file.type === 'application/pdf' ? 10 * 1024 * 1024 : MAX_BYTES.project
+  if (file.size > maxBytes) {
+    const mb = Math.round(maxBytes / (1024 * 1024))
+    throw new Error(`Fayl hajmi ${mb} MB dan oshmasligi kerak`)
+  }
+
+  const ext =
+    file.type === 'application/pdf'
+      ? 'pdf'
+      : file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const path = `${userId}/chat/${orderId}/${crypto.randomUUID()}.${ext}`
+
+  const supabase = getSupabase()
+  const bucket = BUCKETS.project
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+  })
+
+  if (error) {
+    if (error.message.toLowerCase().includes('bucket')) {
+      throw new Error(
+        `Storage bucket topilmadi. Supabase da '${bucket}' bucket yarating yoki migration ni ishga tushiring.`
+      )
+    }
+    throw new Error(error.message)
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+  return data.publicUrl
+}
+
+/** Chat rasm/PDF biriktirish (project-attachments/chat/) */
 export async function uploadChatImage(file: File, userId: string, orderId: string): Promise<string> {
-  return uploadImage(file, userId, 'project', `chat/${orderId}`)
+  return uploadChatFile(file, userId, orderId)
 }

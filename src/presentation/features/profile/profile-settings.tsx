@@ -25,6 +25,7 @@ import { updatePassword } from '@/infrastructure/auth/password'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { toast } from '@/presentation/components/ui/toast'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/shared/lib/notification-prefs'
+import { profileUpdateSchema } from '@/domain/validators/profile'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
@@ -281,8 +282,24 @@ export function ProfileSettings() {
 
   const handleSave = async () => {
     setMessage('')
+    if (usernameStatus === 'checking') {
+      setMessage(t('username_checking'))
+      return
+    }
     if (usernameStatus === 'taken') {
       setMessage(t('username_taken'))
+      return
+    }
+    const parsed = profileUpdateSchema.safeParse({
+      full_name: formData.name,
+      username: username.trim() || undefined,
+      bio,
+      region: formData.city,
+      phone: formData.phone,
+      specialty: title,
+    })
+    if (!parsed.success) {
+      setMessage(t('profile_save_validation_error'))
       return
     }
     setSaving(true)
@@ -367,6 +384,9 @@ export function ProfileSettings() {
                       onChange={(e) => setUsername(e.target.value)}
                       className="catalog-control !h-[42px]"
                     />
+                    {usernameStatus === 'checking' && (
+                      <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('username_checking')}</p>
+                    )}
                     {usernameStatus === 'ok' && (
                       <p className="mt-1 text-[12px] text-[var(--success-dark)]">{t('username_available')}</p>
                     )}

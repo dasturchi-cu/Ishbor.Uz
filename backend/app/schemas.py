@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+MAX_MONEY = 2_147_483_647
+
 
 class ProfileResponse(BaseModel):
     id: str
@@ -44,6 +46,7 @@ class ProfilePublicResponse(BaseModel):
     profile_views: int = 0
     is_verified: bool = False
     portfolio_urls: list[str] = Field(default_factory=list)
+    languages: list[dict] = Field(default_factory=list)
 
 
 class ProfileUpdate(BaseModel):
@@ -61,9 +64,6 @@ class ProfileUpdate(BaseModel):
     experience_level: str | None = None
     languages: list[dict] | None = None
     portfolio_urls: list[str] | None = None
-
-
-MAX_MONEY = 2_147_483_647
 
 
 class ServicePackage(BaseModel):
@@ -109,6 +109,11 @@ class ServiceResponse(BaseModel):
     view_count: int = 0
     created_at: datetime | None = None
     profiles: dict | None = None
+
+
+class ServiceListResponse(BaseModel):
+    items: list[ServiceResponse]
+    total: int
 
 
 class OrderCreate(BaseModel):

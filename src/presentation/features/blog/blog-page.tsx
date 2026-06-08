@@ -23,6 +23,7 @@ export function BlogPage() {
         <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)] sm:text-[14px]">
           {t('blog_subtitle')}
         </p>
+        <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">{t('blog_editorial_note')}</p>
       </div>
 
       <div className="space-y-3">

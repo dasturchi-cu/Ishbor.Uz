@@ -8,7 +8,9 @@ import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 import { Input } from '@/presentation/components/ui/input'
 import { Button } from '@/presentation/components/ui/button'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { Alert } from '@/presentation/components/ui/alert'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { OrderProgressStepper } from '@/presentation/components/features/order-progress-stepper'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { Avatar } from '@/presentation/components/ui/avatar'
@@ -31,15 +33,24 @@ export function DashboardOrdersPage() {
   const [search, setSearch] = useState('')
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null)
 
-  useEffect(() => {
+  const loadOrders = () => {
     setLoading(true)
+    setLoadError(false)
     api
       .listOrders()
       .then(setOrders)
-      .catch(() => setOrders([]))
+      .catch(() => {
+        setOrders([])
+        setLoadError(true)
+      })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadOrders()
   }, [])
 
   const filtered = orders.filter((o) => {
@@ -96,6 +107,17 @@ export function DashboardOrdersPage() {
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('search_orders_ph')} className="max-w-xs" />
       </div>
 
+      {loadError && (
+        <Alert variant="error" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('orders_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadOrders}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
@@ -130,21 +152,34 @@ export function DashboardOrdersPage() {
                       <span className="text-[13px]">{otherName}</span>
                     </div>
                   </div>
-                  <OrderStatusBadge status={order.status} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <OrderStatusBadge status={order.status} />
+                    <PaymentStatusBadge status={order.payment_status} />
+                  </div>
                 </div>
                 <div className="mt-3">
-                  <OrderProgressStepper status={order.status} />
+                  <OrderProgressStepper status={order.status} paymentStatus={order.payment_status} />
                 </div>
+                {role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held' && (
+                  <Alert variant="info" className="mt-3 text-[12px]">
+                    {t('payment_waiting_freelancer')}
+                  </Alert>
+                )}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--kwork-border)] pt-3">
                   <p className="text-[14px] font-bold text-[var(--kwork-text)]">{formatPrice(order.amount)}</p>
                   <div className="flex gap-2">
                     <Link href={`${PATHS.dashboardMessages}?order=${order.id}`}>
                       <Button variant="outline" size="sm">{t('send_message')}</Button>
                     </Link>
-                    {role === 'freelancer' && order.status === 'pending' && (
+                    {role === 'freelancer' && order.status === 'pending' && order.payment_status === 'held' && (
                       <Button variant="primary" size="sm" onClick={() => updateStatus(order, 'active')}>
                         {t('accept_order')}
                       </Button>
+                    )}
+                    {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
+                      <Link href={dashboardOrderPath(order.id)}>
+                        <Button variant="primary" size="sm">{t('payment_pay_now')}</Button>
+                      </Link>
                     )}
                     {role === 'freelancer' && order.status === 'active' && (
                       <Link href={dashboardOrderPath(order.id)}>

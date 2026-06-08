@@ -15,6 +15,7 @@ import { toast } from '@/presentation/components/ui/toast'
 import { FileUploadZone } from '@/presentation/components/dashboard/file-upload-zone'
 import { uploadServiceImages } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
+import { serviceCreateSchema } from '@/domain/validators/service'
 
 export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
   const { t, profile, userId } = useApp()
@@ -29,6 +30,7 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     api
@@ -53,11 +55,26 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
 
   const handleSave = async () => {
     const priceNum = parsePrice(price)
-    if (!title.trim() || !category || !description.trim() || priceNum <= 0) {
+    const safeDays = Math.min(365, Math.max(1, parseInt(deliveryDays, 10) || 5))
+    const parsed = serviceCreateSchema.safeParse({
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      region,
+      price: priceNum,
+      delivery_days: safeDays,
+    })
+    if (!parsed.success) {
+      const next: Record<string, string> = {}
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? '')
+        if (key) next[key] = t('error_required')
+      }
+      setErrors(next)
       toast.error(t('error_required'))
       return
     }
-    const safeDays = Math.min(365, Math.max(1, parseInt(deliveryDays, 10) || 5))
+    setErrors({})
     setSaving(true)
     try {
       let urls = imageUrls

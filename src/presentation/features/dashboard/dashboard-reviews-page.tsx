@@ -12,10 +12,13 @@ import { api } from '@/infrastructure/api/client'
 import type { ApiReview } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 import { Star } from 'lucide-react'
+import { PATHS } from '@/domain/constants/routes'
+import { useRouter } from 'next/navigation'
 import { formatDate } from '@/shared/lib/format-date'
 
 export function DashboardReviewsPage() {
   const { t, userId, language } = useApp()
+  const router = useRouter()
   const [filter, setFilter] = useState<'all' | '5' | 'low'>('all')
   const [reviews, setReviews] = useState<ApiReview[]>([])
   const [stats, setStats] = useState({ average: 0, count: 0 })
@@ -60,7 +63,7 @@ export function DashboardReviewsPage() {
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="text-center sm:text-left">
             <p className="text-[56px] font-bold leading-none text-[var(--color-primary)]">
-              {stats.count > 0 ? stats.average.toFixed(1) : '—'}
+              {stats.count > 0 ? stats.average.toFixed(1) : t('value_not_available')}
             </p>
             {stats.count > 0 && <RatingStars rating={stats.average} size="lg" className="mt-2 justify-center sm:justify-start" />}
             <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">
@@ -93,14 +96,23 @@ export function DashboardReviewsPage() {
                 filter === f ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--kwork-text-muted)]'
               )}
             >
-              {f === 'all' ? t('filter_all_reviews') : f === '5' ? '5 ⭐' : '≤3 ⭐'}
+              {f === 'all' ? t('filter_all_reviews') : f === '5' ? t('filter_five_star') : t('filter_low_reviews')}
             </button>
           ))}
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={<Star />} title={t('no_reviews_yet')} />
+        <EmptyState
+          icon={<Star />}
+          title={t('no_reviews_yet')}
+          description={reviews.length === 0 ? t('reviews_empty_cta') : undefined}
+          action={
+            reviews.length === 0
+              ? { label: t('nav_services'), onClick: () => router.push(PATHS.services) }
+              : undefined
+          }
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((r) => (

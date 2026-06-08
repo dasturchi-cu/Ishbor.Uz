@@ -24,10 +24,17 @@ export function ComingSoonPage({ titleKey, descKey }: ComingSoonPageProps) {
   const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = email.trim()
-    if (!trimmed) return
-    await saveWaitlistEmail(trimmed, 'coming-soon')
-    toast.success(t('newsletter_thanks'))
-    setEmail('')
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast.error(t('newsletter_invalid_email'))
+      return
+    }
+    const ok = await saveWaitlistEmail(trimmed, 'coming-soon')
+    if (ok) {
+      toast.success(t('newsletter_thanks'))
+      setEmail('')
+    } else {
+      toast.error(t('newsletter_save_failed'))
+    }
   }
 
   return (
@@ -52,6 +59,9 @@ export function ComingSoonPage({ titleKey, descKey }: ComingSoonPageProps) {
       </form>
 
       <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <Link href={PATHS.register}>
+          <Button variant="primary">{t('start_now')}</Button>
+        </Link>
         <Link href={PATHS.services}>
           <Button variant="outline">{t('nav_services')}</Button>
         </Link>

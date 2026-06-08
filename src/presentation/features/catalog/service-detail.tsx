@@ -17,9 +17,7 @@ import {
   MapPin,
   Clock,
   Shield,
-  ChevronDown,
   MessageCircle,
-  Check,
   Bookmark,
 } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
@@ -49,19 +47,6 @@ const CATEGORY_KEYS: Record<string, TranslationKey> = {
   seo: 'cat_seo',
 }
 
-const FAQ_KEYS = [
-  { q: 'service_faq_1_q' as TranslationKey, a: 'service_faq_1_a' as TranslationKey },
-  { q: 'service_faq_2_q' as TranslationKey, a: 'service_faq_2_a' as TranslationKey },
-  { q: 'service_faq_3_q' as TranslationKey, a: 'service_faq_3_a' as TranslationKey },
-]
-
-const INCLUDE_KEYS = [
-  'service_include_1',
-  'service_include_2',
-  'service_include_3',
-  'service_include_4',
-] as TranslationKey[]
-
 export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const { t, isLoggedIn, currentUserRole, userId } = useApp()
   const router = useRouter()
@@ -69,7 +54,6 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const [loading, setLoading] = useState(true)
   const [ordering, setOrdering] = useState(false)
   const [error, setError] = useState('')
-  const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [activePackage, setActivePackage] = useState<'basic' | 'standard' | 'premium'>('basic')
   const [activeThumb, setActiveThumb] = useState(0)
   const [reviews, setReviews] = useState<ApiReview[]>([])
@@ -77,7 +61,6 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const [related, setRelated] = useState<ApiService[]>([])
   const [orderModalOpen, setOrderModalOpen] = useState(false)
   const [orderNotes, setOrderNotes] = useState('')
-  const [contactHint, setContactHint] = useState(false)
   const orderModalRef = useRef<HTMLDivElement>(null)
 
   useEscapeClose(orderModalOpen, () => setOrderModalOpen(false))
@@ -110,7 +93,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
     if (!service) return
     api
       .listServices({ category: service.category })
-      .then((list) => setRelated(list.filter((s) => s.id !== service.id).slice(0, 4)))
+      .then((res) => setRelated(res.items.filter((s) => s.id !== service.id).slice(0, 4)))
       .catch(() => setRelated([]))
   }, [service])
 
@@ -124,15 +107,16 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         id: p.id as 'basic' | 'standard' | 'premium',
         labelKey: (p.label_key || 'package_basic') as TranslationKey,
         price: p.price,
-        days: p.delivery_days > 0 ? p.delivery_days : deliveryDays ?? 5,
+        days: p.delivery_days > 0 ? p.delivery_days : deliveryDays,
       }))
     }
-    const base = service.price
-    const days = deliveryDays ?? 5
     return [
-      { id: 'basic' as const, labelKey: 'package_basic' as TranslationKey, price: base, days },
-      { id: 'standard' as const, labelKey: 'package_standard' as TranslationKey, price: Math.round(base * 1.5), days: Math.max(1, days - 1) },
-      { id: 'premium' as const, labelKey: 'package_premium' as TranslationKey, price: Math.round(base * 2.2), days: Math.max(1, days - 2) },
+      {
+        id: 'basic' as const,
+        labelKey: 'package_basic' as TranslationKey,
+        price: service.price,
+        days: deliveryDays,
+      },
     ]
   }, [service, deliveryDays])
 
@@ -144,8 +128,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
     if (service.image_urls && service.image_urls.length > 0) {
       return service.image_urls.map((url, i) => ({ id: i, url }))
     }
-    const letter = service.title.charAt(0).toUpperCase()
-    return [letter, 'A', 'B', 'C'].map((ch, i) => ({ id: i, ch }))
+    return [{ id: 0, ch: service.title.charAt(0).toUpperCase() || '?' }]
   }, [service])
 
   const handleToggleSave = async () => {
@@ -173,7 +156,12 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       router.push(`${PATHS.dashboardMessages}?order=${existing.id}`)
       return
     }
-    setContactHint(true)
+    if (currentUserRole !== 'client') {
+      setError(t('client_only_order'))
+      return
+    }
+    setOrderNotes('')
+    setOrderModalOpen(true)
   }
 
   const handleOrder = () => {
@@ -211,10 +199,17 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   if (loading) {
     return (
       <PageWrapper>
-        <div className="space-y-6 animate-pulse">
-          <div className="aspect-[16/10] rounded-xl bg-[var(--color-bg-muted)]" />
-          <div className="h-8 w-2/3 rounded bg-[var(--color-bg-muted)]" />
-          <div className="h-24 rounded bg-[var(--color-bg-muted)]" />
+        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-6 animate-pulse">
+            <div className="aspect-[16/10] rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+            <div className="h-8 w-2/3 rounded bg-[var(--color-bg-muted)]" />
+            <div className="h-4 w-1/2 rounded bg-[var(--color-bg-muted)]" />
+            <div className="h-32 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+          </div>
+          <div className="hide-mobile space-y-4">
+            <div className="h-56 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+            <div className="h-40 rounded-[var(--r-card)] bg-[var(--color-bg-muted)]" />
+          </div>
         </div>
       </PageWrapper>
     )
@@ -225,8 +220,8 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       <PageWrapper>
         <EmptyState
           icon={<Shield />}
-          title={t('no_services_found')}
-          description={t('no_services_desc')}
+          title={t('service_not_found_title')}
+          description={t('service_not_found_desc')}
           action={{ label: t('nav_services'), onClick: () => router.push(PATHS.services) }}
         />
       </PageWrapper>
@@ -323,23 +318,25 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               )}
             </div>
 
-            <div className="show-mobile">
-              <div className="service-package-tabs mb-4">
-                {packages.map((pkg) => (
-                  <button
-                    key={pkg.id}
-                    type="button"
-                    onClick={() => setActivePackage(pkg.id)}
-                    className={cn(
-                      'service-package-tab',
-                      activePackage === pkg.id && 'service-package-tab--active'
-                    )}
-                  >
-                    {t(pkg.labelKey)}
-                  </button>
-                ))}
+            {packages.length > 1 && (
+              <div className="show-mobile">
+                <div className="service-package-tabs mb-4">
+                  {packages.map((pkg) => (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => setActivePackage(pkg.id)}
+                      className={cn(
+                        'service-package-tab',
+                        activePackage === pkg.id && 'service-package-tab--active'
+                      )}
+                    >
+                      {t(pkg.labelKey)}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <div className="flex items-start justify-between gap-3">
@@ -383,10 +380,12 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   <MapPin className="h-3.5 w-3.5" />
                   {service.region}
                 </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  {t('service_delivery_days').replace('{n}', String(deliveryDays))}
-                </span>
+                {deliveryDays != null && deliveryDays > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {t('service_delivery_days').replace('{n}', String(deliveryDays))}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -397,20 +396,6 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">
                 {service.description}
               </p>
-            </section>
-
-            <section className="kwork-card p-5">
-              <h2 className="mb-4 text-[16px] font-semibold text-[var(--kwork-text)]">
-                {t('service_what_included')}
-              </h2>
-              <ul className="space-y-2.5">
-                {INCLUDE_KEYS.map((key) => (
-                  <li key={key} className="flex items-start gap-2 text-[14px] text-[var(--kwork-text-muted)]">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--success)]" />
-                    {t(key)}
-                  </li>
-                ))}
-              </ul>
             </section>
 
             {reviews.length > 0 && (
@@ -430,39 +415,51 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               </section>
             )}
 
-            <section className="kwork-card overflow-hidden">
-              <h2 className="border-b border-[var(--kwork-border)] px-5 py-4 text-[16px] font-semibold text-[var(--kwork-text)]">
-                {t('service_faq')}
-              </h2>
-              <div className="divide-y divide-[var(--kwork-border)]">
-                {FAQ_KEYS.map((item, idx) => (
-                  <div key={item.q}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                      className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-[14px] font-medium text-[var(--kwork-text)] hover:bg-[var(--color-bg-subtle)]"
-                    >
-                      {t(item.q)}
-                      <ChevronDown
-                        className={cn(
-                          'h-4 w-4 shrink-0 text-[var(--kwork-text-muted)] transition',
-                          openFaq === idx && 'rotate-180'
-                        )}
-                      />
-                    </button>
-                    {openFaq === idx && (
-                      <p className="px-5 pb-4 text-[13px] leading-relaxed text-[var(--kwork-text-muted)]">
-                        {t(item.a)}
-                      </p>
+            <div className="show-mobile">
+              <div className="service-seller-card">
+                <p className="service-seller-label">{t('freelancer')}</p>
+                <button
+                  type="button"
+                  onClick={() => router.push(freelancerPath(service.freelancer_id))}
+                  className="service-seller-profile"
+                >
+                  <Avatar name={freelancerName} size={48} />
+                  <div className="service-seller-info">
+                    <div className="service-seller-name-row">
+                      <p className="service-seller-name">{freelancerName}</p>
+                    </div>
+                    <p className="service-seller-specialty">
+                      {service.profiles?.specialty ?? t('role_freelancer')}
+                    </p>
+                    {serviceReviews > 0 && (
+                      <RatingStars rating={serviceRating} size="sm" className="mt-2" />
                     )}
                   </div>
-                ))}
+                </button>
+                <div className="service-seller-divider" />
+                <Link href={freelancerPath(service.freelancer_id)} className="service-seller-link">
+                  {t('view_profile_link')} →
+                </Link>
+                {isLoggedIn && !isOwnService && (
+                  <div className="service-seller-contact space-y-3">
+                    <Button
+                      variant="outline"
+                      size="md"
+                      className="min-h-11 w-full"
+                      leftIcon={<MessageCircle className="h-4 w-4" />}
+                      onClick={handleContact}
+                    >
+                      {t('contact_freelancer')}
+                    </Button>
+                  </div>
+                )}
               </div>
-            </section>
+            </div>
           </div>
 
           <aside className="service-sidebar-sticky hide-mobile space-y-4">
             <div className="kwork-card service-order-card p-5">
+              {packages.length > 1 && (
               <div className="service-package-tabs">
                 {packages.map((pkg) => (
                   <button
@@ -478,14 +475,21 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   </button>
                 ))}
               </div>
-              <p className="mt-4 text-[13px] text-[var(--kwork-text-muted)]">{t('starting_at')}</p>
+              )}
+              <p className={cn('text-[13px] text-[var(--kwork-text-muted)]', packages.length > 1 ? 'mt-4' : '')}>{t('starting_at')}</p>
               <p className="service-price-lg mt-1">
                 {formatPrice(selectedPackage?.price ?? service.price)}
               </p>
-              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-[var(--kwork-text-muted)]">
-                <Clock className="h-3.5 w-3.5" />
-                {t('service_delivery_days').replace('{n}', String(selectedPackage?.days ?? deliveryDays))}
-              </p>
+              {(selectedPackage?.days ?? deliveryDays) != null &&
+                (selectedPackage?.days ?? deliveryDays)! > 0 && (
+                  <p className="mt-2 flex items-center gap-1.5 text-[13px] text-[var(--kwork-text-muted)]">
+                    <Clock className="h-3.5 w-3.5" />
+                    {t('service_delivery_days').replace(
+                      '{n}',
+                      String(selectedPackage?.days ?? deliveryDays)
+                    )}
+                  </p>
+                )}
 
               {error && (
                 <Alert variant="error" className="mt-3">
@@ -497,9 +501,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
               <Alert variant="info" className="mt-4 flex items-center gap-2 text-[12px]">
                 <Shield className="h-4 w-4 shrink-0" aria-hidden />
-                <span>
-                  {t('escrow')} — {t('protected_in_escrow')}
-                </span>
+                <span>{t('escrow_after_payment')}</span>
               </Alert>
             </div>
 
@@ -522,7 +524,6 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   {serviceReviews > 0 && (
                     <RatingStars rating={serviceRating} size="sm" className="mt-2" />
                   )}
-                  <p className="service-seller-response">{t('response_time_unknown')}</p>
                 </div>
               </button>
 
@@ -534,14 +535,9 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
               {isLoggedIn && !isOwnService && (
                 <div className="service-seller-contact space-y-3">
-                  {contactHint && (
-                    <Alert variant="info">
-                      <p>{t('contact_order_hint')}</p>
-                      <Button variant="primary" size="sm" className="mt-3" onClick={handleOrder}>
-                        {t('contact_order_cta')}
-                      </Button>
-                    </Alert>
-                  )}
+                  <p className="text-[11px] leading-relaxed text-[var(--kwork-text-muted)]">
+                    {t('contact_requires_order')}
+                  </p>
                   <Button
                     variant="outline"
                     size="md"
@@ -597,9 +593,11 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               {t('order_notes_label')}
             </h3>
             <p className="kwork-order-modal__price">
-              {t('starting_at')}{' '}
+              {selectedPackage ? t(selectedPackage.labelKey) : t('package_basic')} ·{' '}
               <strong>{formatPrice(selectedPackage?.price ?? service.price)}</strong>
             </p>
+            <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('payment_required_hint')}</p>
+            <p className="mt-1 text-[11px] text-[var(--kwork-text-muted)]">{t('commission_zero')}</p>
             <div className="kwork-order-modal__body">
               <Textarea
                 rows={4}
@@ -622,9 +620,22 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
       {!isOwnService && (
         <div className="mobile-sticky-cta show-mobile">
-          <div className="flex min-w-0 flex-1 flex-col">
+          <button
+            type="button"
+            onClick={() => router.push(freelancerPath(service.freelancer_id))}
+            className="flex min-w-0 max-w-[48%] items-center gap-2 text-left"
+          >
+            <Avatar name={freelancerName} size={36} verified={service.profiles?.is_verified} />
+            <div className="min-w-0">
+              <p className="truncate text-[12px] font-semibold text-[var(--kwork-text)]">{freelancerName}</p>
+              {serviceReviews > 0 && (
+                <RatingStars rating={serviceRating} size="sm" />
+              )}
+            </div>
+          </button>
+          <div className="flex shrink-0 flex-col items-end">
             <span className="text-[11px] text-[var(--kwork-text-muted)]">{t('starting_at')}</span>
-            <span className="text-[22px] font-bold tabular-nums text-[var(--kwork-text)]">
+            <span className="text-[18px] font-bold tabular-nums text-[var(--kwork-text)]">
               {formatPrice(selectedPackage?.price ?? service.price)}
             </span>
           </div>

@@ -15,6 +15,7 @@ import type {
   ApiReferralStats,
   ApiReview,
   ApiService,
+  ApiServiceList,
   ProjectCreateInput,
   ServiceCreateInput,
   ServiceUpdateInput,
@@ -22,7 +23,7 @@ import type {
   ApiTransaction,
 } from './types'
 
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8001'
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8002'
 const FETCH_TIMEOUT_MS = 20_000
 
 /** Brauzerda Next.js proxy (/api/v1 → backend) — CORS yo'q */
@@ -117,11 +118,12 @@ export const api = {
   getProfileById: (id: string) => apiFetch<ApiProfilePublic>(`/api/v1/profiles/${id}`),
   recordProfileView: (profileId: string) =>
     apiFetch<void>(`/api/v1/profiles/${profileId}/view`, { method: 'POST' }),
-  listFreelancers: (params?: { q?: string; region?: string; specialty?: string; limit?: number; offset?: number }) => {
+  listFreelancers: (params?: { q?: string; region?: string; specialty?: string; sort?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
     if (params?.q) q.set('q', params.q)
     if (params?.region) q.set('region', params.region)
     if (params?.specialty) q.set('specialty', params.specialty)
+    if (params?.sort) q.set('sort', params.sort)
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
     const qs = q.toString()
@@ -148,6 +150,9 @@ export const api = {
     category?: string
     region?: string
     search?: string
+    sort?: string
+    min_price?: number
+    max_price?: number
     limit?: number
     offset?: number
   }) => {
@@ -155,10 +160,13 @@ export const api = {
     if (params?.category) q.set('category', params.category)
     if (params?.region) q.set('region', params.region)
     if (params?.search) q.set('search', params.search)
+    if (params?.sort) q.set('sort', params.sort)
+    if (params?.min_price != null) q.set('min_price', String(params.min_price))
+    if (params?.max_price != null) q.set('max_price', String(params.max_price))
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
     const qs = q.toString()
-    return apiFetch<ApiService[]>(`/api/v1/services${qs ? `?${qs}` : ''}`)
+    return apiFetch<ApiServiceList>(`/api/v1/services${qs ? `?${qs}` : ''}`)
   },
   getService: (id: string) => apiFetch<ApiService>(`/api/v1/services/${id}`),
   recordServiceView: (serviceId: string) =>

@@ -76,6 +76,8 @@ export interface ApiProfilePublic {
 
   portfolio_urls?: string[]
 
+  languages?: { lang: string; level: string }[]
+
   created_at?: string
 
 }
@@ -131,8 +133,15 @@ export interface ApiService {
 
     review_count?: number
 
+    is_verified?: boolean
+
   }
 
+}
+
+export interface ApiServiceList {
+  items: ApiService[]
+  total: number
 }
 
 

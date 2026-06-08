@@ -13,6 +13,8 @@ import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { PATHS } from '@/domain/constants/routes'
 import { clearAuthCache } from '@/infrastructure/auth/session-cache'
 import { toast } from '@/presentation/components/ui/toast'
+import { AuthBrandPanel } from '@/presentation/components/auth/auth-brand-panel'
+import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallback'
 
 function ResetPasswordContent() {
   const { t } = useApp()
@@ -105,6 +107,7 @@ function ResetPasswordContent() {
 
   return (
     <div className="auth-layout">
+      <AuthBrandPanel />
       <div className="auth-page-panel">
         <div className="auth-page-inner">
           <div className="auth-page-brand">
@@ -127,7 +130,13 @@ function ResetPasswordContent() {
             )}
 
             {ready ? (
-              <div className="auth-form-fields">
+              <form
+                className="auth-form-fields"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void handleSubmit()
+                }}
+              >
                 <Input
                   label={t('new_password')}
                   type="password"
@@ -146,10 +155,10 @@ function ResetPasswordContent() {
                     setError('')
                   }}
                 />
-                <Button variant="primary" fullWidth size="lg" loading={loading} onClick={handleSubmit}>
+                <Button type="submit" variant="primary" fullWidth size="lg" loading={loading}>
                   {t('update_password')}
                 </Button>
-              </div>
+              </form>
             ) : (
               !error && <p className="text-sm text-[var(--kwork-text-muted)]">...</p>
             )}
@@ -166,7 +175,7 @@ function ResetPasswordContent() {
 
 export function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">...</div>}>
+    <Suspense fallback={<AuthPageFallback />}>
       <ResetPasswordContent />
     </Suspense>
   )

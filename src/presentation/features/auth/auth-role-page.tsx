@@ -9,6 +9,8 @@ import { Button } from '@/presentation/components/ui/button'
 import { api } from '@/infrastructure/api/client'
 import { PATHS } from '@/domain/constants/routes'
 import { resolvePostAuthDestination } from '@/shared/lib/auth-redirect'
+import { AuthBrandPanel } from '@/presentation/components/auth/auth-brand-panel'
+import { toast } from '@/presentation/components/ui/toast'
 
 function RoleCard({
   selected,
@@ -53,12 +55,14 @@ export function AuthRolePage() {
       const dest = resolvePostAuthDestination(searchParams, me, role)
       router.replace(dest)
     } catch {
+      toast.error(t('onboarding_save_error'))
       setLoading(false)
     }
   }
 
   return (
     <div className="auth-layout">
+      <AuthBrandPanel />
       <div className="auth-page-panel">
         <div className="auth-page-inner max-w-[560px]">
           <div className="auth-page-brand">

@@ -18,6 +18,7 @@ import { api } from '@/infrastructure/api/client'
 import { cn } from '@/shared/lib/utils'
 import { uploadAvatar } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
+import { toast } from '@/presentation/components/ui/toast'
 
 type ExpLevel = 'junior' | 'mid' | 'expert'
 
@@ -43,11 +44,24 @@ export function OnboardingPage() {
   const [serviceTitle, setServiceTitle] = useState('')
   const [serviceCategory, setServiceCategory] = useState('')
   const [serviceDesc, setServiceDesc] = useState('')
-  const [packageTab, setPackageTab] = useState<'basic' | 'standard' | 'premium'>('basic')
   const [packagePrice, setPackagePrice] = useState('')
-  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'ok' | 'taken'>('idle')
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'error'>('idle')
 
   const progress = Math.round((step / totalSteps) * 100)
+
+  useEffect(() => {
+    if (!profile) return
+    setFullName((v) => v || profile.full_name || '')
+    setUsername((v) => {
+      if (v) return v
+      if (profile.username) {
+        setUsernameStatus('ok')
+        return profile.username
+      }
+      return ''
+    })
+    setCity((v) => v || profile.region || '')
+  }, [profile?.id, profile?.full_name, profile?.username, profile?.region])
 
   useEffect(() => {
     const slug = username.trim().toLowerCase().replace(/^@/, '')
@@ -55,23 +69,65 @@ export function OnboardingPage() {
       setUsernameStatus('idle')
       return
     }
+    const ownSlug = profile?.username?.toLowerCase()
+    if (ownSlug && slug === ownSlug) {
+      setUsernameStatus('ok')
+      return
+    }
+    setUsernameStatus('checking')
     const id = setTimeout(() => {
       api
         .checkUsername(slug)
         .then((r) => setUsernameStatus(r.available ? 'ok' : 'taken'))
-        .catch(() => setUsernameStatus('idle'))
+        .catch(() => setUsernameStatus('error'))
     }, 400)
     return () => clearTimeout(id)
-  }, [username])
+  }, [username, profile?.username])
 
   const step1Valid = useMemo(() => {
     const base =
       fullName.trim().length > 1 &&
       username.trim().length > 2 &&
-      usernameStatus !== 'taken'
+      usernameStatus === 'ok' &&
+      city.trim().length > 0
     if (isClient) return base
     return base && title.trim().length > 2 && bio.trim().length > 10
-  }, [fullName, username, usernameStatus, title, bio, isClient])
+  }, [fullName, username, usernameStatus, city, title, bio, isClient])
+
+  const goToStep2 = () => {
+    if (!fullName.trim() || fullName.trim().length <= 1) {
+      toast.error(t('onboarding_err_full_name'))
+      return
+    }
+    if (username.trim().length < 3) {
+      toast.error(t('onboarding_err_username'))
+      return
+    }
+    if (!city.trim()) {
+      toast.error(t('onboarding_err_region'))
+      return
+    }
+    if (usernameStatus === 'checking') return
+    if (usernameStatus === 'taken') {
+      toast.error(t('username_taken'))
+      return
+    }
+    if (usernameStatus !== 'ok') {
+      toast.error(t('username_check_failed'))
+      return
+    }
+    if (!isClient) {
+      if (title.trim().length <= 2) {
+        toast.error(t('onboarding_err_title'))
+        return
+      }
+      if (bio.trim().length <= 10) {
+        toast.error(t('onboarding_err_bio'))
+        return
+      }
+    }
+    setStep(2)
+  }
 
   const addSkill = (skill: string) => {
     const s = skill.trim()
@@ -81,6 +137,10 @@ export function OnboardingPage() {
   }
 
   const finish = async (skipService = false) => {
+    if (!fullName.trim() || username.trim().length < 3 || usernameStatus !== 'ok') {
+      toast.error(t('onboarding_required_fields'))
+      return
+    }
     const specialtyValue = !isClient
       ? [title.trim(), ...skills].filter(Boolean).join(' · ') || undefined
       : company.trim() || undefined
@@ -104,7 +164,8 @@ export function OnboardingPage() {
         onboarding_completed: true,
       })
     } catch {
-      /* keyingi safar yangilanadi */
+      toast.error(t('onboarding_save_error'))
+      return
     }
 
     if (!isClient && !skipService && serviceTitle.trim() && serviceCategory && serviceDesc.trim()) {
@@ -120,7 +181,7 @@ export function OnboardingPage() {
             delivery_days: 5,
           })
         } catch {
-          /* xizmat keyinroq qo'shiladi */
+          toast.error(t('onboarding_service_error'))
         }
       }
     }
@@ -155,14 +216,22 @@ export function OnboardingPage() {
               disabled={avatarUploading || !userId}
               initialUrls={profile?.avatar_url ? [profile.avatar_url] : []}
               onUpload={async (files) => {
-                if (!userId || !files[0] || !isSupabaseConfigured()) return []
+                if (!userId || !files[0]) {
+                  toast.error(t('upload_error'))
+                  return []
+                }
+                if (!isSupabaseConfigured()) {
+                  toast.error(t('auth_supabase_not_configured'))
+                  return []
+                }
                 setAvatarUploading(true)
                 try {
                   const url = await uploadAvatar(files[0], userId)
                   await api.updateProfile({ avatar_url: url })
                   await refreshProfile()
                   return [url]
-                } catch {
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : t('upload_error'))
                   return []
                 } finally {
                   setAvatarUploading(false)
@@ -177,11 +246,17 @@ export function OnboardingPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="@username"
               />
+              {usernameStatus === 'checking' && (
+                <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('username_checking')}</p>
+              )}
               {usernameStatus === 'ok' && (
                 <p className="mt-1 text-[12px] text-[var(--success-dark)]">{t('username_available')}</p>
               )}
               {usernameStatus === 'taken' && (
                 <p className="mt-1 text-[12px] text-[var(--error)]">{t('username_taken')}</p>
+              )}
+              {usernameStatus === 'error' && (
+                <p className="mt-1 text-[12px] text-[var(--error)]">{t('username_check_failed')}</p>
               )}
             </div>
             {!isClient && (
@@ -226,13 +301,17 @@ export function OnboardingPage() {
           <Button
             variant="primary"
             fullWidth
-            className="mt-8"
-            disabled={!step1Valid}
-            onClick={() => setStep(2)}
+            className={cn('mt-8', !step1Valid && 'opacity-60')}
+            onClick={goToStep2}
           >
             {t('continue_btn')} →
           </Button>
-          <button type="button" onClick={() => finish(true)} className="mt-4 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]">
+          <button
+            type="button"
+            disabled={!step1Valid}
+            onClick={() => finish(true)}
+            className="mt-4 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {t('skip')}
           </button>
           {isClient && (
@@ -396,22 +475,13 @@ export function OnboardingPage() {
             className="catalog-control"
           />
           <Textarea label={t('description')} value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} rows={6} />
-          <div className="flex gap-2">
-            {(['basic', 'standard', 'premium'] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setPackageTab(tab)}
-                className={cn(
-                  'rounded-lg px-3 py-1.5 text-[13px] font-medium',
-                  packageTab === tab ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--neutral-50)] text-[var(--kwork-text-muted)]'
-                )}
-              >
-                {t(tab === 'basic' ? 'package_basic' : tab === 'standard' ? 'package_standard' : 'package_premium')}
-              </button>
-            ))}
-          </div>
-          <Input label={t('col_price')} value={packagePrice} onChange={(e) => setPackagePrice(e.target.value)} placeholder="150 000" />
+          <Input
+            label={t('col_price')}
+            value={packagePrice}
+            onChange={(e) => setPackagePrice(e.target.value)}
+            placeholder={t('price_placeholder')}
+          />
+          <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('onboarding_single_package_hint')}</p>
         </div>
         <Button variant="primary" fullWidth size="lg" className="mt-8" onClick={() => finish()}>
           {t('finish_profile')}

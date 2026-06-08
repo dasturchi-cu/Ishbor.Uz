@@ -14,9 +14,12 @@ import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { Input } from '@/presentation/components/ui/input'
 import { Button } from '@/presentation/components/ui/button'
+import { Alert } from '@/presentation/components/ui/alert'
 import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
 import { withdrawalSchema } from '@/domain/validators/withdrawal'
+import { Skeleton } from '@/presentation/components/ui/skeleton'
+import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 
 export function WalletPage() {
   const { t, currentUserRole, language, profile, refreshProfile } = useApp()
@@ -30,13 +33,22 @@ export function WalletPage() {
   const [withdrawNote, setWithdrawNote] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
   const [withdrawals, setWithdrawals] = useState<ApiWithdrawalRequest[]>([])
+  const [clientWithdrawHint, setClientWithdrawHint] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   const loadWallet = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const [ord, tx] = await Promise.all([
-        api.listOrders().catch(() => [] as ApiOrder[]),
-        api.listTransactions().catch(() => [] as ApiTransaction[]),
+        api.listOrders().catch(() => {
+          setLoadError(true)
+          return [] as ApiOrder[]
+        }),
+        api.listTransactions().catch(() => {
+          setLoadError(true)
+          return [] as ApiTransaction[]
+        }),
       ])
       setOrders(ord)
       setLedger(tx)
@@ -86,7 +98,7 @@ export function WalletPage() {
         .slice(0, 6)
         .map((tx) => ({
           id: tx.id,
-          label: tx.type,
+          label: transactionTypeLabel(tx.type, t),
           date: tx.created_at,
           amount: tx.type === 'withdrawal' ? -tx.amount : tx.amount,
           status: tx.status,
@@ -123,6 +135,16 @@ export function WalletPage() {
           </>
         )}
         <p className="wallet-intro-desc">{t('wallet_desc')}</p>
+        {loadError && (
+          <Alert variant="error" className="mt-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t('data_load_failed')}</span>
+              <Button variant="outline" size="sm" onClick={() => void loadWallet()}>
+                {t('catalog_retry')}
+              </Button>
+            </div>
+          </Alert>
+        )}
         <span className="wallet-intro-note">
           <Shield className="h-3 w-3" />
           {t('wallet_payment_note')}
@@ -134,26 +156,46 @@ export function WalletPage() {
           <div>
             <p className="wallet-balance-label">
               <Wallet className="h-4 w-4" />
-              {t('available_balance')}
+              {currentUserRole === 'client' ? t('client_wallet_spent') : t('available_balance')}
             </p>
-            <p className="wallet-balance-value">{loading ? '…' : formatPrice(balance)}</p>
+            <p className="wallet-balance-value">
+              {loading ? (
+                <Skeleton className="h-9 w-36" />
+              ) : (
+                formatPrice(currentUserRole === 'client' ? completed : balance)
+              )}
+            </p>
             <p className="wallet-balance-escrow">
               <Shield className="h-3.5 w-3.5" />
-              {t('escrow')} — {loading ? '…' : formatPrice(active + pending)} {t('protected_in_escrow')}
+              {t('escrow')} —{' '}
+              {loading ? <Skeleton className="inline-block h-4 w-24 align-middle" /> : formatPrice(active + pending)}{' '}
+              {currentUserRole === 'client' ? t('client_wallet_escrow_note') : t('protected_in_escrow')}
             </p>
           </div>
           <div className="wallet-balance-actions">
-            <button type="button" className="wallet-balance-btn" disabled>
-              {t('top_up')}
-            </button>
+            {currentUserRole === 'freelancer' && (
+              <button
+                type="button"
+                className="wallet-balance-btn"
+                onClick={() => toast.info(t('top_up_coming_soon'))}
+              >
+                {t('top_up')}
+              </button>
+            )}
+            {currentUserRole === 'client' && (
+              <Link href={PATHS.dashboardOrders} className="wallet-balance-btn">
+                {t('payment_pay_now')}
+              </Link>
+            )}
             <button
               type="button"
               className="wallet-balance-btn wallet-balance-btn--primary"
               onClick={() => {
                 if (currentUserRole !== 'freelancer') {
-                  toast.info(t('withdraw_processing_note'))
+                  setClientWithdrawHint(true)
                   return
                 }
+                setClientWithdrawHint(false)
                 setWithdrawAmount(String(balance > 0 ? balance : ''))
               }}
             >
@@ -162,6 +204,12 @@ export function WalletPage() {
           </div>
         </div>
       </div>
+
+      {clientWithdrawHint && currentUserRole !== 'freelancer' && (
+        <Alert variant="info" className="mb-4">
+          {t('client_withdraw_unavailable')}
+        </Alert>
+      )}
 
       <div className="wallet-stats">
         <div className="wallet-stat">
@@ -175,7 +223,9 @@ export function WalletPage() {
           <div className="wallet-stat-icon">
             <Lock />
           </div>
-          <p className="wallet-stat-value">{loading ? '…' : formatPrice(active + pending)}</p>
+          <p className="wallet-stat-value">
+            {loading ? <Skeleton className="mx-auto h-7 w-28" /> : formatPrice(active + pending)}
+          </p>
           <p className="wallet-stat-label">{t('escrow_balance')}</p>
           <p className="wallet-stat-hint">{t('protected_orders')}</p>
         </div>
@@ -247,7 +297,10 @@ export function WalletPage() {
         <section className="surface-panel mb-5 p-4">
           <h3 className="settings-section-title">{t('withdrawal_pending_title')}</h3>
           {loading ? (
-            <p className="mt-2 text-sm text-[var(--kwork-text-muted)]">…</p>
+            <div className="mt-2 space-y-2">
+              <Skeleton className="h-4 w-full max-w-md" />
+              <Skeleton className="h-4 w-2/3 max-w-sm" />
+            </div>
           ) : withdrawals.length === 0 ? (
             <p className="mt-2 text-sm text-[var(--kwork-text-muted)]">{t('withdrawal_pending_empty')}</p>
           ) : (

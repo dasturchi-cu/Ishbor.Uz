@@ -18,6 +18,7 @@ import { uploadServiceImages } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { cn } from '@/shared/lib/utils'
 import { serviceCreateSchema } from '@/domain/validators/service'
+import { toast } from '@/presentation/components/ui/toast'
 
 const STEPS = [1, 2, 3] as const
 
@@ -36,6 +37,7 @@ export function DashboardNewServicePage() {
   const [uploading, setUploading] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const stepLabels = [t('new_service_step1'), t('new_service_step2'), t('new_service_step3')]
 
@@ -44,19 +46,70 @@ export function DashboardNewServicePage() {
     return digits ? parseInt(digits, 10) : 0
   }
 
+  const collectFieldErrors = (data: {
+    title: string
+    description: string
+    category: string
+    region: string
+    price: number
+    delivery_days: number
+  }) => {
+    const parsed = serviceCreateSchema.safeParse(data)
+    if (parsed.success) {
+      setFieldErrors({})
+      return true
+    }
+    const next: Record<string, string> = {}
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? '')
+      if (key) next[key] = t('error_required')
+    }
+    setFieldErrors(next)
+    toast.error(t('error_required'))
+    return false
+  }
+
+  const handleNext = () => {
+    if (step === 1) {
+      const ok = collectFieldErrors({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        region,
+        price: 1,
+        delivery_days: 5,
+      })
+      if (!ok) return
+    }
+    if (step === 2) {
+      const priceNum = parsePrice(price)
+      const days = parseInt(deliveryDays, 10) || 5
+      const ok = collectFieldErrors({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        region,
+        price: priceNum,
+        delivery_days: days,
+      })
+      if (!ok) return
+    }
+    setStep((s) => (s + 1) as (typeof STEPS)[number])
+  }
+
   const handlePublish = async () => {
     const priceNum = parsePrice(price)
     const days = parseInt(deliveryDays, 10) || 5
-    const parsed = serviceCreateSchema.safeParse({
-      title,
-      description,
-      category,
-      region,
-      price: priceNum,
-      delivery_days: days,
-    })
-    if (!parsed.success) {
-      setError(t('error_required'))
+    if (
+      !collectFieldErrors({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        region,
+        price: priceNum,
+        delivery_days: days,
+      })
+    ) {
       return
     }
     setPublishing(true)
@@ -144,21 +197,32 @@ export function DashboardNewServicePage() {
             <Input
               label={t('service_title')}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setTitle(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, title: '' }))
+              }}
               placeholder={t('service_title_ph')}
+              error={fieldErrors.title}
             />
             <Select
               label={t('category')}
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, category: '' }))
+              }}
               placeholder={t('select')}
               options={KWORK_CATEGORY_ITEMS.map((c) => ({ value: c.cat, label: t(c.labelKey) }))}
             />
             <Textarea
               label={t('description')}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                setDescription(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, description: '' }))
+              }}
               rows={8}
+              error={fieldErrors.description}
             />
           </div>
         )}
@@ -167,8 +231,12 @@ export function DashboardNewServicePage() {
             <Input
               label={t('package_basic')}
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="150 000"
+              onChange={(e) => {
+                setPrice(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, price: '' }))
+              }}
+              placeholder={t('price_placeholder')}
+              error={fieldErrors.price}
             />
             <Input
               label={t('delivery_time')}
@@ -176,7 +244,11 @@ export function DashboardNewServicePage() {
               min={1}
               max={365}
               value={deliveryDays}
-              onChange={(e) => setDeliveryDays(e.target.value)}
+              onChange={(e) => {
+                setDeliveryDays(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, delivery_days: '' }))
+              }}
+              error={fieldErrors.delivery_days}
             />
             <Select
               label={t('city')}
@@ -222,11 +294,7 @@ export function DashboardNewServicePage() {
             </Button>
           )}
           {step < 3 ? (
-            <Button
-              variant="primary"
-              fullWidth
-              onClick={() => setStep((s) => (s + 1) as (typeof STEPS)[number])}
-            >
+            <Button variant="primary" fullWidth onClick={handleNext}>
               {t('next')}
             </Button>
           ) : (

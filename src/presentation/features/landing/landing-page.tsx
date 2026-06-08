@@ -25,6 +25,7 @@ import type { ApiPublicStats } from '@/infrastructure/api/types'
 import type { TranslationKey } from '@/infrastructure/i18n'
 
 import { initialsFromName } from '@/shared/lib/avatar'
+import { cn } from '@/shared/lib/utils'
 
 import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import { TrustBrandLogos } from '@/presentation/components/layout/trust-brand-logos'
@@ -105,15 +106,16 @@ function PromoBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div className="kwork-promo-banner">
       <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
-        <p className="text-[13px] font-medium text-white sm:text-[14px]">
-          {t('first_order_promo')} · {t('landing_promo_text')}
+        <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-white sm:text-[14px]">
+          {t('first_order_promo')}
+          <span className="hidden sm:inline"> · {t('landing_stat_commission_note')}</span>
         </p>
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            href={PATHS.register}
+            href={PATHS.services}
             className="rounded-md bg-white px-4 py-1.5 text-[13px] font-semibold text-[var(--color-primary)] transition hover:bg-[var(--brand-50)]"
           >
-            {t('landing_promo_btn')}
+            {t('browse_services')}
           </Link>
 
           <button
@@ -245,15 +247,16 @@ export function LandingPage() {
 
 
   if (isAuthLoading || isLoggedIn) {
-
     return (
-
-      <div className="flex min-h-[50vh] items-center justify-center bg-[var(--body-bg)]">
+      <div
+        className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-[var(--body-bg)]"
+        role="status"
+        aria-live="polite"
+      >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--kwork-border)] border-t-[var(--color-primary)]" />
+        <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('landing_redirecting')}</p>
       </div>
-
     )
-
   }
 
 
@@ -278,7 +281,7 @@ export function LandingPage() {
 
 
 
-              <h1 className="mt-4 max-w-[560px] text-[28px] font-bold leading-[1.15] tracking-tight text-[var(--kwork-text)] sm:text-[34px] lg:text-[38px]">
+              <h1 className="mt-4 max-w-[560px] text-[length:var(--text-h2)] font-bold leading-[1.12] tracking-tight text-[var(--kwork-text)] sm:text-[length:var(--text-h1)] lg:text-[length:var(--text-display)] lg:leading-[1.08]">
 
                 {t('kwork_hero_headline')}
 
@@ -301,10 +304,23 @@ export function LandingPage() {
                 variant="hero"
               />
 
-              <div className="mt-5">
-                <Link href={PATHS.register} className="landing-cta-btn inline-flex text-[14px]">
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="rounded-full px-6 font-bold"
+                  onClick={handleSearch}
+                >
+                  {t('browse_services')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="rounded-full px-6 font-bold"
+                  onClick={() => router.push(PATHS.register)}
+                >
                   {t('start_now')}
-                </Link>
+                </Button>
               </div>
 
 
@@ -360,7 +376,12 @@ export function LandingPage() {
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star
                           key={i}
-                          className="h-3.5 w-3.5 fill-[var(--warning)] text-[var(--warning)]"
+                          className={cn(
+                            'h-3.5 w-3.5',
+                            i < Math.round(featuredRating)
+                              ? 'fill-[var(--rating-filled)] text-[var(--rating-filled)]'
+                              : 'fill-[var(--rating-empty)] text-[var(--rating-empty)]'
+                          )}
                         />
                       ))}
                     </div>
@@ -447,8 +468,9 @@ export function LandingPage() {
               <EmptyState
                 icon={<Search />}
                 title={t('no_services_yet')}
-                description={t('no_services_desc')}
-                action={{ label: t('nav_services'), onClick: () => router.push(PATHS.services), variant: 'outline' }}
+                description={t('no_services_dashboard_desc')}
+                action={{ label: t('register'), onClick: () => router.push(PATHS.register) }}
+                secondaryAction={{ label: t('nav_services'), onClick: () => router.push(PATHS.services), variant: 'outline' }}
               />
             ) : (
 
@@ -509,11 +531,9 @@ export function LandingPage() {
           variant="primary"
           size="md"
           className="shrink-0 !w-auto px-5"
-          onClick={() =>
-            router.push(isLoggedIn ? defaultAuthDestination(profile, currentUserRole) : PATHS.register)
-          }
+          onClick={() => router.push(PATHS.register)}
         >
-          {isLoggedIn ? t('nav_dashboard') : t('register')}
+          {t('register')}
         </Button>
       </div>
 

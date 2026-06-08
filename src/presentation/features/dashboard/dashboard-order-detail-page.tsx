@@ -21,8 +21,10 @@ import { PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatDate } from '@/shared/lib/format-date'
+import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 import { toast } from '@/presentation/components/ui/toast'
-import { CreditCard } from 'lucide-react'
+import { CreditCard, ShoppingBag } from 'lucide-react'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 
 const NEXT_STATUS: Record<string, Record<string, string>> = {
   freelancer: { pending: 'active', active: 'delivered' },
@@ -69,8 +71,8 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
 
   const otherName =
     role === 'freelancer'
-      ? order?.client_profile?.full_name ?? '—'
-      : order?.freelancer_profile?.full_name ?? '—'
+      ? order?.client_profile?.full_name ?? t('value_not_available')
+      : order?.freelancer_profile?.full_name ?? t('value_not_available')
 
   const nextStatus = order ? NEXT_STATUS[role]?.[order.status] : undefined
   const actionKey = order ? ACTION_LABEL[role]?.[order.status] : undefined
@@ -156,11 +158,13 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
 
   if (!order) {
     return (
-      <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-8 text-center">
-        <p className="text-[14px] text-[var(--kwork-text-muted)]">{t('no_orders_yet')}</p>
-        <Link href={PATHS.dashboardOrders} className="mt-3 inline-block text-[var(--color-primary)] hover:underline">
-          {t('nav_orders')}
-        </Link>
+      <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
+        <EmptyState
+          icon={<ShoppingBag />}
+          title={t('order_not_found_title')}
+          description={t('order_not_found_desc')}
+          action={{ label: t('nav_orders'), onClick: () => router.push(PATHS.dashboardOrders) }}
+        />
       </div>
     )
   }
@@ -188,7 +192,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </div>
         </div>
 
-        <OrderProgressStepper status={order.status} />
+        <OrderProgressStepper status={order.status} paymentStatus={order.payment_status} />
 
         {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
           <Alert variant="info">{t('first_order_promo')}</Alert>
@@ -215,16 +219,18 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
             <div className="mt-4 space-y-2 border-t border-[var(--kwork-border)] pt-4">
               <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('payment_required_hint')}</p>
+              <p className="text-[12px] font-medium text-[var(--kwork-text)]">{t('commission_zero')}</p>
+              <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('landing_stat_commission_note')}</p>
               <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="primary" loading={paying} onClick={() => handlePay('sandbox')} className="gap-2">
                   <CreditCard className="h-4 w-4" />
                   {t('payment_pay_now')}
                 </Button>
-                <Button variant="outline" loading={paying} onClick={() => handlePay('click')}>
+                <Button variant="outline" disabled title={t('payment_click_soon')}>
                   Click
                 </Button>
-                <Button variant="outline" loading={paying} onClick={() => handlePay('payme')}>
+                <Button variant="outline" disabled title={t('payment_payme_soon')}>
                   Payme
                 </Button>
               </div>
@@ -249,7 +255,13 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </div>
         )}
 
-        {actionKey && !(role === 'freelancer' && order.status === 'active') && (
+        {role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held' && (
+          <Alert variant="info">{t('payment_waiting_freelancer')}</Alert>
+        )}
+
+        {actionKey &&
+          !(role === 'freelancer' && order.status === 'active') &&
+          !(role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held') && (
           <Button variant="primary" loading={updating} onClick={handleStatus}>
             {t(actionKey)}
           </Button>
@@ -321,13 +333,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
               {transactions.map((tx) => (
                 <li key={tx.id} className="flex items-center justify-between gap-2 text-[12px]">
                   <span className="text-[var(--kwork-text-muted)]">
-                    {tx.type === 'escrow_hold'
-                      ? t('payment_status_held')
-                      : tx.type === 'escrow_release'
-                        ? t('payment_status_released')
-                        : tx.type === 'escrow_refund'
-                          ? t('payment_status_refunded')
-                          : tx.type}
+                    {transactionTypeLabel(tx.type, t)}
                   </span>
                   <span className="font-semibold">{formatPrice(tx.amount)}</span>
                 </li>
@@ -335,10 +341,12 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
             </ul>
           </div>
         )}
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--color-primary-light)]/30 p-4">
-          <p className="text-[13px] font-bold text-[var(--kwork-text)]">{t('why_escrow')}</p>
-          <p className="mt-2 text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
-        </div>
+        {order.payment_status === 'held' && (
+          <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--color-primary-light)]/30 p-4">
+            <p className="text-[13px] font-bold text-[var(--kwork-text)]">{t('why_escrow')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
+          </div>
+        )}
         <Button variant="outline" fullWidth onClick={() => router.push(PATHS.dashboardOrders)}>
           {t('back')}
         </Button>

@@ -42,9 +42,17 @@ export function PricingPage() {
     e.preventDefault()
     const trimmed = proEmail.trim()
     if (!trimmed) return
-    await saveWaitlistEmail(trimmed, 'pro')
-    toast.success(t('newsletter_thanks'))
-    setProEmail('')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast.error(t('newsletter_invalid_email'))
+      return
+    }
+    const ok = await saveWaitlistEmail(trimmed, 'pro')
+    if (ok) {
+      toast.success(t('newsletter_thanks'))
+      setProEmail('')
+    } else {
+      toast.error(t('newsletter_save_failed'))
+    }
   }
 
   return (
@@ -68,6 +76,12 @@ export function PricingPage() {
             <h2 className="text-xl font-bold text-[var(--kwork-text)]">{t(plan.nameKey)}</h2>
             <p className="mt-1 text-[28px] font-bold text-[var(--color-primary)]">{t(plan.priceKey)}</p>
             <p className="mt-2 text-[14px] text-[var(--kwork-text-muted)]">{t(plan.descKey)}</p>
+            {plan.id === 'pro' && (
+              <p className="mt-2 text-[12px] font-medium text-[var(--warning-dark)]">{t('pricing_features_soon_note')}</p>
+            )}
+            {plan.id === 'free' && (
+              <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">{t('escrow_steps_disclaimer')}</p>
+            )}
             <ul className="mt-6 flex-1 space-y-3">
               {plan.features.map((key) => (
                 <li key={key} className="flex items-start gap-2 text-[14px] text-[var(--kwork-text-sub)]">

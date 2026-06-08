@@ -19,6 +19,9 @@ import { signInWithGoogle } from '@/infrastructure/auth/oauth'
 import { isGoogleAuthEnabled } from '@/infrastructure/auth/google-auth'
 import { storeReferralRef, consumeReferralRef } from '@/shared/lib/referral'
 import { registerStep2Schema } from '@/domain/validators/auth'
+import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
+import { AuthBrandPanel, AuthMobileTrust } from '@/presentation/components/auth/auth-brand-panel'
+import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallback'
 
 function RegisterPageContent() {
   const { t, setCurrentUserRole, refreshProfile } = useApp()
@@ -33,6 +36,7 @@ function RegisterPageContent() {
     password: '',
     confirmPassword: '',
     specialty: '',
+    company: '',
     city: '',
     bio: '',
     agreeTerms: false,
@@ -110,8 +114,21 @@ function RegisterPageContent() {
     if (validateStep2()) setStep(3)
   }
 
+  const validateStep3 = () => {
+    const next: Record<string, string> = {}
+    if (!formData.city.trim()) next.city = t('error_required')
+    if (role === 'freelancer' && !formData.specialty.trim()) next.specialty = t('error_required')
+    if (Object.keys(next).length > 0) {
+      setErrors(next)
+      return false
+    }
+    setErrors({})
+    return true
+  }
+
   const handleRegister = async () => {
     setSuccessMessage(null)
+    if (!validateStep3()) return
     if (!formData.agreeTerms) {
       setErrors({ agreeTerms: t('error_agree_terms') })
       return
@@ -145,8 +162,11 @@ function RegisterPageContent() {
             full_name: formData.fullName,
             phone: formData.phone,
             region: formData.city,
-            specialty: formData.specialty,
-            bio: formData.bio,
+            specialty: selectedRole === 'client' ? formData.company.trim() || undefined : formData.specialty,
+            bio:
+              selectedRole === 'client'
+                ? formData.company.trim() || formData.bio
+                : formData.bio,
           })
         } catch {
           // trigger profil yaratgan bo'lishi mumkin
@@ -161,7 +181,7 @@ function RegisterPageContent() {
         setSuccessMessage(t('auth_email_confirm_sent'))
       }
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Ro'yxatdan o'tishda xatolik yuz berdi"
+      const message = e instanceof Error ? e.message : t('register_failed')
       setErrors({ submit: mapAuthErrorMessage(message, t) })
     } finally {
       setLoading(false)
@@ -192,6 +212,7 @@ function RegisterPageContent() {
   if (step === 1) {
     return (
       <div className="auth-layout">
+        <AuthBrandPanel />
         <div className="auth-page-panel">
           <div className="auth-page-inner max-w-[560px]">
             <div className="auth-page-brand">
@@ -244,18 +265,18 @@ function RegisterPageContent() {
             <p className="text-center text-[12px] text-[var(--kwork-text-muted)]">{t('select_role_first')}</p>
           )}
 
-          <Button
-            variant="outline"
-            size="lg"
-            fullWidth
-            className="gap-2"
-            loading={googleLoading}
-            disabled={!googleEnabled}
-            title={!googleEnabled ? t('google_auth_setup_hint') : undefined}
-            onClick={handleGoogleRegister}
-          >
-            {googleEnabled ? t('google_sign_in') : `${t('google_sign_in')} (${t('google_sign_in_soon')})`}
-          </Button>
+          {googleEnabled && (
+            <Button
+              variant="outline"
+              size="lg"
+              fullWidth
+              className="gap-2"
+              loading={googleLoading}
+              onClick={handleGoogleRegister}
+            >
+              {t('google_sign_up')}
+            </Button>
+          )}
 
           <p className="auth-footer-link">
             {t('already_have_account')}{' '}
@@ -271,6 +292,7 @@ function RegisterPageContent() {
 
   return (
     <div className="auth-layout">
+      <AuthBrandPanel />
       <a href="#register-form" className="skip-link">
         {t('skip_to_content')}
       </a>
@@ -285,6 +307,7 @@ function RegisterPageContent() {
           </div>
 
           <div id="register-form" className="auth-form-card">
+            <AuthMobileTrust />
             <header className="auth-form-header">
               <span className="auth-step-badge">
                 {t('register_step_label').replace('{n}', String(step)).replace('{total}', '3')}
@@ -404,10 +427,11 @@ function RegisterPageContent() {
                       className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
                     >
                       <option value="">{t('select')}</option>
-                      <option>{t('web_developer')}</option>
-                      <option>{t('graphic_designer_opt')}</option>
-                      <option>{t('ui_ux_designer')}</option>
-                      <option>{t('content_writer_opt')}</option>
+                      {KWORK_CATEGORY_ITEMS.map((item) => (
+                        <option key={item.cat} value={item.cat}>
+                          {t(item.labelKey)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -434,7 +458,12 @@ function RegisterPageContent() {
                 </>
               ) : (
                 <>
-                  <Input label={t('company_optional')} placeholder={t('company_name')} />
+                  <Input
+                    label={t('company_optional')}
+                    placeholder={t('company_name')}
+                    value={formData.company}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  />
                   <div>
                     <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
                       {t('region')}
@@ -532,7 +561,7 @@ function RoleCard({
 
 export function RegisterPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">...</div>}>
+    <Suspense fallback={<AuthPageFallback />}>
       <RegisterPageContent />
     </Suspense>
   )

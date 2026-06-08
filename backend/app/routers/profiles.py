@@ -6,7 +6,7 @@ REFERRAL_BONUS = 50_000
 
 from app.database import get_supabase
 
-from app.deps import CurrentUserId
+from app.deps import CurrentUserId, OptionalUserId
 
 from app.review_stats import batch_review_stats
 
@@ -200,13 +200,17 @@ def _load_notification_prefs(supabase, user_id: str) -> dict:
 
 
 @router.get("/check-username", response_model=UsernameCheckResponse)
-def check_username(username: str = Query(..., min_length=1)):
+def check_username(user_id: OptionalUserId, username: str = Query(..., min_length=1)):
     slug = normalize_username(username)
     if len(slug) < 3:
         return {"available": False}
     supabase = get_supabase()
     existing = supabase.table("profiles").select("id").eq("username", slug).limit(1).execute()
-    return {"available": not bool(existing.data)}
+    if not existing.data:
+        return {"available": True}
+    if user_id and existing.data[0]["id"] == user_id:
+        return {"available": True}
+    return {"available": False}
 
 
 @router.get("/me/notification-prefs", response_model=NotificationPrefsResponse)
@@ -229,6 +233,7 @@ def list_freelancers(
     q: str | None = Query(default=None),
     region: str | None = Query(default=None),
     specialty: str | None = Query(default=None),
+    sort: str | None = Query(default=None),
     limit: int = Query(default=24, le=50),
     offset: int = Query(default=0, ge=0),
 ):
@@ -266,6 +271,13 @@ def list_freelancers(
 
         profiles.append({**row, "avg_rating": avg, "review_count": count})
 
+    if sort == "rating":
+        profiles.sort(key=lambda p: (p.get("avg_rating") or 0, p.get("review_count") or 0), reverse=True)
+    elif sort == "reviews":
+        profiles.sort(key=lambda p: p.get("review_count") or 0, reverse=True)
+    elif sort == "newest":
+        profiles.sort(key=lambda p: p.get("created_at") or "", reverse=True)
+
     return profiles
 
 
@@ -293,7 +305,7 @@ def get_profile(profile_id: str):
 
         supabase.table("profiles")
 
-        .select("id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, is_verified, portfolio_urls")
+        .select("id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, is_verified, portfolio_urls, languages")
 
         .eq("id", profile_id)
 

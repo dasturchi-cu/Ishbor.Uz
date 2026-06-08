@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { toast } from '@/presentation/components/ui/toast'
@@ -127,9 +128,14 @@ export function HelpPage() {
 
   const handleSupportSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const subject = encodeURIComponent(`IshBor.uz — ${formName || 'support'}`)
+    const subject = encodeURIComponent(
+      t('help_support_subject').replace('{name}', formName.trim() || t('help_form_name'))
+    )
     const body = encodeURIComponent(
-      `Ism: ${formName}\nEmail: ${formEmail}\n\n${formMessage}`
+      t('help_mail_body')
+        .replace('{name}', formName)
+        .replace('{email}', formEmail)
+        .replace('{message}', formMessage)
     )
     window.location.href = `mailto:hello@ishbor.uz?subject=${subject}&body=${body}`
     toast.success(t('help_form_success'))
@@ -299,6 +305,14 @@ export function HelpPage() {
             >
               Telegram @IshBorUz
             </a>
+          </div>
+          <div className="mt-4 flex flex-wrap justify-center gap-4 text-[12px]">
+            <Link href={PATHS.terms} className="text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]">
+              {t('footer_terms')}
+            </Link>
+            <Link href={PATHS.privacy} className="text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]">
+              {t('footer_privacy')}
+            </Link>
           </div>
         </div>
       </section>

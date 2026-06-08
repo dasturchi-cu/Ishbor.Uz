@@ -12,6 +12,8 @@ import { api } from '@/infrastructure/api/client'
 import type { ApiAdminStats, ApiOrder, ApiProfile, ApiService, ApiWithdrawalRequest } from '@/infrastructure/api/types'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
+import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
+import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 
 export function AdminPage() {
   const { t, profile, isAuthLoading, isLoggedIn, currentUserRole, refreshProfile } = useApp()
@@ -205,6 +207,11 @@ export function AdminPage() {
             className="max-w-xs"
           />
         </div>
+        {users.length >= 100 && (
+          <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
+            {t('admin_users_limit_note').replace('{n}', '100')}
+          </p>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <caption className="sr-only">{t('admin_users')}</caption>
@@ -218,6 +225,13 @@ export function AdminPage() {
               </tr>
             </thead>
             <tbody>
+              {filteredUsers.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-[var(--kwork-text-muted)]">
+                    {t('admin_users_empty')}
+                  </td>
+                </tr>
+              )}
               {filteredUsers.map((u) => (
                 <tr key={u.id} className="border-b border-[var(--kwork-border)]">
                   <td className="py-2 text-[var(--kwork-text)]">{u.full_name ?? '—'}</td>
@@ -309,7 +323,10 @@ export function AdminPage() {
                     <p className="mt-1 line-clamp-2 text-[12px] text-[var(--kwork-text-muted)]">{o.dispute_reason}</p>
                   )}
                 </div>
-                <span className="font-semibold">{formatPrice(o.amount)}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{formatPrice(o.amount)}</span>
+                  {o.payment_status && <PaymentStatusBadge status={o.payment_status} />}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="primary"
@@ -459,20 +476,32 @@ export function AdminPage() {
             className="max-w-xs"
           />
         </div>
-        <div className="space-y-2">
-          {filteredOrders.map((o) => (
-            <div
-              key={o.id}
-              className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm"
-            >
-              <span className="min-w-0 truncate font-medium text-[var(--kwork-text)]">
-                {o.services?.title ?? o.id.slice(0, 8)}
-              </span>
-              <span className="text-[var(--kwork-text-muted)]">{o.status}</span>
-              <span className="font-semibold text-[var(--kwork-text)]">{formatPrice(o.amount)}</span>
-            </div>
-          ))}
-        </div>
+        {orders.length >= 100 && (
+          <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
+            {t('admin_orders_limit_note').replace('{n}', '100')}
+          </p>
+        )}
+        {filteredOrders.length === 0 ? (
+          <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_orders_empty')}</p>
+        ) : (
+          <div className="space-y-2">
+            {filteredOrders.map((o) => (
+              <div
+                key={o.id}
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm"
+              >
+                <span className="min-w-0 truncate font-medium text-[var(--kwork-text)]">
+                  {o.services?.title ?? o.id.slice(0, 8)}
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <OrderStatusBadge status={o.status} />
+                  {o.payment_status && <PaymentStatusBadge status={o.payment_status} />}
+                </div>
+                <span className="font-semibold text-[var(--kwork-text)]">{formatPrice(o.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   )

@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
@@ -15,6 +16,10 @@ import { useInboxRealtime } from '@/shared/lib/use-inbox-realtime'
 import { uploadChatImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { Language } from '@/infrastructure/i18n'
+import { Skeleton, SkeletonAvatar } from '@/presentation/components/ui/skeleton'
+import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { Button } from '@/presentation/components/ui/button'
+import { dashboardOrderPath, PATHS } from '@/domain/constants/routes'
 
 function orderToConversation(order: ApiOrder, userId: string, orderTitleFallback: string): ApiConversation {
   const isClient = order.client_id === userId
@@ -75,13 +80,29 @@ function formatMessageTime(dateStr: string | null | undefined, language: Languag
   return isToday ? formatTime(d, language) : formatDateShort(d, language)
 }
 
-function ChatEmptyState({ text }: { text: string }) {
+function ChatEmptyState({
+  text,
+  hint,
+  action,
+}: {
+  text: string
+  hint?: string
+  action?: { label: string; href: string }
+}) {
   return (
     <div className="chat-empty">
       <div className="chat-empty-icon">
         <Send />
       </div>
       <p className="chat-empty-text">{text}</p>
+      {hint && <p className="mt-2 max-w-sm text-center text-[12px] text-[var(--kwork-text-muted)]">{hint}</p>}
+      {action && (
+        <Link href={action.href} className="mt-4">
+          <Button variant="outline" size="sm">
+            {action.label}
+          </Button>
+        </Link>
+      )}
     </div>
   )
 }
@@ -103,6 +124,8 @@ export function MessagesPage() {
   const [attachLoading, setAttachLoading] = useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [sendLoading, setSendLoading] = useState(false)
   const [unreadOnly, setUnreadOnly] = useState(false)
 
   useEffect(() => {
@@ -165,7 +188,12 @@ export function MessagesPage() {
 
   useEffect(() => {
     if (!selectedOrderId) return
-    api.listMessages(selectedOrderId).then(setMessages).catch(() => setMessages([]))
+    setMessagesLoading(true)
+    api
+      .listMessages(selectedOrderId)
+      .then(setMessages)
+      .catch(() => setMessages([]))
+      .finally(() => setMessagesLoading(false))
   }, [selectedOrderId])
 
   const handleAttach = async (file: File) => {
@@ -189,7 +217,7 @@ export function MessagesPage() {
   }
 
   const send = async () => {
-    if (!selectedOrderId || !messageText.trim() || !userId || !active) return
+    if (!selectedOrderId || !messageText.trim() || !userId || !active || sendLoading) return
     const text = messageText.trim()
     const tempId = `temp-${Date.now()}`
     const optimistic: ApiMessage = {
@@ -203,6 +231,7 @@ export function MessagesPage() {
     }
     setMessages((prev) => [...prev, optimistic])
     setMessageText('')
+    setSendLoading(true)
     try {
       await api.sendMessage(selectedOrderId, text)
       const updated = await api.listMessages(selectedOrderId)
@@ -214,6 +243,8 @@ export function MessagesPage() {
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
       setMessageText(text)
       toast.error(t('error_required'))
+    } finally {
+      setSendLoading(false)
     }
   }
 
@@ -278,9 +309,26 @@ export function MessagesPage() {
         </div>
 
         <div className="chat-list">
-          {loading && <p className="chat-list-empty">{t('loading_data')}</p>}
+          {loading && (
+            <div className="space-y-2 p-2" role="status" aria-live="polite">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg px-2 py-2.5">
+                  <SkeletonAvatar size={40} />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-3 w-full max-w-[180px]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {!loading && filtered.length === 0 && (
-            <p className="chat-list-empty">{t('messages_no_conversations')}</p>
+            <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+              <p className="chat-list-empty">{t('messages_no_conversations')}</p>
+              <Button variant="outline" size="sm" onClick={() => window.location.assign(PATHS.services)}>
+                {t('messages_browse_cta')}
+              </Button>
+            </div>
           )}
           {filtered.map((conv) => (
             <button
@@ -327,30 +375,52 @@ export function MessagesPage() {
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <Avatar name={active.other_user_name} size={40} />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="chat-header-name">{active.other_user_name}</p>
                 <p className="chat-header-sub">{active.order_title}</p>
+                {active.order_status && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <OrderStatusBadge status={active.order_status} />
+                    <Link
+                      href={dashboardOrderPath(active.order_id)}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-primary)] hover:underline"
+                    >
+                      {t('nav_orders')}
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </div>
+                )}
               </div>
             </header>
 
             <div className="chat-messages">
-              {messages.length === 0 && (
+              {messagesLoading && (
+                <div className="space-y-4 p-4" role="status" aria-live="polite">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className={cn('flex gap-2', i % 2 === 1 && 'flex-row-reverse')}>
+                      <SkeletonAvatar size={36} />
+                      <Skeleton className={cn('h-14 rounded-2xl', i % 2 === 0 ? 'w-[60%]' : 'w-[45%]')} />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!messagesLoading && messages.length === 0 && (
                 <ChatEmptyState text={t('messages_no_messages_yet')} />
               )}
-              {messages.map((msg, idx) => {
+              {!messagesLoading && messages.map((msg, idx) => {
                 const isMine = msg.sender_id === userId
+                const dayKey = (iso: string) => iso.slice(0, 10)
                 const showDate =
                   idx === 0 ||
                   (messages[idx - 1]?.created_at &&
                     msg.created_at &&
-                    new Date(messages[idx - 1].created_at!).toDateString() !==
-                      new Date(msg.created_at).toDateString())
+                    dayKey(messages[idx - 1].created_at!) !== dayKey(msg.created_at))
 
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && msg.created_at && (
                       <p className="chat-date-label">
-                        {new Date(msg.created_at).toDateString() === new Date().toDateString()
+                        {dayKey(msg.created_at) === dayKey(new Date().toISOString())
                           ? t('messages_today')
                           : formatDateShort(msg.created_at, language)}
                       </p>
@@ -424,7 +494,7 @@ export function MessagesPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
                   className="sr-only"
                   onChange={(e) => {
                     const file = e.target.files?.[0]
@@ -452,10 +522,11 @@ export function MessagesPage() {
                   type="button"
                   className="chat-composer-send"
                   onClick={send}
-                  disabled={!messageText.trim()}
-                  aria-label={t('type_message_ph')}
+                  disabled={!messageText.trim() || sendLoading || attachLoading}
+                  aria-label={t('send_message')}
+                  aria-busy={sendLoading}
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className={cn('h-4 w-4', sendLoading && 'animate-pulse')} />
                 </button>
               </div>
             </footer>
@@ -464,8 +535,16 @@ export function MessagesPage() {
           <div className="chat-empty">
             <p className="chat-empty-text">{t('loading_data')}</p>
           </div>
+        ) : conversations.length > 0 ? (
+          <ChatEmptyState
+            text={t('messages_select_conversation')}
+            hint={t('contact_requires_order')}
+          />
         ) : (
-          <ChatEmptyState text={t('messages_empty_history')} />
+          <ChatEmptyState
+            text={t('messages_empty_history')}
+            action={{ label: t('messages_browse_cta'), href: PATHS.services }}
+          />
         )}
       </section>
     </div>

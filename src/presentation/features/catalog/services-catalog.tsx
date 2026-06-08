@@ -42,6 +42,7 @@ type CatalogService = {
   rating: number
   reviewCount: number
   thumbnailUrl?: string
+  deliveryDays?: number
 }
 
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
@@ -66,6 +67,7 @@ function mapApiService(s: ApiService, freelancerFallback: string): CatalogServic
     rating: s.profiles?.avg_rating ?? 0,
     reviewCount: s.profiles?.review_count ?? 0,
     thumbnailUrl: s.image_urls?.[0],
+    deliveryDays: s.delivery_days && s.delivery_days > 0 ? s.delivery_days : undefined,
   }
 }
 
@@ -145,7 +147,9 @@ function ServicesCatalogContent() {
   }
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
   const PAGE_SIZE = 9
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -156,6 +160,8 @@ function ServicesCatalogContent() {
   const [priceCeiling, setPriceCeiling] = useState(5_000_000)
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5_000_000])
   const [savedTick, setSavedTick] = useState(0)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadTick, setReloadTick] = useState(0)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     category: true,
     price: true,
@@ -190,20 +196,27 @@ function ServicesCatalogContent() {
     [pathname, router, searchParams]
   )
 
+  const [minPrice, maxPrice] = priceRange
+
   useEffect(() => {
     setLoading(true)
+    setLoadError(false)
     api
       .listServices({
         search: debouncedSearch || undefined,
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         region: selectedRegion || undefined,
+        sort: sortBy,
+        min_price: minPrice > 0 ? minPrice : undefined,
+        max_price: maxPrice < priceCeiling ? maxPrice : undefined,
         limit: PAGE_SIZE,
         offset: (currentPage - 1) * PAGE_SIZE,
       })
       .then((data) => {
-        const mapped = data.map((s) => mapApiService(s, t('freelancer')))
+        const mapped = data.items.map((s) => mapApiService(s, t('freelancer')))
         setServices(mapped)
-        setHasMore(data.length === PAGE_SIZE)
+        setTotalCount(data.total)
+        setHasMore(currentPage * PAGE_SIZE < data.total)
         const top = mapped.reduce((acc, s) => Math.max(acc, s.price), 0)
         const ceiling = roundCeiling(top)
         setPriceCeiling(ceiling)
@@ -215,9 +228,11 @@ function ServicesCatalogContent() {
       .catch(() => {
         setServices([])
         setHasMore(false)
+        setTotalCount(0)
+        setLoadError(true)
       })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, t])
+  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, reloadTick, t])
 
   const categories = [
     { id: 'all', label: t('cat_all') },
@@ -232,15 +247,20 @@ function ServicesCatalogContent() {
     { id: 'design', label: t('kwork_cat_business') },
   ]
 
-  const [minPrice, maxPrice] = priceRange
   const priceFilterActive = minPrice > 0 || maxPrice < priceCeiling
   const hasActiveFilters =
-    selectedCategory !== 'all' || debouncedSearch !== '' || priceFilterActive
+    selectedCategory !== 'all' ||
+    debouncedSearch !== '' ||
+    priceFilterActive ||
+    selectedRegion !== '' ||
+    experienceFilters.length > 0
 
   const activeFilterCount = [
     selectedCategory !== 'all',
     debouncedSearch !== '',
     priceFilterActive,
+    selectedRegion !== '',
+    experienceFilters.length > 0,
   ].filter(Boolean).length
 
   const priceHistogram = useMemo(
@@ -249,36 +269,28 @@ function ServicesCatalogContent() {
   )
 
   const filteredServices = useMemo(() => {
-    let filtered = services.filter((service) => {
-      const matchesSearch =
-        !debouncedSearch || service.title.toLowerCase().includes(debouncedSearch.toLowerCase())
-      const matchesPrice = service.price >= minPrice && service.price <= maxPrice
-      return matchesSearch && matchesPrice
-    })
+    let result = services
 
-    if (experienceFilters.length > 0) {
-      filtered = filtered.filter((service) => {
-        const rating = service.rating
-        const checks: boolean[] = []
-        if (experienceFilters.includes('exp_new')) checks.push(rating < 4 || rating === 0)
-        if (experienceFilters.includes('exp_mid')) checks.push(rating >= 4 && rating < 4.7)
-        if (experienceFilters.includes('exp_expert')) checks.push(rating >= 4.7)
-        return checks.some(Boolean)
-      })
-    }
-
-    if (sortBy === 'price-low') {
-      filtered = [...filtered].sort((a, b) => a.price - b.price)
-    } else if (sortBy === 'price-high') {
-      filtered = [...filtered].sort((a, b) => b.price - a.price)
-    } else if (sortBy === 'popular') {
-      filtered = [...filtered].sort(
-        (a, b) => b.rating * Math.max(b.reviewCount, 1) - a.rating * Math.max(a.reviewCount, 1)
+    if (sortBy === 'rating') {
+      result = [...result].sort(
+        (a, b) =>
+          b.rating - a.rating ||
+          b.reviewCount - a.reviewCount ||
+          a.price - b.price
       )
     }
 
-    return filtered
-  }, [services, debouncedSearch, minPrice, maxPrice, sortBy, experienceFilters])
+    if (experienceFilters.length === 0) return result
+
+    return result.filter((service) => {
+      const rating = service.rating
+      const checks: boolean[] = []
+      if (experienceFilters.includes('exp_new')) checks.push(rating < 4 || rating === 0)
+      if (experienceFilters.includes('exp_mid')) checks.push(rating >= 4 && rating < 4.7)
+      if (experienceFilters.includes('exp_expert')) checks.push(rating >= 4.7)
+      return checks.some(Boolean)
+    })
+  }, [services, experienceFilters, sortBy])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -291,6 +303,8 @@ function ServicesCatalogContent() {
     setSearchTerm('')
     setDebouncedSearch('')
     setSortBy('popular')
+    setSelectedRegion('')
+    setExperienceFilters([])
     setPriceRange([0, priceCeiling])
     router.replace(pathname, { scroll: false })
   }, [pathname, priceCeiling, router])
@@ -300,9 +314,10 @@ function ServicesCatalogContent() {
     return key ? t(key) : id
   }
 
+  const resultCount = experienceFilters.length > 0 ? filteredServices.length : totalCount
   const servicesFoundParts = t('services_found')
-    .replace('{n}', String(filteredServices.length))
-    .split(String(filteredServices.length))
+    .replace('{n}', String(resultCount))
+    .split(String(resultCount))
 
   const activeCategoryForIcons = selectedCategory === 'all' ? null : selectedCategory
 
@@ -348,17 +363,15 @@ function ServicesCatalogContent() {
         open={expandedSections.price}
         onToggle={() => setExpandedSections((s) => ({ ...s, price: !s.price }))}
       >
-        <input
-          type="range"
+        <PriceRangeSlider
           min={0}
           max={priceCeiling}
-          step={Math.max(Math.floor(priceCeiling / 50), 10_000)}
-          value={maxPrice}
-          onChange={(e) => setPriceRange(([low]) => [low, parseInt(e.target.value, 10)])}
-          className="catalog-filter-range"
+          values={priceRange}
+          onChange={setPriceRange}
+          histogram={priceHistogram}
         />
         <p className="catalog-filter-range-label">
-          0 — {formatPrice(maxPrice)}
+          {formatPrice(minPrice)} — {formatPrice(maxPrice)}
         </p>
       </FilterSection>
 
@@ -380,6 +393,9 @@ function ServicesCatalogContent() {
         open={expandedSections.experience}
         onToggle={() => setExpandedSections((s) => ({ ...s, experience: !s.experience }))}
       >
+        <p className="mb-2 text-[11px] leading-relaxed text-[var(--kwork-text-muted)]">
+          {t('filter_level_rating_hint')}
+        </p>
         <div className="catalog-filter-options">
           {(['exp_new', 'exp_mid', 'exp_expert'] as const).map((key) => (
             <label key={key} className="catalog-filter-option">
@@ -409,10 +425,12 @@ function ServicesCatalogContent() {
       ]}
     >
       <div className="catalog-shell">
-        <div className={cn('catalog-shell-head catalog-title-band', isLoggedIn && 'catalog-shell-head--compact')}>
+        <div className="catalog-shell-head catalog-title-band">
           <h1 className="catalog-shell-title">{t('nav_services')}</h1>
           <p className="catalog-shell-sub">
-            {isLoggedIn ? t('services_found').replace('{n}', String(filteredServices.length)) : t('find_freelancer')}
+            {!loading
+              ? t('services_found').replace('{n}', String(filteredServices.length))
+              : t('loading_data')}
           </p>
         </div>
 
@@ -444,7 +462,7 @@ function ServicesCatalogContent() {
                   <p className="catalog-results-query">
                     {t('search_services')}: <strong>{debouncedSearch}</strong>
                   </p>
-                ) : isLoggedIn ? (
+                ) : (
                   <span className="catalog-results-count-pill">
                     {loading ? (
                       t('loading_data')
@@ -456,11 +474,11 @@ function ServicesCatalogContent() {
                       </>
                     )}
                   </span>
-                ) : null}
+                )}
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <div className="catalog-view-toggle hide-mobile">
+                <div className="catalog-view-toggle">
                   <button
                     type="button"
                     className={cn('catalog-view-btn', viewMode === 'grid' && 'catalog-view-btn--active')}
@@ -499,6 +517,7 @@ function ServicesCatalogContent() {
                     onChange={(e) => setSortBy(e.target.value)}
                     options={[
                       { value: 'popular', label: t('sort_popular') },
+                      { value: 'rating', label: t('sort_rating') },
                       { value: 'price-low', label: t('sort_price_asc') },
                       { value: 'price-high', label: t('sort_price_desc') },
                     ]}
@@ -535,7 +554,16 @@ function ServicesCatalogContent() {
               </div>
             )}
 
-            {loading && !showSkeleton ? null : loading ? (
+            {loadError ? (
+              <EmptyState
+                icon={<Search />}
+                title={t('catalog_load_error')}
+                action={{
+                  label: t('catalog_retry'),
+                  onClick: () => setReloadTick((n) => n + 1),
+                }}
+              />
+            ) : loading && !showSkeleton ? null : loading ? (
               <div className="catalog-grid">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <SkeletonCard key={i} />
@@ -562,6 +590,7 @@ function ServicesCatalogContent() {
                       price={service.price}
                       category={service.category}
                       thumbnailUrl={service.thumbnailUrl}
+                      deliveryDays={service.deliveryDays}
                       description={viewMode === 'list' ? service.description : undefined}
                       view={viewMode === 'list' ? 'list' : 'kwork'}
                       isSaved={isServiceSaved(service.id)}
@@ -572,15 +601,36 @@ function ServicesCatalogContent() {
                     />
                   ))}
                 </div>
-                {hasMore && (
-                  <div className="show-mobile mt-4 flex flex-col items-center gap-2">
-                    <span className="text-[13px] text-[var(--kwork-text-muted)]">
-                      {t('catalog_page_of').replace('{n}', String(currentPage)).replace('{total}', '…')}
-                    </span>
-                    <Button variant="outline" size="lg" className="min-h-[44px] px-8" onClick={() => setCurrentPage((p) => p + 1)}>
-                      {t('load_more')}
+                {(currentPage > 1 || hasMore) && (
+                  <nav
+                    className="show-mobile mt-4 flex items-center justify-center gap-3"
+                    aria-label={t('catalog_page_of').replace('{n}', String(currentPage)).replace('{total}', '…')}
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      leftIcon={<ChevronLeft className="h-4 w-4" />}
+                    >
+                      {t('back')}
                     </Button>
-                  </div>
+                    <span className="text-[13px] text-[var(--kwork-text-muted)]">
+                      {t('catalog_page_of').replace('{n}', String(currentPage)).replace('{total}', String(totalPages))}
+                    </span>
+                    {hasMore ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        rightIcon={<ChevronRight className="h-4 w-4" />}
+                      >
+                        {t('continue')}
+                      </Button>
+                    ) : (
+                      <span className="w-[72px]" aria-hidden />
+                    )}
+                  </nav>
                 )}
                 {(currentPage > 1 || hasMore) && (
                   <nav className="catalog-pagination hide-mobile" aria-label={t('catalog_page_of').replace('{n}', String(currentPage)).replace('{total}', '…')}>
@@ -594,7 +644,7 @@ function ServicesCatalogContent() {
                       {t('back')}
                     </Button>
                     <span className="catalog-pagination-label">
-                      {t('catalog_page_of').replace('{n}', String(currentPage)).replace('{total}', hasMore ? '…' : String(currentPage))}
+                      {t('catalog_page_of').replace('{n}', String(currentPage)).replace('{total}', String(totalPages))}
                     </span>
                     <Button
                       variant="outline"

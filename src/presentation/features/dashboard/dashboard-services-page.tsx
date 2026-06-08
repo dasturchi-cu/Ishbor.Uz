@@ -14,6 +14,7 @@ import { formatPrice } from '@/shared/lib/format'
 import { orderCountForService } from '@/shared/lib/order-analytics'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-banner'
+import { Alert } from '@/presentation/components/ui/alert'
 import { toast } from '@/presentation/components/ui/toast'
 
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
@@ -31,18 +32,30 @@ export function DashboardServicesPage() {
   const [services, setServices] = useState<ApiService[]>([])
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
-  useEffect(() => {
+  const loadServices = () => {
     setLoading(true)
-    Promise.all([api.listMyServices().catch(() => []), api.listOrders().catch(() => [])])
+    setLoadError(false)
+    Promise.all([
+      api.listMyServices().catch(() => {
+        setLoadError(true)
+        return [] as ApiService[]
+      }),
+      api.listOrders().catch(() => [] as ApiOrder[]),
+    ])
       .then(([svc, ord]) => {
         setServices(svc)
         setOrders(ord)
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadServices()
   }, [])
 
   const orderCounts = useMemo(() => {
@@ -97,6 +110,17 @@ export function DashboardServicesPage() {
   return (
     <div>
       <AdminPanelBanner className="mb-5" />
+      {loadError && (
+        <Alert variant="error" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadServices}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="dashboard-page-title flex items-center gap-2">
           {t('my_services_title')}
@@ -116,6 +140,7 @@ export function DashboardServicesPage() {
           <EmptyState
             icon={<Package />}
             title={t('no_services_dashboard')}
+            description={t('no_services_dashboard_desc')}
             action={{ label: t('first_service_btn'), onClick: () => window.location.assign(PATHS.dashboardServicesNew) }}
           />
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
@@ -25,19 +25,23 @@ export function FreelancersCatalog() {
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadTick, setReloadTick] = useState(0)
   const pageSize = 24
 
   useEffect(() => {
     setOffset(0)
-  }, [search, region])
+  }, [search, region, sortBy])
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(true)
+      setLoadError(false)
       api
         .listFreelancers({
           q: search.trim() || undefined,
           region: region || undefined,
+          sort: sortBy,
           limit: pageSize,
           offset,
         })
@@ -47,41 +51,31 @@ export function FreelancersCatalog() {
         })
         .catch(() => {
           if (offset === 0) setFreelancers([])
+          setLoadError(true)
         })
         .finally(() => setLoading(false))
     }, search ? 300 : 0)
     return () => clearTimeout(timer)
-  }, [search, region, offset])
+  }, [search, region, offset, sortBy, reloadTick])
 
-  const filtered = useMemo(() => {
-    const list = freelancers.filter((f) => {
-      const name = (f.full_name ?? '').toLowerCase()
-      const spec = (f.specialty ?? '').toLowerCase()
-      const q = search.toLowerCase()
-      const matchSearch = !q || name.includes(q) || spec.includes(q)
-      const matchRegion = !region || f.region === region
-      return matchSearch && matchRegion
-    })
-    return [...list].sort((a, b) => {
-      if (sortBy === 'reviews') return (b.review_count ?? 0) - (a.review_count ?? 0)
-      if (sortBy === 'newest') {
-        return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
-      }
-      return (b.avg_rating ?? 0) - (a.avg_rating ?? 0)
-    })
-  }, [freelancers, search, region, sortBy])
+  const filtered = freelancers
 
-  const suggestions = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (q.length < 2) return []
-    return freelancers
-      .filter((f) => {
-        const name = (f.full_name ?? '').toLowerCase()
-        const spec = (f.specialty ?? '').toLowerCase()
-        return name.includes(q) || spec.includes(q)
-      })
-      .slice(0, 5)
-  }, [freelancers, search])
+  const [suggestions, setSuggestions] = useState<ApiProfilePublic[]>([])
+
+  useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) {
+      setSuggestions([])
+      return
+    }
+    const id = setTimeout(() => {
+      api
+        .listFreelancers({ q, limit: 5, offset: 0, sort: sortBy })
+        .then(setSuggestions)
+        .catch(() => setSuggestions([]))
+    }, 300)
+    return () => clearTimeout(id)
+  }, [search, sortBy])
 
   const countLabel = loading
     ? t('loading_data')
@@ -142,7 +136,7 @@ export function FreelancersCatalog() {
             <button
               type="button"
               className="catalog-toolbar-search-btn"
-              aria-label={t('hero_search_btn')}
+              aria-label={t('show_search_results')}
               onClick={() => document.getElementById('freelancer-results')?.scrollIntoView({ behavior: 'smooth' })}
             >
               <Search className="h-4 w-4" />
@@ -151,7 +145,7 @@ export function FreelancersCatalog() {
 
           <div className="catalog-toolbar-actions">
             <div className="catalog-toolbar-sort min-w-0 flex-1">
-              <span className="catalog-toolbar-sort-label">{t('sort_popular')}</span>
+              <span className="catalog-toolbar-sort-label">{t('sort_by')}</span>
               <Select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'rating' | 'reviews' | 'newest')}
@@ -184,7 +178,13 @@ export function FreelancersCatalog() {
 
       <p id="freelancer-results" className="mb-4 px-0.5 text-[13px] text-[var(--kwork-text-muted)]">{countLabel}</p>
 
-      {loading && offset === 0 ? (
+      {loadError && offset === 0 ? (
+        <EmptyState
+          icon={<Users />}
+          title={t('catalog_load_error')}
+          action={{ label: t('catalog_retry'), onClick: () => setReloadTick((n) => n + 1) }}
+        />
+      ) : loading && offset === 0 ? (
         <div className="freelancer-grid">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="kwork-card h-36 animate-pulse bg-[var(--color-bg-muted)]" />
@@ -203,6 +203,7 @@ export function FreelancersCatalog() {
               rating={f.avg_rating}
               reviewCount={f.review_count}
               variant="row"
+              isVerified={f.is_verified}
               onClick={() => router.push(freelancerPath(f.id))}
             />
           ))}

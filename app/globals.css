@@ -202,6 +202,24 @@
     transform: translateY(-2px);
   }
 
+  .prose-ishbor h2 {
+    font-size: var(--text-h4);
+    font-weight: 700;
+    color: var(--kwork-text);
+  }
+  .prose-ishbor h3 {
+    font-size: var(--text-body-lg);
+    font-weight: 600;
+    color: var(--kwork-text);
+  }
+  .prose-ishbor ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+  .prose-ishbor li + li {
+    margin-top: 0.35rem;
+  }
+
   @keyframes rise {
     from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: translateY(0); }
@@ -951,7 +969,7 @@
   }
 
   .dashboard-sidebar {
-    background: var(--kwork-bg) !important;
+    background: var(--neutral-0) !important;
     border-right: 1px solid var(--kwork-border) !important;
   }
 
@@ -1844,6 +1862,27 @@
   }
   .header-wallet-pill:hover .header-wallet-pill-icon {
     background: color-mix(in srgb, var(--color-primary) 12%, white);
+  }
+  .header-wallet-pill--compact {
+    display: inline-flex;
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  .header-wallet-pill--compact .header-wallet-pill-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .text-h3 {
+    font-size: var(--text-h3);
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .text-body-sm {
+    font-size: var(--text-body-sm);
+    line-height: 1.5;
   }
   .header-wallet-pill-amount {
     font-size: 13px;
@@ -3907,7 +3946,7 @@
     background: var(--brand-50);
   }
   .mobile-bottom-nav-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1.2;
     text-align: center;
@@ -3925,9 +3964,9 @@
     }
     .has-mobile-nav .mobile-sticky-cta {
       bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-      bottom: calc(64px + env(safe-area-inset-bottom, 0px));
     }
-    .has-mobile-nav .service-detail-page {
+    .has-mobile-nav .service-detail-page,
+    .has-mobile-nav .freelancer-profile {
       padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
     }
   }
@@ -4180,8 +4219,10 @@
     color: var(--kwork-text-muted);
   }
   .landing-dark-trust {
-    background: var(--neutral-900);
+    background: linear-gradient(180deg, var(--neutral-900) 0%, #0f172a 100%);
     padding: 56px 0;
+    border-top: 1px solid color-mix(in srgb, var(--neutral-0) 6%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--neutral-0) 6%, transparent);
   }
   .landing-dark-trust-title {
     margin-bottom: 32px;
@@ -4189,6 +4230,7 @@
     font-size: 22px;
     font-weight: 700;
     color: var(--neutral-0);
+    letter-spacing: -0.02em;
   }
   .landing-dark-trust-grid {
     display: grid;
@@ -4204,10 +4246,19 @@
     flex-direction: column;
     align-items: center;
     gap: 10px;
+    padding: 16px 12px;
     text-align: center;
     font-size: 13px;
     font-weight: 600;
-    color: var(--overlay-light);
+    color: color-mix(in srgb, var(--neutral-0) 88%, transparent);
+    border-radius: var(--kwork-card-radius);
+    background: color-mix(in srgb, var(--neutral-0) 4%, transparent);
+    border: 1px solid color-mix(in srgb, var(--neutral-0) 8%, transparent);
+    transition: var(--transition);
+  }
+  .landing-dark-trust-item:hover {
+    background: color-mix(in srgb, var(--neutral-0) 7%, transparent);
+    border-color: color-mix(in srgb, var(--brand-400) 25%, transparent);
   }
   .landing-dark-trust-icon {
     display: flex;
@@ -4216,8 +4267,9 @@
     width: 44px;
     height: 44px;
     border-radius: var(--r-card);
-    background: var(--overlay-primary);
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
     color: var(--brand-300);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent);
   }
   .landing-cta-banner {
     padding: 48px 0 64px;
@@ -4623,6 +4675,7 @@
   .trust-brand-logo {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     padding: 6px 14px;
     border-radius: var(--r-md);
     border: 1px solid var(--kwork-border);
@@ -4631,6 +4684,22 @@
     font-weight: 700;
     color: var(--brand-accent, var(--kwork-text));
     letter-spacing: -0.01em;
+  }
+
+  .trust-brand-logo--soon {
+    opacity: 0.85;
+  }
+
+  .trust-brand-logo__badge {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--kwork-text-muted);
+    border: 1px solid var(--kwork-border);
+    border-radius: 9999px;
+    padding: 1px 6px;
+    background: var(--neutral-50);
   }
   .escrow-steps {
     display: grid;
@@ -4896,7 +4965,13 @@ textarea,
   }
 
   .auth-brand-panel {
-    display: none !important;
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .auth-brand-panel.auth-brand-panel--legacy {
+      display: flex;
+    }
   }
 
   .auth-brand-panel--legacy {

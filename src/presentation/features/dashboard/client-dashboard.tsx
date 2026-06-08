@@ -4,12 +4,14 @@ import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
+import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { StatCard } from '@/presentation/components/ui/stat-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { SkeletonFreelancerCard } from '@/presentation/components/ui/skeleton'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import {
   ShoppingBag,
   CheckCircle2,
@@ -27,6 +29,7 @@ import { formatPrice, orderProgress } from '@/shared/lib/format'
 import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
+import { profileCompletionPercent } from '@/shared/lib/profile-completion'
 
 function DashboardPanel({
   title,
@@ -115,7 +118,24 @@ export function ClientDashboard() {
     [orders]
   )
 
+  const recommendedFreelancers = useMemo(
+    () =>
+      [...freelancers]
+        .sort(
+          (a, b) =>
+            (b.avg_rating ?? 0) - (a.avg_rating ?? 0) ||
+            (b.review_count ?? 0) - (a.review_count ?? 0)
+        )
+        .slice(0, 3),
+    [freelancers]
+  )
+
   const firstName = profile?.full_name?.split(/\s+/)[0]
+  const profileCompletion = profileCompletionPercent(profile, 'client')
+  const unpaidOrders = useMemo(
+    () => orders.filter((o) => o.status === 'pending' && o.payment_status !== 'held'),
+    [orders],
+  )
   const postProjectBtn = (
     <Button variant="outline" size="sm" onClick={() => router.push(PATHS.postProject)}>
       {t('post_new_project')}
@@ -129,9 +149,9 @@ export function ClientDashboard() {
           <p className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-primary)]">
             {t('nav_dashboard')}
           </p>
-          <h1 className="mt-1 text-[22px] font-bold text-[var(--kwork-text)] md:text-[26px]">
+          <h2 className="mt-1 text-[22px] font-bold text-[var(--kwork-text)] md:text-[26px]">
             {t('client_dashboard')}
-          </h1>
+          </h2>
           <p className="mt-1.5 max-w-xl text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">
             {t('manage_projects')}
             {firstName ? ` — ${firstName}` : ''}
@@ -145,6 +165,29 @@ export function ClientDashboard() {
           {postProjectBtn}
         </div>
       </div>
+
+      {unpaidOrders.length > 0 && (
+        <Alert variant="info">
+          <p className="text-[13px] font-medium">{t('unpaid_orders_banner').replace('{n}', String(unpaidOrders.length))}</p>
+          <Link href={dashboardOrderPath(unpaidOrders[0].id)} className="mt-2 inline-block text-[13px] font-semibold text-[var(--color-primary)] hover:underline">
+            {t('payment_pay_now')} →
+          </Link>
+        </Alert>
+      )}
+
+      {profileCompletion < 100 && (
+        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
+          <div className="flex items-center justify-between gap-3 text-[12px] text-[var(--kwork-text-muted)]">
+            <span>{t('profile_completion').replace('{n}', String(profileCompletion))}</span>
+            <Link href={PATHS.dashboardProfile} className="font-medium text-[var(--color-primary)]">
+              {t('profile_complete_link')}
+            </Link>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--kwork-border)]">
+            <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${profileCompletion}%` }} />
+          </div>
+        </div>
+      )}
 
       <ReferralBanner className="mb-1" />
 
@@ -197,10 +240,13 @@ export function ClientDashboard() {
                           {order.services?.title ?? t('nav_orders')}
                         </h3>
                         <p className="mt-0.5 text-[12px] text-[var(--kwork-text-muted)]">
-                          {order.freelancer_profile?.full_name ?? '—'} · {formatPrice(order.amount)}
+                          {order.freelancer_profile?.full_name ?? t('value_not_available')} · {formatPrice(order.amount)}
                         </p>
                       </div>
-                      <OrderStatusBadge status={order.status} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <OrderStatusBadge status={order.status} />
+                        <PaymentStatusBadge status={order.payment_status} />
+                      </div>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-bg-muted)]">
                       <div
@@ -261,13 +307,14 @@ export function ClientDashboard() {
       </DashboardPanel>
 
       <DashboardPanel title={t('recommended_freelancers')}>
+        <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">{t('recommended_by_rating')}</p>
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {[0, 1, 2].map((i) => (
               <SkeletonFreelancerCard key={i} />
             ))}
           </div>
-        ) : freelancers.length === 0 ? (
+        ) : recommendedFreelancers.length === 0 ? (
           <EmptyState
             compact
             icon={<Search />}
@@ -277,7 +324,7 @@ export function ClientDashboard() {
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {freelancers.slice(0, 3).map((f) => (
+            {recommendedFreelancers.map((f) => (
               <FreelancerCard
                 key={f.id}
                 name={f.full_name ?? t('freelancer')}
@@ -285,6 +332,7 @@ export function ClientDashboard() {
                 region={f.region}
                 rating={f.avg_rating ?? 0}
                 reviewCount={f.review_count ?? 0}
+                isVerified={f.is_verified}
                 variant="grid"
                 onClick={() => router.push(freelancerPath(f.id))}
               />

@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase
 from app.deps import CurrentUserId
-from app.schemas import ServiceCreate, ServiceResponse, ServiceUpdate
+from app.schemas import ServiceCreate, ServiceListResponse, ServiceResponse, ServiceUpdate
+from app.review_stats import batch_review_stats
 from app.service_packages import default_packages
 
 router = APIRouter(prefix="/services", tags=["services"])
@@ -34,18 +35,21 @@ def list_freelancer_services(freelancer_id: str):
     return result.data or []
 
 
-@router.get("", response_model=list[ServiceResponse])
+@router.get("", response_model=ServiceListResponse)
 def list_services(
     category: str | None = Query(default=None),
     region: str | None = Query(default=None),
     search: str | None = Query(default=None),
+    sort: str | None = Query(default=None),
+    min_price: int | None = Query(default=None, ge=0),
+    max_price: int | None = Query(default=None, ge=0),
     limit: int = Query(default=100, le=200),
     offset: int = Query(default=0, ge=0),
 ):
     supabase = get_supabase()
     query = (
         supabase.table("services")
-        .select("*, profiles(full_name, specialty, region)")
+        .select("*, profiles(full_name, specialty, region, is_verified)", count="exact")
         .eq("is_hidden", False)
     )
 
@@ -55,9 +59,31 @@ def list_services(
         query = query.eq("region", region)
     if search:
         query = query.or_(f"title.ilike.%{search}%,description.ilike.%{search}%")
+    if min_price is not None:
+        query = query.gte("price", min_price)
+    if max_price is not None:
+        query = query.lte("price", max_price)
 
-    result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-    return result.data or []
+    if sort in ("price-low", "price_asc"):
+        query = query.order("price", desc=False)
+    elif sort in ("price-high", "price_desc"):
+        query = query.order("price", desc=True)
+    elif sort == "popular":
+        query = query.order("view_count", desc=True)
+    else:
+        query = query.order("created_at", desc=True)
+
+    result = query.range(offset, offset + limit - 1).execute()
+    rows = result.data or []
+    freelancer_ids = list({r["freelancer_id"] for r in rows if r.get("freelancer_id")})
+    stats_map = batch_review_stats(supabase, freelancer_ids)
+    for row in rows:
+        fid = row.get("freelancer_id")
+        prof = row.get("profiles") or {}
+        if fid and fid in stats_map:
+            avg, count = stats_map[fid]
+            row["profiles"] = {**prof, "avg_rating": avg, "review_count": count}
+    return ServiceListResponse(items=rows, total=result.count or 0)
 
 
 @router.post("/{service_id}/view", status_code=status.HTTP_204_NO_CONTENT)
@@ -82,7 +108,7 @@ def get_service(service_id: str):
     supabase = get_supabase()
     result = (
         supabase.table("services")
-        .select("*, profiles(full_name, specialty, region, bio)")
+        .select("*, profiles(full_name, specialty, region, bio, is_verified)")
         .eq("id", service_id)
         .single()
         .execute()

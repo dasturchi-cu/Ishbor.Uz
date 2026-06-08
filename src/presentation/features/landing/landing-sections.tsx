@@ -23,6 +23,7 @@ import { PATHS } from '@/domain/constants/routes'
 import type { ApiPublicStats } from '@/infrastructure/api/types'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
+import { Button } from '@/presentation/components/ui/button'
 import { api } from '@/infrastructure/api/client'
 import type { ApiPublicReview } from '@/infrastructure/api/types'
 
@@ -72,10 +73,10 @@ export function LandingHeroBadge() {
 
 export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
   const { t } = useApp()
-  const empty = t('stat_unavailable')
+  const emptyLabel = t('stat_unavailable')
   const items = [
-    { value: formatStat(stats.services, empty), label: t('landing_stat_services') },
-    { value: formatStat(stats.freelancers, empty), label: t('landing_stat_freelancers') },
+    { value: formatStat(stats.services, emptyLabel), label: t('landing_stat_services') },
+    { value: formatStat(stats.freelancers, emptyLabel), label: t('landing_stat_freelancers') },
     { value: t('landing_stat_commission_value'), label: t('landing_stat_commission') },
   ]
 
@@ -118,10 +119,14 @@ export function LandingHowItWorks() {
         <EscrowSteps className="mt-10" />
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link href={PATHS.register}>
-            <span className="landing-cta-btn">{t('start_now')}</span>
+            <Button variant="primary" size="lg" className="landing-cta-btn min-w-[200px]">
+              {t('start_now')}
+            </Button>
           </Link>
-          <Link href={PATHS.services}>
-            <span className="landing-cta-btn landing-cta-btn--outline">{t('cta_find_work')}</span>
+          <Link href={PATHS.projects}>
+            <Button variant="outline" size="lg" className="landing-cta-btn landing-cta-btn--outline min-w-[200px]">
+              {t('cta_find_work')}
+            </Button>
           </Link>
         </div>
       </div>
@@ -161,7 +166,9 @@ export function LandingCategoryGrid({ stats }: { stats: ApiPublicStats }) {
               </span>
               <span className="landing-category-card-label">{t(item.labelKey)}</span>
               <span className="landing-category-card-count">
-                {count > 0 ? `${count} ${t('services_count_suffix')}` : t('services_count_suffix')}
+                {count > 0
+                  ? `${count} ${t('services_count_suffix')}`
+                  : t('services_count_zero')}
               </span>
             </button>
           )
@@ -225,9 +232,10 @@ export function LandingTestimonials() {
       })
       .catch(() => setItems([]))
       .finally(() => setReady(true))
-  }, [])
+  }, [t])
 
-  if (!ready || items.length === 0) return null
+  if (!ready) return null
+  if (items.length === 0) return null
 
   return (
     <section className="landing-testimonials-section">
@@ -282,6 +290,7 @@ export function LandingDarkTrust() {
 
 export function LandingCtaBanner() {
   const { t } = useApp()
+  const router = useRouter()
   return (
     <section className="landing-cta-banner">
       <div className="layout-container max-w-[1280px]">
@@ -291,12 +300,22 @@ export function LandingCtaBanner() {
             <p className="landing-cta-banner-sub">{t('cta_banner_sub')}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:shrink-0">
-            <Link href={PATHS.register}>
-              <span className="landing-cta-btn landing-cta-btn--white">{t('cta_be_freelancer')}</span>
-            </Link>
-            <Link href={PATHS.services}>
-              <span className="landing-cta-btn landing-cta-btn--outline">{t('cta_find_work')}</span>
-            </Link>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="rounded-full bg-[var(--neutral-0)] font-bold text-[var(--color-primary)] hover:bg-[var(--brand-50)]"
+              onClick={() => router.push(PATHS.register)}
+            >
+              {t('cta_be_freelancer')}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="rounded-full border-2 border-[color-mix(in_srgb,var(--neutral-0)_70%,transparent)] bg-transparent font-bold text-[var(--color-on-primary)] hover:border-[var(--neutral-0)] hover:bg-[color-mix(in_srgb,var(--neutral-0)_10%,transparent)]"
+              onClick={() => router.push(PATHS.projects)}
+            >
+              {t('cta_find_work')}
+            </Button>
           </div>
         </div>
       </div>

@@ -22,7 +22,9 @@ import {
 } from '@/shared/lib/order-analytics'
 import { formatPrice } from '@/shared/lib/format'
 import { DollarSign, ShoppingBag, Eye } from 'lucide-react'
+import { Button } from '@/presentation/components/ui/button'
 import { cn } from '@/shared/lib/utils'
+import { Alert } from '@/presentation/components/ui/alert'
 
 const PERIODS = { '7d': 7, '30d': 30, '3m': 90, '1y': 365 } as const
 
@@ -33,10 +35,16 @@ export function DashboardAnalyticsPage() {
   const [profileViews, setProfileViews] = useState(0)
   const [serviceViews, setServiceViews] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
-  useEffect(() => {
+  const loadAnalytics = () => {
+    setLoading(true)
+    setLoadError(false)
     Promise.all([
-      api.listOrders().catch(() => []),
+      api.listOrders().catch(() => {
+        setLoadError(true)
+        return [] as ApiOrder[]
+      }),
       api.listMyServices().catch(() => []),
       api.getProfile().catch(() => null),
     ])
@@ -46,6 +54,10 @@ export function DashboardAnalyticsPage() {
         setServiceViews(svc.reduce((sum, s) => sum + (s.view_count ?? 0), 0))
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadAnalytics()
   }, [])
 
   const periodOrders = useMemo(() => ordersInPeriod(orders, PERIODS[period]), [orders, period])
@@ -87,6 +99,23 @@ export function DashboardAnalyticsPage() {
           </button>
         ))}
       </div>
+
+      {loadError && (
+        <Alert variant="error" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadAnalytics}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
+
+      {periodOrders.length === 0 && !loadError && (
+        <Alert variant="info" className="mb-4 text-[13px]">
+          {t('analytics_empty_note')}
+        </Alert>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={DollarSign} label={t('stat_revenue')} value={formatPrice(completedRevenue)} />

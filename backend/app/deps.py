@@ -30,4 +30,17 @@ def get_current_user_id(
     return user_id
 
 
+def get_optional_user_id(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+) -> str | None:
+    if credentials is None:
+        return None
+    try:
+        payload = verify_supabase_token(credentials.credentials)
+        return payload.get("sub") or None
+    except HTTPException:
+        return None
+
+
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
+OptionalUserId = Annotated[str | None, Depends(get_optional_user_id)]

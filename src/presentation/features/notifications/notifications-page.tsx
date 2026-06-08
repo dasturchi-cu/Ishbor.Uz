@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
+import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { Bell, ShoppingBag, MessageCircle, Star, CheckCheck } from 'lucide-react'
@@ -13,6 +14,7 @@ import { cn } from '@/shared/lib/utils'
 import { applyReadState, markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
 import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
+import { PATHS } from '@/domain/constants/routes'
 
 const TYPE_ICON = {
   order: ShoppingBag,
@@ -25,14 +27,24 @@ export function NotificationsPage() {
   const router = useRouter()
   const [items, setItems] = useState<ApiNotification[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
 
-  useEffect(() => {
+  const loadNotifications = () => {
+    setLoading(true)
+    setLoadError(false)
     api
       .listNotifications()
       .then((data) => setItems(applyReadState(data)))
-      .catch(() => setItems([]))
+      .catch(() => {
+        setItems([])
+        setLoadError(true)
+      })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadNotifications()
   }, [])
 
   const filtered = useMemo(
@@ -91,13 +103,27 @@ export function NotificationsPage() {
         ))}
       </div>
 
+      {loadError && (
+        <Alert variant="error" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t('data_load_failed')}</span>
+            <Button variant="outline" size="sm" onClick={loadNotifications}>
+              {t('catalog_retry')}
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       <Card className="overflow-hidden p-0">
         {loading ? (
           <LoadingBlock />
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
+          <div className="flex flex-col items-center gap-4 py-16 text-center">
             <Bell className="h-10 w-10 text-[var(--kwork-text-muted)]" />
             <p className="text-[14px] text-[var(--kwork-text-muted)]">{t('notifications_empty')}</p>
+            <Button variant="primary" size="sm" onClick={() => router.push(PATHS.services)}>
+              {t('notifications_browse_cta')}
+            </Button>
           </div>
         ) : (
           <ul className="divide-y divide-[var(--kwork-border)]">

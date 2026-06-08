@@ -83,7 +83,7 @@ def admin_list_orders(user_id: CurrentUserId):
         result = run_query(
             lambda: supabase.table("orders")
             .select(
-                "id, service_id, client_id, freelancer_id, amount, status, notes, created_at, package_id, services(title)"
+                "id, service_id, client_id, freelancer_id, amount, status, notes, created_at, package_id, payment_status, dispute_reason, services(title)"
             )
             .order("created_at", desc=True)
             .limit(100)
@@ -93,7 +93,7 @@ def admin_list_orders(user_id: CurrentUserId):
     except APIError:
         result = run_query(
             lambda: supabase.table("orders")
-            .select("id, service_id, client_id, freelancer_id, amount, status, notes, created_at, package_id")
+            .select("id, service_id, client_id, freelancer_id, amount, status, notes, created_at, package_id, payment_status, dispute_reason")
             .order("created_at", desc=True)
             .limit(100)
             .execute()
