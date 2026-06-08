@@ -1,12 +1,63 @@
 from datetime import datetime, timedelta, timezone
+import re
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 
+from app.config import settings
+from app.database import get_supabase_admin
 from app.deps import UserAuthDep
 from app.schemas import NotificationResponse
 from app.schemas_notifications import NotificationMarkRead
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.I,
+)
+
+
+@router.get("/channels")
+def notification_channels():
+    username = settings.telegram_bot_username.strip().lstrip("@") or None
+    return {
+        "email": bool(settings.resend_api_key.strip()),
+        "sms": settings.sms_enabled,
+        "telegram": settings.telegram_enabled,
+        "telegram_bot_username": username,
+        "redis": settings.redis_enabled,
+    }
+
+
+@router.post("/telegram/webhook")
+async def telegram_webhook(
+    request: Request,
+    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+):
+    secret = settings.telegram_webhook_secret.strip()
+    if secret and x_telegram_bot_api_secret_token != secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON") from exc
+
+    message = payload.get("message") or payload.get("edited_message") or {}
+    text = (message.get("text") or "").strip()
+    chat = message.get("chat") or {}
+    chat_id = chat.get("id")
+    if not text.startswith("/start") or chat_id is None:
+        return {"ok": True}
+
+    parts = text.split(maxsplit=1)
+    if len(parts) < 2 or not _UUID_RE.match(parts[1].strip()):
+        return {"ok": True}
+
+    user_id = parts[1].strip()
+    admin = get_supabase_admin()
+    admin.table("profiles").update({"telegram_chat_id": str(chat_id)}).eq("id", user_id).execute()
+    return {"ok": True}
 
 
 def _read_ids_for_user(supabase, user_id: str) -> set[str]:

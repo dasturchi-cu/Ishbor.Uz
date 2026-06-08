@@ -4,6 +4,7 @@ import type {
   ApiAdminStats,
   ApiPaginated,
   ApiPaymentsConfig,
+  ApiNotificationChannels,
   ApiCheckoutResponse,
   ApiConversation,
   ApiMessage,
@@ -159,6 +160,7 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(prefs),
     }),
+  notificationChannels: () => apiFetch<ApiNotificationChannels>('/api/v1/notifications/channels'),
 
   listServices: (params?: {
     category?: string

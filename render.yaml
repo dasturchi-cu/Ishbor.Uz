@@ -54,5 +54,11 @@ services:
         sync: false
       - key: ESKIZ_FROM
         value: "4546"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        value: IshBorUzBot
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
       - key: SENTRY_DSN
         sync: false

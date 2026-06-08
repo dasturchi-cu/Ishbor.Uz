@@ -8,6 +8,7 @@ import httpx
 from app.config import settings
 from app.database import get_supabase_admin
 from app.sms_service import send_sms
+from app.telegram_service import send_telegram
 
 logger = logging.getLogger("ishbor.notifications")
 
@@ -20,25 +21,25 @@ DEFAULT_PREFS = {
 }
 
 
-def _load_user_contact(user_id: str) -> tuple[str | None, str | None, dict]:
+def _load_user_contact(user_id: str) -> tuple[str | None, str | None, str | None, dict]:
     admin = get_supabase_admin()
     row = (
         admin.table("profiles")
-        .select("email, phone, notification_preferences")
+        .select("email, phone, telegram_chat_id, notification_preferences")
         .eq("id", user_id)
         .limit(1)
         .execute()
     )
     if not row.data:
-        return None, None, DEFAULT_PREFS
+        return None, None, None, DEFAULT_PREFS
     data = row.data[0]
     prefs = {**DEFAULT_PREFS, **(data.get("notification_preferences") or {})}
-    return data.get("email"), data.get("phone"), prefs
+    return data.get("email"), data.get("phone"), data.get("telegram_chat_id"), prefs
 
 
 def _send_email(user_id: str, subject: str, body: str, *, promotions: bool = False) -> None:
     try:
-        email, _, prefs = _load_user_contact(user_id)
+        email, _, _, prefs = _load_user_contact(user_id)
         if promotions:
             if not prefs.get("emailPromotions", False):
                 return
@@ -75,7 +76,7 @@ def _send_email(user_id: str, subject: str, body: str, *, promotions: bool = Fal
 
 def _send_sms(user_id: str, body: str) -> None:
     try:
-        _, phone, prefs = _load_user_contact(user_id)
+        _, phone, _, prefs = _load_user_contact(user_id)
         if not prefs.get("smsUrgent", False):
             return
         if not phone:
@@ -84,6 +85,19 @@ def _send_sms(user_id: str, body: str) -> None:
         send_sms(phone, body)
     except Exception as exc:
         logger.warning("SMS send error to=%s: %s", user_id, exc)
+
+
+def _send_telegram(user_id: str, body: str) -> None:
+    try:
+        _, _, chat_id, prefs = _load_user_contact(user_id)
+        if not prefs.get("telegramConnect", False):
+            return
+        if not chat_id:
+            logger.debug("Telegram skipped no chat_id user=%s", user_id)
+            return
+        send_telegram(str(chat_id), body)
+    except Exception as exc:
+        logger.warning("Telegram send error to=%s: %s", user_id, exc)
 
 
 def create_notification(
@@ -111,6 +125,8 @@ def create_notification(
             _send_email(user_id, title, body)
         if urgent and type in ("order", "message"):
             _send_sms(user_id, f"{title}: {body}")
+        if type in ("order", "message", "review"):
+            _send_telegram(user_id, f"{title}\n{body}")
     except Exception:
         pass
 

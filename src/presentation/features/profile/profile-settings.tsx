@@ -178,12 +178,20 @@ export function ProfileSettings() {
     telegramConnect: false,
     chatMuted: false,
   })
+  const [notifChannels, setNotifChannels] = useState<{
+    telegram: boolean
+    telegram_bot_username: string | null
+  }>({ telegram: false, telegram_bot_username: null })
 
   useEffect(() => {
     api
       .getNotificationPrefs()
       .then(setSimpleNotif)
       .catch(() => setSimpleNotif(loadNotificationPrefs()))
+    api
+      .notificationChannels()
+      .then((c) => setNotifChannels({ telegram: c.telegram, telegram_bot_username: c.telegram_bot_username }))
+      .catch(() => undefined)
   }, [])
 
   const updateNotifPref = <K extends keyof typeof simpleNotif>(key: K, value: boolean) => {
@@ -864,13 +872,45 @@ export function ProfileSettings() {
 
                 <div className="settings-notif-card">
                   <h3 className="settings-notif-card-title">{t('telegram_notifications')}</h3>
-                  <ToggleRow
-                    label={t('connect_telegram')}
-                    checked={false}
-                    disabled
-                    hint={t('notif_integration_soon')}
-                    onChange={() => undefined}
-                  />
+                  {notifChannels.telegram ? (
+                    profile?.telegram_chat_id ? (
+                      <ToggleRow
+                        label={t('connect_telegram')}
+                        checked={simpleNotif.telegramConnect}
+                        onChange={(v) => updateNotifPref('telegramConnect', v)}
+                        hint={t('notif_telegram_connected')}
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('notif_telegram_connect_desc')}</p>
+                        {userId && notifChannels.telegram_bot_username && (
+                          <div className="flex flex-wrap gap-2">
+                            <a
+                              href={`https://t.me/${notifChannels.telegram_bot_username}?start=${userId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex"
+                            >
+                              <Button variant="outline" size="sm" type="button">
+                                {t('notif_telegram_connect_btn')}
+                              </Button>
+                            </a>
+                            <Button variant="ghost" size="sm" type="button" onClick={() => refreshProfile()}>
+                              {t('notif_telegram_check')}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    <ToggleRow
+                      label={t('connect_telegram')}
+                      checked={false}
+                      disabled
+                      hint={t('notif_integration_soon')}
+                      onChange={() => undefined}
+                    />
+                  )}
                 </div>
 
                 <div className="settings-divider" />

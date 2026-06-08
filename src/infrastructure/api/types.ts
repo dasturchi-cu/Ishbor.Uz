@@ -42,6 +42,8 @@ export interface ApiProfile {
 
   languages?: { lang: string; level: string }[]
 
+  telegram_chat_id?: string | null
+
   created_at?: string
 
 }
@@ -379,6 +381,14 @@ export interface ApiPaymentsConfig {
 
   providers: ('sandbox' | 'click' | 'payme')[]
 
+}
+
+export interface ApiNotificationChannels {
+  email: boolean
+  sms: boolean
+  telegram: boolean
+  telegram_bot_username: string | null
+  redis: boolean
 }
 
 

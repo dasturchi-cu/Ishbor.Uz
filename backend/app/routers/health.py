@@ -45,4 +45,10 @@ def health_ready():
             "click": settings.click_enabled,
             "payme": settings.payme_enabled,
         },
+        "notifications": {
+            "email": bool(settings.resend_api_key.strip()),
+            "sms": settings.sms_enabled,
+            "telegram": settings.telegram_enabled,
+            "redis": settings.redis_enabled,
+        },
     }

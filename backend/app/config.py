@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     eskiz_password: str = ""
     eskiz_from: str = "4546"
 
+    telegram_bot_token: str = ""
+    telegram_bot_username: str = "IshBorUzBot"
+    telegram_webhook_secret: str = ""
+
+    @property
+    def telegram_enabled(self) -> bool:
+        return bool(self.telegram_bot_token.strip())
+
     @property
     def sms_enabled(self) -> bool:
         return bool(self.eskiz_email.strip() and self.eskiz_password.strip())

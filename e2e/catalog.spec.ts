@@ -38,12 +38,13 @@ test.describe('public API via proxy', () => {
     expect(body.commission_percent).toBe(10)
   })
 
-  test('services list accepts delivery filter', async ({ request }) => {
-    const res = await request.get('/api/v1/services?max_delivery_days=7&limit=3')
+  test('notification channels endpoint', async ({ request }) => {
+    const res = await request.get('/api/v1/notifications/channels')
     if (!res.ok()) {
       test.skip(true, 'Backend not running')
     }
     const body = await res.json()
-    expect(Array.isArray(body.items)).toBe(true)
+    expect(typeof body.email).toBe('boolean')
+    expect(typeof body.telegram).toBe('boolean')
   })
 })

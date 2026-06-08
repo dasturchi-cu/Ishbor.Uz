@@ -28,6 +28,7 @@ class ProfileResponse(BaseModel):
     hourly_rate: int | None = None
     experience_level: str | None = None
     languages: list[dict] = Field(default_factory=list)
+    telegram_chat_id: str | None = None
     created_at: datetime | None = None
 
 

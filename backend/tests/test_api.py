@@ -146,6 +146,16 @@ def test_services_accepts_delivery_filters(client):
     assert "total" in body
 
 
+def test_notification_channels(client):
+    response = client.get("/api/v1/notifications/channels")
+    assert response.status_code == 200
+    body = response.json()
+    assert "email" in body
+    assert "sms" in body
+    assert "telegram" in body
+    assert "redis" in body
+
+
 def test_sandbox_checkout_blocked_in_production(monkeypatch, client):
     from app.config import settings
 
