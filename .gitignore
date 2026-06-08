@@ -9,6 +9,7 @@ __v0_jsx-dev-runtime.ts
 .snowflake/
 .v0-trash/
 .vercel/
+!.vercel/project.json.example
 
 # Environment variables
 .env
