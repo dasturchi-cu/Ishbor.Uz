@@ -1,4 +1,4 @@
-import { FreelancersCatalog } from '@/presentation/features/freelancers/freelancers-catalog'
+import { CompaniesLandingPage } from '@/presentation/features/roadmap/companies-landing-page'
 import { buildPageMetadata } from '@/shared/lib/seo'
 
 export const metadata = buildPageMetadata(
@@ -8,10 +8,5 @@ export const metadata = buildPageMetadata(
 )
 
 export default function CompaniesRoute() {
-  return (
-    <FreelancersCatalog
-      titleKey="companies_catalog_title"
-      subtitleKey="companies_catalog_subtitle"
-    />
-  )
+  return <CompaniesLandingPage />
 }

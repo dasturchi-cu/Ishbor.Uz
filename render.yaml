@@ -46,5 +46,13 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ESKIZ_EMAIL
+        sync: false
+      - key: ESKIZ_PASSWORD
+        sync: false
+      - key: ESKIZ_FROM
+        value: "4546"
       - key: SENTRY_DSN
         sync: false

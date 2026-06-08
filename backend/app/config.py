@@ -37,6 +37,20 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = "IshBor.uz <hello@ishbor.uz>"
 
+    redis_url: str = ""
+
+    eskiz_email: str = ""
+    eskiz_password: str = ""
+    eskiz_from: str = "4546"
+
+    @property
+    def sms_enabled(self) -> bool:
+        return bool(self.eskiz_email.strip() and self.eskiz_password.strip())
+
+    @property
+    def redis_enabled(self) -> bool:
+        return bool(self.redis_url.strip())
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

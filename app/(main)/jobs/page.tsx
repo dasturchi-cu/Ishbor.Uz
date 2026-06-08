@@ -1,4 +1,4 @@
-import { ProjectsCatalog } from '@/presentation/features/projects/projects-catalog'
+import { JobsLandingPage } from '@/presentation/features/roadmap/jobs-landing-page'
 import { buildPageMetadata } from '@/shared/lib/seo'
 
 export const metadata = buildPageMetadata(
@@ -8,5 +8,5 @@ export const metadata = buildPageMetadata(
 )
 
 export default function JobsRoute() {
-  return <ProjectsCatalog titleKey="jobs_catalog_title" subtitleKey="jobs_catalog_subtitle" />
+  return <JobsLandingPage />
 }

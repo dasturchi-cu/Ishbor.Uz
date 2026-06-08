@@ -185,6 +185,7 @@ def send_message(payload: MessageCreate, auth: UserAuthDep):
         title=service_title or "Yangi xabar",
         body=payload.content[:120],
         href=f"/dashboard/messages?order={payload.order_id}",
+        urgent=True,
     )
 
     return result.data[0]

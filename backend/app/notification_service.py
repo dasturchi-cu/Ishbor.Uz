@@ -7,26 +7,43 @@ import httpx
 
 from app.config import settings
 from app.database import get_supabase_admin
+from app.sms_service import send_sms
 
 logger = logging.getLogger("ishbor.notifications")
 
+DEFAULT_PREFS = {
+    "emailNewOrders": True,
+    "emailPromotions": False,
+    "smsUrgent": False,
+    "telegramConnect": False,
+    "chatMuted": False,
+}
 
-def _send_email(user_id: str, subject: str, body: str) -> None:
+
+def _load_user_contact(user_id: str) -> tuple[str | None, str | None, dict]:
     admin = get_supabase_admin()
+    row = (
+        admin.table("profiles")
+        .select("email, phone, notification_preferences")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not row.data:
+        return None, None, DEFAULT_PREFS
+    data = row.data[0]
+    prefs = {**DEFAULT_PREFS, **(data.get("notification_preferences") or {})}
+    return data.get("email"), data.get("phone"), prefs
+
+
+def _send_email(user_id: str, subject: str, body: str, *, promotions: bool = False) -> None:
     try:
-        row = (
-            admin.table("profiles")
-            .select("email, notification_preferences")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-        if not row.data:
+        email, _, prefs = _load_user_contact(user_id)
+        if promotions:
+            if not prefs.get("emailPromotions", False):
+                return
+        elif not prefs.get("emailNewOrders", True):
             return
-        prefs = row.data[0].get("notification_preferences") or {}
-        if not prefs.get("emailNewOrders", True):
-            return
-        email = row.data[0].get("email")
         if not email:
             return
 
@@ -56,6 +73,19 @@ def _send_email(user_id: str, subject: str, body: str) -> None:
         logger.warning("Email send error to=%s: %s", user_id, exc)
 
 
+def _send_sms(user_id: str, body: str) -> None:
+    try:
+        _, phone, prefs = _load_user_contact(user_id)
+        if not prefs.get("smsUrgent", False):
+            return
+        if not phone:
+            logger.debug("SMS skipped no phone user=%s", user_id)
+            return
+        send_sms(phone, body)
+    except Exception as exc:
+        logger.warning("SMS send error to=%s: %s", user_id, exc)
+
+
 def create_notification(
     _supabase,
     *,
@@ -64,6 +94,7 @@ def create_notification(
     title: str,
     body: str,
     href: str | None = None,
+    urgent: bool = False,
 ) -> None:
     admin = get_supabase_admin()
     try:
@@ -76,8 +107,10 @@ def create_notification(
                 "href": href,
             }
         ).execute()
-        if type in ("order", "message"):
+        if type in ("order", "message", "review"):
             _send_email(user_id, title, body)
+        if urgent and type in ("order", "message"):
+            _send_sms(user_id, f"{title}: {body}")
     except Exception:
         pass
 
@@ -94,6 +127,7 @@ def notify_order_status(
     href = f"/dashboard/orders/{order_id}"
     client_id = order["client_id"]
     freelancer_id = order["freelancer_id"]
+    urgent = new_status in ("pending", "delivered", "disputed")
 
     if new_status == "pending":
         create_notification(
@@ -103,6 +137,7 @@ def notify_order_status(
             title=title,
             body="Yangi buyurtma keldi",
             href=href,
+            urgent=True,
         )
     elif new_status == "active":
         create_notification(
@@ -121,6 +156,7 @@ def notify_order_status(
             title=title,
             body="Buyurtma yetkazildi — tasdiqlang",
             href=href,
+            urgent=True,
         )
     elif new_status == "disputed":
         create_notification(
@@ -130,6 +166,7 @@ def notify_order_status(
             title=title,
             body="Buyurtmada nizo ochildi",
             href=href,
+            urgent=True,
         )
     elif new_status == "completed":
         for uid in (client_id, freelancer_id):
@@ -150,4 +187,5 @@ def notify_order_status(
                 title=title,
                 body="Buyurtma bekor qilindi",
                 href=href,
+                urgent=urgent,
             )

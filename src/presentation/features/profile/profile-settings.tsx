@@ -843,6 +843,7 @@ export function ProfileSettings() {
                     label={t('new_orders')}
                     checked={simpleNotif.emailNewOrders}
                     onChange={(v) => updateNotifPref('emailNewOrders', v)}
+                    hint={t('notif_email_hint')}
                   />
                   <ToggleRow
                     label={t('promotions')}
@@ -855,10 +856,9 @@ export function ProfileSettings() {
                   <h3 className="settings-notif-card-title">{t('sms_notifications')}</h3>
                   <ToggleRow
                     label={t('urgent_messages')}
-                    checked={false}
-                    disabled
-                    hint={t('notif_integration_soon')}
-                    onChange={() => undefined}
+                    checked={simpleNotif.smsUrgent}
+                    onChange={(v) => updateNotifPref('smsUrgent', v)}
+                    hint={!formData.phone?.trim() ? t('notif_sms_needs_phone') : t('notif_sms_hint')}
                   />
                 </div>
 
