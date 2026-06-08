@@ -311,6 +311,12 @@ export function DashboardNewServicePage() {
                 setDeliveryDays(e.target.value)
                 setFieldErrors((prev) => ({ ...prev, delivery_days: '' }))
               }}
+              hint={t('delivery_days_hint')}
+              rightIcon={
+                <span className="text-[12px] font-semibold text-[var(--kwork-text-muted)]">
+                  {t('delivery_days_unit')}
+                </span>
+              }
               error={fieldErrors.delivery_days}
             />
             <Select

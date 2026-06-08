@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
-import { LoadingBlock } from '@/presentation/components/ui/loading-block'
+import { SkeletonListRow } from '@/presentation/components/ui/skeleton'
 import { Bell, ShoppingBag, MessageCircle, Star, CheckCheck } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
 import type { ApiNotification } from '@/infrastructure/api/types'
@@ -116,7 +116,11 @@ export function NotificationsPage() {
 
       <Card className="overflow-hidden p-0">
         {loading ? (
-          <LoadingBlock />
+          <div className="space-y-2 p-4">
+            {[0, 1, 2, 3].map((i) => (
+              <SkeletonListRow key={i} lines={2} />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-16 text-center">
             <Bell className="h-10 w-10 text-[var(--kwork-text-muted)]" />

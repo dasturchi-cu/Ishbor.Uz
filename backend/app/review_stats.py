@@ -2,7 +2,7 @@
 
 from supabase import Client
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.db_utils import run_query
 
 
@@ -11,7 +11,7 @@ def batch_review_stats(supabase: Client, freelancer_ids: list[str]) -> dict[str,
         return {}
 
     result = run_query(
-        lambda: get_supabase()
+        lambda: get_supabase_admin()
         .table("reviews")
         .select("freelancer_id, rating")
         .in_("freelancer_id", freelancer_ids)

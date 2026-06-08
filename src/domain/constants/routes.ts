@@ -106,7 +106,7 @@ export function defaultAuthDestination(
   role: 'freelancer' | 'client' = 'freelancer',
 ): string {
   if (profile?.is_admin) return PATHS.admin
-  return dashboardPathForRole(profile?.role === 'client' ? 'client' : role)
+  return dashboardPathForRole(role)
 }
 
 /** Dashboard ichki sahifalar (freelancer + client) */

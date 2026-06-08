@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -40,7 +40,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const isOwner = Boolean(userId && project?.client_id === userId)
   const isFreelancer = currentUserRole === 'freelancer'
 
-  const loadProject = () => {
+  const loadProject = useCallback(() => {
     setLoading(true)
     setLoadError(false)
     api
@@ -54,11 +54,11 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
         setLoadError(!(e instanceof ApiError && e.status === 404))
       })
       .finally(() => setLoading(false))
-  }
+  }, [projectId])
 
   useEffect(() => {
     loadProject()
-  }, [projectId])
+  }, [loadProject])
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -306,7 +306,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
               </Link>
             </div>
           ) : project.status === 'open' ? (
-            <div className="surface-panel p-5">
+            <div id="project-apply" className="surface-panel p-5">
               <h2 className="settings-section-title mb-3">{t('project_apply')}</h2>
               {error && (
                 <Alert variant="error" className="mb-3">
@@ -344,6 +344,37 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
           )}
         </aside>
       </div>
+
+      {!isOwner && project.status === 'open' && (
+        <div className="mobile-sticky-cta show-mobile">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-[var(--kwork-text)]">{project.title}</p>
+            <p className="text-[16px] font-bold tabular-nums text-[var(--color-primary)]">
+              {formatPrice(project.budget)}
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            loading={submitting}
+            className="shrink-0 px-5"
+            onClick={() => {
+              if (!isLoggedIn) {
+                router.push(loginPath(projectPath(projectId)))
+                return
+              }
+              const el = document.getElementById('project-apply')
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                return
+              }
+              void handleApply()
+            }}
+          >
+            {isLoggedIn ? t('project_apply') : t('login_to_apply')}
+          </Button>
+        </div>
+      )}
     </PageWrapper>
   )
 }

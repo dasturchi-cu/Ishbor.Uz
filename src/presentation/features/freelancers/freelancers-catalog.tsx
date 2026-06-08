@@ -15,8 +15,17 @@ import { freelancerPath } from '@/domain/constants/routes'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
 import { PATHS } from '@/domain/constants/routes'
+import type { TranslationKey } from '@/infrastructure/i18n'
 
-export function FreelancersCatalog() {
+interface FreelancersCatalogProps {
+  titleKey?: TranslationKey
+  subtitleKey?: TranslationKey
+}
+
+export function FreelancersCatalog({
+  titleKey = 'nav_freelancers',
+  subtitleKey = 'kwork_freelancers_sub',
+}: FreelancersCatalogProps = {}) {
   const { t } = useApp()
   const router = useRouter()
   const [freelancers, setFreelancers] = useState<ApiProfilePublic[]>([])
@@ -89,10 +98,10 @@ export function FreelancersCatalog() {
     <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
       <div className="surface-panel mb-4 px-4 py-3.5 sm:px-5 sm:py-4">
         <h1 className="text-xl font-bold tracking-tight text-[var(--kwork-text)] sm:text-[22px]">
-          {t('nav_freelancers')}
+          {t(titleKey)}
         </h1>
         <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)] sm:text-[14px]">
-          {t('kwork_freelancers_sub')}
+          {t(subtitleKey)}
         </p>
       </div>
 

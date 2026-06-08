@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -19,9 +19,15 @@ import {
   Shield,
   MessageCircle,
   Bookmark,
+  X,
 } from 'lucide-react'
 import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiService, ApiReview } from '@/infrastructure/api/types'
+import {
+  calcFreelancerPayout,
+  calcPlatformFee,
+  PLATFORM_COMMISSION_PERCENT,
+} from '@/domain/constants/commission'
 import { formatPrice } from '@/shared/lib/format'
 import { dashboardOrderPath, freelancerPath, PATHS } from '@/domain/constants/routes'
 import { loginPath } from '@/shared/lib/auth-redirect'
@@ -81,7 +87,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   useFocusTrap(orderModalOpen, orderModalRef)
   useBodyScrollLock(orderModalOpen)
 
-  const loadService = () => {
+  const loadService = useCallback(() => {
     setLoading(true)
     setLoadError(false)
     api
@@ -92,12 +98,12 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         setLoadError(!(e instanceof ApiError && e.status === 404))
       })
       .finally(() => setLoading(false))
-  }
+  }, [serviceId])
 
   useEffect(() => {
     loadService()
     api.recordServiceView(serviceId).catch(() => undefined)
-  }, [serviceId])
+  }, [loadService, serviceId])
 
   useEffect(() => {
     if (!service?.freelancer_id) return
@@ -105,7 +111,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       .listServiceReviews(serviceId)
       .then(setReviews)
       .catch(() => setReviews([]))
-  }, [serviceId])
+  }, [serviceId, service?.freelancer_id])
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -184,6 +190,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       return
     }
     setOrderNotes('')
+    setError('')
     setOrderModalOpen(true)
   }
 
@@ -196,6 +203,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       setError(t('client_only_order'))
       return
     }
+    setError('')
     setOrderModalOpen(true)
   }
 
@@ -210,6 +218,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       )
       setOrderModalOpen(false)
       setOrderNotes('')
+      toast.success(t('order_created_success'))
       router.push(dashboardOrderPath(created.id))
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('error_required')
@@ -275,18 +284,82 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const serviceRating = service.profiles?.avg_rating ?? 0
   const serviceReviews = service.profiles?.review_count ?? 0
 
-  const orderButton = (
-    <Button
-      variant="primary"
-      size="lg"
-      className="kwork-order-cta"
-      onClick={handleOrder}
-      disabled={ordering || isOwnService}
-      loading={ordering}
-    >
-      {t('order_secure_cta')}
-    </Button>
-  )
+  const renderOrderCta = (size: 'lg' | 'md' = 'lg') => {
+    if (isOwnService) {
+      return (
+        <div className="service-order-card__cta space-y-3">
+          <div className="service-own-service-hint">
+            <p>{t('own_service_hint')}</p>
+          </div>
+          <Link href={PATHS.dashboardServiceEdit(service.id)} className="block">
+            <Button variant="primary" size={size} className="kwork-order-cta w-full">
+              {t('edit_service')}
+            </Button>
+          </Link>
+          <Link href={PATHS.dashboardServices} className="block">
+            <Button variant="outline" size={size} className="w-full">
+              {t('own_service_manage')}
+            </Button>
+          </Link>
+        </div>
+      )
+    }
+
+    if (!isLoggedIn) {
+      return (
+        <div className="service-order-card__cta space-y-2">
+          <Button
+            variant="primary"
+            size={size}
+            className="kwork-order-cta w-full"
+            onClick={() => router.push(loginPath(`/services/${serviceId}`))}
+          >
+            {t('order_secure_cta')}
+          </Button>
+          <Button
+            variant="outline"
+            size={size}
+            className="w-full"
+            onClick={() => router.push(PATHS.register)}
+          >
+            {t('register')}
+          </Button>
+        </div>
+      )
+    }
+
+    if (currentUserRole !== 'client') {
+      return (
+        <div className="service-order-card__cta space-y-3">
+          <p className="service-order-card__role-hint">{t('order_as_client_hint')}</p>
+          <Button
+            variant="primary"
+            size={size}
+            className="kwork-order-cta w-full"
+            onClick={handleOrder}
+            loading={ordering}
+          >
+            {t('order_secure_cta')}
+          </Button>
+        </div>
+      )
+    }
+
+    return (
+      <div className="service-order-card__cta">
+        <Button
+          variant="primary"
+          size={size}
+          className="kwork-order-cta w-full"
+          onClick={handleOrder}
+          disabled={ordering}
+          loading={ordering}
+        >
+          {t('order_secure_cta')}
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -585,7 +658,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   </Alert>
                 )}
 
-                {!isOwnService && <div className="service-order-card__cta">{orderButton}</div>}
+                {renderOrderCta('lg')}
 
                 <div className="service-escrow-banner">
                   <Shield className="h-4 w-4 shrink-0" aria-hidden />
@@ -688,7 +761,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         )}
       </PageWrapper>
 
-      {orderModalOpen && (
+      {orderModalOpen && service && (
         <div
           className="kwork-order-modal-backdrop"
           role="presentation"
@@ -702,28 +775,95 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
             aria-labelledby="order-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="order-modal-title" className="kwork-order-modal__head">
-              {t('order_notes_label')}
-            </h3>
-            <p className="kwork-order-modal__price">
-              {selectedPackage ? t(selectedPackage.labelKey) : t('package_basic')} ·{' '}
-              <strong>{formatPrice(selectedPackage?.price ?? service.price)}</strong>
-            </p>
-            <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('payment_required_hint')}</p>
-            <p className="mt-1 text-[11px] text-[var(--kwork-text-muted)]">{t('commission_zero')}</p>
+            <div className="kwork-order-modal__header">
+              <div className="min-w-0 flex-1">
+                <p className="kwork-order-modal__eyebrow">{t('order_notes_label')}</p>
+                <h3 id="order-modal-title" className="kwork-order-modal__title">
+                  {service.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="kwork-order-modal__close"
+                onClick={() => setOrderModalOpen(false)}
+                aria-label={t('close')}
+              >
+                <X className="h-5 w-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="kwork-order-modal__summary">
+              <div className="kwork-order-modal__summary-top">
+                <Badge variant="default" size="xs">
+                  {selectedPackage ? t(selectedPackage.labelKey) : t('package_basic')}
+                </Badge>
+                {(selectedPackage?.days ?? deliveryDays) != null &&
+                  (selectedPackage?.days ?? deliveryDays)! > 0 && (
+                    <span className="kwork-order-modal__delivery">
+                      <Clock className="h-3.5 w-3.5" aria-hidden />
+                      {t('service_delivery_days').replace(
+                        '{n}',
+                        String(selectedPackage?.days ?? deliveryDays),
+                      )}
+                    </span>
+                  )}
+              </div>
+              <p className="kwork-order-modal__amount">
+                {formatPrice(selectedPackage?.price ?? service.price)}
+              </p>
+            </div>
+
+            <div className="kwork-order-modal__trust">
+              <Shield className="kwork-order-modal__trust-icon" strokeWidth={2} aria-hidden />
+              <div className="min-w-0">
+                <p className="kwork-order-modal__trust-title">{t('payment_required_hint')}</p>
+                <p className="kwork-order-modal__trust-desc">{t('commission_escrow_note')}</p>
+              </div>
+            </div>
+
+            <div className="kwork-order-modal__breakdown">
+              <div className="kwork-order-modal__breakdown-row">
+                <span>{t('commission_rate').replace('{rate}', String(PLATFORM_COMMISSION_PERCENT))}</span>
+                <span className="tabular-nums">
+                  {formatPrice(calcPlatformFee(selectedPackage?.price ?? service.price))}
+                </span>
+              </div>
+              <div className="kwork-order-modal__breakdown-row kwork-order-modal__breakdown-row--net">
+                <span>{t('commission_payout_label')}</span>
+                <span className="tabular-nums font-semibold text-[var(--success-dark)]">
+                  {formatPrice(calcFreelancerPayout(selectedPackage?.price ?? service.price))}
+                </span>
+              </div>
+            </div>
+
             <div className="kwork-order-modal__body">
+              {error && (
+                <Alert variant="error" className="mb-3 py-2 text-[13px]">
+                  {error}
+                </Alert>
+              )}
               <Textarea
+                label={t('order_notes_label')}
                 rows={4}
                 value={orderNotes}
                 onChange={(e) => setOrderNotes(e.target.value)}
                 placeholder={t('order_notes_ph')}
+                className="min-h-[108px] resize-none"
               />
             </div>
+
             <div className="kwork-order-modal__foot">
               <Button variant="outline" fullWidth onClick={() => setOrderModalOpen(false)}>
                 {t('cancel')}
               </Button>
-              <Button variant="primary" fullWidth loading={ordering} onClick={submitOrder} className="kwork-order-cta">
+              <Button
+                variant="primary"
+                fullWidth
+                loading={ordering}
+                onClick={submitOrder}
+                className="kwork-order-cta"
+                leftIcon={<Shield className="h-4 w-4" />}
+              >
                 {t('order_secure_cta')}
               </Button>
             </div>
@@ -731,39 +871,43 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         </div>
       )}
 
-      {!isOwnService && (
-        <div className="mobile-sticky-cta show-mobile">
-          <button
-            type="button"
-            onClick={() => router.push(freelancerPath(service.freelancer_id))}
-            className="flex min-w-0 max-w-[48%] items-center gap-2 text-left"
-          >
-            <Avatar name={freelancerName} size={36} verified={service.profiles?.is_verified} />
-            <div className="min-w-0">
-              <p className="truncate text-[12px] font-semibold text-[var(--kwork-text)]">{freelancerName}</p>
-              {serviceReviews > 0 && (
-                <RatingStars rating={serviceRating} size="sm" />
-              )}
-            </div>
-          </button>
-          <div className="flex shrink-0 flex-col items-end">
-            <span className="text-[11px] text-[var(--kwork-text-muted)]">{t('starting_at')}</span>
-            <span className="text-[18px] font-bold tabular-nums text-[var(--kwork-text)]">
-              {formatPrice(selectedPackage?.price ?? service.price)}
-            </span>
+      <div className="mobile-sticky-cta show-mobile">
+        <button
+          type="button"
+          onClick={() => router.push(freelancerPath(service.freelancer_id))}
+          className="flex min-w-0 max-w-[40%] items-center gap-2 text-left"
+        >
+          <Avatar name={freelancerName} size={36} verified={service.profiles?.is_verified} />
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-semibold text-[var(--kwork-text)]">{freelancerName}</p>
+            {serviceReviews > 0 && <RatingStars rating={serviceRating} size="sm" />}
           </div>
+        </button>
+        <div className="flex shrink-0 flex-col items-end">
+          <span className="text-[11px] text-[var(--kwork-text-muted)]">{t('starting_at')}</span>
+          <span className="text-[16px] font-bold tabular-nums text-[var(--kwork-text)]">
+            {formatPrice(selectedPackage?.price ?? service.price)}
+          </span>
+        </div>
+        {isOwnService ? (
+          <Link href={PATHS.dashboardServiceEdit(service.id)} className="shrink-0">
+            <Button variant="primary" size="md" className="kwork-order-cta !w-auto px-5">
+              {t('edit_service')}
+            </Button>
+          </Link>
+        ) : (
           <Button
             variant="primary"
             size="md"
             onClick={handleOrder}
             disabled={ordering}
             loading={ordering}
-            className="kwork-order-cta shrink-0 !w-auto px-6"
+            className="kwork-order-cta shrink-0 !w-auto px-5"
           >
             {t('order_secure_cta')}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </>
   )
 }

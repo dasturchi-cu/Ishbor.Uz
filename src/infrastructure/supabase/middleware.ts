@@ -1,7 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PROTECTED_PREFIXES = ['/dashboard', '/admin', '/onboarding', '/post-project']
+const PROTECTED_PREFIXES = [
+  '/dashboard',
+  '/admin',
+  '/onboarding',
+  '/post-project',
+  '/wallet',
+  '/settings',
+  '/services/create',
+]
 const AUTH_PATHS = new Set(['/login', '/register'])
 
 function isProtected(pathname: string): boolean {
@@ -17,6 +25,13 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
   if (!url || !key) {
+    const { pathname } = request.nextUrl
+    if (isProtected(pathname)) {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      loginUrl.searchParams.set('error', 'config')
+      return NextResponse.redirect(loginUrl)
+    }
     return NextResponse.next({ request })
   }
 
@@ -52,6 +67,22 @@ export async function updateSession(request: NextRequest) {
 
   if (user && AUTH_PATHS.has(pathname)) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  if (user && isProtected(pathname)) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_banned')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profile?.is_banned) {
+      await supabase.auth.signOut()
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      loginUrl.searchParams.set('banned', '1')
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
   if (user && (pathname === '/admin' || pathname.startsWith('/admin/'))) {

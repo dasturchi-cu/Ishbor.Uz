@@ -184,7 +184,11 @@ export function LandingPage() {
     }
     if (isAuthLoading || !isLoggedIn) return
     if (!profile) return
-    router.replace(defaultAuthDestination(profile, currentUserRole))
+    const dest =
+      !profile.onboarding_completed && !profile.is_admin
+        ? PATHS.onboarding
+        : defaultAuthDestination(profile, currentUserRole)
+    router.replace(dest)
   }, [isAuthLoading, isLoggedIn, currentUserRole, profile, router])
 
 
@@ -208,14 +212,12 @@ export function LandingPage() {
 
 
 
-  const allServices = stats.top_services.length > 0 ? stats.top_services : []
-
   const filteredServices = useMemo(
-
-    () => filterServicesByTab(allServices, featuredTab),
-
-    [allServices, featuredTab]
-
+    () => {
+      const allServices = stats.top_services.length > 0 ? stats.top_services : []
+      return filterServicesByTab(allServices, featuredTab)
+    },
+    [stats.top_services, featuredTab],
   )
 
 

@@ -12,6 +12,10 @@ export const profileI18nUz = {
   profile_about_empty: 'Freelancer hali o\'zini tanishtirmagan.',
   profile_one_hour: '1 soat',
   profile_link_copied: 'Havola nusxalandi',
+  profile_guest_cta_title: '{name} bilan ishlang',
+  profile_guest_cta_desc: 'Buyurtma berish va xabar yuborish uchun akkauntga kiring',
+  profile_guest_trust_reviews: 'Haqiqiy mijoz sharhlari',
+  profile_guest_free: "Ro'yxatdan o'tish bepul",
 } as const
 
 export const profileI18nRu = {
@@ -28,6 +32,10 @@ export const profileI18nRu = {
   profile_about_empty: 'Фрилансер ещё не заполнил информацию о себе.',
   profile_one_hour: '1 час',
   profile_link_copied: 'Ссылка скопирована',
+  profile_guest_cta_title: 'Работайте с {name}',
+  profile_guest_cta_desc: 'Войдите, чтобы оформить заказ и написать сообщение',
+  profile_guest_trust_reviews: 'Реальные отзывы клиентов',
+  profile_guest_free: 'Регистрация бесплатна',
 } as const
 
 export const profileI18nEn = {
@@ -44,4 +52,8 @@ export const profileI18nEn = {
   profile_about_empty: 'This freelancer has not added an about section yet.',
   profile_one_hour: '1 hour',
   profile_link_copied: 'Link copied',
+  profile_guest_cta_title: 'Work with {name}',
+  profile_guest_cta_desc: 'Sign in to place an order or send a message',
+  profile_guest_trust_reviews: 'Real client reviews',
+  profile_guest_free: 'Registration is free',
 } as const

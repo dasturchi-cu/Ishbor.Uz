@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { toast } from '@/presentation/components/ui/toast'
@@ -28,7 +28,7 @@ export function DashboardReviewsPage() {
   const [replyText, setReplyText] = useState('')
   const [replyLoading, setReplyLoading] = useState(false)
 
-  const loadReviews = () => {
+  const loadReviews = useCallback(() => {
     if (!userId) return
     setLoading(true)
     setLoadError(false)
@@ -44,11 +44,11 @@ export function DashboardReviewsPage() {
         setStats(st)
       })
       .finally(() => setLoading(false))
-  }
+  }, [userId])
 
   useEffect(() => {
     loadReviews()
-  }, [userId])
+  }, [loadReviews])
 
   const filtered = reviews.filter((r) => {
     if (filter === '5') return r.rating === 5

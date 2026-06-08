@@ -109,7 +109,9 @@ export function DashboardPaymentsPage() {
             </div>
           ))}
         </div>
-        <p className="mt-3 text-[12px] text-[var(--kwork-text-muted)]">{t('payment_provider_sandbox')}</p>
+        {!paymentsLive && (
+          <p className="mt-3 text-[12px] text-[var(--kwork-text-muted)]">{t('payment_provider_sandbox')}</p>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">

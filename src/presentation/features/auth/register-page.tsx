@@ -7,12 +7,13 @@ import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
+import { Select } from '@/presentation/components/ui/select'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { ArrowLeft, Check, Briefcase, Users } from 'lucide-react'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { api } from '@/infrastructure/api/client'
-import { PATHS } from '@/domain/constants/routes'
+import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { cn } from '@/shared/lib/utils'
 import { signInWithGoogle } from '@/infrastructure/auth/oauth'
@@ -22,6 +23,7 @@ import { registerStep2Schema } from '@/domain/validators/auth'
 import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
 import { AuthBrandPanel, AuthMobileTrust } from '@/presentation/components/auth/auth-brand-panel'
 import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallback'
+import { pickAvailableUsername } from '@/shared/lib/username'
 
 function RegisterPageContent() {
   const { t, setCurrentUserRole, refreshProfile } = useApp()
@@ -50,7 +52,11 @@ function RegisterPageContent() {
     storeReferralRef(searchParams.get('ref'))
   }, [searchParams])
 
-  const cities = UZ_REGIONS
+  const regionOptions = UZ_REGIONS.map((r) => ({ value: r, label: r }))
+  const specialtyOptions = KWORK_CATEGORY_ITEMS.map((item) => ({
+    value: item.cat,
+    label: t(item.labelKey),
+  }))
 
   const handleRoleSelect = (selectedRole: 'freelancer' | 'client') => {
     setRole(selectedRole)
@@ -147,7 +153,15 @@ function RegisterPageContent() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        options: { data: { full_name: formData.fullName, role: selectedRole } },
+        options: {
+          data: {
+            full_name: formData.fullName,
+            role: selectedRole,
+            ...(selectedRole === 'client' && formData.company.trim()
+              ? { company: formData.company.trim() }
+              : {}),
+          },
+        },
       })
 
       if (signUpError) {
@@ -157,26 +171,36 @@ function RegisterPageContent() {
 
       if (data.session) {
         setCurrentUserRole(selectedRole)
+        let destination =
+          selectedRole === 'client' ? dashboardPathForRole('client') : PATHS.onboarding
         try {
-          await api.updateProfile({
+          const username = await pickAvailableUsername(formData.email, formData.fullName)
+          const updated = await api.updateProfile({
+            role: selectedRole,
             full_name: formData.fullName,
             phone: formData.phone,
             region: formData.city,
+            username,
             specialty: selectedRole === 'client' ? formData.company.trim() || undefined : formData.specialty,
             bio:
               selectedRole === 'client'
                 ? formData.company.trim() || formData.bio
                 : formData.bio,
+            ...(selectedRole === 'client' ? { onboarding_completed: true } : {}),
           })
+          await refreshProfile()
+          if (selectedRole === 'client' && !updated.onboarding_completed) {
+            destination = PATHS.onboarding
+          }
         } catch {
-          // trigger profil yaratgan bo'lishi mumkin
+          destination = PATHS.onboarding
+          await refreshProfile().catch(() => undefined)
         }
-        await refreshProfile()
         const ref = consumeReferralRef() ?? searchParams.get('ref')
         if (ref) {
           await api.applyReferral(ref).catch(() => {})
         }
-        router.push(PATHS.onboarding)
+        router.push(destination)
       } else {
         setSuccessMessage(t('auth_email_confirm_sent'))
       }
@@ -217,7 +241,7 @@ function RegisterPageContent() {
           {t('skip_to_content')}
         </a>
         <div className="auth-page-panel">
-          <div className="auth-page-inner max-w-[560px]">
+          <div className="auth-page-inner form-shell max-w-lg">
             <Link href={PATHS.home} className="auth-back-link show-mobile">
               <ArrowLeft className="h-4 w-4" />
               {t('nav_home')}
@@ -306,7 +330,7 @@ function RegisterPageContent() {
       </a>
 
       <div className="auth-page-panel">
-        <div className="auth-page-inner">
+        <div className="auth-page-inner form-shell">
           <Link href={PATHS.home} className="auth-back-link show-mobile">
             <ArrowLeft className="h-4 w-4" />
             {t('nav_home')}
@@ -431,46 +455,24 @@ function RegisterPageContent() {
 
               {!successMessage && role === 'freelancer' ? (
                 <>
-                  <div>
-                    <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
-                      {t('specialty')}
-                    </label>
-                    <select
-                      value={formData.specialty}
-                      onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                      className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
-                      aria-invalid={Boolean(errors.specialty)}
-                    >
-                      <option value="">{t('select')}</option>
-                      {KWORK_CATEGORY_ITEMS.map((item) => (
-                        <option key={item.cat} value={item.cat}>
-                          {t(item.labelKey)}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.specialty && (
-                      <p className="mt-1 text-[12px] text-[var(--error)]">{errors.specialty}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
-                      {t('region')}
-                    </label>
-                    <select
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
-                      aria-invalid={Boolean(errors.city)}
-                    >
-                      <option value="">{t('select')}</option>
-                      {cities.map((city) => (
-                        <option key={city}>{city}</option>
-                      ))}
-                    </select>
-                    {errors.city && (
-                      <p className="mt-1 text-[12px] text-[var(--error)]">{errors.city}</p>
-                    )}
-                  </div>
+                  <Select
+                    label={t('specialty')}
+                    value={formData.specialty}
+                    onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
+                    placeholder={t('select')}
+                    options={specialtyOptions}
+                    error={errors.specialty}
+                    inputSize="lg"
+                  />
+                  <Select
+                    label={t('region')}
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder={t('select')}
+                    options={regionOptions}
+                    error={errors.city}
+                    inputSize="lg"
+                  />
                   <Textarea
                     label={t('bio')}
                     value={formData.bio}
@@ -486,25 +488,15 @@ function RegisterPageContent() {
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                   />
-                  <div>
-                    <label className="mb-1.5 block text-[13px] font-medium text-[var(--color-text-sub)]">
-                      {t('region')}
-                    </label>
-                    <select
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="select-auth h-10 w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm"
-                      aria-invalid={Boolean(errors.city)}
-                    >
-                      <option value="">{t('select')}</option>
-                      {cities.map((city) => (
-                        <option key={city}>{city}</option>
-                      ))}
-                    </select>
-                    {errors.city && (
-                      <p className="mt-1 text-[12px] text-[var(--error)]">{errors.city}</p>
-                    )}
-                  </div>
+                  <Select
+                    label={t('region')}
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder={t('select')}
+                    options={regionOptions}
+                    error={errors.city}
+                    inputSize="lg"
+                  />
                 </>
               ) : null}
 

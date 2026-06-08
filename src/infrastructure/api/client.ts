@@ -2,9 +2,13 @@ import { getCachedAccessToken } from '@/infrastructure/auth/session-cache'
 import type { NotificationPrefs } from '@/shared/lib/notification-prefs'
 import type {
   ApiAdminStats,
+  ApiPaginated,
+  ApiPaymentsConfig,
+  ApiCheckoutResponse,
   ApiConversation,
   ApiMessage,
   ApiOrder,
+  ApiPaymentIntent,
   ApiProfile,
   ApiProfilePublic,
   ApiProject,
@@ -19,6 +23,7 @@ import type {
   ProjectCreateInput,
   ServiceCreateInput,
   ServiceUpdateInput,
+  ApiWaitlistEntry,
   ApiWithdrawalRequest,
   ApiTransaction,
 } from './types'
@@ -54,6 +59,13 @@ export class ApiError extends Error {
 
 export function isApiConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_API_URL)
+}
+
+function paymentIdempotencyHeaders(): Record<string, string> {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return { 'Idempotency-Key': crypto.randomUUID() }
+  }
+  return {}
 }
 
 export async function apiFetch<T>(
@@ -204,6 +216,8 @@ export const api = {
   },
   listOrderTransactions: (orderId: string) =>
     apiFetch<ApiTransaction[]>(`/api/v1/payments/orders/${orderId}/transactions`),
+  getOrderPaymentIntent: (orderId: string) =>
+    apiFetch<ApiPaymentIntent>(`/api/v1/payments/orders/${orderId}/payment-intent`),
   getOrder: (orderId: string) => apiFetch<ApiOrder>(`/api/v1/orders/${orderId}`),
   updateOrderStatus: (
     orderId: string,
@@ -219,15 +233,18 @@ export const api = {
       }),
     }),
   deleteAccount: () => apiFetch<void>('/api/v1/profiles/me', { method: 'DELETE' }),
+  paymentsConfig: () => apiFetch<ApiPaymentsConfig>('/api/v1/payments/config'),
   checkoutOrder: (orderId: string, provider: 'sandbox' | 'click' | 'payme' = 'sandbox') =>
-    apiFetch<ApiOrder>(`/api/v1/payments/orders/${orderId}/checkout`, {
+    apiFetch<ApiCheckoutResponse>(`/api/v1/payments/orders/${orderId}/checkout`, {
       method: 'POST',
       body: JSON.stringify({ provider }),
+      headers: paymentIdempotencyHeaders(),
     }),
   requestWithdrawal: (amount: number, note?: string) =>
     apiFetch<{ id: string; status: string }>('/api/v1/payments/withdrawals', {
       method: 'POST',
       body: JSON.stringify({ amount, note }),
+      headers: paymentIdempotencyHeaders(),
     }),
   listWithdrawals: () => apiFetch<ApiWithdrawalRequest[]>('/api/v1/payments/withdrawals'),
 
@@ -291,6 +308,9 @@ export const api = {
   markAllNotificationsRead: () =>
     apiFetch<void>('/api/v1/notifications/mark-all-read', { method: 'POST' }),
   listSavedServices: () => apiFetch<{ service_ids: string[] }>('/api/v1/saved-items'),
+  listSavedServicesEnriched: () => apiFetch<ApiService[]>('/api/v1/saved-items/services/enriched'),
+  listSavedFreelancersEnriched: () =>
+    apiFetch<ApiProfilePublic[]>('/api/v1/saved-items/freelancers/enriched'),
   saveService: (serviceId: string) =>
     apiFetch<void>(`/api/v1/saved-items/${serviceId}`, { method: 'POST' }),
   unsaveService: (serviceId: string) =>
@@ -315,8 +335,10 @@ export const api = {
     apiFetch<ApiReview[]>(`/api/v1/reviews/service/${serviceId}`),
   listTransactions: () => apiFetch<ApiTransaction[]>('/api/v1/payments/transactions'),
   listConversations: () => apiFetch<ApiConversation[]>('/api/v1/messages/conversations'),
-  listMessages: (orderId: string) =>
-    apiFetch<ApiMessage[]>(`/api/v1/messages?order_id=${encodeURIComponent(orderId)}`),
+  listMessages: (orderId: string, limit = 200) =>
+    apiFetch<ApiMessage[]>(
+      `/api/v1/messages?order_id=${encodeURIComponent(orderId)}&limit=${limit}`
+    ),
   sendMessage: (orderId: string, content: string) =>
     apiFetch<ApiMessage>('/api/v1/messages', {
       method: 'POST',
@@ -341,9 +363,42 @@ export const api = {
     }),
 
   adminStats: () => apiFetch<ApiAdminStats>('/api/v1/admin/stats'),
-  adminUsers: () => apiFetch<ApiProfile[]>('/api/v1/admin/users'),
-  adminOrders: () => apiFetch<ApiOrder[]>('/api/v1/admin/orders'),
-  adminWithdrawals: () => apiFetch<ApiWithdrawalRequest[]>('/api/v1/admin/withdrawals'),
+  adminDisputes: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<ApiOrder>>(`/api/v1/admin/disputes${qs ? `?${qs}` : ''}`)
+  },
+  adminWaitlist: (params?: { limit?: number; offset?: number; source?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    if (params?.source) q.set('source', params.source)
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<ApiWaitlistEntry>>(`/api/v1/admin/waitlist${qs ? `?${qs}` : ''}`)
+  },
+  adminUsers: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<ApiProfile>>(`/api/v1/admin/users${qs ? `?${qs}` : ''}`)
+  },
+  adminOrders: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<ApiOrder>>(`/api/v1/admin/orders${qs ? `?${qs}` : ''}`)
+  },
+  adminWithdrawals: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<ApiWithdrawalRequest>>(`/api/v1/admin/withdrawals${qs ? `?${qs}` : ''}`)
+  },
   adminUpdateWithdrawal: (requestId: string, status: 'approved' | 'rejected') =>
     apiFetch<ApiWithdrawalRequest>(`/api/v1/admin/withdrawals/${requestId}`, {
       method: 'PATCH',

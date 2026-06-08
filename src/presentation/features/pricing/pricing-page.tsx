@@ -51,7 +51,7 @@ export function PricingPage() {
       toast.success(t('newsletter_thanks'))
       setProEmail('')
     } else {
-      toast.error(t('newsletter_save_failed'))
+      toast.info(t('waitlist_saved_local'))
     }
   }
 

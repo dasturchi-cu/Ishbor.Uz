@@ -2,26 +2,29 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.database import get_supabase
-from app.deps import CurrentUserId
+from app.deps import UserAuthDep
 from app.notification_service import create_notification
 from app.schemas import ConversationResponse, MessageCreate, MessageResponse
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
+_TERMINAL_ORDER_STATUSES = frozenset({"completed", "cancelled"})
+
 
 @router.get("/conversations", response_model=list[ConversationResponse])
 def list_conversations(
-    user_id: CurrentUserId,
+    auth: UserAuthDep,
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    supabase = get_supabase()
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     orders_result = (
         supabase.table("orders")
         .select("id, client_id, freelancer_id, status, services(title), created_at")
         .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
+        .not_.in_("status", ["cancelled"])
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
@@ -45,28 +48,41 @@ def list_conversations(
         p["id"]: p.get("full_name") or "Foydalanuvchi" for p in (profiles_result.data or [])
     }
 
-    messages_result = (
-        supabase.table("messages")
-        .select("order_id, content, created_at, receiver_id, read_at")
-        .in_("order_id", order_ids)
-        .order("created_at", desc=True)
-        .execute()
-    )
-
-    last_by_order: dict[str, dict] = {}
-    unread_by_order: dict[str, int] = {}
-    for msg in messages_result.data or []:
-        oid = msg["order_id"]
-        if oid not in last_by_order:
-            last_by_order[oid] = msg
-        if msg["receiver_id"] == user_id and msg.get("read_at") is None:
-            unread_by_order[oid] = unread_by_order.get(oid, 0) + 1
+    stats_by_order: dict[str, dict] = {}
+    try:
+        stats_result = supabase.rpc(
+            "get_conversation_message_stats",
+            {"p_user_id": user_id, "p_order_ids": order_ids},
+        ).execute()
+        stats_by_order = {
+            row["order_id"]: row for row in (stats_result.data or [])
+        }
+    except Exception:
+        messages_result = (
+            supabase.table("messages")
+            .select("order_id, content, created_at, receiver_id, read_at")
+            .in_("order_id", order_ids)
+            .order("created_at", desc=True)
+            .limit(min(len(order_ids) * 5, 200))
+            .execute()
+        )
+        for msg in messages_result.data or []:
+            oid = msg["order_id"]
+            if oid not in stats_by_order:
+                stats_by_order[oid] = {
+                    "order_id": oid,
+                    "last_content": msg["content"],
+                    "last_created_at": msg["created_at"],
+                    "unread_count": 0,
+                }
+            if msg["receiver_id"] == user_id and msg.get("read_at") is None:
+                stats_by_order[oid]["unread_count"] = int(stats_by_order[oid].get("unread_count", 0)) + 1
 
     conversations: list[dict] = []
     for order in orders:
         oid = order["id"]
         other_id = order["freelancer_id"] if order["client_id"] == user_id else order["client_id"]
-        last = last_by_order.get(oid)
+        stats = stats_by_order.get(oid, {})
         conversations.append(
             {
                 "order_id": oid,
@@ -74,9 +90,9 @@ def list_conversations(
                 "other_user_name": profiles_map.get(other_id, "Foydalanuvchi"),
                 "order_title": (order.get("services") or {}).get("title") or "Buyurtma",
                 "order_status": order["status"],
-                "last_message": last["content"] if last else None,
-                "last_message_at": last["created_at"] if last else order["created_at"],
-                "unread_count": unread_by_order.get(oid, 0),
+                "last_message": stats.get("last_content"),
+                "last_message_at": stats.get("last_created_at") or order["created_at"],
+                "unread_count": int(stats.get("unread_count") or 0),
             }
         )
 
@@ -84,8 +100,14 @@ def list_conversations(
 
 
 @router.get("", response_model=list[MessageResponse])
-def list_messages(user_id: CurrentUserId, order_id: str = Query(...)):
-    supabase = get_supabase()
+def list_messages(
+    auth: UserAuthDep,
+    order_id: str = Query(...),
+    limit: int = Query(default=200, le=500),
+    offset: int = Query(default=0, ge=0),
+):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     order = supabase.table("orders").select("*").eq("id", order_id).single().execute()
     if not order.data:
@@ -98,6 +120,7 @@ def list_messages(user_id: CurrentUserId, order_id: str = Query(...)):
         .select("*")
         .eq("order_id", order_id)
         .order("created_at", desc=False)
+        .range(offset, offset + limit - 1)
         .execute()
     )
 
@@ -110,8 +133,9 @@ def list_messages(user_id: CurrentUserId, order_id: str = Query(...)):
 
 
 @router.post("", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
-def send_message(payload: MessageCreate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def send_message(payload: MessageCreate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     order = supabase.table("orders").select("*").eq("id", payload.order_id).single().execute()
     if not order.data:
@@ -120,6 +144,11 @@ def send_message(payload: MessageCreate, user_id: CurrentUserId):
     order_row = order.data
     if user_id not in (order_row["client_id"], order_row["freelancer_id"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+    if order_row.get("status") in _TERMINAL_ORDER_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tugallangan yoki bekor qilingan buyurtmada xabar yuborib bo'lmaydi",
+        )
 
     receiver_id = (
         order_row["freelancer_id"]

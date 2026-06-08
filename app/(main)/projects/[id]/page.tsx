@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { ProjectDetailPage } from '@/presentation/features/projects/project-detail-page'
 import { fetchProjectForMeta } from '@/infrastructure/api/server-fetch'
-import { buildPageMetadata, pageAlternates, pageUrl, ogImageUrls, ogImages } from '@/shared/lib/seo'
+import { pageAlternates, pageUrl, ogImageUrls, ogImages } from '@/shared/lib/seo'
 
 type Props = { params: Promise<{ id: string }> }
 

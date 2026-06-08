@@ -1,18 +1,42 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.notification_service import create_notification
-from app.deps import CurrentUserId
-from datetime import datetime, timezone
+from app.deps import UserAuthDep
 
 from app.schemas import PublicReviewResponse, ReviewCreate, ReviewReplyUpdate, ReviewResponse
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 
+def _batch_profiles(supabase, profile_ids: list[str]) -> dict[str, dict]:
+    if not profile_ids:
+        return {}
+    result = (
+        supabase.table("profiles")
+        .select("id, full_name, role, specialty")
+        .in_("id", profile_ids)
+        .execute()
+    )
+    return {p["id"]: p for p in (result.data or [])}
+
+
+def _enrich_reviews(supabase, reviews: list[dict]) -> list[dict]:
+    if not reviews:
+        return []
+    reviewer_ids = list({r["reviewer_id"] for r in reviews if r.get("reviewer_id")})
+    profiles_map = _batch_profiles(supabase, reviewer_ids)
+    enriched = []
+    for review in reviews:
+        enriched.append({**review, "profiles": profiles_map.get(review["reviewer_id"])})
+    return enriched
+
+
 @router.get("/recent", response_model=list[PublicReviewResponse])
 def recent_public_reviews(limit: int = Query(default=6, le=12)):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     result = (
         supabase.table("reviews")
         .select("id, rating, comment, created_at, reviewer_id, freelancer_id")
@@ -29,13 +53,7 @@ def recent_public_reviews(limit: int = Query(default=6, le=12)):
     profile_ids = list(
         {r["reviewer_id"] for r in reviews} | {r["freelancer_id"] for r in reviews}
     )
-    profiles_result = (
-        supabase.table("profiles")
-        .select("id, full_name, role, specialty")
-        .in_("id", profile_ids)
-        .execute()
-    )
-    profiles_map = {p["id"]: p for p in (profiles_result.data or [])}
+    profiles_map = _batch_profiles(supabase, profile_ids)
 
     enriched: list[dict] = []
     for review in reviews:
@@ -59,7 +77,7 @@ def recent_public_reviews(limit: int = Query(default=6, le=12)):
 
 @router.get("/service/{service_id}", response_model=list[ReviewResponse])
 def list_service_reviews(service_id: str):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     orders = (
         supabase.table("orders")
         .select("id")
@@ -77,23 +95,12 @@ def list_service_reviews(service_id: str):
         .order("created_at", desc=True)
         .execute()
     )
-    reviews = result.data or []
-    enriched = []
-    for review in reviews:
-        reviewer = (
-            supabase.table("profiles")
-            .select("full_name")
-            .eq("id", review["reviewer_id"])
-            .single()
-            .execute()
-        )
-        enriched.append({**review, "profiles": reviewer.data})
-    return enriched
+    return _enrich_reviews(supabase, result.data or [])
 
 
 @router.get("/freelancer/{freelancer_id}", response_model=list[ReviewResponse])
 def list_freelancer_reviews(freelancer_id: str):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     result = (
         supabase.table("reviews")
         .select("*")
@@ -101,24 +108,12 @@ def list_freelancer_reviews(freelancer_id: str):
         .order("created_at", desc=True)
         .execute()
     )
-    reviews = result.data or []
-
-    enriched = []
-    for review in reviews:
-        reviewer = (
-            supabase.table("profiles")
-            .select("full_name")
-            .eq("id", review["reviewer_id"])
-            .single()
-            .execute()
-        )
-        enriched.append({**review, "profiles": reviewer.data})
-    return enriched
+    return _enrich_reviews(supabase, result.data or [])
 
 
 @router.get("/freelancer/{freelancer_id}/stats")
 def freelancer_review_stats(freelancer_id: str):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     result = (
         supabase.table("reviews")
         .select("rating")
@@ -132,8 +127,9 @@ def freelancer_review_stats(freelancer_id: str):
 
 
 @router.patch("/{review_id}/reply", response_model=ReviewResponse)
-def reply_to_review(review_id: str, payload: ReviewReplyUpdate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def reply_to_review(review_id: str, payload: ReviewReplyUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     existing = supabase.table("reviews").select("*").eq("id", review_id).single().execute()
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sharh topilmadi")
@@ -157,8 +153,9 @@ def reply_to_review(review_id: str, payload: ReviewReplyUpdate, user_id: Current
 
 
 @router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
-def create_review(payload: ReviewCreate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def create_review(payload: ReviewCreate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     order = supabase.table("orders").select("*").eq("id", payload.order_id).single().execute()
     if not order.data:

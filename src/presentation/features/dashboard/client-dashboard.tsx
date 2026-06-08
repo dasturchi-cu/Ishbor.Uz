@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -83,7 +83,7 @@ export function ClientDashboard() {
     [orders],
   )
 
-  const loadDashboard = () => {
+  const loadDashboard = useCallback(() => {
     setLoading(true)
     setLoadError(false)
     let failed = false
@@ -94,10 +94,7 @@ export function ClientDashboard() {
             return [] as ApiProject[]
           })
         : Promise.resolve([]),
-      api.listFreelancers().catch(() => {
-        failed = true
-        return [] as ApiProfilePublic[]
-      }),
+      api.listFreelancers().catch(() => [] as ApiProfilePublic[]),
       userId
         ? api.listOrders().catch(() => {
             failed = true
@@ -112,11 +109,11 @@ export function ClientDashboard() {
         if (failed) setLoadError(true)
       })
       .finally(() => setLoading(false))
-  }
+  }, [userId])
 
   useEffect(() => {
     loadDashboard()
-  }, [userId])
+  }, [loadDashboard])
 
   const metrics = useMemo(() => {
     const completed = orders.filter((o) => o.status === 'completed')

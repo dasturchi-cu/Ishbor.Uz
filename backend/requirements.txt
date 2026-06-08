@@ -6,3 +6,5 @@ python-jose[cryptography]==3.3.0
 pydantic-settings==2.7.1
 python-multipart==0.0.20
 httpx==0.28.1
+sentry-sdk[fastapi]==2.22.0
+pytest==8.3.4

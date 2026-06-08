@@ -19,7 +19,6 @@ import { resolvePostAuthDestination } from '@/shared/lib/auth-redirect'
 import { signInWithGoogle } from '@/infrastructure/auth/oauth'
 import { isGoogleAuthEnabled } from '@/infrastructure/auth/google-auth'
 import { requestPasswordReset } from '@/infrastructure/auth/password'
-import { AuthBrandPanel, AuthMobileTrust } from '@/presentation/components/auth/auth-brand-panel'
 import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallback'
 import { loginSchema } from '@/domain/validators/auth'
 
@@ -36,6 +35,15 @@ function LoginPageContent() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetMessage, setResetMessage] = useState('')
+
+  useEffect(() => {
+    if (searchParams.get('banned') === '1') {
+      toast.error(t('account_banned'))
+    }
+    if (searchParams.get('error') === 'config') {
+      setError(t('data_load_failed'))
+    }
+  }, [searchParams, t])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -139,16 +147,13 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="auth-layout">
-      <AuthBrandPanel />
+    <div className="auth-layout auth-layout--compact">
       <a href="#login-form" className="skip-link">
         {t('skip_to_content')}
       </a>
       <div className="auth-page-panel">
-        <div className="auth-page-panel__grid" aria-hidden />
-
         <div className="auth-page-inner">
-          <Link href={PATHS.home} className="auth-back-link show-mobile">
+          <Link href={PATHS.home} className="auth-back-link">
             <ArrowLeft className="h-4 w-4" />
             {t('nav_home')}
           </Link>
@@ -161,7 +166,6 @@ function LoginPageContent() {
           </div>
 
           <div className="auth-form-card">
-            <AuthMobileTrust />
             <header className="auth-form-header">
               <h1>{t('login_title')}</h1>
               <p>{t('login_subtitle')}</p>

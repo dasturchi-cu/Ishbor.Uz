@@ -27,7 +27,15 @@ const CATEGORY_OPTIONS = [
   { value: 'seo', labelKey: 'cat_seo' as TranslationKey },
 ]
 
-export function ProjectsCatalog() {
+interface ProjectsCatalogProps {
+  titleKey?: TranslationKey
+  subtitleKey?: TranslationKey
+}
+
+export function ProjectsCatalog({
+  titleKey = 'projects_title',
+  subtitleKey = 'projects_subtitle',
+}: ProjectsCatalogProps = {}) {
   const { t } = useApp()
   const router = useRouter()
   const [projects, setProjects] = useState<ApiProject[]>([])
@@ -73,17 +81,17 @@ export function ProjectsCatalog() {
         setLoadError(true)
       })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, region, category, offset, reloadTick])
+  }, [debouncedSearch, region, category, offset])
 
   useEffect(() => {
     loadProjects()
-  }, [loadProjects])
+  }, [loadProjects, reloadTick])
 
   return (
     <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
       <div className="surface-panel mb-4 px-4 py-3.5 sm:px-5 sm:py-4">
-        <h1 className="text-xl font-bold text-[var(--kwork-text)] sm:text-[22px]">{t('projects_title')}</h1>
-        <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)] sm:text-[14px]">{t('projects_subtitle')}</p>
+        <h1 className="text-xl font-bold text-[var(--kwork-text)] sm:text-[22px]">{t(titleKey)}</h1>
+        <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)] sm:text-[14px]">{t(subtitleKey)}</p>
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">

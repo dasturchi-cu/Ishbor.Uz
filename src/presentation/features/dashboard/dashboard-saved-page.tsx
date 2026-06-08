@@ -25,17 +25,7 @@ import { api } from '@/infrastructure/api/client'
 
 import type { ApiProject, ApiService } from '@/infrastructure/api/types'
 
-import {
-
-  syncSavedFreelancersFromApi,
-
-  syncSavedProjectsFromApi,
-
-  syncSavedServicesFromApi,
-
-  toggleSavedFreelancer,
-
-} from '@/shared/lib/saved-items'
+import { toggleSavedFreelancer } from '@/shared/lib/saved-items'
 
 import { PATHS, servicePath, freelancerPath, projectPath } from '@/domain/constants/routes'
 
@@ -73,29 +63,16 @@ export function DashboardSavedPage() {
   const loadSaved = () => {
     setLoading(true)
     setLoadError(false)
-    Promise.all([syncSavedServicesFromApi(), syncSavedFreelancersFromApi(), syncSavedProjectsFromApi()])
-      .then(([serviceIds, freelancerIds, projectIds]) =>
-        Promise.all([
-          serviceIds.length
-            ? Promise.all(serviceIds.map((id) => api.getService(id).catch(() => null))).then(
-                (r) => r.filter(Boolean) as ApiService[]
-              )
-            : Promise.resolve([]),
-          freelancerIds.length
-            ? Promise.all(freelancerIds.map((id) => api.getProfileById(id).catch(() => null))).then(
-                (r) => r.filter(Boolean) as Awaited<ReturnType<typeof api.listFreelancers>>
-              )
-            : Promise.resolve([]),
-          projectIds.length
-            ? api.listSavedProjects().then((rows) =>
-                rows.map((r) => r.projects).filter(Boolean) as ApiProject[]
-              )
-            : Promise.resolve([]),
-        ])
-      )
+    Promise.all([
+      api.listSavedServicesEnriched(),
+      api.listSavedFreelancersEnriched(),
+      api.listSavedProjects().then((rows) =>
+        rows.map((r) => r.projects).filter(Boolean) as ApiProject[]
+      ),
+    ])
       .then(([svc, fr, pr]) => {
         setServices(svc)
-        setFreelancers(fr)
+        setFreelancers(fr as Awaited<ReturnType<typeof api.listFreelancers>>)
         setProjects(pr)
       })
       .catch(() => setLoadError(true))

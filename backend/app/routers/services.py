@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from app.database import get_supabase
-from app.deps import CurrentUserId
+from app.database import get_supabase_admin
+from app.deps import OptionalUserId, UserAuthDep
+from app.search_utils import sanitize_search_term
 from app.schemas import ServiceCreate, ServiceListResponse, ServiceResponse, ServiceUpdate
 from app.review_stats import batch_review_stats
 from app.service_packages import default_packages
@@ -10,8 +11,9 @@ router = APIRouter(prefix="/services", tags=["services"])
 
 
 @router.get("/mine", response_model=list[ServiceResponse])
-def list_my_services(user_id: CurrentUserId):
-    supabase = get_supabase()
+def list_my_services(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     result = (
         supabase.table("services")
         .select("*")
@@ -24,11 +26,12 @@ def list_my_services(user_id: CurrentUserId):
 
 @router.get("/freelancer/{freelancer_id}", response_model=list[ServiceResponse])
 def list_freelancer_services(freelancer_id: str):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     result = (
         supabase.table("services")
         .select("*")
         .eq("freelancer_id", freelancer_id)
+        .eq("is_hidden", False)
         .order("created_at", desc=True)
         .execute()
     )
@@ -46,7 +49,7 @@ def list_services(
     limit: int = Query(default=100, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     query = (
         supabase.table("services")
         .select("*, profiles(full_name, specialty, region, is_verified)", count="exact")
@@ -57,8 +60,9 @@ def list_services(
         query = query.eq("category", category)
     if region:
         query = query.eq("region", region)
-    if search:
-        query = query.or_(f"title.ilike.%{search}%,description.ilike.%{search}%")
+    safe_search = sanitize_search_term(search)
+    if safe_search:
+        query = query.or_(f"title.ilike.%{safe_search}%,description.ilike.%{safe_search}%")
     if min_price is not None:
         query = query.gte("price", min_price)
     if max_price is not None:
@@ -86,9 +90,20 @@ def list_services(
     return ServiceListResponse(items=rows, total=result.count or 0)
 
 
+def _viewer_key(request: Request, user_id: str | None) -> str:
+    if user_id:
+        return f"user:{user_id}"
+    ip = request.client.host if request.client else "unknown"
+    return f"ip:{ip}"
+
+
 @router.post("/{service_id}/view", status_code=status.HTTP_204_NO_CONTENT)
-def record_service_view(service_id: str):
-    supabase = get_supabase()
+def record_service_view(
+    service_id: str,
+    request: Request,
+    user_id: OptionalUserId = None,
+):
+    supabase = get_supabase_admin()
     existing = (
         supabase.table("services")
         .select("id, view_count")
@@ -98,14 +113,26 @@ def record_service_view(service_id: str):
     )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Xizmat topilmadi")
-    views = int(existing.data[0].get("view_count") or 0) + 1
-    supabase.table("services").update({"view_count": views}).eq("id", service_id).execute()
+    dedup = (
+        supabase.rpc(
+            "record_view_if_new",
+            {
+                "p_target_type": "service",
+                "p_target_id": service_id,
+                "p_viewer_key": _viewer_key(request, user_id),
+            },
+        )
+        .execute()
+    )
+    if not dedup.data:
+        return None
+    supabase.rpc("increment_service_view_count", {"p_service_id": service_id}).execute()
     return None
 
 
 @router.get("/{service_id}", response_model=ServiceResponse)
 def get_service(service_id: str):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     result = (
         supabase.table("services")
         .select("*, profiles(full_name, specialty, region, bio, is_verified)")
@@ -115,12 +142,15 @@ def get_service(service_id: str):
     )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Xizmat topilmadi")
+    if result.data.get("is_hidden"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Xizmat topilmadi")
     return result.data
 
 
 @router.post("", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
-def create_service(payload: ServiceCreate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def create_service(payload: ServiceCreate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     profile = supabase.table("profiles").select("role").eq("id", user_id).single().execute()
     if not profile.data or profile.data.get("role") != "freelancer":
@@ -139,8 +169,9 @@ def create_service(payload: ServiceCreate, user_id: CurrentUserId):
 
 
 @router.patch("/{service_id}", response_model=ServiceResponse)
-def update_service(service_id: str, payload: ServiceUpdate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def update_service(service_id: str, payload: ServiceUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     existing = (
         supabase.table("services")
         .select("*")
@@ -164,8 +195,9 @@ def update_service(service_id: str, payload: ServiceUpdate, user_id: CurrentUser
 
 
 @router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_service(service_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def delete_service(service_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     existing = (
         supabase.table("services")
         .select("freelancer_id")
@@ -178,5 +210,19 @@ def delete_service(service_id: str, user_id: CurrentUserId):
     if existing.data.get("freelancer_id") != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat o'z xizmatingizni o'chirishingiz mumkin")
 
-    supabase.table("services").delete().eq("id", service_id).execute()
+    active_orders = (
+        supabase.table("orders")
+        .select("id")
+        .eq("service_id", service_id)
+        .in_("status", ["pending", "active", "delivered", "disputed"])
+        .limit(1)
+        .execute()
+    )
+    if active_orders.data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Faol buyurtmalar mavjud — avval ularni yakunlang",
+        )
+
+    supabase.table("services").update({"is_hidden": True}).eq("id", service_id).execute()
     return None

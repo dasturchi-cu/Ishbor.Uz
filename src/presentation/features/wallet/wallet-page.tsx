@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -36,7 +36,7 @@ export function WalletPage() {
   const [clientWithdrawHint, setClientWithdrawHint] = useState(false)
   const [loadError, setLoadError] = useState(false)
 
-  const loadWallet = async () => {
+  const loadWallet = useCallback(async () => {
     setLoading(true)
     setLoadError(false)
     try {
@@ -62,11 +62,11 @@ export function WalletPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUserRole, refreshProfile])
 
   useEffect(() => {
     void loadWallet()
-  }, [currentUserRole])
+  }, [loadWallet])
 
   const { completed, active, pending, balance, activeCount } = useMemo(() => {
     let completed = 0
@@ -114,7 +114,7 @@ export function WalletPage() {
         amount: o.amount,
         status: o.status,
       }))
-  }, [orders, ledger])
+  }, [orders, ledger, t])
 
   const ordersHref = PATHS.dashboardOrders
 

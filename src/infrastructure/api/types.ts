@@ -158,6 +158,8 @@ export interface ApiOrder {
 
   amount: number
 
+  platform_fee?: number
+
   status: string
 
   payment_status?: 'unpaid' | 'held' | 'released' | 'refunded' | string | null
@@ -182,7 +184,20 @@ export interface ApiOrder {
 
 }
 
+export interface ApiPaymentIntent {
+  id: string
+  order_id: string
+  provider: string
+  amount: number
+  status: string
+  redirect_url?: string | null
+}
 
+export interface ApiCheckoutResponse {
+  order: ApiOrder
+  payment_intent?: ApiPaymentIntent | null
+  redirect_url?: string | null
+}
 
 export interface ApiProject {
 
@@ -327,6 +342,56 @@ export interface ApiAdminStats {
   services: number
 
   projects: number
+
+  disputed_orders?: number
+
+  pending_withdrawals?: number
+
+  banned_users?: number
+
+}
+
+
+
+export interface ApiPaginated<T> {
+
+  items: T[]
+
+  total: number
+
+  limit: number
+
+  offset: number
+
+}
+
+
+
+export interface ApiPaymentsConfig {
+
+  sandbox_allowed: boolean
+
+  click_enabled: boolean
+
+  payme_enabled: boolean
+
+  live_available: boolean
+
+  providers: ('sandbox' | 'click' | 'payme')[]
+
+}
+
+
+
+export interface ApiWaitlistEntry {
+
+  id: string
+
+  email: string
+
+  source: string
+
+  created_at?: string
 
 }
 

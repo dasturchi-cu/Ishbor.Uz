@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ishbor.uz'
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001'
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8002'
 
 const STATIC_ROUTES = [
   '',
@@ -16,6 +16,9 @@ const STATIC_ROUTES = [
   '/privacy',
   '/post-project',
   '/projects',
+  '/jobs',
+  '/companies',
+  '/cv-builder',
 ]
 
 const BLOG_SLUGS = ['freelance-boshlash', 'click-payme', 'escrow-nima']

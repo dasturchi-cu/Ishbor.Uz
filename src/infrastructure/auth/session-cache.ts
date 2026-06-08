@@ -23,18 +23,24 @@ export async function getCachedSession(): Promise<CachedSession | null> {
   inflight = (async () => {
     try {
       const supabase = getSupabase()
-      const { data, error } = await supabase.auth.getSession()
-      if (error) return cached
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+      if (userError || !userData.user) {
+        cached = null
+        return null
+      }
 
-      const session = data.session
-      if (!session?.access_token || !session.user?.id) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) return cached
+
+      const session = sessionData.session
+      if (!session?.access_token) {
         cached = null
         return null
       }
 
       cached = {
         accessToken: session.access_token,
-        userId: session.user.id,
+        userId: userData.user.id,
         expiresAt: session.expires_at ?? 0,
       }
       return cached

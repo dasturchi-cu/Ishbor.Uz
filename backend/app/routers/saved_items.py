@@ -1,14 +1,68 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.database import get_supabase
-from app.deps import CurrentUserId
+from app.deps import UserAuthDep
 
 router = APIRouter(prefix="/saved-items", tags=["saved-items"])
 
 
+@router.get("/services/enriched")
+def list_saved_services_enriched(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    saved = (
+        supabase.table("saved_items")
+        .select("service_id")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    ids = [row["service_id"] for row in (saved.data or [])]
+    if not ids:
+        return []
+    result = (
+        supabase.table("services")
+        .select("*")
+        .in_("id", ids)
+        .eq("is_hidden", False)
+        .execute()
+    )
+    by_id = {row["id"]: row for row in (result.data or [])}
+    return [by_id[sid] for sid in ids if sid in by_id]
+
+
+@router.get("/freelancers/enriched")
+def list_saved_freelancers_enriched(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    try:
+        saved = (
+            supabase.table("saved_freelancers")
+            .select("freelancer_id")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+    except Exception:
+        return []
+    ids = [row["freelancer_id"] for row in (saved.data or [])]
+    if not ids:
+        return []
+    result = (
+        supabase.table("profiles")
+        .select(
+            "id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, is_verified"
+        )
+        .in_("id", ids)
+        .execute()
+    )
+    by_id = {row["id"]: row for row in (result.data or [])}
+    return [by_id[fid] for fid in ids if fid in by_id]
+
+
 @router.get("")
-def list_saved_services(user_id: CurrentUserId):
-    supabase = get_supabase()
+def list_saved_services(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     result = (
         supabase.table("saved_items")
         .select("service_id, created_at")
@@ -20,8 +74,9 @@ def list_saved_services(user_id: CurrentUserId):
 
 
 @router.post("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
-def save_service(service_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def save_service(service_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     service = supabase.table("services").select("id").eq("id", service_id).single().execute()
     if not service.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Xizmat topilmadi")
@@ -42,15 +97,17 @@ def save_service(service_id: str, user_id: CurrentUserId):
 
 
 @router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
-def unsave_service(service_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def unsave_service(service_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     supabase.table("saved_items").delete().eq("user_id", user_id).eq("service_id", service_id).execute()
     return None
 
 
 @router.get("/freelancers")
-def list_saved_freelancers(user_id: CurrentUserId):
-    supabase = get_supabase()
+def list_saved_freelancers(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     try:
         result = (
             supabase.table("saved_freelancers")
@@ -65,8 +122,9 @@ def list_saved_freelancers(user_id: CurrentUserId):
 
 
 @router.post("/freelancers/{freelancer_id}", status_code=status.HTTP_204_NO_CONTENT)
-def save_freelancer(freelancer_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def save_freelancer(freelancer_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     profile = (
         supabase.table("profiles")
         .select("id, role")
@@ -97,8 +155,9 @@ def save_freelancer(freelancer_id: str, user_id: CurrentUserId):
 
 
 @router.delete("/freelancers/{freelancer_id}", status_code=status.HTTP_204_NO_CONTENT)
-def unsave_freelancer(freelancer_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def unsave_freelancer(freelancer_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     supabase.table("saved_freelancers").delete().eq("user_id", user_id).eq(
         "freelancer_id", freelancer_id
     ).execute()
@@ -106,8 +165,9 @@ def unsave_freelancer(freelancer_id: str, user_id: CurrentUserId):
 
 
 @router.get("/projects")
-def list_saved_projects(user_id: CurrentUserId):
-    supabase = get_supabase()
+def list_saved_projects(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     rows = (
         supabase.table("saved_projects")
         .select("project_id, created_at, projects(*, profiles(full_name, region))")
@@ -119,8 +179,9 @@ def list_saved_projects(user_id: CurrentUserId):
 
 
 @router.post("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def save_project(project_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def save_project(project_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     existing = (
         supabase.table("saved_projects")
         .select("id")
@@ -138,8 +199,9 @@ def save_project(project_id: str, user_id: CurrentUserId):
 
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def unsave_project(project_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def unsave_project(project_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     supabase.table("saved_projects").delete().eq("user_id", user_id).eq(
         "project_id", project_id
     ).execute()

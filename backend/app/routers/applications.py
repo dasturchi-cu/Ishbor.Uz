@@ -1,12 +1,19 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.db_utils import run_query
-from app.deps import CurrentUserId
+from app.deps import UserAuthDep
 from app.notification_service import create_notification
 from app.schemas import ApplicationCreate, ApplicationResponse, ApplicationStatusUpdate
 
 router = APIRouter(prefix="/applications", tags=["applications"])
+
+_APPLICATION_TRANSITIONS: dict[str, set[str]] = {
+    "submitted": {"shortlisted", "rejected", "hired"},
+    "shortlisted": {"rejected", "hired"},
+    "rejected": set(),
+    "hired": set(),
+}
 
 
 def _enrich_application(row: dict, supabase) -> dict:
@@ -32,8 +39,9 @@ def _enrich_application(row: dict, supabase) -> dict:
 
 
 @router.post("", response_model=ApplicationResponse, status_code=status.HTTP_201_CREATED)
-def create_application(payload: ApplicationCreate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def create_application(payload: ApplicationCreate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     profile = supabase.table("profiles").select("role").eq("id", user_id).single().execute()
     if not profile.data or profile.data.get("role") != "freelancer":
@@ -89,8 +97,9 @@ def create_application(payload: ApplicationCreate, user_id: CurrentUserId):
 
 
 @router.get("/mine", response_model=list[ApplicationResponse])
-def list_my_applications(user_id: CurrentUserId):
-    supabase = get_supabase()
+def list_my_applications(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     result = (
         supabase.table("project_applications")
         .select("*")
@@ -102,8 +111,9 @@ def list_my_applications(user_id: CurrentUserId):
 
 
 @router.get("/project/{project_id}", response_model=list[ApplicationResponse])
-def list_project_applications(project_id: str, user_id: CurrentUserId):
-    supabase = get_supabase()
+def list_project_applications(project_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     project = supabase.table("projects").select("client_id").eq("id", project_id).single().execute()
     if not project.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
@@ -122,9 +132,10 @@ def list_project_applications(project_id: str, user_id: CurrentUserId):
 
 @router.patch("/{application_id}/status", response_model=ApplicationResponse)
 def update_application_status(
-    application_id: str, payload: ApplicationStatusUpdate, user_id: CurrentUserId
+    application_id: str, payload: ApplicationStatusUpdate, auth: UserAuthDep
 ):
-    supabase = get_supabase()
+    user_id = auth.user_id
+    supabase = auth.supabase
     existing = (
         supabase.table("project_applications").select("*").eq("id", application_id).single().execute()
     )
@@ -140,6 +151,14 @@ def update_application_status(
     )
     if not project.data or project.data["client_id"] != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+
+    current_status = existing.data.get("status") or "submitted"
+    allowed = _APPLICATION_TRANSITIONS.get(current_status, set())
+    if payload.status not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{current_status}' dan '{payload.status}' ga o'tish mumkin emas",
+        )
 
     result = (
         supabase.table("project_applications")
@@ -173,4 +192,38 @@ def update_application_status(
         body=body,
         href=f"/projects/{row['project_id']}",
     )
+
+    if payload.status == "hired":
+        admin = get_supabase_admin()
+        project_full = (
+            admin.table("projects")
+            .select("*")
+            .eq("id", row["project_id"])
+            .single()
+            .execute()
+        )
+        if project_full.data:
+            amount = int(row.get("proposed_budget") or project_full.data.get("budget") or 0)
+            if amount > 0:
+                admin.table("orders").insert(
+                    {
+                        "client_id": project_full.data["client_id"],
+                        "freelancer_id": row["freelancer_id"],
+                        "amount": amount,
+                        "notes": (row.get("cover_letter") or "")[:500],
+                        "status": "pending",
+                    }
+                ).execute()
+            admin.table("projects").update({"status": "closed"}).eq(
+                "id", row["project_id"]
+            ).execute()
+        create_notification(
+            admin,
+            user_id=row["freelancer_id"],
+            type="order",
+            title=title,
+            body="Loyiha bo'yicha buyurtma yaratildi — to'lovni kuting",
+            href="/dashboard/orders",
+        )
+
     return _enrich_application(row, supabase)

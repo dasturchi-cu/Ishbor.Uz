@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -21,6 +21,7 @@ import {
   Plus,
   MessageCircle,
   Briefcase,
+  ShoppingBag,
 } from 'lucide-react'
 import { PATHS, servicePath, dashboardOrderPath } from '@/domain/constants/routes'
 import { api } from '@/infrastructure/api/client'
@@ -144,7 +145,7 @@ function QuickActionCard({
 }
 
 export function FreelancerDashboard() {
-  const { t, profile, userId, refreshProfile } = useApp()
+  const { t, profile, userId } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
   const firstName = profile?.full_name?.split(/\s+/)[0]
@@ -163,7 +164,7 @@ export function FreelancerDashboard() {
     }
   }, [searchParams, router])
 
-  useEffect(() => {
+  const loadDashboard = useCallback(() => {
     if (!userId) {
       setLoading(false)
       return
@@ -182,7 +183,6 @@ export function FreelancerDashboard() {
         failed = true
         return [] as ApiService[]
       }),
-      refreshProfile().catch(() => undefined),
     ])
       .then(([ordersData, stats, servicesData]) => {
         setOrders(ordersData)
@@ -192,6 +192,10 @@ export function FreelancerDashboard() {
       })
       .finally(() => setLoading(false))
   }, [userId])
+
+  useEffect(() => {
+    loadDashboard()
+  }, [loadDashboard])
 
   const metrics = useMemo(() => {
     const completed = orders.filter((o) => o.status === 'completed')
@@ -279,31 +283,7 @@ export function FreelancerDashboard() {
     </Link>
   )
 
-  const reloadDashboard = () => {
-    if (!userId) return
-    setLoading(true)
-    setLoadError(false)
-    let failed = false
-    Promise.all([
-      api.listOrders().catch(() => {
-        failed = true
-        return [] as ApiOrder[]
-      }),
-      api.getFreelancerReviewStats(userId).catch(() => ({ average: 0, count: 0 })),
-      api.listMyServices().catch(() => {
-        failed = true
-        return [] as ApiService[]
-      }),
-      refreshProfile().catch(() => undefined),
-    ])
-      .then(([ordersData, stats, servicesData]) => {
-        setOrders(ordersData)
-        setReviewStats(stats)
-        setServices(servicesData)
-        if (failed) setLoadError(true)
-      })
-      .finally(() => setLoading(false))
-  }
+  const reloadDashboard = loadDashboard
 
   return (
     <div className="space-y-5 pb-2">
@@ -384,14 +364,11 @@ export function FreelancerDashboard() {
           <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--kwork-text-muted)]">
             {t('quick_actions_title')}
           </p>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            <QuickActionCard href={PATHS.dashboardServices} icon={Package} label={t('nav_my_services')} />
+            <QuickActionCard href={PATHS.dashboardOrders} icon={ShoppingBag} label={t('nav_orders')} />
             <QuickActionCard href={PATHS.postProject} icon={Briefcase} label={t('nav_birja')} />
             <QuickActionCard href={PATHS.dashboardMessages} icon={MessageCircle} label={t('nav_messages')} />
-            <QuickActionCard
-              icon={Plus}
-              label={t('nav_new_service')}
-              onClick={() => router.push(PATHS.dashboardServicesNew)}
-            />
           </div>
         </div>
       </div>

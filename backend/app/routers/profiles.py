@@ -1,12 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
 REFERRAL_BONUS = 50_000
 
 
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 
-from app.deps import CurrentUserId, OptionalUserId
+from app.deps import OptionalUserId, UserAuthDep
 
 from app.review_stats import batch_review_stats
 
@@ -44,12 +44,13 @@ def normalize_username(raw: str) -> str:
 
 
 @router.post("/me/referral", status_code=status.HTTP_204_NO_CONTENT)
-def apply_referral(payload: ReferralApply, user_id: CurrentUserId):
+def apply_referral(payload: ReferralApply, auth: UserAuthDep):
+    user_id = auth.user_id
     referrer_id = payload.referrer_id.strip()
     if not referrer_id or referrer_id == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Noto'g'ri referral")
 
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     referrer = supabase.table("profiles").select("id").eq("id", referrer_id).single().execute()
     if not referrer.data:
@@ -71,49 +72,37 @@ def apply_referral(payload: ReferralApply, user_id: CurrentUserId):
         {"referrer_id": referrer_id, "referred_id": user_id}
     ).execute()
     supabase.table("profiles").update({"referred_by": referrer_id}).eq("id", user_id).execute()
-
-    referrer = (
-        supabase.table("profiles")
-        .select("wallet_balance")
-        .eq("id", referrer_id)
-        .single()
-        .execute()
-    )
-    if referrer.data:
-        balance = int(referrer.data.get("wallet_balance") or 0)
-        supabase.table("profiles").update({"wallet_balance": balance + REFERRAL_BONUS}).eq(
-            "id", referrer_id
-        ).execute()
-        supabase.table("transactions").insert(
-            {
-                "user_id": referrer_id,
-                "type": "referral_bonus",
-                "amount": REFERRAL_BONUS,
-                "provider": "platform",
-                "status": "completed",
-            }
-        ).execute()
     return None
 
 
 @router.get("/me/referral-stats", response_model=ReferralStatsResponse)
-def referral_stats(user_id: CurrentUserId):
-    supabase = get_supabase()
-    result = (
+def referral_stats(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    all_refs = (
         supabase.table("referrals")
         .select("id", count="exact")
         .eq("referrer_id", user_id)
         .execute()
     )
-    bonus = (result.count or 0) * REFERRAL_BONUS
-    return {"count": result.count or 0, "bonus_earned": bonus}
+    credited = (
+        supabase.table("referrals")
+        .select("id", count="exact")
+        .eq("referrer_id", user_id)
+        .eq("bonus_credited", True)
+        .execute()
+    )
+    return {
+        "count": all_refs.count or 0,
+        "bonus_earned": (credited.count or 0) * REFERRAL_BONUS,
+    }
 
 
 @router.get("/me", response_model=ProfileResponse)
 
-def get_my_profile(user_id: CurrentUserId):
-
-    supabase = get_supabase()
+def get_my_profile(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     result = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
 
@@ -129,9 +118,9 @@ def get_my_profile(user_id: CurrentUserId):
 
 @router.patch("/me", response_model=ProfileResponse)
 
-def update_my_profile(payload: ProfileUpdate, user_id: CurrentUserId):
-
-    supabase = get_supabase()
+def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     data = payload.model_dump(exclude_none=True)
 
@@ -139,12 +128,8 @@ def update_my_profile(payload: ProfileUpdate, user_id: CurrentUserId):
 
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yangilash ma'lumoti yo'q")
 
-    if "role" in data:
-        current = supabase.table("profiles").select("onboarding_completed").eq("id", user_id).single().execute()
-        if (current.data or {}).get("onboarding_completed"):
-            del data["role"]
-        elif data["role"] not in ("freelancer", "client"):
-            del data["role"]
+    if "role" in data and data["role"] not in ("freelancer", "client"):
+        del data["role"]
 
     if "portfolio_urls" in data and data["portfolio_urls"] is not None:
         data["portfolio_urls"] = [u.strip() for u in data["portfolio_urls"] if u and u.strip()][:12]
@@ -165,6 +150,27 @@ def update_my_profile(payload: ProfileUpdate, user_id: CurrentUserId):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username band")
         data["username"] = slug
 
+    if data.get("onboarding_completed"):
+        current_row = (
+            supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        )
+        merged = {**(current_row.data or {}), **data}
+        if not (merged.get("full_name") or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Onboarding: ism talab qilinadi",
+            )
+        if len((merged.get("username") or "")) < 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Onboarding: username talab qilinadi",
+            )
+        if not (merged.get("region") or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Onboarding: viloyat talab qilinadi",
+            )
+
     result = supabase.table("profiles").update(data).eq("id", user_id).execute()
 
     if not result.data:
@@ -175,8 +181,9 @@ def update_my_profile(payload: ProfileUpdate, user_id: CurrentUserId):
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
-def delete_my_profile(user_id: CurrentUserId):
-    supabase = get_supabase()
+def delete_my_profile(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     supabase.table("profiles").update(
         {
             "is_banned": True,
@@ -188,6 +195,13 @@ def delete_my_profile(user_id: CurrentUserId):
             "skills": [],
         }
     ).eq("id", user_id).execute()
+    try:
+        get_supabase_admin().auth.admin.delete_user(user_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Profil yashirildi, lekin auth hisob o'chirilmadi. Qo'llab-quvvatlashga murojaat qiling.",
+        ) from exc
     return None
 
 
@@ -204,7 +218,7 @@ def check_username(user_id: OptionalUserId, username: str = Query(..., min_lengt
     slug = normalize_username(username)
     if len(slug) < 3:
         return {"available": False}
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     existing = supabase.table("profiles").select("id").eq("username", slug).limit(1).execute()
     if not existing.data:
         return {"available": True}
@@ -214,13 +228,14 @@ def check_username(user_id: OptionalUserId, username: str = Query(..., min_lengt
 
 
 @router.get("/me/notification-prefs", response_model=NotificationPrefsResponse)
-def get_notification_prefs(user_id: CurrentUserId):
-    return _load_notification_prefs(get_supabase(), user_id)
+def get_notification_prefs(auth: UserAuthDep):
+    return _load_notification_prefs(auth.supabase, auth.user_id)
 
 
 @router.patch("/me/notification-prefs", response_model=NotificationPrefsResponse)
-def update_notification_prefs(payload: NotificationPrefsUpdate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def update_notification_prefs(payload: NotificationPrefsUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     current = _load_notification_prefs(supabase, user_id)
     merged = {**current, **payload.model_dump(exclude_none=True)}
     supabase.table("profiles").update({"notification_preferences": merged}).eq("id", user_id).execute()
@@ -238,12 +253,13 @@ def list_freelancers(
     offset: int = Query(default=0, ge=0),
 ):
 
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     query = (
         supabase.table("profiles")
         .select("id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, skills, is_verified, portfolio_urls")
         .eq("role", "freelancer")
+        .eq("is_banned", False)
     )
     if region:
         query = query.eq("region", region)
@@ -284,14 +300,37 @@ def list_freelancers(
 
 
 
+def _viewer_key(request: Request, user_id: str | None) -> str:
+    if user_id:
+        return f"user:{user_id}"
+    ip = request.client.host if request.client else "unknown"
+    return f"ip:{ip}"
+
+
 @router.post("/{profile_id}/view", status_code=status.HTTP_204_NO_CONTENT)
-def record_profile_view(profile_id: str):
-    supabase = get_supabase()
+def record_profile_view(
+    profile_id: str,
+    request: Request,
+    user_id: OptionalUserId = None,
+):
+    supabase = get_supabase_admin()
     existing = supabase.table("profiles").select("id, profile_views").eq("id", profile_id).single().execute()
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-    views = int(existing.data.get("profile_views") or 0) + 1
-    supabase.table("profiles").update({"profile_views": views}).eq("id", profile_id).execute()
+    dedup = (
+        supabase.rpc(
+            "record_view_if_new",
+            {
+                "p_target_type": "profile",
+                "p_target_id": profile_id,
+                "p_viewer_key": _viewer_key(request, user_id),
+            },
+        )
+        .execute()
+    )
+    if not dedup.data:
+        return None
+    supabase.rpc("increment_profile_view_count", {"p_profile_id": profile_id}).execute()
     return None
 
 
@@ -299,13 +338,13 @@ def record_profile_view(profile_id: str):
 
 def get_profile(profile_id: str):
 
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     result = (
 
         supabase.table("profiles")
 
-        .select("id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, is_verified, portfolio_urls, languages")
+        .select("id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, is_verified, portfolio_urls, languages, is_banned")
 
         .eq("id", profile_id)
 
@@ -315,7 +354,7 @@ def get_profile(profile_id: str):
 
     )
 
-    if not result.data:
+    if not result.data or result.data.get("is_banned"):
 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
 

@@ -13,17 +13,24 @@ import { PaymentStatusBadge } from '@/presentation/components/features/payment-s
 import { OrderProgressStepper } from '@/presentation/components/features/order-progress-stepper'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { Avatar } from '@/presentation/components/ui/avatar'
-import { api, ApiError } from '@/infrastructure/api/client'
+import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiTransaction } from '@/infrastructure/api/types'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { PATHS } from '@/domain/constants/routes'
+import {
+  calcFreelancerPayout,
+  calcPlatformFee,
+  PLATFORM_COMMISSION_PERCENT,
+} from '@/domain/constants/commission'
 import { formatPrice } from '@/shared/lib/format'
+import { PaymentCheckoutFlow } from '@/presentation/components/features/payment-checkout-flow'
+import { usePaymentCheckout } from '@/shared/lib/use-payment-checkout'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatDate } from '@/shared/lib/format-date'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 import { toast } from '@/presentation/components/ui/toast'
-import { CreditCard, ShoppingBag } from 'lucide-react'
+import { ShoppingBag } from 'lucide-react'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 
 const NEXT_STATUS: Record<string, Record<string, string>> = {
@@ -46,7 +53,6 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   const [error, setError] = useState('')
   const [showReview, setShowReview] = useState(false)
   const [notes, setNotes] = useState('')
-  const [paying, setPaying] = useState(false)
   const [disputing, setDisputing] = useState(false)
   const [disputeOpen, setDisputeOpen] = useState(false)
   const [disputeReason, setDisputeReason] = useState('')
@@ -77,35 +83,24 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   const nextStatus = order ? NEXT_STATUS[role]?.[order.status] : undefined
   const actionKey = order ? ACTION_LABEL[role]?.[order.status] : undefined
 
-  const handlePay = async (provider: 'sandbox' | 'click' | 'payme' = 'sandbox') => {
-    if (!order) return
-    setPaying(true)
-    setError('')
-    try {
-      const updated = await api.checkoutOrder(order.id, provider)
-      setOrder(updated)
-      toast.success(t('payment_success'))
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 501 && provider !== 'sandbox') {
-        try {
-          const updated = await api.checkoutOrder(order.id, 'sandbox')
-          setOrder(updated)
-          toast.info(t('payment_fallback_sandbox'))
-          return
-        } catch (fallbackErr) {
-          const msg = fallbackErr instanceof Error ? fallbackErr.message : t('error_required')
-          setError(msg)
-          toast.error(msg)
-          return
-        }
-      }
-      const msg = e instanceof Error ? e.message : t('error_required')
-      setError(msg)
-      toast.error(msg)
-    } finally {
-      setPaying(false)
-    }
+  const resolveCheckoutError = (msg: string) => {
+    if (!msg) return ''
+    return msg.startsWith('payment_') || msg.startsWith('error_')
+      ? t(msg as TranslationKey)
+      : msg
   }
+
+  const { phase: checkoutPhase, provider: checkoutProvider, isBusy: paying, handlePay, retry: retryCheckout } =
+    usePaymentCheckout({
+      order,
+      onOrderUpdate: setOrder,
+      onError: (msg) => {
+        const text = resolveCheckoutError(msg)
+        setError(text)
+        if (text) toast.error(text)
+      },
+      onSucceeded: () => toast.success(t('payment_success')),
+    })
 
   const handleDispute = async () => {
     if (!order) return
@@ -219,22 +214,26 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
             <div className="mt-4 space-y-2 border-t border-[var(--kwork-border)] pt-4">
               <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('payment_required_hint')}</p>
-              <p className="text-[12px] font-medium text-[var(--kwork-text)]">{t('commission_zero')}</p>
-              <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('landing_stat_commission_note')}</p>
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="primary" loading={paying} onClick={() => handlePay('sandbox')} className="gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  {t('payment_pay_now')}
-                </Button>
-                <Button variant="outline" disabled title={t('payment_click_soon')}>
-                  Click
-                </Button>
-                <Button variant="outline" disabled title={t('payment_payme_soon')}>
-                  Payme
-                </Button>
-              </div>
-              <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('payment_provider_sandbox')}</p>
+              <p className="text-[12px] font-medium text-[var(--kwork-text)]">
+                {t('commission_rate').replace('{rate}', String(PLATFORM_COMMISSION_PERCENT))}
+              </p>
+              <p className="text-[11px] text-[var(--kwork-text-muted)]">
+                {t('commission_fee_amount').replace('{amount}', formatPrice(calcPlatformFee(order.amount)))}
+                {' · '}
+                {t('commission_freelancer_net').replace('{amount}', formatPrice(calcFreelancerPayout(order.amount)))}
+              </p>
+              <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('commission_escrow_note')}</p>
+              {process.env.NEXT_PUBLIC_PAYMENTS_ENABLED !== 'true' && (
+                <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
+              )}
+              <PaymentCheckoutFlow
+                phase={checkoutPhase}
+                provider={checkoutProvider}
+                isBusy={paying}
+                amountLabel={formatPrice(order.amount)}
+                onPay={handlePay}
+                onRetry={retryCheckout}
+              />
             </div>
           )}
         </div>
@@ -345,7 +344,11 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         {order.payment_status === 'held' && (
           <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--color-primary-light)]/30 p-4">
             <p className="text-[13px] font-bold text-[var(--kwork-text)]">{t('why_escrow')}</p>
-            <p className="mt-2 text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">
+              {process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true'
+                ? t('commission_escrow_note')
+                : t('payment_sandbox_note')}
+            </p>
           </div>
         )}
         <Button variant="outline" fullWidth onClick={() => router.push(PATHS.dashboardOrders)}>

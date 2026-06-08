@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Sprout, TrendingUp, Award, Briefcase, Search, X } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -17,14 +16,18 @@ import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { api, ApiError } from '@/infrastructure/api/client'
 import { cn } from '@/shared/lib/utils'
 import { uploadAvatar } from '@/infrastructure/supabase/storage'
-import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
+import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
+import { pickAvailableUsername } from '@/shared/lib/username'
 import { toast } from '@/presentation/components/ui/toast'
+
+const ONBOARDING_STEP_KEY = 'ishbor-onboarding-step'
 
 type ExpLevel = 'junior' | 'mid' | 'expert'
 
 export function OnboardingPage() {
-  const { t, profile, currentUserRole, refreshProfile, userId } = useApp()
+  const { t, profile, currentUserRole, refreshProfile, mergeProfile, userId } = useApp()
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const router = useRouter()
   const isClient = currentUserRole === 'client'
   const totalSteps = isClient ? 2 : 3
@@ -46,8 +49,72 @@ export function OnboardingPage() {
   const [serviceDesc, setServiceDesc] = useState('')
   const [packagePrice, setPackagePrice] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'error'>('idle')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
 
   const progress = Math.round((step / totalSteps) * 100)
+
+  useEffect(() => {
+    if (profile?.onboarding_completed) {
+      router.replace(dashboardPathForRole(currentUserRole))
+    }
+  }, [profile?.onboarding_completed, currentUserRole, router])
+
+  useEffect(() => {
+    if (profile?.onboarding_completed) return
+    const saved = sessionStorage.getItem(ONBOARDING_STEP_KEY)
+    if (saved) {
+      const n = Number(saved)
+      if (n >= 1 && n <= totalSteps) setStep(n)
+    }
+  }, [totalSteps, profile?.onboarding_completed])
+
+  useEffect(() => {
+    sessionStorage.setItem(ONBOARDING_STEP_KEY, String(step))
+  }, [step])
+
+  useEffect(() => {
+    if (username.trim().length >= 3 || profile?.username) return
+    let cancelled = false
+    void (async () => {
+      let email = profile?.email
+      if (!email && isSupabaseConfigured()) {
+        const { data: { user } } = await getSupabase().auth.getUser()
+        email = user?.email ?? undefined
+      }
+      if (!email) return
+      try {
+        const slug = await pickAvailableUsername(email, profile?.full_name ?? fullName)
+        if (!cancelled) {
+          setUsername(slug)
+          setUsernameStatus('ok')
+        }
+      } catch {
+        if (!cancelled && fullName.trim().length > 1) {
+          try {
+            const slug = await pickAvailableUsername(`${fullName.replace(/\s/g, '')}@local.dev`, fullName)
+            if (!cancelled) {
+              setUsername(slug)
+              setUsernameStatus('ok')
+            }
+          } catch {
+            /* user will enter manually */
+          }
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id, profile?.email, profile?.full_name, profile?.username, fullName, username])
 
   useEffect(() => {
     if (!profile) return
@@ -61,7 +128,23 @@ export function OnboardingPage() {
       return ''
     })
     setCity((v) => v || profile.region || '')
-  }, [profile?.id, profile?.full_name, profile?.username, profile?.region])
+    if (isClient) {
+      setCompany((v) => v || profile.specialty?.trim() || '')
+    }
+  }, [profile, isClient])
+
+  useEffect(() => {
+    if (!isClient || company || !isSupabaseConfigured()) return
+    getSupabase()
+      .auth.getUser()
+      .then(({ data: { user } }) => {
+        const fromMeta = user?.user_metadata?.company
+        if (typeof fromMeta === 'string' && fromMeta.trim()) {
+          setCompany(fromMeta.trim())
+        }
+      })
+      .catch(() => undefined)
+  }, [isClient, company])
 
   useEffect(() => {
     const slug = username.trim().toLowerCase().replace(/^@/, '')
@@ -94,53 +177,7 @@ export function OnboardingPage() {
     return base && title.trim().length > 2 && bio.trim().length > 10
   }, [fullName, username, usernameStatus, city, title, bio, isClient])
 
-  const goToStep2 = () => {
-    if (!fullName.trim() || fullName.trim().length <= 1) {
-      toast.error(t('onboarding_err_full_name'))
-      return
-    }
-    if (username.trim().length < 3) {
-      toast.error(t('onboarding_err_username'))
-      return
-    }
-    if (!city.trim()) {
-      toast.error(t('onboarding_err_region'))
-      return
-    }
-    if (usernameStatus === 'checking') return
-    if (usernameStatus === 'taken') {
-      toast.error(t('username_taken'))
-      return
-    }
-    if (usernameStatus !== 'ok') {
-      toast.error(t('username_check_failed'))
-      return
-    }
-    if (!isClient) {
-      if (title.trim().length <= 2) {
-        toast.error(t('onboarding_err_title'))
-        return
-      }
-      if (bio.trim().length <= 10) {
-        toast.error(t('onboarding_err_bio'))
-        return
-      }
-    }
-    setStep(2)
-  }
-
-  const addSkill = (skill: string) => {
-    const s = skill.trim()
-    if (!s || skills.length >= 10 || skills.includes(s)) return
-    setSkills((prev) => [...prev, s])
-    setSkillInput('')
-  }
-
-  const finish = async (skipService = false) => {
-    if (!fullName.trim() || username.trim().length < 3 || usernameStatus !== 'ok') {
-      toast.error(t('onboarding_required_fields'))
-      return
-    }
+  const profilePayload = (complete: boolean) => {
     const specialtyValue = !isClient
       ? [title.trim(), ...skills].filter(Boolean).join(' · ') || undefined
       : company.trim() || undefined
@@ -150,23 +187,114 @@ export function OnboardingPage() {
         ? `${company.trim()}${bio.trim() ? ` — ${bio.trim()}` : ''}`
         : bio.trim() || undefined
 
+    return {
+      full_name: fullName.trim() || undefined,
+      username: username.trim().replace(/^@/, '') || undefined,
+      region: city.trim() || undefined,
+      specialty: specialtyValue,
+      bio: bioValue,
+      skills: !isClient ? skills : undefined,
+      hourly_rate: !isClient && hourlyRate ? Number(hourlyRate.replace(/\D/g, '')) || undefined : undefined,
+      experience_level: !isClient ? expLevel : undefined,
+      languages: !isClient ? languages : undefined,
+      ...(complete ? { onboarding_completed: true as const } : {}),
+    }
+  }
+
+  const persistProfile = async (complete: boolean) => {
+    let finalUsername = username.trim().replace(/^@/, '')
+    if (finalUsername.length < 3 || usernameStatus !== 'ok') {
+      let email = profile?.email
+      if (!email && isSupabaseConfigured()) {
+        const { data: { user } } = await getSupabase().auth.getUser()
+        email = user?.email ?? undefined
+      }
+      if (email) {
+        finalUsername = await pickAvailableUsername(email, fullName.trim())
+        setUsername(finalUsername)
+        setUsernameStatus('ok')
+      }
+    }
+    const updated = await api.updateProfile(profilePayload(complete))
+    mergeProfile({ ...updated, role: currentUserRole })
+    return updated
+  }
+
+  const validateStep1 = () => {
+    const errs: Record<string, string> = {}
+    if (!fullName.trim() || fullName.trim().length <= 1) {
+      errs.fullName = t('onboarding_err_full_name')
+    }
+    if (username.trim().length < 3) {
+      errs.username = t('onboarding_err_username')
+    }
+    if (!city.trim()) {
+      errs.city = t('onboarding_err_region')
+    }
+    if (usernameStatus === 'checking') return null
+    if (usernameStatus === 'taken') {
+      errs.username = t('username_taken')
+    }
+    if (usernameStatus !== 'ok' && username.trim().length >= 3) {
+      errs.username = t('username_check_failed')
+    }
+    if (!isClient) {
+      if (title.trim().length <= 2) {
+        errs.title = t('onboarding_err_title')
+      }
+      if (bio.trim().length <= 10) {
+        errs.bio = t('onboarding_err_bio')
+      }
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      return false
+    }
+    setFieldErrors({})
+    return true
+  }
+
+  const goToStep2 = async () => {
+    if (!validateStep1()) return
+    setSaving(true)
     try {
-      await api.updateProfile({
-        full_name: fullName.trim() || undefined,
-        username: username.trim() || undefined,
-        region: city.trim() || undefined,
-        specialty: specialtyValue,
-        bio: bioValue,
-        skills: !isClient ? skills : undefined,
-        hourly_rate: !isClient && hourlyRate ? Number(hourlyRate.replace(/\D/g, '')) || undefined : undefined,
-        experience_level: !isClient ? expLevel : undefined,
-        languages: !isClient ? languages : undefined,
-        onboarding_completed: true,
-      })
+      await persistProfile(isClient)
+      if (isClient) {
+        sessionStorage.removeItem(ONBOARDING_STEP_KEY)
+        toast.success(t('onboarding_complete_success'))
+        router.push(dashboardPathForRole(currentUserRole))
+        return
+      }
+      setStep(2)
     } catch (e) {
       const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
       toast.error(detail || t('onboarding_save_error'))
-      return
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addSkill = (skill: string) => {
+    const s = skill.trim()
+    if (!s || skills.length >= 10 || skills.includes(s)) return
+    setSkills((prev) => [...prev, s])
+    setSkillInput('')
+  }
+
+  const finish = async (skipService = false): Promise<boolean> => {
+    if (!validateStep1()) {
+      toast.error(t('onboarding_required_fields'))
+      return false
+    }
+    setSaving(true)
+    try {
+      await persistProfile(true)
+    } catch (e) {
+      const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
+      toast.error(detail || t('onboarding_save_error'))
+      return false
+    } finally {
+      setSaving(false)
     }
 
     if (!isClient && !skipService && serviceTitle.trim() && serviceCategory && serviceDesc.trim()) {
@@ -188,7 +316,19 @@ export function OnboardingPage() {
     }
 
     await refreshProfile()
+    sessionStorage.removeItem(ONBOARDING_STEP_KEY)
+    toast.success(t('onboarding_complete_success'))
     router.push(dashboardPathForRole(currentUserRole))
+    return true
+  }
+
+  const completeAndGo = async (href: string) => {
+    if (profile?.onboarding_completed) {
+      router.push(href)
+      return
+    }
+    const ok = await finish(true)
+    if (ok) router.push(href)
   }
 
   const renderProgress = () => (
@@ -205,7 +345,7 @@ export function OnboardingPage() {
   if (step === 1) {
     return (
       <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-        <div className="surface-panel mx-auto max-w-[560px] p-6 sm:p-8">
+        <div className="surface-panel form-shell p-6 sm:p-8">
           {renderProgress()}
           <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">
             {isClient ? t('onboarding_client_profile_title') : t('onboarding_profile_title')}
@@ -239,13 +379,25 @@ export function OnboardingPage() {
                 }
               }}
             />
-            <Input label={t('full_name')} value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <Input
+              label={t('full_name')}
+              value={fullName}
+              onChange={(e) => {
+                setFullName(e.target.value)
+                clearFieldError('fullName')
+              }}
+              error={fieldErrors.fullName}
+            />
             <div>
               <Input
                 label={t('username')}
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value)
+                  clearFieldError('username')
+                }}
                 placeholder={t('username_ph')}
+                error={fieldErrors.username}
               />
               {usernameStatus === 'checking' && (
                 <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('username_checking')}</p>
@@ -265,16 +417,24 @@ export function OnboardingPage() {
                 <Input
                   label={t('professional_title')}
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTitle(e.target.value)
+                    clearFieldError('title')
+                  }}
                   placeholder={t('professional_title_ph')}
+                  error={fieldErrors.title}
                 />
                 <div>
                   <Textarea
                     label={t('bio')}
                     value={bio}
-                    onChange={(e) => setBio(e.target.value)}
+                    onChange={(e) => {
+                      setBio(e.target.value)
+                      clearFieldError('bio')
+                    }}
                     placeholder={t('bio_ph')}
                     rows={4}
+                    error={fieldErrors.bio}
                   />
                   <p className="mt-1 text-right text-[11px] text-[var(--kwork-text-muted)]">
                     {t('char_counter').replace('{n}', String(bio.length)).replace('{max}', '500')}
@@ -293,24 +453,30 @@ export function OnboardingPage() {
             <Select
               label={t('city')}
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                setCity(e.target.value)
+                clearFieldError('city')
+              }}
               placeholder={t('select')}
               options={UZ_REGIONS.map((r) => ({ value: r, label: r }))}
               className="catalog-control"
+              error={fieldErrors.city}
             />
           </div>
           <Button
             variant="primary"
             fullWidth
-            className={cn('mt-8', !step1Valid && 'opacity-60')}
-            onClick={goToStep2}
+            disabled={!step1Valid || saving}
+            loading={saving}
+            className="mt-8"
+            onClick={() => void goToStep2()}
           >
             {t('continue_btn')} →
           </Button>
           <button
             type="button"
-            disabled={!step1Valid}
-            onClick={() => finish(true)}
+            disabled={!step1Valid || saving}
+            onClick={() => void finish(true)}
             className="mt-4 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t('skip')}
@@ -326,24 +492,37 @@ export function OnboardingPage() {
   if (isClient && step === 2) {
     return (
       <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-        <div className="surface-panel mx-auto max-w-[560px] p-6 sm:p-8">
+        <div className="surface-panel form-shell p-6 sm:p-8">
           {renderProgress()}
           <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">{t('onboarding_client_project_title')}</h1>
           <div className="mt-6 space-y-4">
-            <Link href={PATHS.postProject} className="block rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-6 transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]">
+            <button
+              type="button"
+              onClick={() => void completeAndGo(PATHS.postProject)}
+              className="block w-full rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
+            >
               <Briefcase className="h-12 w-12 text-[var(--color-primary)]" />
               <h3 className="mt-4 text-[16px] font-bold text-[var(--kwork-text)]">{t('post_project_now')}</h3>
               <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('post_project_now_desc')}</p>
-              <Button variant="primary" size="sm" className="mt-4">{t('post_project_btn')}</Button>
-            </Link>
-            <Link href={PATHS.services} className="block rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-6 transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]">
+              <Button variant="primary" size="sm" className="mt-4 pointer-events-none">{t('post_project_btn')}</Button>
+            </button>
+            <button
+              type="button"
+              onClick={() => void completeAndGo(PATHS.services)}
+              className="block w-full rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
+            >
               <Search className="h-12 w-12 text-[var(--color-primary)]" />
               <h3 className="mt-4 text-[16px] font-bold text-[var(--kwork-text)]">{t('browse_catalog_title')}</h3>
               <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('browse_catalog_desc')}</p>
-              <Button variant="outline" size="sm" className="mt-4">{t('go_to_catalog')}</Button>
-            </Link>
+              <Button variant="outline" size="sm" className="mt-4 pointer-events-none">{t('go_to_catalog')}</Button>
+            </button>
           </div>
-          <button type="button" onClick={() => finish()} className="mt-8 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void finish(true)}
+            className="mt-8 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)] disabled:opacity-50"
+          >
             {t('decide_later')}
           </button>
         </div>
@@ -354,7 +533,7 @@ export function OnboardingPage() {
   if (!isClient && step === 2) {
     return (
       <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-        <div className="surface-panel mx-auto max-w-[560px] p-6 sm:p-8">
+        <div className="surface-panel form-shell p-6 sm:p-8">
           {renderProgress()}
           <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">{t('onboarding_skills_title')}</h1>
           <div className="mt-6 space-y-5">
@@ -462,7 +641,7 @@ export function OnboardingPage() {
 
   return (
     <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-      <div className="surface-panel mx-auto max-w-[560px] p-6 sm:p-8">
+      <div className="surface-panel form-shell p-6 sm:p-8">
         {renderProgress()}
         <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">{t('onboarding_first_service_title')}</h1>
         <div className="mt-6 space-y-5">

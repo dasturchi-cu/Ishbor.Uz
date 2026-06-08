@@ -1,10 +1,12 @@
-import type { Metadata } from 'next'
-import { ComingSoonPage } from '@/presentation/features/roadmap/coming-soon-page'
+import { ProjectsCatalog } from '@/presentation/features/projects/projects-catalog'
+import { buildPageMetadata } from '@/shared/lib/seo'
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: true },
-}
+export const metadata = buildPageMetadata(
+  '/jobs',
+  "Ish e'lonlari — IshBor.uz",
+  "Ochiq loyihalar va ish e'lonlari — freelancerlar uchun."
+)
 
 export default function JobsRoute() {
-  return <ComingSoonPage titleKey="roadmap_jobs_title" descKey="roadmap_jobs_desc" />
+  return <ProjectsCatalog titleKey="jobs_catalog_title" subtitleKey="jobs_catalog_subtitle" />
 }

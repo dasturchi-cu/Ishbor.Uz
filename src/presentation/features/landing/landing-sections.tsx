@@ -11,7 +11,6 @@ import {
   Headphones,
   Languages,
   Rocket,
-  Search,
   Shield,
   Star,
 } from 'lucide-react'

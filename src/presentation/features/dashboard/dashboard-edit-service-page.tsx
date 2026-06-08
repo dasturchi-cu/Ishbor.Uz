@@ -123,15 +123,16 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
     <div className="mx-auto max-w-[640px]">
       <h2 className="dashboard-page-title mb-4">{t('edit_service')}</h2>
       <div className="space-y-4 rounded-[var(--r-card)] border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5">
-        <Input label={t('service_title')} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input label={t('service_title')} value={title} onChange={(e) => setTitle(e.target.value)} error={errors.title} />
         <Select
           label={t('category')}
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           options={KWORK_CATEGORY_ITEMS.map((c) => ({ value: c.cat, label: t(c.labelKey) }))}
+          error={errors.category}
         />
-        <Textarea label={t('description')} value={description} onChange={(e) => setDescription(e.target.value)} rows={6} />
-        <Input label={t('package_basic')} value={price} onChange={(e) => setPrice(e.target.value)} />
+        <Textarea label={t('description')} value={description} onChange={(e) => setDescription(e.target.value)} rows={6} error={errors.description} />
+        <Input label={t('package_basic')} value={price} onChange={(e) => setPrice(e.target.value)} error={errors.price} />
         <Input
           label={t('delivery_time')}
           type="number"
@@ -139,6 +140,12 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
           max={365}
           value={deliveryDays}
           onChange={(e) => setDeliveryDays(e.target.value)}
+          hint={t('delivery_days_hint')}
+          rightIcon={
+            <span className="text-[12px] font-semibold text-[var(--kwork-text-muted)]">
+              {t('delivery_days_unit')}
+            </span>
+          }
         />
         <Select
           label={t('city')}

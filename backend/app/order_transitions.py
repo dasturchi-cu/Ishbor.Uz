@@ -38,8 +38,8 @@ def validate_order_transition(
             )
         if not is_freelancer:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat freelancer qabul qiladi")
-    if current == "pending" and new == "cancelled" and not (is_client or is_freelancer):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+    if current == "pending" and new == "cancelled" and not is_client:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz bekor qiladi")
     if current == "active" and new == "delivered" and not is_freelancer:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat freelancer yetkazadi")
     if current == "delivered" and new == "completed" and not is_client:
@@ -48,3 +48,5 @@ def validate_order_transition(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz nizo ochadi")
     if current == "delivered" and new == "active" and not is_client:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz qayta ishlash so'raydi")
+    if current == "active" and new == "disputed" and not is_client:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz nizo ochadi")

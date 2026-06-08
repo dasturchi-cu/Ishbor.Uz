@@ -2,8 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, status
 
-from app.database import get_supabase
-from app.deps import CurrentUserId
+from app.deps import UserAuthDep
 from app.schemas import NotificationResponse
 from app.schemas_notifications import NotificationMarkRead
 
@@ -58,14 +57,7 @@ def _db_notifications(supabase, user_id: str) -> list[dict]:
         return []
 
 
-@router.get("", response_model=list[NotificationResponse])
-def list_notifications(user_id: CurrentUserId):
-    supabase = get_supabase()
-    db_items = _db_notifications(supabase, user_id)
-    if db_items:
-        read_ids = _read_ids_for_user(supabase, user_id)
-        return _apply_read_state(db_items, read_ids)
-
+def _synthetic_notifications(supabase, user_id: str) -> list[dict]:
     items: list[dict] = []
 
     orders_result = (
@@ -176,13 +168,26 @@ def list_notifications(user_id: CurrentUserId):
         )
 
     items.sort(key=lambda x: x["created_at"], reverse=True)
+    return items
+
+
+@router.get("", response_model=list[NotificationResponse])
+def list_notifications(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    db_items = _db_notifications(supabase, user_id)
+    synthetic = _synthetic_notifications(supabase, user_id)
+    db_ids = {item["id"] for item in db_items}
+    merged = db_items + [item for item in synthetic if item["id"] not in db_ids]
+    merged.sort(key=lambda x: x["created_at"], reverse=True)
     read_ids = _read_ids_for_user(supabase, user_id)
-    return _apply_read_state(items[:30], read_ids)
+    return _apply_read_state(merged[:30], read_ids)
 
 
 @router.post("/mark-read", status_code=status.HTTP_204_NO_CONTENT)
-def mark_notifications_read(payload: NotificationMarkRead, user_id: CurrentUserId):
-    supabase = get_supabase()
+def mark_notifications_read(payload: NotificationMarkRead, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     now = datetime.now(timezone.utc).isoformat()
     for nid in payload.ids:
         try:
@@ -201,9 +206,10 @@ def mark_notifications_read(payload: NotificationMarkRead, user_id: CurrentUserI
 
 
 @router.post("/mark-all-read", status_code=status.HTTP_204_NO_CONTENT)
-def mark_all_notifications_read(user_id: CurrentUserId):
-    supabase = get_supabase()
-    items = list_notifications(user_id)
+def mark_all_notifications_read(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    items = list_notifications(auth)
     if not items:
         return None
     rows = [{"user_id": user_id, "notification_id": item["id"]} for item in items]

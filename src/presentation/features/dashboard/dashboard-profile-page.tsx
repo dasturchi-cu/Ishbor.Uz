@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/infrastructure/api/client'
 import Link from 'next/link'
 import { Camera, ChevronRight, ExternalLink } from 'lucide-react'
@@ -40,7 +40,7 @@ export function DashboardProfilePage() {
   const [skillInput, setSkillInput] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'ok' | 'taken'>('idle')
 
-  const syncFromProfile = () => {
+  const syncFromProfile = useCallback(() => {
     if (!profile) return
     setFullName(profile.full_name ?? '')
     setUsername(profile.username ?? '')
@@ -49,11 +49,11 @@ export function DashboardProfilePage() {
     setRegion(profile.region ?? UZ_REGIONS[0])
     setAvatarPreview(profile.avatar_url ?? null)
     setPendingAvatarFile(null)
-  }
+  }, [profile])
 
   useEffect(() => {
     syncFromProfile()
-  }, [profile])
+  }, [syncFromProfile])
 
   useEffect(() => {
     const slug = username.trim().toLowerCase().replace(/^@/, '')

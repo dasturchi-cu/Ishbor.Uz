@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
@@ -14,6 +14,9 @@ import type { TranslationKey } from '@/infrastructure/i18n'
 import { useFormDraft } from '@/shared/lib/use-form-draft'
 import { toast } from '@/presentation/components/ui/toast'
 import { serviceCreateSchema } from '@/domain/validators/service'
+import { cn } from '@/shared/lib/utils'
+
+const DELIVERY_PRESETS = [3, 5, 7, 14, 30] as const
 
 type ServiceForm = {
   title: string
@@ -24,12 +27,17 @@ type ServiceForm = {
   region: UzRegion
 }
 
+const CREATE_SERVICE_INITIAL_FORM: ServiceForm = {
+  title: '',
+  description: '',
+  price: '',
+  deliveryDays: '5',
+  category: 'web',
+  region: UZ_REGIONS[0],
+}
+
 const TITLE_MAX = 200
 const MAX_PRICE = 2_147_483_647
-
-function fieldMsg(template: string, field: string, n?: number): string {
-  return template.replace('{field}', field).replace('{n}', String(n ?? ''))
-}
 
 function sanitizeTitle(value: string): string {
   if (value.startsWith('data:')) return ''
@@ -59,36 +67,30 @@ function parseApiError(e: unknown, translate: (key: TranslationKey) => string): 
 }
 
 export function CreateServicePage() {
-  const { t, profile, isAuthLoading, refreshProfile } = useApp()
+  const { t, isAuthLoading, refreshProfile, currentUserRole } = useApp()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const initialForm: ServiceForm = {
-    title: '',
-    description: '',
-    price: '',
-    deliveryDays: '5',
-    category: 'web',
-    region: UZ_REGIONS[0],
-  }
-  const [form, setForm] = useState<ServiceForm>(initialForm)
+  const [form, setForm] = useState<ServiceForm>(CREATE_SERVICE_INITIAL_FORM)
   const draft = useFormDraft('ishbor-create-service-draft', form)
+  const draftHydrated = useRef(false)
 
   useEffect(() => {
-    const restored = draft.hydrate(initialForm)
+    if (draftHydrated.current) return
+    draftHydrated.current = true
+    const restored = draft.hydrate(CREATE_SERVICE_INITIAL_FORM)
     if (restored.title || restored.description || restored.price) {
       setForm(restored)
       toast.info(t('draft_restored'))
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [draft, t])
 
   useEffect(() => {
     if (isAuthLoading) return
-    if (profile?.role === 'client') {
+    if (currentUserRole === 'client') {
       router.replace(PATHS.dashboardClient)
     }
-  }, [isAuthLoading, profile?.role, router])
+  }, [isAuthLoading, currentUserRole, router])
 
   const updateField = <K extends keyof ServiceForm>(field: K, value: ServiceForm[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -105,7 +107,7 @@ export function CreateServicePage() {
     updateField('title', sanitizeTitle(value))
   }
 
-  const handleTitlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handleTitlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
     const pasted = e.clipboardData.getData('text')
     if (pasted.startsWith('data:') || pasted.includes('base64,')) {
       e.preventDefault()
@@ -113,7 +115,7 @@ export function CreateServicePage() {
     }
   }
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: FormEvent) => {
     e?.preventDefault()
 
     const price = parseInt(form.price.replace(/\D/g, ''), 10)
@@ -246,6 +248,23 @@ export function CreateServicePage() {
             <label htmlFor="service-delivery" className="text-sm font-semibold block mb-2">
               {t('delivery_time')}
             </label>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {DELIVERY_PRESETS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => updateField('deliveryDays', String(days))}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-[13px] font-medium transition',
+                    form.deliveryDays === String(days)
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]'
+                      : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text-muted)] hover:border-[var(--color-primary)]'
+                  )}
+                >
+                  {t('service_delivery_days').replace('{n}', String(days))}
+                </button>
+              ))}
+            </div>
             <Input
               id="service-delivery"
               name="service-delivery"
@@ -255,6 +274,12 @@ export function CreateServicePage() {
               placeholder={t('delivery_days_ph')}
               value={form.deliveryDays}
               onChange={(e) => updateField('deliveryDays', e.target.value.replace(/\D/g, '').slice(0, 3))}
+              hint={t('delivery_days_hint')}
+              rightIcon={
+                <span className="text-[12px] font-semibold text-[var(--kwork-text-muted)]">
+                  {t('delivery_days_unit')}
+                </span>
+              }
             />
           </div>
 

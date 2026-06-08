@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.db_utils import run_query
 
 router = APIRouter(prefix="/waitlist", tags=["waitlist"])
@@ -18,7 +18,7 @@ def join_waitlist(payload: WaitlistCreate):
     if not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email kerak")
 
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     existing = (
         supabase.table("waitlist_emails")
         .select("id")

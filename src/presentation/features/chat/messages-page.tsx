@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -18,9 +18,11 @@ import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { Language } from '@/infrastructure/i18n'
 import { Skeleton, SkeletonAvatar } from '@/presentation/components/ui/skeleton'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Button } from '@/presentation/components/ui/button'
 import { Alert } from '@/presentation/components/ui/alert'
 import { dashboardOrderPath, PATHS } from '@/domain/constants/routes'
+import { isAllowedExternalUrl } from '@/shared/lib/safe-url'
 
 function orderToConversation(order: ApiOrder, userId: string, orderTitleFallback: string): ApiConversation {
   const isClient = order.client_id === userId
@@ -60,7 +62,8 @@ function mergeConversations(
 function messageAttachmentUrl(content: string): string | null {
   const match = content.match(/https?:\/\/\S+/i)
   if (!match) return null
-  return match[0].replace(/[),.]+$/, '')
+  const url = match[0].replace(/[),.]+$/, '')
+  return isAllowedExternalUrl(url) ? url : null
 }
 
 function messageImageUrl(content: string): string | null {
@@ -88,23 +91,23 @@ function ChatEmptyState({
 }: {
   text: string
   hint?: string
-  action?: { label: string; href: string }
+  action?: { label: string; onClick: () => void; variant?: 'primary' | 'outline' }
 }) {
   return (
-    <div className="chat-empty">
-      <div className="chat-empty-icon">
-        <Send />
-      </div>
-      <p className="chat-empty-text">{text}</p>
-      {hint && <p className="mt-2 max-w-sm text-center text-[12px] text-[var(--kwork-text-muted)]">{hint}</p>}
-      {action && (
-        <Link href={action.href} className="mt-4">
-          <Button variant="outline" size="sm">
-            {action.label}
-          </Button>
-        </Link>
-      )}
-    </div>
+    <EmptyState
+      icon={<Send className="h-14 w-14" />}
+      title={text}
+      description={hint}
+      action={
+        action
+          ? {
+              label: action.label,
+              onClick: action.onClick,
+              variant: action.variant ?? 'primary',
+            }
+          : undefined
+      }
+    />
   )
 }
 
@@ -124,7 +127,7 @@ export function MessagesPage() {
   const [muted, setMuted] = useState(false)
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   const [attachLoading, setAttachLoading] = useState(false)
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
   const [inboxLoadError, setInboxLoadError] = useState(false)
   const [messagesLoading, setMessagesLoading] = useState(false)
@@ -484,7 +487,7 @@ export function MessagesPage() {
                     dayKey(messages[idx - 1].created_at!) !== dayKey(msg.created_at))
 
                 return (
-                  <React.Fragment key={msg.id}>
+                  <Fragment key={msg.id}>
                     {showDate && msg.created_at && (
                       <p className="chat-date-label">
                         {dayKey(msg.created_at) === dayKey(new Date().toISOString())
@@ -505,7 +508,6 @@ export function MessagesPage() {
                           if (img) {
                             return (
                               <a href={img} target="_blank" rel="noopener noreferrer">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={img}
                                   alt={t('chat_attachment_image')}
@@ -536,7 +538,7 @@ export function MessagesPage() {
                         )}
                       </div>
                     </div>
-                  </React.Fragment>
+                  </Fragment>
                 )
               })}
             </div>
@@ -610,7 +612,7 @@ export function MessagesPage() {
         ) : (
           <ChatEmptyState
             text={t('messages_empty_history')}
-            action={{ label: t('messages_browse_cta'), href: PATHS.services }}
+            action={{ label: t('messages_browse_cta'), onClick: () => router.push(PATHS.services) }}
           />
         )}
       </section>

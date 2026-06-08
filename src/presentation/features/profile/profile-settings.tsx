@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Bell, CreditCard, Globe, HelpCircle, Monitor, Plus, Shield, Trash2, User, UserCircle, X } from 'lucide-react'
@@ -323,6 +323,7 @@ export function ProfileSettings() {
       })
       await refreshProfile()
       setMessage(t('save_success'))
+      toast.success(t('save_success'))
     } catch (e) {
       setMessage(e instanceof Error ? e.message : t('error_required'))
     } finally {
@@ -755,14 +756,19 @@ export function ProfileSettings() {
             {activeTab === 'account' && (
               <>
                 <ReferralBanner className="mb-5" />
-                <div className="rounded-[var(--r-card)] border border-[var(--error-bg)] bg-[var(--error-bg)]/30 p-5">
-                  <h2 className="settings-section-title text-[var(--error-dark)]">
+                <div className="settings-delete-card">
+                  <h2 className="settings-delete-card__title">
                     {t('delete_account_section')}
                   </h2>
-                  <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-text-sub)]">
+                  <p className="settings-delete-card__desc">
                     {t('delete_account_warning')}
                   </p>
-                  <Button variant="danger" size="sm" className="mt-4" onClick={() => setDeleteOpen(true)}>
+                  <Button
+                    variant="danger"
+                    size="md"
+                    className="settings-delete-card__btn"
+                    onClick={() => setDeleteOpen(true)}
+                  >
                     {t('delete_account_btn')}
                   </Button>
                 </div>

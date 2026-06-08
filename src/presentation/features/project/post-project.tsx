@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
@@ -20,11 +20,64 @@ import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { useFormDraft } from '@/shared/lib/use-form-draft'
 import { postProjectSchema } from '@/domain/validators/project'
+import { formatDate } from '@/shared/lib/format-date'
+import { formatPrice } from '@/shared/lib/format'
+import { ensureProfileRole } from '@/shared/lib/ensure-profile-role'
 import { toast } from '@/presentation/components/ui/toast'
+import { SkeletonFormPanel } from '@/presentation/components/ui/skeleton'
 
 type UploadedFile = { url: string; name: string }
 
+type PostProjectForm = {
+  title: string
+  description: string
+  category: string
+  skills: string[]
+  budget: string
+  budgetType: string
+  deadlineDays: string
+  level: string
+  city: string
+}
+
+const POST_PROJECT_INITIAL_FORM: PostProjectForm = {
+  title: '',
+  description: '',
+  category: 'design',
+  skills: [],
+  budget: '',
+  budgetType: 'fixed',
+  deadlineDays: '',
+  level: 'intermediate',
+  city: 'Toshkent shahri',
+}
+
 const MAX_BUDGET = 2_147_483_647
+
+const DEADLINE_PRESETS: { days: number; labelKey: TranslationKey }[] = [
+  { days: 7, labelKey: 'project_deadline_7d' },
+  { days: 14, labelKey: 'project_deadline_14d' },
+  { days: 30, labelKey: 'project_deadline_30d' },
+  { days: 60, labelKey: 'project_deadline_60d' },
+]
+
+const VALID_DEADLINE_DAYS = new Set(DEADLINE_PRESETS.map((p) => p.days))
+
+function resolveDeadlineIso(deadlineDays: string): string | null {
+  const days = Number(deadlineDays)
+  if (!VALID_DEADLINE_DAYS.has(days)) return null
+  return isoFromDays(days)
+}
+
+function isoFromDays(days: number): string {
+  const d = new Date()
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() + days)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 function fieldMsg(template: string, field: string, n?: number): string {
   return template.replace('{field}', field).replace('{n}', String(n ?? ''))
@@ -41,33 +94,33 @@ function formatFieldError(
 }
 
 export function PostProject() {
-  const { t, userId, isLoggedIn, isAuthLoading } = useApp()
+  const { t, userId, isLoggedIn, isAuthLoading, language, currentUserRole, profile, refreshProfile } = useApp()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState(1)
-  const initialForm = {
-    title: '',
-    description: '',
-    category: 'design',
-    skills: [] as string[],
-    budget: '',
-    budgetType: 'fixed',
-    deadline: '',
-    level: 'intermediate',
-    city: 'Toshkent shahri',
-    visibility: 'public',
-  }
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] = useState(POST_PROJECT_INITIAL_FORM)
   const draft = useFormDraft('ishbor-post-project-draft', formData)
+  const draftHydrated = useRef(false)
 
   useEffect(() => {
-    const restored = draft.hydrate(initialForm)
+    if (draftHydrated.current) return
+    draftHydrated.current = true
+    const restored = draft.hydrate(POST_PROJECT_INITIAL_FORM) as PostProjectForm & { deadline?: string }
     if (restored.title || restored.description || restored.budget) {
+      if (!restored.deadlineDays && restored.deadline) {
+        restored.deadlineDays = ''
+      }
       setFormData(restored)
       toast.info(t('draft_restored'))
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [draft, t])
+
+  const deadlinePreview = formData.deadlineDays
+    ? t('project_deadline_until').replace(
+        '{date}',
+        formatDate(isoFromDays(Number(formData.deadlineDays)), language),
+      )
+    : ''
   const [attachments, setAttachments] = useState<UploadedFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -224,6 +277,20 @@ export function PostProject() {
     setError('')
     setFieldErrors({})
     try {
+      if (currentUserRole !== 'client') {
+        setError(t('client_only_order'))
+        return
+      }
+      const roleSync = await ensureProfileRole('client', profile)
+      if (!roleSync.ok) {
+        setError(t('role_sync_failed'))
+        toast.error(t('role_sync_failed'))
+        return
+      }
+      if (profile?.role !== 'client') {
+        await refreshProfile()
+      }
+
       await api.createProject({
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -231,13 +298,14 @@ export function PostProject() {
         skills: formData.skills,
         budget,
         budget_type: formData.budgetType,
-        deadline: formData.deadline || null,
+        deadline: resolveDeadlineIso(formData.deadlineDays),
         level: formData.level,
         region: formData.city,
         attachment_urls: attachments.map((a) => a.url),
-        is_public: formData.visibility !== 'private',
+        is_public: true,
       })
       draft.clear()
+      toast.success(t('project_posted'))
       router.push(`${PATHS.dashboardProjects}?posted=1`)
     } catch (e) {
       if (e instanceof ApiError) {
@@ -279,13 +347,26 @@ export function PostProject() {
     }
   }, [isAuthLoading, isLoggedIn, router])
 
+  useEffect(() => {
+    if (currentUserRole !== 'client' || !profile || profile.role === 'client') return
+    ensureProfileRole('client', profile)
+      .then((result) => {
+        if (result.ok) refreshProfile().catch(() => undefined)
+      })
+      .catch(() => undefined)
+  }, [currentUserRole, profile, refreshProfile])
+
   if (isAuthLoading || !isLoggedIn) {
-    return <div className="flex min-h-[40vh] items-center justify-center">...</div>
+    return (
+      <div className="post-project-page min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12">
+        <SkeletonFormPanel />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12 lg:px-8">
-      <div className="mx-auto max-w-2xl">
+    <div className="post-project-page min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12 lg:px-8">
+      <div className="post-project-shell form-shell">
         <div className="surface-panel overflow-hidden">
           <div className="border-b border-[var(--kwork-border)] bg-gradient-to-r from-[var(--brand-50)] to-[var(--neutral-0)] px-6 py-6 sm:px-8">
             <h1 className="text-[22px] font-bold text-[var(--kwork-text)] sm:text-[24px]">
@@ -317,7 +398,7 @@ export function PostProject() {
             </div>
           </div>
 
-          <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
+          <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
             {step === 1 && (
               <div className="space-y-5">
                 <div className="feature-pill feature-pill-blue w-full justify-center py-3 sm:justify-start">
@@ -412,12 +493,41 @@ export function PostProject() {
                   error={fieldErrors.budget}
                 />
 
-                <Input
-                  label={t('project_deadline')}
-                  type="date"
-                  value={formData.deadline}
-                  onChange={(e) => handleInputChange('deadline', e.target.value)}
-                />
+                <div>
+                  <p className="mb-1.5 text-[13px] font-medium text-[var(--color-text-sub)]">
+                    {t('project_deadline')}
+                  </p>
+                  <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
+                    {t('project_deadline_hint')}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {DEADLINE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.days}
+                        type="button"
+                        onClick={() =>
+                          handleInputChange(
+                            'deadlineDays',
+                            formData.deadlineDays === String(preset.days) ? '' : String(preset.days),
+                          )
+                        }
+                        className={cn(
+                          'rounded-xl border-2 px-3 py-3 text-center text-[13px] font-semibold transition-[var(--transition)]',
+                          formData.deadlineDays === String(preset.days)
+                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)] shadow-[var(--shadow-xs)]'
+                            : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text)] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--kwork-border))]',
+                        )}
+                      >
+                        {t(preset.labelKey)}
+                      </button>
+                    ))}
+                  </div>
+                  {deadlinePreview && (
+                    <p className="mt-2.5 text-[13px] font-medium text-[var(--color-primary)]">
+                      {deadlinePreview}
+                    </p>
+                  )}
+                </div>
 
                 <Select
                   label={t('preferred_city')}
@@ -474,7 +584,6 @@ export function PostProject() {
                           key={file.url}
                           className="group relative overflow-hidden rounded-lg border border-[var(--kwork-border)]"
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={file.url} alt={file.name} className="h-24 w-full object-cover" />
                           <button
                             type="button"
@@ -491,11 +600,6 @@ export function PostProject() {
                   )}
                 </div>
 
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-4 py-3">
-                  <input type="checkbox" className="h-4 w-4 accent-[var(--color-primary)]" />
-                  <span className="text-[13px] text-[var(--kwork-text)]">{t('visible_to_all')}</span>
-                </label>
-
                 <div>
                   <h3 className="settings-section-title mb-3">{t('preview')}</h3>
                   <Card className="border border-[var(--kwork-border)] bg-[var(--neutral-50)] p-5">
@@ -509,13 +613,13 @@ export function PostProject() {
                       <div>
                         <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('project_budget')}</p>
                         <p className="font-bold text-[var(--color-primary)]">
-                          {formData.budget || '0'} so&apos;m
+                          {formatPrice(parseInt(formData.budget.replace(/\D/g, ''), 10) || 0)}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('project_deadline')}</p>
                         <p className="font-bold text-[var(--kwork-text)]">
-                          {formData.deadline || t('not_set')}
+                          {deadlinePreview || t('not_set')}
                         </p>
                       </div>
                     </div>
@@ -536,9 +640,10 @@ export function PostProject() {
                 variant="primary"
                 onClick={handleNextStep}
                 disabled={submitting}
+                loading={submitting}
                 className="flex-1 gap-2"
               >
-                {submitting ? '...' : step === 3 ? t('post_project') : t('next')}
+                {step === 3 ? t('post_project') : t('next')}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

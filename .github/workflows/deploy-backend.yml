@@ -1,0 +1,31 @@
+name: Deploy Backend (Render)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m compileall app
+      - run: pytest -q
+      - name: Docker build
+        run: docker build -t ishbor-api:deploy .
+
+  note:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Deploy reminder
+        run: |
+          echo "Backend Docker image validated."
+          echo "Connect Render to this repo using render.yaml or deploy backend/Dockerfile manually."
+          echo "Set Vercel NEXT_PUBLIC_API_URL to the Render service URL after deploy."

@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.db_utils import run_query
-from app.deps import CurrentUserId
+from app.deps import UserAuthDep
+from app.referral_bonus import try_credit_referral_bonus
 from app.order_transitions import validate_order_transition
 from app.notification_service import notify_order_status
-from app.payment_service import release_escrow
+from app.payment_service import refund_escrow, release_escrow
 from app.schemas import OrderCreate, OrderResponse, OrderStatusUpdate
 from app.service_packages import resolve_package_amount
 
@@ -14,13 +15,14 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 @router.get("", response_model=list[OrderResponse])
 def list_my_orders(
-    user_id: CurrentUserId,
+    auth: UserAuthDep,
     limit: int = Query(default=100, le=200),
     offset: int = Query(default=0, ge=0),
 ):
+    user_id = auth.user_id
+    supabase = auth.supabase
     result = run_query(
-        lambda: get_supabase()
-        .table("orders")
+        lambda: supabase.table("orders")
         .select("*, services(title, category)")
         .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
         .order("created_at", desc=True)
@@ -37,8 +39,7 @@ def list_my_orders(
     profiles_map: dict[str, dict] = {}
     if profile_ids:
         profiles = run_query(
-            lambda: get_supabase()
-            .table("profiles")
+            lambda: supabase.table("profiles")
             .select("id, full_name, region")
             .in_("id", list(profile_ids))
             .execute()
@@ -59,8 +60,9 @@ def list_my_orders(
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-def create_order(payload: OrderCreate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def create_order(payload: OrderCreate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     profile = supabase.table("profiles").select("role").eq("id", user_id).single().execute()
     if not profile.data or profile.data.get("role") != "client":
@@ -112,17 +114,18 @@ def create_order(payload: OrderCreate, user_id: CurrentUserId):
         "status": "pending",
     }
 
-    result = supabase.table("orders").insert(order_data).execute()
+    result = run_query(lambda: supabase.table("orders").insert(order_data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Buyurtma yaratilmadi")
     return result.data[0]
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-def get_order(order_id: str, user_id: CurrentUserId):
+def get_order(order_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
     result = run_query(
-        lambda: get_supabase()
-        .table("orders")
+        lambda: supabase.table("orders")
         .select("*, services(title, category)")
         .eq("id", order_id)
         .single()
@@ -137,8 +140,7 @@ def get_order(order_id: str, user_id: CurrentUserId):
 
     profile_ids = {order["client_id"], order["freelancer_id"]}
     profiles = run_query(
-        lambda: get_supabase()
-        .table("profiles")
+        lambda: supabase.table("profiles")
         .select("id, full_name, region")
         .in_("id", list(profile_ids))
         .execute()
@@ -152,8 +154,9 @@ def get_order(order_id: str, user_id: CurrentUserId):
 
 
 @router.patch("/{order_id}/status", response_model=OrderResponse)
-def update_order_status(order_id: str, payload: OrderStatusUpdate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def update_order_status(order_id: str, payload: OrderStatusUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     existing = supabase.table("orders").select("*").eq("id", order_id).single().execute()
     if not existing.data:
@@ -177,8 +180,9 @@ def update_order_status(order_id: str, payload: OrderStatusUpdate, user_id: Curr
         update_payload["delivery_notes"] = payload.delivery_notes.strip() or None
     if payload.status == "disputed" and payload.dispute_reason:
         update_payload["dispute_reason"] = payload.dispute_reason.strip()
+    admin = get_supabase_admin()
     result = (
-        supabase.table("orders")
+        admin.table("orders")
         .update(update_payload)
         .eq("id", order_id)
         .execute()
@@ -187,8 +191,13 @@ def update_order_status(order_id: str, payload: OrderStatusUpdate, user_id: Curr
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
 
     updated_order = result.data[0]
+    merged = {**order, **updated_order}
     if payload.status == "completed":
-        updated_order = release_escrow(supabase, {**order, **updated_order})
+        updated_order = release_escrow(admin, merged)
+        try_credit_referral_bonus(admin, order["client_id"])
+        try_credit_referral_bonus(admin, order["freelancer_id"])
+    elif payload.status == "cancelled" and merged.get("payment_status") == "held":
+        updated_order = refund_escrow(admin, merged)
 
     service_title = None
     if order.get("service_id"):

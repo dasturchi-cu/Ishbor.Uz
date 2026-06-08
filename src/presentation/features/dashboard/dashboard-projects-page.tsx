@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -23,7 +23,7 @@ export function DashboardProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
-  const loadProjects = () => {
+  const loadProjects = useCallback(() => {
     if (!userId) return
     setLoading(true)
     setLoadError(false)
@@ -35,11 +35,11 @@ export function DashboardProjectsPage() {
         setLoadError(true)
       })
       .finally(() => setLoading(false))
-  }
+  }, [userId])
 
   useEffect(() => {
     loadProjects()
-  }, [userId])
+  }, [loadProjects])
 
   const projectStatusLabel = (status: string) =>
     status === 'open' ? t('project_status_open') : status === 'closed' ? t('project_status_closed') : status

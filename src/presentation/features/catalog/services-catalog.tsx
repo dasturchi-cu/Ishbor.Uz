@@ -232,7 +232,7 @@ function ServicesCatalogContent() {
         setLoadError(true)
       })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, reloadTick, t])
+  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, priceCeiling, reloadTick, t])
 
   const categories = [
     { id: 'all', label: t('cat_all') },
@@ -369,10 +369,9 @@ function ServicesCatalogContent() {
           values={priceRange}
           onChange={setPriceRange}
           histogram={priceHistogram}
+          fromLabel={t('service_from')}
+          toLabel={t('price_to')}
         />
-        <p className="catalog-filter-range-label">
-          {formatPrice(minPrice)} — {formatPrice(maxPrice)}
-        </p>
       </FilterSection>
 
       <FilterSection
@@ -380,12 +379,14 @@ function ServicesCatalogContent() {
         open={expandedSections.region}
         onToggle={() => setExpandedSections((s) => ({ ...s, region: !s.region }))}
       >
-        <Select
-          value={selectedRegion}
-          onChange={(e) => setSelectedRegion(e.target.value)}
-          options={[{ value: '', label: t('cat_all') }, ...UZ_REGIONS.map((r) => ({ value: r, label: r }))]}
-          className="catalog-control"
-        />
+        <div className="catalog-filter-select-wrap">
+          <Select
+            value={selectedRegion}
+            onChange={(e) => setSelectedRegion(e.target.value)}
+            options={[{ value: '', label: t('cat_all') }, ...UZ_REGIONS.map((r) => ({ value: r, label: r }))]}
+            className="catalog-filter-select"
+          />
+        </div>
       </FilterSection>
 
       <FilterSection
@@ -398,7 +399,13 @@ function ServicesCatalogContent() {
         </p>
         <div className="catalog-filter-options">
           {(['exp_new', 'exp_mid', 'exp_expert'] as const).map((key) => (
-            <label key={key} className="catalog-filter-option">
+            <label
+              key={key}
+              className={cn(
+                'catalog-filter-option catalog-filter-option--check',
+                experienceFilters.includes(key) && 'catalog-filter-option--active'
+              )}
+            >
               <input
                 type="checkbox"
                 checked={experienceFilters.includes(key)}
@@ -425,13 +432,8 @@ function ServicesCatalogContent() {
       ]}
     >
       <div className="catalog-shell">
-        <div className="catalog-shell-head catalog-title-band">
+        <div className="catalog-shell-head">
           <h1 className="catalog-shell-title">{t('nav_services')}</h1>
-          <p className="catalog-shell-sub">
-            {!loading
-              ? t('services_found').replace('{n}', String(filteredServices.length))
-              : t('loading_data')}
-          </p>
         </div>
 
         <div className="catalog-shell-cats">
@@ -579,9 +581,10 @@ function ServicesCatalogContent() {
             ) : (
               <>
                 <div className={cn(viewMode === 'grid' ? 'catalog-grid' : 'catalog-list')}>
-                  {paginatedServices.map((service) => (
+                  {paginatedServices.map((service, index) => (
                     <ServiceCard
                       key={`${service.id}-${savedTick}`}
+                      imagePriority={index < 4}
                       title={service.title}
                       sellerName={service.freelancer}
                       sellerInitials={initials(service.freelancer)}
@@ -706,14 +709,14 @@ function FilterSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="catalog-filter-section">
-      <button type="button" onClick={onToggle} className="catalog-filter-section-btn">
-        {title}
-        <ChevronDown
-          className={cn('h-4 w-4 text-[var(--kwork-text-muted)] transition-transform', open && 'rotate-180')}
-        />
+    <div className={cn('catalog-filter-section', open && 'catalog-filter-section--open')}>
+      <button type="button" onClick={onToggle} className="catalog-filter-section-btn" aria-expanded={open}>
+        <span>{title}</span>
+        <span className="catalog-filter-section-chevron">
+          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
+        </span>
       </button>
-      {open && children}
+      {open && <div className="catalog-filter-section__body">{children}</div>}
     </div>
   )
 }

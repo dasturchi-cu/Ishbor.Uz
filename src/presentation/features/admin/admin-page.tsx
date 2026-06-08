@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
@@ -9,11 +9,13 @@ import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { api } from '@/infrastructure/api/client'
-import type { ApiAdminStats, ApiOrder, ApiProfile, ApiService, ApiWithdrawalRequest } from '@/infrastructure/api/types'
+import type { ApiAdminStats, ApiOrder, ApiProfile, ApiService, ApiWaitlistEntry, ApiWithdrawalRequest } from '@/infrastructure/api/types'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
+
+const ADMIN_PAGE_SIZE = 50
 
 export function AdminPage() {
   const { t, profile, isAuthLoading, isLoggedIn, currentUserRole, refreshProfile } = useApp()
@@ -30,6 +32,16 @@ export function AdminPage() {
   const [userActionId, setUserActionId] = useState<string | null>(null)
   const [services, setServices] = useState<ApiService[]>([])
   const [serviceActionId, setServiceActionId] = useState<string | null>(null)
+  const [usersTotal, setUsersTotal] = useState(0)
+  const [ordersTotal, setOrdersTotal] = useState(0)
+  const [withdrawalsTotal, setWithdrawalsTotal] = useState(0)
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false)
+  const [ordersLoadingMore, setOrdersLoadingMore] = useState(false)
+  const [withdrawalsLoadingMore, setWithdrawalsLoadingMore] = useState(false)
+  const [disputedOrders, setDisputedOrders] = useState<ApiOrder[]>([])
+  const [disputesTotal, setDisputesTotal] = useState(0)
+  const [waitlist, setWaitlist] = useState<ApiWaitlistEntry[]>([])
+  const [waitlistTotal, setWaitlistTotal] = useState(0)
 
   useEffect(() => {
     if (isAuthLoading || !isLoggedIn || profile || profileLoading) return
@@ -44,12 +56,14 @@ export function AdminPage() {
     setError('')
 
     const load = async () => {
-      const [statsRes, usersRes, ordersRes, withdrawalsRes, servicesRes] = await Promise.allSettled([
+      const [statsRes, usersRes, ordersRes, withdrawalsRes, servicesRes, disputesRes, waitlistRes] = await Promise.allSettled([
         api.adminStats(),
-        api.adminUsers(),
-        api.adminOrders(),
-        api.adminWithdrawals(),
+        api.adminUsers({ limit: ADMIN_PAGE_SIZE, offset: 0 }),
+        api.adminOrders({ limit: ADMIN_PAGE_SIZE, offset: 0 }),
+        api.adminWithdrawals({ limit: ADMIN_PAGE_SIZE, offset: 0 }),
         api.adminListServices({ limit: 30 }),
+        api.adminDisputes({ limit: ADMIN_PAGE_SIZE, offset: 0 }),
+        api.adminWaitlist({ limit: ADMIN_PAGE_SIZE, offset: 0 }),
       ])
 
       if (cancelled) return
@@ -65,7 +79,8 @@ export function AdminPage() {
       }
 
       if (usersRes.status === 'fulfilled') {
-        setUsers(usersRes.value)
+        setUsers(usersRes.value.items)
+        setUsersTotal(usersRes.value.total)
       } else {
         failures.push(
           usersRes.reason instanceof Error ? usersRes.reason.message : t('admin_load_users_failed')
@@ -73,7 +88,8 @@ export function AdminPage() {
       }
 
       if (ordersRes.status === 'fulfilled') {
-        setOrders(ordersRes.value)
+        setOrders(ordersRes.value.items)
+        setOrdersTotal(ordersRes.value.total)
       } else {
         failures.push(
           ordersRes.reason instanceof Error ? ordersRes.reason.message : t('admin_load_orders_failed')
@@ -81,7 +97,8 @@ export function AdminPage() {
       }
 
       if (withdrawalsRes.status === 'fulfilled') {
-        setWithdrawals(withdrawalsRes.value)
+        setWithdrawals(withdrawalsRes.value.items)
+        setWithdrawalsTotal(withdrawalsRes.value.total)
       } else {
         failures.push(
           withdrawalsRes.reason instanceof Error
@@ -98,6 +115,22 @@ export function AdminPage() {
             ? servicesRes.reason.message
             : t('admin_load_services_failed')
         )
+      }
+
+      if (disputesRes.status === 'fulfilled') {
+        setDisputedOrders(disputesRes.value.items)
+        setDisputesTotal(disputesRes.value.total)
+      } else {
+        failures.push(
+          disputesRes.reason instanceof Error
+            ? disputesRes.reason.message
+            : t('admin_load_orders_failed')
+        )
+      }
+
+      if (waitlistRes.status === 'fulfilled') {
+        setWaitlist(waitlistRes.value.items)
+        setWaitlistTotal(waitlistRes.value.total)
       }
 
       if (failures.length > 0) {
@@ -132,11 +165,6 @@ export function AdminPage() {
     )
   }, [orders, orderSearch])
 
-  const disputedOrders = useMemo(
-    () => orders.filter((o) => o.status === 'disputed'),
-    [orders]
-  )
-
   const handleResolveDispute = async (
     orderId: string,
     status: 'completed' | 'cancelled' | 'active'
@@ -145,10 +173,51 @@ export function AdminPage() {
     try {
       const updated = await api.adminResolveOrder(orderId, status)
       setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)))
+      setDisputedOrders((prev) => prev.filter((o) => o.id !== orderId))
+      setDisputesTotal((prev) => Math.max(0, prev - 1))
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error_required'))
     } finally {
       setDisputeActionId(null)
+    }
+  }
+
+  const loadMoreUsers = async () => {
+    setUsersLoadingMore(true)
+    try {
+      const res = await api.adminUsers({ limit: ADMIN_PAGE_SIZE, offset: users.length })
+      setUsers((prev) => [...prev, ...res.items])
+      setUsersTotal(res.total)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setUsersLoadingMore(false)
+    }
+  }
+
+  const loadMoreOrders = async () => {
+    setOrdersLoadingMore(true)
+    try {
+      const res = await api.adminOrders({ limit: ADMIN_PAGE_SIZE, offset: orders.length })
+      setOrders((prev) => [...prev, ...res.items])
+      setOrdersTotal(res.total)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setOrdersLoadingMore(false)
+    }
+  }
+
+  const loadMoreWithdrawals = async () => {
+    setWithdrawalsLoadingMore(true)
+    try {
+      const res = await api.adminWithdrawals({ limit: ADMIN_PAGE_SIZE, offset: withdrawals.length })
+      setWithdrawals((prev) => [...prev, ...res.items])
+      setWithdrawalsTotal(res.total)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setWithdrawalsLoadingMore(false)
     }
   }
 
@@ -199,12 +268,15 @@ export function AdminPage() {
       {error && <Alert variant="error">{error}</Alert>}
 
       {stats && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7">
           {[
             { label: t('admin_users'), value: stats.users },
             { label: t('admin_orders'), value: stats.orders },
             { label: t('nav_services'), value: stats.services },
             { label: t('nav_projects'), value: stats.projects },
+            { label: t('admin_disputes'), value: stats.disputed_orders ?? disputesTotal },
+            { label: t('admin_stat_withdrawals'), value: stats.pending_withdrawals ?? 0 },
+            { label: t('admin_stat_banned'), value: stats.banned_users ?? 0 },
           ].map((item) => (
             <Card key={item.label} className="p-4">
               <p className="text-sm text-[var(--kwork-text-muted)]">{item.label}</p>
@@ -224,9 +296,9 @@ export function AdminPage() {
             className="max-w-xs"
           />
         </div>
-        {users.length >= 100 && (
+        {usersTotal > 0 && (
           <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
-            {t('admin_users_limit_note').replace('{n}', '100')}
+            {t('admin_showing_count').replace('{shown}', String(users.length)).replace('{total}', String(usersTotal))}
           </p>
         )}
         <div className="overflow-x-auto">
@@ -319,10 +391,24 @@ export function AdminPage() {
             </tbody>
           </table>
         </div>
+        {users.length < usersTotal && (
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" loading={usersLoadingMore} onClick={loadMoreUsers}>
+              {t('admin_load_more')}
+            </Button>
+          </div>
+        )}
       </Card>
 
       <Card className="p-6">
-        <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('admin_disputes')}</h2>
+        <h2 className="mb-4 font-bold text-[var(--kwork-text)]">
+          {t('admin_disputes')}
+          {disputesTotal > 0 && (
+            <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
+              ({disputesTotal})
+            </span>
+          )}
+        </h2>
         {disputedOrders.length === 0 ? (
           <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_empty_disputes')}</p>
         ) : (
@@ -481,6 +567,51 @@ export function AdminPage() {
             ))}
           </div>
         )}
+        {withdrawals.length < withdrawalsTotal && (
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" loading={withdrawalsLoadingMore} onClick={loadMoreWithdrawals}>
+              {t('admin_load_more')}
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="mb-4 font-bold text-[var(--kwork-text)]">
+          {t('admin_waitlist')}
+          {waitlistTotal > 0 && (
+            <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
+              ({waitlistTotal})
+            </span>
+          )}
+        </h2>
+        {waitlist.length === 0 ? (
+          <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_waitlist_empty')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <caption className="sr-only">{t('admin_waitlist')}</caption>
+              <thead>
+                <tr className="border-b border-[var(--kwork-border)] text-left">
+                  <th className="py-2 text-[var(--kwork-text-muted)]">{t('email')}</th>
+                  <th className="text-[var(--kwork-text-muted)]">{t('admin_waitlist_source')}</th>
+                  <th className="text-[var(--kwork-text-muted)]">{t('date')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {waitlist.map((row) => (
+                  <tr key={row.id} className="border-b border-[var(--kwork-border)]">
+                    <td className="py-2 text-[var(--kwork-text)]">{row.email}</td>
+                    <td className="text-[var(--kwork-text-sub)]">{row.source}</td>
+                    <td className="text-[var(--kwork-text-muted)]">
+                      {row.created_at ? row.created_at.slice(0, 10) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       <Card className="p-6">
@@ -493,9 +624,9 @@ export function AdminPage() {
             className="max-w-xs"
           />
         </div>
-        {orders.length >= 100 && (
+        {ordersTotal > 0 && (
           <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
-            {t('admin_orders_limit_note').replace('{n}', '100')}
+            {t('admin_showing_count').replace('{shown}', String(orders.length)).replace('{total}', String(ordersTotal))}
           </p>
         )}
         {filteredOrders.length === 0 ? (
@@ -517,6 +648,13 @@ export function AdminPage() {
                 <span className="font-semibold text-[var(--kwork-text)]">{formatPrice(o.amount)}</span>
               </div>
             ))}
+          </div>
+        )}
+        {orders.length < ordersTotal && (
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" loading={ordersLoadingMore} onClick={loadMoreOrders}>
+              {t('admin_load_more')}
+            </Button>
           </div>
         )}
       </Card>

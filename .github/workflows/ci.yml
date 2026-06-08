@@ -27,6 +27,37 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key-for-ci-build
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8002
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend for E2E API
+        run: pip install -r backend/requirements.txt
+      - name: Start backend API
+        run: |
+          cd backend
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8002 > ../api-e2e.log 2>&1 &
+          cd ..
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8002/api/v1/health && exit 0
+            sleep 1
+          done
+          echo "Backend failed to start"
+          cat api-e2e.log
+          exit 1
+        env:
+          ENVIRONMENT: development
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_ANON_KEY: placeholder-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+          SUPABASE_JWT_SECRET: placeholder-jwt-secret
+      - run: pnpm exec playwright install chromium --with-deps
+      - run: pnpm test:e2e
+        env:
+          CI: true
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key-for-ci-build
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8002
 
   backend:
     runs-on: ubuntu-latest
@@ -40,3 +71,6 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.txt
       - run: python -m compileall app
+      - run: pytest -q
+      - name: Docker build
+        run: docker build -t ishbor-api:ci .

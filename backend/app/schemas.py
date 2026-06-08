@@ -179,6 +179,7 @@ class OrderResponse(BaseModel):
     client_id: str
     freelancer_id: str
     amount: int
+    platform_fee: int = 0
     status: str
     payment_status: str | None = "unpaid"
     notes: str | None = None
@@ -189,6 +190,21 @@ class OrderResponse(BaseModel):
     services: dict | None = None
     client_profile: dict | None = None
     freelancer_profile: dict | None = None
+
+
+class PaymentIntentResponse(BaseModel):
+    id: str
+    order_id: str
+    provider: str
+    amount: int
+    status: str
+    redirect_url: str | None = None
+
+
+class CheckoutResponse(BaseModel):
+    order: OrderResponse
+    payment_intent: PaymentIntentResponse | None = None
+    redirect_url: str | None = None
 
 
 class TransactionResponse(BaseModel):

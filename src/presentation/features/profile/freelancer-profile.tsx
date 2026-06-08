@@ -1,16 +1,18 @@
 ﻿'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Bookmark,
   Calendar,
   Clock,
+  FileText,
   MapPin,
   MessageCircle,
   Settings,
   Share2,
+  ShieldCheck,
   Star,
 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -22,7 +24,7 @@ import { ServiceCard } from '@/presentation/components/features/service-card'
 import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiProfilePublic, ApiReview, ApiService } from '@/infrastructure/api/types'
 import { PATHS, servicePath } from '@/domain/constants/routes'
-import { loginPath } from '@/shared/lib/auth-redirect'
+import { loginPath, registerPath } from '@/shared/lib/auth-redirect'
 import { toast } from '@/presentation/components/ui/toast'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
@@ -30,6 +32,7 @@ import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
 import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { SkeletonProfileHero } from '@/presentation/components/ui/skeleton'
 import { UserX } from 'lucide-react'
 import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
 
@@ -71,7 +74,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
     api.recordProfileView(profileId).catch(() => undefined)
   }, [profileId])
 
-  const loadProfile = () => {
+  const loadProfile = useCallback(() => {
     setLoading(true)
     setLoadError(false)
     Promise.all([
@@ -89,11 +92,11 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
         setLoadError(!(e instanceof ApiError && e.status === 404))
       })
       .finally(() => setLoading(false))
-  }
+  }, [profileId])
 
   useEffect(() => {
     loadProfile()
-  }, [profileId])
+  }, [loadProfile])
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -106,6 +109,18 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
     const completed = profile?.completed_orders ?? 0
     return { rating, reviewCount, completed }
   }, [profile, reviews.length])
+
+  const portfolioImages = useMemo(() => {
+    const fromProfile = (profile?.portfolio_urls ?? []).map((url) => ({
+      url,
+      title: t('portfolio'),
+      serviceId: '',
+    }))
+    const fromServices = services.flatMap((s) =>
+      (s.image_urls ?? []).map((url) => ({ url, title: s.title, serviceId: s.id }))
+    )
+    return [...fromProfile, ...fromServices]
+  }, [services, profile?.portfolio_urls, t])
 
   const handleContact = async () => {
     if (!isLoggedIn || currentUserRole !== 'client') return
@@ -142,11 +157,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--kwork-border)] border-t-[var(--color-primary)]" />
-      </div>
-    )
+    return <SkeletonProfileHero />
   }
 
   if (!profile) {
@@ -175,23 +186,12 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
   const name = profile.full_name ?? t('freelancer')
   const isOwnProfile = userId === profileId
+  const profileReturnTo = `/freelancer/${profileId}`
   const memberYears = yearsOnPlatform(profile.created_at)
   const locationLabel = profile.region
     ? t('profile_location_format').replace('{region}', profile.region)
     : t('country_uzbekistan')
   const bioText = profile.bio?.trim()
-
-  const portfolioImages = useMemo(() => {
-    const fromProfile = (profile?.portfolio_urls ?? []).map((url) => ({
-      url,
-      title: t('portfolio'),
-      serviceId: '',
-    }))
-    const fromServices = services.flatMap((s) =>
-      (s.image_urls ?? []).map((url) => ({ url, title: s.title, serviceId: s.id }))
-    )
-    return [...fromProfile, ...fromServices]
-  }, [services, profile?.portfolio_urls, t])
 
   const tabs: { id: ProfileTab; label: string }[] = [
     { id: 'about', label: t('tab_about') },
@@ -271,6 +271,26 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   </Link>
                 ) : (
                   <>
+                    {!isLoggedIn && (
+                      <>
+                        <Button
+                          variant="primary"
+                          size="md"
+                          className="hide-mobile"
+                          onClick={() => router.push(loginPath(profileReturnTo))}
+                        >
+                          {t('order_secure_cta')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="md"
+                          className="hide-mobile"
+                          onClick={() => router.push(registerPath(profileReturnTo))}
+                        >
+                          {t('register')}
+                        </Button>
+                      </>
+                    )}
                     {contactHint && (
                       <Alert variant="info" className="mb-3 w-full">
                         <p>{t('contact_requires_order')}</p>
@@ -382,7 +402,12 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                 bioText ? (
                   <p className="freelancer-profile-about-text">{bioText}</p>
                 ) : (
-                  <p className="freelancer-profile-empty">{t('profile_about_empty')}</p>
+                  <EmptyState
+                    compact
+                    icon={<FileText />}
+                    title={t('profile_about_empty')}
+                    description={t('profile_no_info')}
+                  />
                 )
               )}
 
@@ -416,7 +441,6 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {portfolioImages.map((item, i) => {
                       const img = (
-                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={item.url}
                           alt={item.title}
@@ -481,52 +505,94 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
           </div>
 
           <aside className="freelancer-profile-sidebar">
-            <div className="freelancer-profile-side-card">
-              <span className="freelancer-profile-side-title">{t('last_30_days')}</span>
-              <div className="freelancer-profile-side-stat">
-                <span className="freelancer-profile-side-stat-label">{t('stat_completed')}</span>
-                <span className="freelancer-profile-side-stat-value">
-                  {stats.completed > 0 ? String(stats.completed) : '—'}
-                </span>
-              </div>
-              <div className="freelancer-profile-side-stat">
-                <span className="freelancer-profile-side-stat-label">{t('stat_reviews')}</span>
-                <span className="freelancer-profile-side-stat-value">
-                  {stats.reviewCount > 0 ? String(stats.reviewCount) : '—'}
-                </span>
-              </div>
-              {!isOwnProfile && isLoggedIn && currentUserRole === 'client' && (
-                <div className="freelancer-profile-side-actions">
+            {!isOwnProfile && !isLoggedIn ? (
+              <div className="freelancer-profile-guest-card hide-mobile">
+                <div className="freelancer-profile-guest-head">
+                  <span className="freelancer-profile-guest-eyebrow">{t('contact_freelancer')}</span>
+                  <h2 className="freelancer-profile-guest-title">
+                    {t('profile_guest_cta_title').replace('{name}', name)}
+                  </h2>
+                  <p className="freelancer-profile-guest-desc">{t('profile_guest_cta_desc')}</p>
+                </div>
+
+                {services.length > 0 && (
+                  <button
+                    type="button"
+                    className="freelancer-profile-guest-service"
+                    onClick={() => setActiveTab('services')}
+                  >
+                    <span className="freelancer-profile-guest-service-count">{services.length}</span>
+                    <span className="freelancer-profile-guest-service-label">{t('nav_services')}</span>
+                  </button>
+                )}
+
+                <ul className="freelancer-profile-guest-trust">
+                  <li>
+                    <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden />
+                    {t('register_client_bullet_2')}
+                  </li>
+                  <li>
+                    <Star className="h-4 w-4 shrink-0" aria-hidden />
+                    {t('profile_guest_trust_reviews')}
+                  </li>
+                </ul>
+
+                <div className="freelancer-profile-guest-actions">
                   <Button
                     variant="primary"
                     fullWidth
-                    leftIcon={<MessageCircle className="h-4 w-4" />}
-                    onClick={handleContact}
+                    onClick={() => router.push(loginPath(profileReturnTo))}
                   >
-                    {t('send_message')}
+                    {t('order_secure_cta')}
                   </Button>
-                  {services.length > 0 && (
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      onClick={() => setActiveTab('services')}
-                    >
-                      {t('nav_services')}
-                    </Button>
-                  )}
-                </div>
-              )}
-              {!isOwnProfile && !isLoggedIn && (
-                <div className="freelancer-profile-side-actions hide-mobile">
-                  <Button variant="primary" fullWidth onClick={() => router.push(loginPath(`/freelancer/${profileId}`))}>
-                    {t('login')}
-                  </Button>
-                  <Button variant="outline" fullWidth onClick={() => router.push(PATHS.register)}>
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onClick={() => router.push(registerPath(profileReturnTo))}
+                  >
                     {t('register')}
                   </Button>
+                  <p className="freelancer-profile-guest-note">{t('profile_guest_free')}</p>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="freelancer-profile-side-card">
+                <span className="freelancer-profile-side-title">{t('last_30_days')}</span>
+                <div className="freelancer-profile-side-stat">
+                  <span className="freelancer-profile-side-stat-label">{t('stat_completed')}</span>
+                  <span className="freelancer-profile-side-stat-value">
+                    {stats.completed > 0 ? String(stats.completed) : '—'}
+                  </span>
+                </div>
+                <div className="freelancer-profile-side-stat">
+                  <span className="freelancer-profile-side-stat-label">{t('stat_reviews')}</span>
+                  <span className="freelancer-profile-side-stat-value">
+                    {stats.reviewCount > 0 ? String(stats.reviewCount) : '—'}
+                  </span>
+                </div>
+                {!isOwnProfile && isLoggedIn && currentUserRole === 'client' && (
+                  <div className="freelancer-profile-side-actions">
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      leftIcon={<MessageCircle className="h-4 w-4" />}
+                      onClick={handleContact}
+                    >
+                      {t('send_message')}
+                    </Button>
+                    {services.length > 0 && (
+                      <Button
+                        variant="outline"
+                        fullWidth
+                        onClick={() => setActiveTab('services')}
+                      >
+                        {t('nav_services')}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {(profile.languages?.length ?? 0) > 0 && (
               <div className="freelancer-profile-side-card">
@@ -556,7 +622,9 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
             <span className="text-[11px] text-[var(--kwork-text-muted)]">
               {stats.reviewCount > 0
                 ? `${stats.rating.toFixed(1)} · ${stats.reviewCount} ${t('stat_reviews').toLowerCase()}`
-                : t('freelancer')}
+                : services.length > 0
+                  ? `${services.length} ${t('nav_services').toLowerCase()}`
+                  : t('freelancer')}
             </span>
           </div>
           {isLoggedIn && currentUserRole === 'client' ? (
@@ -569,14 +637,13 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
               {t('send_message')}
             </Button>
           ) : (
-            <div className="flex shrink-0 gap-2">
-              <Button variant="outline" size="sm" onClick={() => router.push(loginPath(`/freelancer/${profileId}`))}>
-                {t('login')}
-              </Button>
-              <Button variant="primary" size="sm" onClick={() => router.push(PATHS.register)}>
-                {t('register')}
-              </Button>
-            </div>
+            <Button
+              variant="primary"
+              className="shrink-0 px-5"
+              onClick={() => router.push(loginPath(profileReturnTo))}
+            >
+              {t('order_secure_cta')}
+            </Button>
           )}
         </div>
       )}

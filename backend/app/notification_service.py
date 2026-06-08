@@ -1,13 +1,21 @@
-"""Bildirishnomalarni DB ga yozish."""
+"""Bildirishnomalarni DB ga yozish (service role — boshqa user uchun insert)."""
 
+import logging
 from typing import Literal
 
+import httpx
 
-def _maybe_send_email(supabase, user_id: str, subject: str, body: str) -> None:
-    """Transactional email stub — prefs yoqilgan bo'lsa log (audit batch 4)."""
+from app.config import settings
+from app.database import get_supabase_admin
+
+logger = logging.getLogger("ishbor.notifications")
+
+
+def _send_email(user_id: str, subject: str, body: str) -> None:
+    admin = get_supabase_admin()
     try:
         row = (
-            supabase.table("profiles")
+            admin.table("profiles")
             .select("email, notification_preferences")
             .eq("id", user_id)
             .limit(1)
@@ -19,14 +27,37 @@ def _maybe_send_email(supabase, user_id: str, subject: str, body: str) -> None:
         if not prefs.get("emailNewOrders", True):
             return
         email = row.data[0].get("email")
-        if email:
-            print(f"[email-stub] to={email} subject={subject} body={body[:80]}")
-    except Exception:
-        pass
+        if not email:
+            return
+
+        api_key = settings.resend_api_key.strip()
+        if api_key:
+            response = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "from": settings.resend_from_email,
+                    "to": [email],
+                    "subject": subject,
+                    "text": body,
+                },
+                timeout=10.0,
+            )
+            if response.status_code >= 400:
+                logger.warning(
+                    "Resend email failed status=%s to=%s body=%s",
+                    response.status_code,
+                    email,
+                    response.text[:200],
+                )
+        else:
+            logger.debug("[email-stub] to=%s subject=%s", email, subject)
+    except Exception as exc:
+        logger.warning("Email send error to=%s: %s", user_id, exc)
 
 
 def create_notification(
-    supabase,
+    _supabase,
     *,
     user_id: str,
     type: Literal["order", "message", "review"],
@@ -34,8 +65,9 @@ def create_notification(
     body: str,
     href: str | None = None,
 ) -> None:
+    admin = get_supabase_admin()
     try:
-        supabase.table("notifications").insert(
+        admin.table("notifications").insert(
             {
                 "user_id": user_id,
                 "type": type,
@@ -45,7 +77,7 @@ def create_notification(
             }
         ).execute()
         if type in ("order", "message"):
-            _maybe_send_email(supabase, user_id, title, body)
+            _send_email(user_id, title, body)
     except Exception:
         pass
 

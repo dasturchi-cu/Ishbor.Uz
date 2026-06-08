@@ -17,6 +17,10 @@ def map_supabase_error(exc: APIError) -> str:
         return "Bog'liq ma'lumot topilmadi"
     if code == "23514":
         return "Kiritilgan qiymat noto'g'ri"
+    if code == "42501" or "row-level security" in message.lower():
+        return "Ruxsat yo'q. Mijoz sifatida kiring yoki qayta urinib ko'ring."
+    if "column" in message.lower() and "does not exist" in message.lower():
+        return "Ma'lumotlar bazasi yangilanmagan. Migratsiyalarni ishga tushiring."
 
     return "Ma'lumotlar bazasi xatosi"
 

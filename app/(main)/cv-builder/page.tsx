@@ -1,9 +1,12 @@
-import type { Metadata } from 'next'
-import { ComingSoonPage } from '@/presentation/features/roadmap/coming-soon-page'
+import { CvBuilderPage } from '@/presentation/features/cv-builder/cv-builder-page'
+import { buildPageMetadata } from '@/shared/lib/seo'
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: true },
-}
+export const metadata = buildPageMetadata(
+  '/cv-builder',
+  'CV yaratuvchi — IshBor.uz',
+  "Professional rezyume tuzing va yuklab oling."
+)
 
-export default function CvBuilderRoute() {  return <ComingSoonPage titleKey="roadmap_cv_title" descKey="roadmap_cv_desc" />
+export default function CvBuilderRoute() {
+  return <CvBuilderPage />
 }

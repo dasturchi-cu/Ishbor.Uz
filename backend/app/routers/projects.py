@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.db_utils import run_query
-from app.deps import CurrentUserId
+from app.deps import OptionalUserId, UserAuthDep
 from app.schemas import ProjectCreate, ProjectResponse, ProjectStatusUpdate
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -17,13 +17,16 @@ def list_projects(
     category: str | None = Query(default=None),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
+    user_id: OptionalUserId = None,
 ):
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     query = supabase.table("projects").select("*, profiles(full_name, region)")
 
     if status_filter:
         query = query.eq("status", status_filter)
     if client_id:
+        if not user_id or client_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
         query = query.eq("client_id", client_id)
     else:
         query = query.eq("is_public", True)
@@ -53,9 +56,27 @@ def list_projects(
     return [{**r, "application_count": count_map.get(r["id"], 0)} for r in rows]
 
 
+def _can_view_project(project: dict, user_id: str | None, supabase) -> bool:
+    if project.get("is_public"):
+        return True
+    if not user_id:
+        return False
+    if project.get("client_id") == user_id:
+        return True
+    apps = (
+        supabase.table("project_applications")
+        .select("id")
+        .eq("project_id", project["id"])
+        .eq("freelancer_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    return bool(apps.data)
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
-def get_project(project_id: str):
-    supabase = get_supabase()
+def get_project(project_id: str, user_id: OptionalUserId = None):
+    supabase = get_supabase_admin()
     result = (
         supabase.table("projects")
         .select("*, profiles(full_name, region)")
@@ -64,6 +85,8 @@ def get_project(project_id: str):
         .execute()
     )
     if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
+    if not _can_view_project(result.data, user_id, supabase):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
     app_count = (
         supabase.table("project_applications")
@@ -75,8 +98,9 @@ def get_project(project_id: str):
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
-def create_project(payload: ProjectCreate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def create_project(payload: ProjectCreate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = get_supabase_admin()
 
     profile = supabase.table("profiles").select("role").eq("id", user_id).single().execute()
     if not profile.data or profile.data.get("role") != "client":
@@ -85,16 +109,17 @@ def create_project(payload: ProjectCreate, user_id: CurrentUserId):
             detail="Faqat mijoz loyiha joylashtirishi mumkin",
         )
 
-    data = {**payload.model_dump(mode="json"), "client_id": user_id}
-    result = run_query(lambda: get_supabase().table("projects").insert(data).execute())
+    data = {**payload.model_dump(mode="json", exclude_none=True), "client_id": user_id}
+    result = run_query(lambda: supabase.table("projects").insert(data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Loyiha yaratilmadi")
     return result.data[0]
 
 
 @router.patch("/{project_id}/status", response_model=ProjectResponse)
-def update_project_status(project_id: str, payload: ProjectStatusUpdate, user_id: CurrentUserId):
-    supabase = get_supabase()
+def update_project_status(project_id: str, payload: ProjectStatusUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
 
     existing = supabase.table("projects").select("*").eq("id", project_id).single().execute()
     if not existing.data:

@@ -59,8 +59,8 @@ function ResetPasswordContent() {
         await supabase.auth.getSession()
       }
 
-      const { data } = await supabase.auth.getSession()
-      if (data.session) {
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+      if (!userError && userData.user) {
         setReady(true)
         return
       }

@@ -1,9 +1,17 @@
-import type { Metadata } from 'next'
-import { ComingSoonPage } from '@/presentation/features/roadmap/coming-soon-page'
+import { FreelancersCatalog } from '@/presentation/features/freelancers/freelancers-catalog'
+import { buildPageMetadata } from '@/shared/lib/seo'
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: true },
-}
+export const metadata = buildPageMetadata(
+  '/companies',
+  'Kompaniyalar — IshBor.uz',
+  "Freelancerlar va mutaxassislar — loyihangiz uchun jamoa toping."
+)
 
-export default function CompaniesRoute() {  return <ComingSoonPage titleKey="roadmap_companies_title" descKey="roadmap_companies_desc" />
+export default function CompaniesRoute() {
+  return (
+    <FreelancersCatalog
+      titleKey="companies_catalog_title"
+      subtitleKey="companies_catalog_subtitle"
+    />
+  )
 }

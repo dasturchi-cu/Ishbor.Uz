@@ -1,0 +1,50 @@
+# Render.com — backend deploy
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: ishbor-api
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    healthCheckPath: /api/v1/health/ready
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DOCS_ENABLED
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PAYMENT_WEBHOOK_SECRET
+        generateValue: true
+      - key: CLICK_MERCHANT_ID
+        sync: false
+      - key: CLICK_SERVICE_ID
+        sync: false
+      - key: CLICK_SECRET_KEY
+        sync: false
+      - key: CLICK_RETURN_URL
+        sync: false
+      - key: PAYME_MERCHANT_ID
+        sync: false
+      - key: PAYME_SECRET_KEY
+        sync: false
+      - key: PAYME_ACCOUNT_FIELD
+        value: payment_intent_id
+      - key: PAYME_RETURN_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

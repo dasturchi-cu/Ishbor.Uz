@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.review_stats import batch_min_service_prices, batch_review_stats
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -8,7 +8,7 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 
 @router.get("/public")
 def public_stats():
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     freelancers = supabase.table("profiles").select("id", count="exact").eq("role", "freelancer").execute()
     clients = supabase.table("profiles").select("id", count="exact").eq("role", "client").execute()
@@ -29,6 +29,7 @@ def public_stats():
     top_services = (
         supabase.table("services")
         .select("id, title, price, category, freelancer_id, profiles(full_name)")
+        .eq("is_hidden", False)
         .order("created_at", desc=True)
         .limit(8)
         .execute()
@@ -52,6 +53,7 @@ def public_stats():
         supabase.table("profiles")
         .select("id, full_name, specialty, region, role")
         .eq("role", "freelancer")
+        .eq("is_banned", False)
         .order("created_at", desc=True)
         .limit(4)
         .execute()

@@ -1,33 +1,54 @@
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from supabase import Client
 
 from app.auth.jwt_verify import verify_supabase_token
-from app.database import get_supabase
+from app.database import create_supabase_user_client, get_supabase_admin
 
 security = HTTPBearer(auto_error=False)
 
 
-def _assert_not_banned(user_id: str) -> None:
-    supabase = get_supabase()
-    row = supabase.table("profiles").select("is_banned").eq("id", user_id).single().execute()
-    if row.data and row.data.get("is_banned"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob bloklangan")
+@dataclass(frozen=True)
+class UserAuth:
+    user_id: str
+    supabase: Client
 
 
-def get_current_user_id(
+def require_user_auth(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
-) -> str:
+) -> UserAuth:
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token kerak")
 
-    payload = verify_supabase_token(credentials.credentials)
+    token = credentials.credentials
+    payload = verify_supabase_token(token)
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
-    _assert_not_banned(user_id)
-    return user_id
+
+    supabase = create_supabase_user_client(token)
+    row = (
+        supabase.table("profiles")
+        .select("is_banned")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    profile = (row.data or [None])[0]
+    if profile and profile.get("is_banned"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob bloklangan")
+
+    return UserAuth(user_id=user_id, supabase=supabase)
+
+
+UserAuthDep = Annotated[UserAuth, Depends(require_user_auth)]
+
+
+def get_current_user_id(auth: UserAuthDep) -> str:
+    return auth.user_id
 
 
 def get_optional_user_id(
@@ -35,12 +56,24 @@ def get_optional_user_id(
 ) -> str | None:
     if credentials is None:
         return None
-    try:
-        payload = verify_supabase_token(credentials.credentials)
-        return payload.get("sub") or None
-    except HTTPException:
+    payload = verify_supabase_token(credentials.credentials)
+    user_id = payload.get("sub")
+    if not user_id:
         return None
+    admin = get_supabase_admin()
+    row = (
+        admin.table("profiles")
+        .select("is_banned")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    profile = (row.data or [None])[0]
+    if profile and profile.get("is_banned"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob bloklangan")
+    return user_id
 
 
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 OptionalUserId = Annotated[str | None, Depends(get_optional_user_id)]
+AdminSupabase = Annotated[Client, Depends(get_supabase_admin)]

@@ -8,6 +8,7 @@ import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { Badge } from '@/presentation/components/ui/badge'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { SkeletonListRow } from '@/presentation/components/ui/skeleton'
 import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiService } from '@/infrastructure/api/types'
 import { PATHS, servicePath } from '@/domain/constants/routes'
@@ -87,11 +88,6 @@ export function DashboardServicesPage() {
     }
   }
 
-  const handleEditStart = (service: ApiService) => {
-    setEditingId(service.id)
-    setEditTitle(service.title)
-  }
-
   const handleEditSave = async (serviceId: string) => {
     const title = editTitle.trim()
     if (title.length < 3) {
@@ -123,20 +119,33 @@ export function DashboardServicesPage() {
         </Alert>
       )}
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="dashboard-page-title flex items-center gap-2">
-          {t('my_services_title')}
-          <Badge variant="primary">{services.length}</Badge>
-        </h2>
-        <Link href={PATHS.dashboardServicesNew}>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
+      <div className="dashboard-services-toolbar mb-5">
+        <div className="dashboard-services-toolbar__info">
+          <div className="dashboard-services-toolbar__meta">
+            <span className="dashboard-services-toolbar__count">
+              {services.length} {t('services').toLowerCase()}
+            </span>
+          </div>
+          <p className="dashboard-services-toolbar__desc">{t('create_service_desc')}</p>
+        </div>
+        <Link href={PATHS.dashboardServicesNew} className="dashboard-services-toolbar__action">
+          <Button
+            variant="primary"
+            size="md"
+            className="w-full rounded-full sm:w-auto"
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
             {t('nav_new_service')}
           </Button>
         </Link>
       </div>
 
       {loading ? (
-        <div className="h-40 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <SkeletonListRow key={i} lines={3} />
+          ))}
+        </div>
       ) : services.length === 0 ? (
         <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
           <EmptyState
