@@ -24,7 +24,7 @@ src/
 |--------|-------------|
 | Frontend | Next.js 16, React 19, Tailwind 4 |
 | Auth + DB | **Supabase** (PostgreSQL, JWT) |
-| API | **FastAPI** (Python, port 8001) |
+| API | **FastAPI** (Python, port 8002) |
 
 ## Deploy (Vercel + GitHub)
 
@@ -82,7 +82,13 @@ pnpm dev
 ### 2. Supabase
 
 1. [supabase.com](https://supabase.com) da loyiha yarating
-2. SQL Editor ga `supabase/migrations/20240607000000_initial.sql` ni joylashtiring
+2. CLI orqali migrationlarni push qiling:
+
+```bash
+supabase link --project-ref YOUR_REF
+supabase db push --linked --yes
+```
+
 3. `.env.local` ga URL va anon key qo'ying
 
 ### 3. FastAPI backend
@@ -90,14 +96,16 @@ pnpm dev
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 copy .env.example .env
-uvicorn app.main:app --reload --port 8001
+pnpm dev:api             # yoki: uvicorn app.main:app --reload --port 8002
 ```
 
-Swagger: http://localhost:8001/docs
+Swagger: http://127.0.0.1:8002/docs
 
-### 4. Yangi migration (loyihalar, chat, sharhlar)
+### 4. Tekshiruv
 
-Supabase SQL Editor ga `supabase/migrations/20240608000000_projects_messages_reviews.sql` ni joylashtiring.
+```bash
+pnpm verify   # tsc + lint + vitest + pytest + build
+```

@@ -62,7 +62,11 @@ supabase link --project-ref YOUR_REF    # birinchi marta
 supabase db push --linked --yes
 ```
 
-**18 ta migration** `supabase/migrations/` da — ularni remote ga push qiling.
+**29 ta migration** `supabase/migrations/` da — remote bilan sync:
+
+```powershell
+supabase db push --linked --yes   # Remote database is up to date
+```
 
 | Migration | Nima qo‘shadi |
 |-----------|---------------|
@@ -178,21 +182,20 @@ Hozir **faqat lokal** (`pnpm dev:api`, port **8002**). Production uchun alohida 
 uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 
-### Hali backend ga qo‘shish kerak (kod)
+### Backend kod holati
 
-| # | Narsa | Ustuvorlik |
-|---|-------|------------|
-| 1 | Click / Payme haqiqiy integratsiya | P0 |
-| 2 | Webhook imzo tekshiruvi | P0 |
-| 3 | Escrow atomik tranzaksiya (Postgres RPC) | P0 |
-| 4 | Cancel + held → avtomatik refund | P0 |
-| 5 | Rate limit (Redis) | P1 |
-| 6 | Email (Resend/SendGrid) | P1 |
-| 7 | Structured logging + Sentry | P1 |
-| 8 | Integration testlar | P1 |
-| 9 | `/docs` ni production da yopish | P2 |
-
-⬜ **CI:** GitHub Actions hozir faqat `python -m compileall` — pytest qo‘shish kerak.
+| Narsa | Holat |
+|-------|-------|
+| Click / Payme sandbox + webhook skeleton | ✅ |
+| Click / Payme **live** merchant credential | ⬜ P0 |
+| Webhook imzo tekshiruvi | ✅ `PAYMENT_WEBHOOK_SECRET` |
+| Escrow atomik RPC | ✅ `hold/release/refund_escrow_rpc` |
+| Cancel + held → refund | ✅ |
+| Rate limit | ✅ Postgres `rate_limit_hits` |
+| Email (Resend) | ✅ kod tayyor — `RESEND_API_KEY` ⬜ |
+| Sentry | ✅ ixtiyoriy `SENTRY_DSN` |
+| Integration testlar | ✅ pytest 46 + CI |
+| `/docs` production | ✅ `DOCS_ENABLED=false` |
 
 ---
 
@@ -224,11 +227,11 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
 | Sahifa/funksiya | Holat |
 |-----------------|-------|
-| `/jobs`, `/companies`, `/cv` | Coming Soon |
-| Click/Payme to‘lov | Sandbox |
-| Pro obuna | Waitlist |
-| Email bildirishnomalar | Faqat in-app |
-| SMS | Yo‘q |
+| `/jobs`, `/companies`, `/cv-builder` | ✅ (projects catalog, freelancers, CV builder) |
+| Click/Payme to‘lov | Sandbox ✅ — live ⬜ credential kerak |
+| Pro obuna | Waitlist ✅ |
+| Email bildirishnomalar | ✅ Resend (`RESEND_API_KEY` bo‘lsa) |
+| SMS | ⬜ kelajak |
 
 ---
 
@@ -248,16 +251,9 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
 ### Hali commit qilinmagan (lokal)
 
-⬜ `DEV-SERVER.md` — server run/stop yo‘riqnomasi  
-⬜ `QOSHISH-KERAK.md` — shu fayl  
-⬜ `supabase/migrations/20240622000000_repair_profile_fields.sql`  
-⬜ `onboarding-page.tsx` o‘zgarishlari  
+✅ Barcha o‘zgarishlar `main` ga push qilingan (`fa95fae` va keyingi commitlar).
 
-```powershell
-git add DEV-SERVER.md QOSHISH-KERAK.md supabase/migrations/20240622000000_repair_profile_fields.sql
-git commit -m "docs: dev server va setup checklist"
-git push origin main
-```
+Keyingi qadam: Render + Vercel secrets va deploy.
 
 ---
 
@@ -290,8 +286,9 @@ Invoke-RestMethod http://127.0.0.1:8002/api/v1/health
 # 3. Supabase migration
 supabase db push --linked --dry-run
 
-# 4. TypeScript
-pnpm exec tsc --noEmit
+# 4. To'liq tekshiruv
+pnpm verify
+# yoki: .\scripts\preflight.ps1
 ```
 
 | Tekshiruv | Kutilgan natija |
@@ -307,15 +304,15 @@ pnpm exec tsc --noEmit
 
 ## 8. MVP ustuvorligi (qisqa)
 
-Hozirgi audit bo‘yicha **birinchi navbatda**:
+Hozirgi holat bo‘yicha **birinchi navbatda** (faqat tashqi sozlama):
 
-1. ⬜ Backend ni production hostga chiqarish + Vercel `NEXT_PUBLIC_API_URL`
-2. ⬜ Supabase barcha migrationlar sync (`db push`)
-3. ⬜ Admin user + production redirect URL lar
-4. ⬜ Escrow xavfsizligi (atomik to‘lov, cancel refund)
-5. ⬜ Click/Payme integratsiya
-6. ⬜ Email bildirishnomalar
-7. ⬜ Testlar + monitoring
+1. ⬜ Render deploy + Vercel `NEXT_PUBLIC_API_URL`
+2. ✅ Supabase migrationlar sync (`db push --linked`)
+3. ⬜ Admin user + production redirect URL lar (Dashboard)
+4. ✅ Escrow xavfsizligi (atomik RPC, cancel refund)
+5. ⬜ Click/Payme **live** credential + webhook URL
+6. ⬜ `RESEND_API_KEY` production email uchun
+7. ✅ Testlar + CI (tsc, lint, vitest, pytest, E2E, Docker)
 
 Batafsil backend audit: suhbatdagi **Backend Architecture Audit** hisoboti.
 

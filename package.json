@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
+    "verify": "pnpm type-check && pnpm lint && pnpm test && pnpm test:backend && pnpm build",
+    "preflight": "powershell -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:backend": "cd backend && .venv\\Scripts\\python -m pytest",
