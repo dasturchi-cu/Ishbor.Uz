@@ -191,10 +191,12 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 | Webhook imzo tekshiruvi | ✅ `PAYMENT_WEBHOOK_SECRET` |
 | Escrow atomik RPC | ✅ `hold/release/refund_escrow_rpc` |
 | Cancel + held → refund | ✅ |
-| Rate limit | ✅ Postgres `rate_limit_hits` |
+| Rate limit | ✅ Redis (fallback Postgres) |
 | Email (Resend) | ✅ kod tayyor — `RESEND_API_KEY` ⬜ |
+| SMS (Eskiz) | ✅ kod tayyor — `ESKIZ_*` ⬜ |
+| Telegram bot | ✅ webhook + `TELEGRAM_BOT_TOKEN` ⬜ |
 | Sentry | ✅ ixtiyoriy `SENTRY_DSN` |
-| Integration testlar | ✅ pytest 46 + CI |
+| Integration testlar | ✅ pytest 53 + CI |
 | `/docs` production | ✅ `DOCS_ENABLED=false` |
 
 ---
@@ -231,7 +233,8 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 | Click/Payme to‘lov | Sandbox ✅ — live ⬜ credential kerak |
 | Pro obuna | Waitlist ✅ |
 | Email bildirishnomalar | ✅ Resend (`RESEND_API_KEY` bo‘lsa) |
-| SMS | ⬜ kelajak |
+| SMS | ✅ Eskiz (`ESKIZ_*` bo‘lsa) |
+| Telegram | ✅ bot + webhook |
 
 ---
 
@@ -311,8 +314,8 @@ Hozirgi holat bo‘yicha **birinchi navbatda** (faqat tashqi sozlama):
 3. ⬜ Admin user + production redirect URL lar (Dashboard)
 4. ✅ Escrow xavfsizligi (atomik RPC, cancel refund)
 5. ⬜ Click/Payme **live** credential + webhook URL
-6. ⬜ `RESEND_API_KEY` production email uchun
-7. ✅ Testlar + CI (tsc, lint, vitest, pytest, E2E, Docker)
+6. ⬜ `RESEND_API_KEY` / `ESKIZ_*` / `TELEGRAM_BOT_TOKEN` production
+7. ✅ Testlar + CI (tsc, lint, vitest, pytest 53, E2E, Docker)
 
 Batafsil backend audit: suhbatdagi **Backend Architecture Audit** hisoboti.
 

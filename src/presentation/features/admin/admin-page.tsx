@@ -44,6 +44,15 @@ export function AdminPage() {
   const [disputesTotal, setDisputesTotal] = useState(0)
   const [waitlist, setWaitlist] = useState<ApiWaitlistEntry[]>([])
   const [waitlistTotal, setWaitlistTotal] = useState(0)
+  const [integrations, setIntegrations] = useState<{
+    email: boolean
+    sms: boolean
+    telegram: boolean
+    redis: boolean
+    click: boolean
+    payme: boolean
+    sandbox: boolean
+  } | null>(null)
   const [exporting, setExporting] = useState<'users' | 'orders' | 'waitlist' | 'disputes' | 'services' | null>(null)
 
   useEffect(() => {
@@ -134,6 +143,24 @@ export function AdminPage() {
       if (waitlistRes.status === 'fulfilled') {
         setWaitlist(waitlistRes.value.items)
         setWaitlistTotal(waitlistRes.value.total)
+      }
+
+      const [channelsRes, paymentsRes] = await Promise.allSettled([
+        api.notificationChannels(),
+        api.paymentsConfig(),
+      ])
+      if (channelsRes.status === 'fulfilled' && paymentsRes.status === 'fulfilled') {
+        const ch = channelsRes.value
+        const pay = paymentsRes.value
+        setIntegrations({
+          email: ch.email,
+          sms: ch.sms,
+          telegram: ch.telegram,
+          redis: ch.redis,
+          click: pay.click_enabled,
+          payme: pay.payme_enabled,
+          sandbox: pay.sandbox_allowed,
+        })
       }
 
       if (failures.length > 0) {
@@ -466,6 +493,36 @@ export function AdminPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {integrations && (
+        <Card className="p-6">
+          <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('admin_integrations')}</h2>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { key: 'email', label: t('email_notifications'), on: integrations.email },
+                { key: 'sms', label: t('sms_notifications'), on: integrations.sms },
+                { key: 'telegram', label: t('telegram_notifications'), on: integrations.telegram },
+                { key: 'redis', label: 'Redis', on: integrations.redis },
+                { key: 'click', label: 'Click', on: integrations.click },
+                { key: 'payme', label: 'Payme', on: integrations.payme },
+                { key: 'sandbox', label: t('admin_sandbox_payments'), on: integrations.sandbox },
+              ] as const
+            ).map((item) => (
+              <span
+                key={item.key}
+                className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                  item.on
+                    ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
+                    : 'bg-[var(--neutral-100)] text-[var(--kwork-text-muted)]'
+                }`}
+              >
+                {item.label}: {item.on ? t('notif_channel_active') : t('notif_channel_inactive')}
+              </span>
+            ))}
+          </div>
+        </Card>
       )}
 
       <Card className="p-6">

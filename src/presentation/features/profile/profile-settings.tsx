@@ -28,6 +28,7 @@ import { loadNotificationPrefs, saveNotificationPrefs } from '@/shared/lib/notif
 import { profileUpdateSchema } from '@/domain/validators/profile'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
+import { NotificationChannelStatus } from '@/presentation/components/layout/notification-channel-status'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 
@@ -178,10 +179,13 @@ export function ProfileSettings() {
     telegramConnect: false,
     chatMuted: false,
   })
-  const [notifChannels, setNotifChannels] = useState<{
-    telegram: boolean
-    telegram_bot_username: string | null
-  }>({ telegram: false, telegram_bot_username: null })
+  const [notifChannels, setNotifChannels] = useState({
+    email: false,
+    sms: false,
+    telegram: false,
+    telegram_bot_username: null as string | null,
+  })
+  const telegramHintShown = useRef(false)
 
   useEffect(() => {
     api
@@ -190,9 +194,28 @@ export function ProfileSettings() {
       .catch(() => setSimpleNotif(loadNotificationPrefs()))
     api
       .notificationChannels()
-      .then((c) => setNotifChannels({ telegram: c.telegram, telegram_bot_username: c.telegram_bot_username }))
+      .then((c) =>
+        setNotifChannels({
+          email: c.email,
+          sms: c.sms,
+          telegram: c.telegram,
+          telegram_bot_username: c.telegram_bot_username,
+        })
+      )
       .catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    if (
+      profile?.telegram_chat_id &&
+      notifChannels.telegram &&
+      !simpleNotif.telegramConnect &&
+      !telegramHintShown.current
+    ) {
+      telegramHintShown.current = true
+      toast.info(t('notif_telegram_enable_hint'))
+    }
+  }, [profile?.telegram_chat_id, notifChannels.telegram, simpleNotif.telegramConnect, t])
 
   const updateNotifPref = <K extends keyof typeof simpleNotif>(key: K, value: boolean) => {
     setSimpleNotif((prev) => {
@@ -845,6 +868,11 @@ export function ProfileSettings() {
 
             {activeTab === 'notifications' && (
               <>
+                <NotificationChannelStatus
+                  email={notifChannels.email}
+                  sms={notifChannels.sms}
+                  telegram={notifChannels.telegram}
+                />
                 <div className="settings-notif-card">
                   <h3 className="settings-notif-card-title">{t('email_notifications')}</h3>
                   <ToggleRow
