@@ -367,11 +367,9 @@ export function OnboardingPage() {
     if (!validateStep1()) return
     setSaving(true)
     try {
-      await persistProfile(isClient)
+      await persistProfile(false)
       if (isClient) {
-        sessionStorage.removeItem(ONBOARDING_STEP_KEY)
-        toast.success(t('onboarding_complete_success'))
-        router.push(dashboardPathForRole(currentUserRole))
+        setStep(2)
         return
       }
       setStep(2)

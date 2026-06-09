@@ -2,17 +2,20 @@
 
 import Link from 'next/link'
 import {
+  Bell,
   MessageCircle,
   ShoppingBag,
   CreditCard,
   Sparkles,
   ShieldCheck,
   TrendingUp,
+  Wallet,
 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { PATHS, dashboardOrderPath } from '@/domain/constants/routes'
 import { profileCompletionPercent } from '@/shared/lib/profile-completion'
+import { formatPrice } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/utils'
 import type { ApiOrder } from '@/infrastructure/api/types'
 import type { OnboardingProgress } from '@/shared/lib/onboarding-progress'
@@ -22,6 +25,8 @@ interface DashboardHeroProps {
   activeOrders: number
   pendingPayments: number
   messageUnread: number
+  notificationUnread?: number
+  walletBalance?: number | null
   primaryCta: { label: string; href: string }
   orders: ApiOrder[]
   onboardingProgress?: OnboardingProgress | null
@@ -32,6 +37,8 @@ export function DashboardHero({
   activeOrders,
   pendingPayments,
   messageUnread,
+  notificationUnread = 0,
+  walletBalance,
   primaryCta,
   orders,
   onboardingProgress,
@@ -72,6 +79,22 @@ export function DashboardHero({
       value: messageUnread > 0 ? String(messageUnread) : '0',
       href: PATHS.dashboardMessages,
       tone: messageUnread > 0 ? 'success' : 'muted',
+    },
+    {
+      id: 'wallet',
+      icon: Wallet,
+      label: t('dash_kpi_wallet'),
+      value: walletBalance != null ? formatPrice(walletBalance) : '—',
+      href: PATHS.dashboardWallet,
+      tone: walletBalance != null && walletBalance > 0 ? 'primary' : 'muted',
+    },
+    {
+      id: 'notifications',
+      icon: Bell,
+      label: t('dash_kpi_notifications'),
+      value: notificationUnread > 0 ? String(notificationUnread) : '0',
+      href: PATHS.notifications,
+      tone: notificationUnread > 0 ? 'warning' : 'muted',
     },
   ] as const
 
@@ -126,7 +149,7 @@ export function DashboardHero({
         </div>
       </div>
 
-      <div className="dash-hero__kpis">
+      <div className="dash-hero__kpis dash-hero__kpis--5">
         {kpis.map(({ id, icon: Icon, label, value, href, tone }) => (
           <Link key={id} href={href} className={cn('dash-kpi', `dash-kpi--${tone}`)}>
             <span className="dash-kpi__icon">

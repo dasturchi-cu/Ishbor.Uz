@@ -67,34 +67,10 @@ const FREELANCER_SECTIONS: NavSection[] = [
     titleKey: 'nav_section_main',
     items: [
       { id: 'home', href: PATHS.dashboardFreelancer, labelKey: 'nav_dashboard', icon: LayoutDashboard },
-      { id: 'services', href: PATHS.dashboardServices, labelKey: 'nav_my_services', icon: Package, freelancerOnly: true },
       { id: 'orders', href: PATHS.dashboardOrders, labelKey: 'nav_orders', icon: ShoppingBag },
-      { id: 'projects', href: PATHS.projects, labelKey: 'nav_projects', icon: Briefcase, freelancerOnly: true },
-      { id: 'applications', href: PATHS.dashboardApplications, labelKey: 'nav_applications', icon: FileText, freelancerOnly: true },
-    ],
-  },
-  {
-    titleKey: 'nav_section_communication',
-    items: [
       { id: 'messages', href: PATHS.dashboardMessages, labelKey: 'nav_messages', icon: MessageCircle },
-      { id: 'notifications', href: PATHS.notifications, labelKey: 'nav_notifications', icon: Bell },
-    ],
-  },
-  {
-    titleKey: 'nav_section_finance',
-    items: [
       { id: 'wallet', href: PATHS.dashboardWallet, labelKey: 'nav_wallet', icon: Wallet },
-      { id: 'escrow', href: PATHS.dashboardEscrow, labelKey: 'nav_escrow', icon: Landmark },
-      { id: 'reviews', href: PATHS.dashboardReviews, labelKey: 'nav_reviews', icon: Star, freelancerOnly: true },
-      { id: 'analytics', href: PATHS.dashboardAnalytics, labelKey: 'nav_analytics', icon: BarChart3, freelancerOnly: true },
-    ],
-  },
-  {
-    titleKey: 'nav_section_account',
-    items: [
-      { id: 'saved', href: PATHS.dashboardSaved, labelKey: 'nav_saved', icon: Bookmark },
       { id: 'profile', href: PATHS.dashboardProfile, labelKey: 'nav_profile', icon: User },
-      { id: 'settings', href: PATHS.dashboardSettings, labelKey: 'nav_settings', icon: Settings },
     ],
   },
 ]
@@ -104,34 +80,10 @@ const CLIENT_SECTIONS: NavSection[] = [
     titleKey: 'nav_section_main',
     items: [
       { id: 'home', href: PATHS.dashboardClient, labelKey: 'nav_dashboard', icon: LayoutDashboard },
-      { id: 'projects', href: PATHS.dashboardProjects, labelKey: 'nav_my_projects', icon: Briefcase, clientOnly: true },
       { id: 'orders', href: PATHS.dashboardOrders, labelKey: 'nav_orders', icon: ShoppingBag },
-      { id: 'find', href: PATHS.services, labelKey: 'nav_find_freelancers', icon: Search, clientOnly: true },
-    ],
-  },
-  {
-    titleKey: 'nav_section_communication',
-    items: [
       { id: 'messages', href: PATHS.dashboardMessages, labelKey: 'nav_messages', icon: MessageCircle },
-      { id: 'notifications', href: PATHS.notifications, labelKey: 'nav_notifications', icon: Bell },
-    ],
-  },
-  {
-    titleKey: 'nav_section_finance',
-    items: [
-      { id: 'payments', href: PATHS.dashboardPayments, labelKey: 'nav_payments', icon: CreditCard, clientOnly: true },
       { id: 'wallet', href: PATHS.dashboardWallet, labelKey: 'nav_wallet', icon: Wallet },
-      { id: 'escrow', href: PATHS.dashboardEscrow, labelKey: 'nav_escrow', icon: Landmark },
-      { id: 'reviews', href: PATHS.dashboardReviews, labelKey: 'nav_reviews', icon: Star },
-      { id: 'analytics', href: PATHS.dashboardAnalytics, labelKey: 'nav_analytics', icon: BarChart3 },
-    ],
-  },
-  {
-    titleKey: 'nav_section_account',
-    items: [
-      { id: 'saved', href: PATHS.dashboardSaved, labelKey: 'nav_saved', icon: Bookmark, clientOnly: true },
       { id: 'profile', href: PATHS.dashboardProfile, labelKey: 'nav_profile', icon: User },
-      { id: 'settings', href: PATHS.dashboardSettings, labelKey: 'nav_settings', icon: Settings },
     ],
   },
 ]

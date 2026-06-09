@@ -8,8 +8,6 @@ import { PATHS } from '@/domain/constants/routes'
 
 const POSTS = [
   { slug: 'freelance-boshlash', titleKey: 'blog_post_1_title' as const, excerptKey: 'blog_post_1_excerpt' as const, date: '2026-05-12' },
-  { slug: 'click-payme', titleKey: 'blog_post_2_title' as const, excerptKey: 'blog_post_2_excerpt' as const, date: '2026-04-28' },
-  { slug: 'escrow-nima', titleKey: 'blog_post_3_title' as const, excerptKey: 'blog_post_3_excerpt' as const, date: '2026-03-15' },
 ] as const
 
 export function BlogPage() {
@@ -24,7 +22,6 @@ export function BlogPage() {
         <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)] sm:text-[14px]">
           {t('blog_subtitle')}
         </p>
-        <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">{t('blog_editorial_note')}</p>
       </div>
 
       <div className="space-y-3">

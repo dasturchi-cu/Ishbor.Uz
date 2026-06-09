@@ -480,7 +480,11 @@ export function ServiceCard({
         {showFastDelivery && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-medium text-[var(--kwork-text-muted)]">
             <span className="text-[var(--success)]">{t('fast_delivery_badge')}</span>
+            <span className="service-card-badge service-card-badge--escrow">{t('service_escrow_badge')}</span>
           </div>
+        )}
+        {!showFastDelivery && (
+          <span className="service-card-badge service-card-badge--escrow w-fit">{t('service_escrow_badge')}</span>
         )}
 
         <div className="flex items-center gap-2">

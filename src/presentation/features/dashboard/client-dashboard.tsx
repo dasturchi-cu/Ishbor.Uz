@@ -31,7 +31,6 @@ import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiProfilePublic } from '@/infrastructure/api/types'
 import { formatPrice, orderProgress } from '@/shared/lib/format'
 import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
-import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
 import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
@@ -84,7 +83,7 @@ function OrderRowSkeleton() {
 export function ClientDashboard() {
   const { t, profile, userId, isAuthLoading, isLoggedIn } = useApp()
   const router = useRouter()
-  const { messageUnread } = useBadgeCounts()
+  const { messageUnread, notificationUnread } = useBadgeCounts()
   const authReady = !isAuthLoading && isLoggedIn && Boolean(userId)
 
   const { orders, projects, loading, error, loadError, reload } = useDashboardSummary(userId, 'client', authReady)
@@ -204,6 +203,8 @@ export function ClientDashboard() {
         activeOrders={activeOrders.length}
         pendingPayments={unpaidOrders.length}
         messageUnread={messageUnread}
+        notificationUnread={notificationUnread}
+        walletBalance={profile?.wallet_balance ?? null}
         primaryCta={primaryCta}
         orders={orders}
         onboardingProgress={onboardingProgress}
@@ -223,6 +224,7 @@ export function ClientDashboard() {
         items={[
           { href: PATHS.postProject, icon: Plus, labelKey: 'dash_action_post_project' },
           { href: PATHS.services, icon: Search, labelKey: 'dash_action_browse_services' },
+          { href: PATHS.dashboardWallet, icon: Wallet, labelKey: 'dash_kpi_wallet' },
           { href: PATHS.dashboardMessages, icon: MessageCircle, labelKey: 'dash_action_open_chat' },
           { href: PATHS.dashboardProfile, icon: User, labelKey: 'dash_action_complete_profile' },
         ]}
@@ -371,7 +373,6 @@ export function ClientDashboard() {
         )}
       </DashboardPanel>
 
-      <ReferralBanner />
 
       {reviewOrder && (
         <ReviewModal

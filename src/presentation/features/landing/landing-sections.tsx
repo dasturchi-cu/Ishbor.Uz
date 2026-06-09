@@ -18,13 +18,14 @@ import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
 import { EscrowSteps } from '@/presentation/components/layout/escrow-steps'
-import { PATHS } from '@/domain/constants/routes'
-import type { ApiPublicStats } from '@/infrastructure/api/types'
+import { PATHS, freelancerPath } from '@/domain/constants/routes'
+import type { ApiPublicStats, ApiPublicReview } from '@/infrastructure/api/types'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/presentation/components/ui/button'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { api } from '@/infrastructure/api/client'
-import type { ApiPublicReview } from '@/infrastructure/api/types'
 
 const HOW_STEPS: { num: string; titleKey: TranslationKey; descKey: TranslationKey }[] = [
   { num: '01', titleKey: 'how_step1_title', descKey: 'how_step1_desc' },
@@ -70,7 +71,14 @@ export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
   const items = [
     { value: formatStat(stats.services, emptyLabel), label: t('landing_stat_services') },
     { value: formatStat(stats.freelancers, emptyLabel), label: t('landing_stat_freelancers') },
-    { value: t('landing_stat_commission_value'), label: t('landing_stat_commission') },
+    {
+      value: stats.review_count > 0 ? formatStat(stats.review_count, emptyLabel) : emptyLabel,
+      label: t('landing_stat_reviews'),
+    },
+    {
+      value: stats.avg_rating > 0 ? stats.avg_rating.toFixed(1) : emptyLabel,
+      label: t('landing_stat_rating'),
+    },
   ]
 
   return (
@@ -83,7 +91,13 @@ export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-center text-[11px] text-[var(--kwork-text-muted)]">{t('landing_stat_commission_note')}</p>
+      <p className="mt-3 text-center text-[11px] text-[var(--kwork-text-muted)]">
+        {t('landing_stat_commission_note')}
+        {' · '}
+        <Link href={PATHS.buyerProtection} className="font-medium text-[var(--color-primary)] hover:underline">
+          {t('landing_buyer_protection')}
+        </Link>
+      </p>
     </div>
   )
 }
@@ -222,20 +236,27 @@ export function LandingTestimonials() {
               rating: r.rating,
             }))
           )
+        } else {
+          setItems([])
         }
       })
-      .catch(() => {
-        setItems([])
-      })
+      .catch(() => setItems([]))
       .finally(() => setReady(true))
-  }, [t])
+  }, [])
 
-  if (!ready || items.length === 0) return null
+  if (!ready) return null
 
   return (
-    <section className="landing-testimonials-section">
+    <section className="landing-testimonials-section animate-fadeInUp">
       <div className="layout-container max-w-[1280px]">
         <h2 className="landing-section-heading">{t('clients_say')}</h2>
+        {items.length === 0 ? (
+          <EmptyState
+            icon={<Star className="h-8 w-8" />}
+            title={t('landing_testimonials_empty_title')}
+            description={t('landing_testimonials_empty_desc')}
+          />
+        ) : (
         <div className="landing-testimonials-grid">
           {items.map((item, idx) => (
             <article key={idx} className="landing-testimonial-card">
@@ -255,6 +276,51 @@ export function LandingTestimonials() {
               <p className="landing-testimonial-quote">&ldquo;{item.quote}&rdquo;</p>
               <p className="landing-testimonial-author">{item.author}</p>
             </article>
+          ))}
+        </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
+  const { t } = useApp()
+  const router = useRouter()
+  const freelancers = stats.featured_freelancers.slice(0, 4)
+
+  if (freelancers.length === 0) return null
+
+  return (
+    <section className="page-section animate-fadeInUp">
+      <div className="layout-container max-w-[1280px]">
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="landing-section-heading mb-1 text-left">{t('featured_freelancers')}</h2>
+            <p className="text-[14px] text-[var(--kwork-text-muted)]">{t('landing_top_freelancers_sub')}</p>
+          </div>
+          <Link
+            href={PATHS.freelancers}
+            className="flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
+          >
+            {t('view_all')}
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {freelancers.map((f) => (
+            <FreelancerCard
+              key={f.id}
+              name={f.full_name ?? t('freelancer')}
+              specialty={f.specialty}
+              region={f.region}
+              rating={f.avg_rating ?? 0}
+              reviewCount={f.review_count ?? 0}
+              minPrice={f.min_price}
+              isVerified
+              className="hover-lift"
+              onClick={() => router.push(freelancerPath(f.id))}
+            />
           ))}
         </div>
       </div>

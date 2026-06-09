@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiProject, ApiService, ApiUserReputation } from '@/infrastructure/api/types'
+import { clearDashboardSummaryCache } from '@/shared/lib/dashboard-summary-cache'
 import { queryKeys } from '@/shared/lib/query-keys'
 import { wrapQueryFn } from '@/shared/lib/request-debug'
 
@@ -66,6 +67,6 @@ export function useDashboardHome(
   }
 }
 
-export function clearDashboardHomeCache(userId?: string) {
-  void userId
+export function clearDashboardHomeCache(_userId?: string) {
+  clearDashboardSummaryCache()
 }

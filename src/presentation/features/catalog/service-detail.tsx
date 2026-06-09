@@ -44,19 +44,6 @@ import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 
-const SERVICE_INCLUDES: TranslationKey[] = [
-  'service_include_1',
-  'service_include_2',
-  'service_include_3',
-  'service_include_4',
-]
-
-const SERVICE_FAQ: { q: TranslationKey; a: TranslationKey }[] = [
-  { q: 'service_faq_1_q', a: 'service_faq_1_a' },
-  { q: 'service_faq_2_q', a: 'service_faq_2_a' },
-  { q: 'service_faq_3_q', a: 'service_faq_3_a' },
-]
-
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
   web: 'cat_web',
   mobile: 'cat_mobile',
@@ -503,19 +490,6 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               </p>
             </section>
 
-            <section className="service-detail-section">
-              <h2 className="mb-2 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_what_included')}</h2>
-              <p className="mb-4 text-[12px] text-[var(--kwork-text-muted)]">{t('service_includes_general_note')}</p>
-              <ul className="space-y-2">
-                {SERVICE_INCLUDES.map((key) => (
-                  <li key={key} className="flex items-start gap-2 text-[13px] text-[var(--kwork-text-sub)]">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" aria-hidden />
-                    {t(key)}
-                  </li>
-                ))}
-              </ul>
-            </section>
-
             <section id="service-reviews" className="service-detail-section">
               <h2 className="mb-4 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_reviews_title')}</h2>
               {reviews.length > 0 ? (
@@ -533,19 +507,6 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               ) : (
                 <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('service_reviews_empty_desc')}</p>
               )}
-            </section>
-
-            <section className="service-detail-section">
-              <h2 className="mb-2 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_faq')}</h2>
-              <p className="mb-4 text-[12px] text-[var(--kwork-text-muted)]">{t('service_faq_general_note')}</p>
-              <dl className="space-y-4">
-                {SERVICE_FAQ.map((item) => (
-                  <div key={item.q}>
-                    <dt className="text-[14px] font-semibold text-[var(--kwork-text)]">{t(item.q)}</dt>
-                    <dd className="mt-1 text-[13px] leading-relaxed text-[var(--kwork-text-muted)]">{t(item.a)}</dd>
-                  </div>
-                ))}
-              </dl>
             </section>
 
             <div className="show-mobile">

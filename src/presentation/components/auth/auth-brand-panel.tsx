@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Check } from 'lucide-react'
+import { Check, Quote } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
 
@@ -47,6 +47,12 @@ export function AuthBrandPanel() {
             </li>
           ))}
         </ul>
+
+        <blockquote className="auth-brand-testimonial">
+          <Quote className="auth-brand-testimonial__icon h-5 w-5" aria-hidden />
+          <p className="auth-brand-testimonial__quote">&ldquo;{t('auth_testimonial_quote')}&rdquo;</p>
+          <footer className="auth-brand-testimonial__author">{t('auth_testimonial_author')}</footer>
+        </blockquote>
       </div>
 
     </aside>

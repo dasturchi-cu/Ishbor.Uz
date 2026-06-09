@@ -28,9 +28,6 @@ export function EscrowSteps({ className }: { className?: string }) {
           </div>
         ))}
       </div>
-      <p className="mt-4 text-center text-[11px] leading-relaxed text-[var(--kwork-text-muted)]">
-        {t('escrow_steps_disclaimer')}
-      </p>
     </div>
   )
 }

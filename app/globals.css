@@ -2290,6 +2290,19 @@
     border-top: 1px solid var(--kwork-border);
     background: var(--neutral-0);
   }
+  .dash-hero__kpis--5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (min-width: 640px) {
+    .dash-hero__kpis--5 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1024px) {
+    .dash-hero__kpis--5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
   .dash-kpi {
     display: flex;
     flex-direction: column;
@@ -5319,14 +5332,14 @@
 
   .landing-stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     margin-top: clamp(2rem, 4vw, 3rem);
   }
 
-  @media (max-width: 639px) and (min-width: 376px) {
+  @media (min-width: 640px) {
     .landing-stats-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
 
@@ -7551,6 +7564,128 @@ textarea,
   top: 12px;
   outline: 2px solid var(--neutral-0);
   outline-offset: 2px;
+}
+
+/* —— Product feeling: marketplace pulse, trust partners, badges —— */
+.marketplace-pulse {
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--kwork-border);
+  background: color-mix(in srgb, var(--neutral-0) 92%, var(--color-primary-light));
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--kwork-text-sub);
+}
+.marketplace-pulse__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--kwork-text);
+}
+.marketplace-pulse__dot {
+  display: flex;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.marketplace-pulse__text {
+  min-width: 0;
+  font-weight: 500;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.trust-brand-logos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.trust-brand-logos__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--kwork-text-muted);
+}
+.trust-brand-logos__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.trust-brand-logos__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--kwork-border);
+  border-radius: var(--r-full);
+  background: var(--neutral-0);
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--kwork-text);
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.trust-brand-logos__item:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--kwork-border));
+  box-shadow: var(--shadow-sm);
+}
+
+.service-card-badge--escrow {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-xs);
+  background: var(--info-bg);
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--info-dark);
+  letter-spacing: 0.02em;
+}
+
+.auth-brand-testimonial {
+  margin-top: 28px;
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in srgb, var(--neutral-0) 18%, transparent);
+  background: color-mix(in srgb, var(--neutral-0) 8%, transparent);
+  padding: 18px 20px;
+}
+.auth-brand-testimonial__icon {
+  margin-bottom: 8px;
+  opacity: 0.65;
+}
+.auth-brand-testimonial__quote {
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--neutral-0);
+}
+.auth-brand-testimonial__author {
+  margin-top: 10px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--neutral-0) 72%, transparent);
+}
+
+.landing-category-card,
+.landing-testimonial-card,
+.kwork-freelancer-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.landing-category-card:hover,
+.landing-testimonial-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 /* Respect prefers-reduced-motion for accessibility */

@@ -16,7 +16,7 @@ import { ServiceCard } from '@/presentation/components/features/service-card'
 
 import { SkeletonCard } from '@/presentation/components/ui/skeleton'
 
-import { PATHS, servicePath, defaultAuthDestination } from '@/domain/constants/routes'
+import { PATHS, servicePath } from '@/domain/constants/routes'
 
 import { fetchPublicStatsCached } from '@/shared/lib/public-stats-cache'
 
@@ -28,7 +28,7 @@ import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
 
 import { TrustStrip } from '@/presentation/components/layout/trust-strip'
-import { TrustBrandLogos } from '@/presentation/components/layout/trust-brand-logos'
+import { MarketplacePulse } from '@/presentation/components/layout/marketplace-pulse'
 import { SearchAutocomplete } from '@/presentation/components/layout/search-autocomplete'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Avatar } from '@/presentation/components/ui/avatar'
@@ -51,6 +51,8 @@ import {
   LandingStatsRow,
 
   LandingTestimonials,
+
+  LandingTopFreelancers,
 
   filterServicesByTab,
 
@@ -182,14 +184,11 @@ export function LandingPage() {
       const { hash, search } = window.location
       if (hash.includes('type=recovery') || search.includes('type=recovery')) return
     }
-    if (isAuthLoading || !isLoggedIn) return
-    if (!profile) return
-    const dest =
-      !profile.onboarding_completed && !profile.is_admin
-        ? PATHS.onboarding
-        : defaultAuthDestination(profile, currentUserRole)
-    router.replace(dest)
-  }, [isAuthLoading, isLoggedIn, currentUserRole, profile, router])
+    if (isAuthLoading || !isLoggedIn || !profile) return
+    if (!profile.onboarding_completed && !profile.is_admin) {
+      router.replace(PATHS.onboarding)
+    }
+  }, [isAuthLoading, isLoggedIn, profile, router])
 
 
 
@@ -250,7 +249,7 @@ export function LandingPage() {
 
 
 
-  if (isAuthLoading || isLoggedIn) {
+  if (isAuthLoading) {
     return (
       <div
         className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-[var(--body-bg)]"
@@ -262,8 +261,6 @@ export function LandingPage() {
       </div>
     )
   }
-
-
 
   return (
 
@@ -293,9 +290,13 @@ export function LandingPage() {
 
               <p className="mt-5 max-w-[540px] text-[15px] leading-relaxed text-[var(--kwork-text-muted)] sm:text-[17px]">
 
-                {t('kwork_hero_sub')}
+                {t('landing_hero_sub')}
 
               </p>
+
+
+
+              <MarketplacePulse stats={stats} className="mt-5" />
 
 
 
@@ -434,15 +435,9 @@ export function LandingPage() {
 
 
 
-      <section className="border-y border-[var(--kwork-border)] bg-[var(--neutral-0)] py-5">
-        <TrustBrandLogos className="layout-container max-w-[1280px]" />
-      </section>
-
-
-
       <LandingCategoryGrid stats={stats} />
 
-
+      <LandingTopFreelancers stats={stats} />
 
       <section className="landing-featured-section page-section">
 

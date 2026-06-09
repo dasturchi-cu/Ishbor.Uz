@@ -17,6 +17,10 @@ function readStoredRole(): UserRole | null {
   return null
 }
 
+function readInitialRole(): UserRole {
+  return readStoredRole() ?? roleFromProfile(readCachedProfile())
+}
+
 function roleFromProfile(profile: ApiProfile | null | undefined): UserRole {
   return profile?.role === 'client' ? 'client' : 'freelancer'
 }
@@ -41,9 +45,7 @@ export interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentUserRole, setCurrentUserRoleState] = useState<UserRole>(
-    () => readStoredRole() ?? 'freelancer',
-  )
+  const [currentUserRole, setCurrentUserRoleState] = useState<UserRole>(readInitialRole)
   const activeRoleRef = useRef<UserRole>(currentUserRole)
   const [theme, setThemeState] = useState<'light' | 'dark'>('light')
   const [language, setLanguage] = useState<'uz' | 'ru' | 'en'>('uz')
@@ -117,11 +119,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     clearAuthCache()
-    const [{ clearDashboardHomeCache }, { clearMergedActivityFeedCache }] = await Promise.all([
-      import('@/shared/lib/use-dashboard-home'),
-      import('@/shared/lib/use-merged-activity-feed'),
-    ])
+    const [{ clearDashboardHomeCache }, { clearMergedActivityFeedCache }, { clearDashboardSummaryCache }] =
+      await Promise.all([
+        import('@/shared/lib/use-dashboard-home'),
+        import('@/shared/lib/use-merged-activity-feed'),
+        import('@/shared/lib/dashboard-summary-cache'),
+      ])
     clearDashboardHomeCache(userId ?? undefined)
+    clearDashboardSummaryCache()
     clearMergedActivityFeedCache()
     clearCachedProfile()
     if (isSupabaseConfigured()) {

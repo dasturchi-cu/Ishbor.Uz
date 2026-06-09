@@ -34,7 +34,6 @@ import { Skeleton } from '@/presentation/components/ui/skeleton'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
-import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-banner'
 import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
 import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
@@ -125,7 +124,7 @@ export function FreelancerDashboard() {
   const { t, profile, userId, isAuthLoading, isLoggedIn } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { messageUnread } = useBadgeCounts()
+  const { messageUnread, notificationUnread } = useBadgeCounts()
   const authReady = !isAuthLoading && isLoggedIn && Boolean(userId)
 
   const { orders, services, reviewStats, reputation, loading, error, loadError, reload } = useDashboardSummary(
@@ -312,6 +311,8 @@ export function FreelancerDashboard() {
         activeOrders={activeOrders.length}
         pendingPayments={pendingPayments.length}
         messageUnread={messageUnread}
+        notificationUnread={notificationUnread}
+        walletBalance={profile?.wallet_balance ?? null}
         primaryCta={primaryCta}
         orders={orders}
         onboardingProgress={onboardingProgress}
@@ -334,6 +335,7 @@ export function FreelancerDashboard() {
         items={[
           { href: PATHS.dashboardServicesNew, icon: Plus, labelKey: 'dash_action_create_service' },
           { href: PATHS.dashboardOrders, icon: ShoppingBag, labelKey: 'dash_action_find_orders' },
+          { href: PATHS.dashboardWallet, icon: Wallet, labelKey: 'dash_kpi_wallet' },
           { href: PATHS.dashboardMessages, icon: MessageCircle, labelKey: 'dash_action_open_chat' },
           { href: PATHS.dashboardProfile, icon: User, labelKey: 'dash_action_complete_profile' },
         ]}
@@ -578,7 +580,6 @@ export function FreelancerDashboard() {
         )}
       </DashboardPanel>
 
-      <ReferralBanner />
     </div>
   )
 }

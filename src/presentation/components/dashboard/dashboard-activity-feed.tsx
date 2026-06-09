@@ -3,11 +3,14 @@
 import Link from 'next/link'
 import { CreditCard, MessageCircle, Package, ShoppingBag } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { cn } from '@/shared/lib/utils'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { useMergedActivityFeed, type FeedKind } from '@/shared/lib/use-merged-activity-feed'
+import { PATHS } from '@/domain/constants/routes'
 
 const KIND_ICON: Record<FeedKind, LucideIcon> = {
   activity: Package,
@@ -25,6 +28,7 @@ const KIND_CLASS: Record<FeedKind, string> = {
 
 export function DashboardActivityFeed({ className, limit = 10 }: { className?: string; limit?: number }) {
   const { t, language } = useApp()
+  const router = useRouter()
   const { items, loading } = useMergedActivityFeed(t, limit)
 
   if (loading) {
@@ -45,9 +49,16 @@ export function DashboardActivityFeed({ className, limit = 10 }: { className?: s
 
   if (items.length === 0) {
     return (
-      <p className={cn('py-4 text-center text-[13px] text-[var(--kwork-text-muted)]', className)}>
-        {t('activity_empty')}
-      </p>
+      <div className={className}>
+        <EmptyState
+          icon={<Package />}
+          title={t('activity_empty')}
+          description={t('activity_empty_desc')}
+          action={{ label: t('activity_empty_cta'), onClick: () => router.push(PATHS.services) }}
+          secondaryAction={{ label: t('dash_action_post_project'), onClick: () => router.push(PATHS.postProject), variant: 'outline' }}
+          compact
+        />
+      </div>
     )
   }
 
