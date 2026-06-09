@@ -165,3 +165,62 @@ def test_sandbox_checkout_blocked_in_production(monkeypatch, client):
         json={"provider": "sandbox"},
     )
     assert response.status_code == 401
+
+
+def test_withdraw_application_requires_auth(client):
+    response = client.delete("/api/v1/applications/00000000-0000-4000-8000-000000000001")
+    assert response.status_code == 401
+
+
+def test_dismiss_notifications_requires_auth(client):
+    response = client.post(
+        "/api/v1/notifications/dismiss",
+        json={"ids": ["order-00000000-0000-4000-8000-000000000001-pending"]},
+    )
+    assert response.status_code == 401
+
+
+def test_update_project_requires_auth(client):
+    response = client.patch(
+        "/api/v1/projects/00000000-0000-4000-8000-000000000099",
+        json={"title": "Updated title"},
+    )
+    assert response.status_code == 401
+
+
+def test_platform_activities_require_auth(client):
+    response = client.get("/api/v1/platform/activities")
+    assert response.status_code == 401
+
+
+def test_platform_feature_flags_public(client):
+    response = client.get("/api/v1/platform/feature-flags")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+def test_admin_audit_logs_require_auth(client):
+    response = client.get("/api/v1/admin/audit-logs")
+    assert response.status_code == 401
+
+
+def test_admin_analytics_require_auth(client):
+    response = client.get("/api/v1/admin/analytics")
+    assert response.status_code == 401
+
+
+def test_profile_response_coerces_null_arrays():
+    from app.schemas import ProfileResponse
+
+    row = ProfileResponse.model_validate(
+        {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "role": "client",
+            "skills": None,
+            "portfolio_urls": None,
+            "languages": None,
+        }
+    )
+    assert row.skills == []
+    assert row.portfolio_urls == []
+    assert row.languages == []

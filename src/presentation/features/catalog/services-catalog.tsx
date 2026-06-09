@@ -188,6 +188,11 @@ function ServicesCatalogContent() {
     return () => clearTimeout(id)
   }, [searchTerm])
 
+  useEffect(() => {
+    if (!debouncedSearch) return
+    api.trackAnalytics('search', { query: debouncedSearch, surface: 'services' }).catch(() => undefined)
+  }, [debouncedSearch])
+
   const handleCategorySelect = useCallback(
     (cat: string) => {
       setSelectedCategory(cat)

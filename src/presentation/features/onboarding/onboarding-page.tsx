@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sprout, TrendingUp, Award, Briefcase, Search, X } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -18,11 +18,26 @@ import { cn } from '@/shared/lib/utils'
 import { uploadAvatar } from '@/infrastructure/supabase/storage'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { pickAvailableUsername } from '@/shared/lib/username'
+import { serviceCreateSchema } from '@/domain/validators/service'
+import {
+  normalizeExpLevel,
+  normalizeLanguages,
+  parseSpecialtySkillExtras,
+  parseSpecialtyTitle,
+  type OnboardingExpLevel,
+} from '@/shared/lib/onboarding-profile'
 import { toast } from '@/presentation/components/ui/toast'
 
 const ONBOARDING_STEP_KEY = 'ishbor-onboarding-step'
+const REGISTER_REGION_KEY = 'ishbor-register-region'
 
-type ExpLevel = 'junior' | 'mid' | 'expert'
+function readStoredRegion(): string {
+  if (typeof window === 'undefined') return ''
+  const saved = sessionStorage.getItem(REGISTER_REGION_KEY)
+  return saved && (UZ_REGIONS as readonly string[]).includes(saved) ? saved : ''
+}
+
+type ExpLevel = OnboardingExpLevel
 
 export function OnboardingPage() {
   const { t, profile, currentUserRole, refreshProfile, mergeProfile, userId } = useApp()
@@ -37,7 +52,7 @@ export function OnboardingPage() {
   const [username, setUsername] = useState('')
   const [title, setTitle] = useState('')
   const [bio, setBio] = useState('')
-  const [city, setCity] = useState('')
+  const [city, setCity] = useState(readStoredRegion)
   const [company, setCompany] = useState('')
   const [skills, setSkills] = useState<string[]>([])
   const [skillInput, setSkillInput] = useState('')
@@ -50,6 +65,11 @@ export function OnboardingPage() {
   const [packagePrice, setPackagePrice] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'error'>('idle')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastAutoSavedRef = useRef<string>('')
+  const autoSavingRef = useRef(false)
+  const profileHydratedRef = useRef(false)
+  const skipAutoSaveUntilRef = useRef(0)
 
   const clearFieldError = (field: string) => {
     setFieldErrors((prev) => {
@@ -117,21 +137,52 @@ export function OnboardingPage() {
   }, [profile?.id, profile?.email, profile?.full_name, profile?.username, fullName, username])
 
   useEffect(() => {
-    if (!profile) return
-    setFullName((v) => v || profile.full_name || '')
-    setUsername((v) => {
-      if (v) return v
-      if (profile.username) {
-        setUsernameStatus('ok')
-        return profile.username
-      }
-      return ''
-    })
-    setCity((v) => v || profile.region || '')
-    if (isClient) {
-      setCompany((v) => v || profile.specialty?.trim() || '')
+    if (!profile?.id || profileHydratedRef.current) return
+    profileHydratedRef.current = true
+    skipAutoSaveUntilRef.current = Date.now() + 1500
+
+    setFullName(profile.full_name || '')
+    if (profile.username) {
+      setUsername(profile.username)
+      setUsernameStatus('ok')
     }
-  }, [profile, isClient])
+    setCity(profile.region || readStoredRegion())
+    if (isClient) {
+      setCompany(profile.specialty?.trim() || '')
+    } else {
+      setBio(profile.bio || '')
+      setTitle(parseSpecialtyTitle(profile.specialty))
+      if (profile.skills?.length) {
+        setSkills(profile.skills)
+      } else {
+        setSkills(parseSpecialtySkillExtras(profile.specialty))
+      }
+      if (profile.experience_level) {
+        setExpLevel(normalizeExpLevel(profile.experience_level))
+      }
+      if (profile.hourly_rate) {
+        setHourlyRate(String(profile.hourly_rate))
+      }
+      setLanguages(normalizeLanguages(profile.languages))
+    }
+  }, [profile?.id, profile, isClient])
+
+  useEffect(() => {
+    if (city.trim() || !isSupabaseConfigured()) return
+    getSupabase()
+      .auth.getUser()
+      .then(({ data: { user } }) => {
+        const fromMeta = user?.user_metadata?.region
+        if (
+          typeof fromMeta === 'string' &&
+          fromMeta.trim() &&
+          (UZ_REGIONS as readonly string[]).includes(fromMeta.trim())
+        ) {
+          setCity(fromMeta.trim())
+        }
+      })
+      .catch(() => undefined)
+  }, [city])
 
   useEffect(() => {
     if (!isClient || company || !isSupabaseConfigured()) return
@@ -174,51 +225,109 @@ export function OnboardingPage() {
       usernameStatus === 'ok' &&
       city.trim().length > 0
     if (isClient) return base
-    return base && title.trim().length > 2 && bio.trim().length > 10
+    return base && title.trim().length > 2 && bio.trim().length >= 10
   }, [fullName, username, usernameStatus, city, title, bio, isClient])
 
-  const profilePayload = (complete: boolean) => {
-    const specialtyValue = !isClient
-      ? [title.trim(), ...skills].filter(Boolean).join(' · ') || undefined
-      : company.trim() || undefined
-    const bioValue = !isClient
-      ? bio.trim() || undefined
-      : company.trim()
-        ? `${company.trim()}${bio.trim() ? ` — ${bio.trim()}` : ''}`
-        : bio.trim() || undefined
+  const profilePayload = useCallback(
+    (complete: boolean) => {
+      const specialtyValue = !isClient ? title.trim() || undefined : company.trim() || undefined
+      const bioValue = !isClient
+        ? bio.trim() || undefined
+        : company.trim()
+          ? `${company.trim()}${bio.trim() ? ` — ${bio.trim()}` : ''}`
+          : bio.trim() || undefined
 
-    return {
-      full_name: fullName.trim() || undefined,
-      username: username.trim().replace(/^@/, '') || undefined,
-      region: city.trim() || undefined,
-      specialty: specialtyValue,
-      bio: bioValue,
-      skills: !isClient ? skills : undefined,
-      hourly_rate: !isClient && hourlyRate ? Number(hourlyRate.replace(/\D/g, '')) || undefined : undefined,
-      experience_level: !isClient ? expLevel : undefined,
-      languages: !isClient ? languages : undefined,
-      ...(complete ? { onboarding_completed: true as const } : {}),
-    }
-  }
+      return {
+        full_name: fullName.trim() || undefined,
+        username: username.trim().replace(/^@/, '') || undefined,
+        region: city.trim() || undefined,
+        specialty: specialtyValue,
+        bio: bioValue,
+        skills: !isClient ? skills : undefined,
+        hourly_rate: !isClient && hourlyRate ? Number(hourlyRate.replace(/\D/g, '')) || undefined : undefined,
+        experience_level: !isClient ? expLevel : undefined,
+        languages: !isClient ? languages : undefined,
+        ...(complete ? { onboarding_completed: true as const } : {}),
+      }
+    },
+    [
+      isClient,
+      title,
+      company,
+      bio,
+      fullName,
+      username,
+      city,
+      skills,
+      hourlyRate,
+      expLevel,
+      languages,
+    ],
+  )
 
-  const persistProfile = async (complete: boolean) => {
-    let finalUsername = username.trim().replace(/^@/, '')
-    if (finalUsername.length < 3 || usernameStatus !== 'ok') {
-      let email = profile?.email
-      if (!email && isSupabaseConfigured()) {
-        const { data: { user } } = await getSupabase().auth.getUser()
-        email = user?.email ?? undefined
+  const persistProfile = useCallback(
+    async (complete: boolean) => {
+      let finalUsername = username.trim().replace(/^@/, '')
+      if (finalUsername.length < 3 || usernameStatus !== 'ok') {
+        let email = profile?.email
+        if (!email && isSupabaseConfigured()) {
+          const { data: { user } } = await getSupabase().auth.getUser()
+          email = user?.email ?? undefined
+        }
+        if (email) {
+          finalUsername = await pickAvailableUsername(email, fullName.trim())
+          setUsername(finalUsername)
+          setUsernameStatus('ok')
+        }
       }
-      if (email) {
-        finalUsername = await pickAvailableUsername(email, fullName.trim())
-        setUsername(finalUsername)
-        setUsernameStatus('ok')
-      }
+      const updated = await api.updateProfile(profilePayload(complete))
+      const withRole =
+        updated.role === currentUserRole
+          ? updated
+          : await api.updateProfileRole(currentUserRole)
+      mergeProfile({ ...withRole, role: currentUserRole })
+      lastAutoSavedRef.current = JSON.stringify(profilePayload(complete))
+      sessionStorage.removeItem(REGISTER_REGION_KEY)
+      return updated
+    },
+    [username, usernameStatus, profile?.email, fullName, currentUserRole, mergeProfile, profilePayload],
+  )
+
+  const canAutoSave = useMemo(() => {
+    if (!profile?.id || profile.onboarding_completed) return false
+    if (fullName.trim().length <= 1 || !city.trim()) return false
+    if (username.trim().length >= 3 && usernameStatus === 'taken') return false
+    if (username.trim().length >= 3 && usernameStatus === 'checking') return false
+    if (!isClient && username.trim().length >= 3 && usernameStatus === 'error') return false
+    return true
+  }, [profile?.id, profile?.onboarding_completed, fullName, city, username, usernameStatus, isClient])
+
+  const runAutoSave = useCallback(async () => {
+    if (!canAutoSave || autoSavingRef.current || saving) return
+    if (Date.now() < skipAutoSaveUntilRef.current) return
+    const payload = profilePayload(false)
+    const key = JSON.stringify(payload)
+    if (key === lastAutoSavedRef.current) return
+    autoSavingRef.current = true
+    try {
+      await persistProfile(false)
+    } catch {
+      /* keyingi urinishda yoki Davom etishda xabar chiqadi */
+    } finally {
+      autoSavingRef.current = false
     }
-    const updated = await api.updateProfile(profilePayload(complete))
-    mergeProfile({ ...updated, role: currentUserRole })
-    return updated
-  }
+  }, [canAutoSave, saving, persistProfile, profilePayload])
+
+  useEffect(() => {
+    if (!canAutoSave) return
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => {
+      void runAutoSave()
+    }, 1200)
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    }
+  }, [canAutoSave, runAutoSave, fullName, username, title, bio, city, company, skills, expLevel, hourlyRate, languages, currentUserRole])
 
   const validateStep1 = () => {
     const errs: Record<string, string> = {}
@@ -242,7 +351,7 @@ export function OnboardingPage() {
       if (title.trim().length <= 2) {
         errs.title = t('onboarding_err_title')
       }
-      if (bio.trim().length <= 10) {
+      if (bio.trim().length < 10) {
         errs.bio = t('onboarding_err_bio')
       }
     }
@@ -286,6 +395,41 @@ export function OnboardingPage() {
       toast.error(t('onboarding_required_fields'))
       return false
     }
+
+    let servicePayload: {
+      title: string
+      description: string
+      category: string
+      region: string
+      price: number
+      delivery_days: number
+    } | null = null
+
+    if (!isClient && !skipService && serviceTitle.trim() && serviceCategory && serviceDesc.trim()) {
+      const price = Number(packagePrice.replace(/\s/g, '')) || 0
+      const region = city.trim() || profile?.region || UZ_REGIONS[0]
+      const parsed = serviceCreateSchema.safeParse({
+        title: serviceTitle.trim(),
+        description: serviceDesc.trim(),
+        category: serviceCategory,
+        region,
+        price,
+        delivery_days: 5,
+      })
+      if (!parsed.success || price <= 0) {
+        toast.error(t('onboarding_service_error'))
+        return false
+      }
+      servicePayload = {
+        title: parsed.data.title,
+        description: parsed.data.description,
+        category: parsed.data.category,
+        region: parsed.data.region,
+        price: parsed.data.price,
+        delivery_days: parsed.data.delivery_days ?? 5,
+      }
+    }
+
     setSaving(true)
     try {
       await persistProfile(true)
@@ -297,28 +441,21 @@ export function OnboardingPage() {
       setSaving(false)
     }
 
-    if (!isClient && !skipService && serviceTitle.trim() && serviceCategory && serviceDesc.trim()) {
-      const price = Number(packagePrice.replace(/\s/g, '')) || 0
-      if (price > 0) {
-        try {
-          await api.createService({
-            title: serviceTitle.trim(),
-            description: serviceDesc.trim(),
-            category: serviceCategory,
-            region: city.trim() || profile?.region || UZ_REGIONS[0],
-            price,
-            delivery_days: 5,
-          })
-        } catch {
-          toast.error(t('onboarding_service_error'))
-        }
+    let serviceCreated = false
+    if (servicePayload) {
+      try {
+        await api.createService(servicePayload)
+        serviceCreated = true
+      } catch {
+        toast.error(t('onboarding_service_error'))
       }
     }
 
     await refreshProfile()
     sessionStorage.removeItem(ONBOARDING_STEP_KEY)
     toast.success(t('onboarding_complete_success'))
-    router.push(dashboardPathForRole(currentUserRole))
+    const dashboardPath = dashboardPathForRole(currentUserRole)
+    router.push(serviceCreated ? `${dashboardPath}?created=1` : dashboardPath)
     return true
   }
 
@@ -436,9 +573,12 @@ export function OnboardingPage() {
                     rows={4}
                     error={fieldErrors.bio}
                   />
-                  <p className="mt-1 text-right text-[11px] text-[var(--kwork-text-muted)]">
-                    {t('char_counter').replace('{n}', String(bio.length)).replace('{max}', '500')}
-                  </p>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[var(--kwork-text-muted)]">
+                    <span>{t('onboarding_bio_hint')}</span>
+                    <span className="shrink-0">
+                      {t('char_counter').replace('{n}', String(bio.length)).replace('{max}', '500')}
+                    </span>
+                  </div>
                 </div>
               </>
             )}
@@ -631,7 +771,24 @@ export function OnboardingPage() {
               </Button>
             )}
           </div>
-          <Button variant="primary" fullWidth className="mt-8" onClick={() => setStep(3)}>
+          <Button
+            variant="primary"
+            fullWidth
+            className="mt-8"
+            loading={saving}
+            onClick={async () => {
+              setSaving(true)
+              try {
+                await persistProfile(false)
+                setStep(3)
+              } catch (e) {
+                const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
+                toast.error(detail || t('onboarding_save_error'))
+              } finally {
+                setSaving(false)
+              }
+            }}
+          >
             {t('continue_btn')} →
           </Button>
         </div>
@@ -654,7 +811,13 @@ export function OnboardingPage() {
             options={KWORK_CATEGORY_ITEMS.map((c) => ({ value: c.cat, label: t(c.labelKey) }))}
             className="catalog-control"
           />
-          <Textarea label={t('description')} value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} rows={6} />
+          <Textarea
+            label={t('description')}
+            value={serviceDesc}
+            onChange={(e) => setServiceDesc(e.target.value)}
+            rows={6}
+            hint={t('onboarding_service_desc_hint')}
+          />
           <Input
             label={t('col_price')}
             value={packagePrice}

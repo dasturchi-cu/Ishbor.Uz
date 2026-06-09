@@ -206,17 +206,10 @@ export function filterServicesByTab<T extends { category: string }>(
 
 type TestimonialCard = { quote: string; author: string; rating: number }
 
-const FALLBACK_TESTIMONIAL_KEYS = [
-  { quoteKey: 'landing_testimonial_1_quote' as TranslationKey, authorKey: 'landing_testimonial_1_author' as TranslationKey },
-  { quoteKey: 'landing_testimonial_2_quote' as TranslationKey, authorKey: 'landing_testimonial_2_author' as TranslationKey },
-  { quoteKey: 'landing_testimonial_3_quote' as TranslationKey, authorKey: 'landing_testimonial_3_author' as TranslationKey },
-] as const
-
 export function LandingTestimonials() {
   const { t } = useApp()
   const [items, setItems] = useState<TestimonialCard[]>([])
   const [ready, setReady] = useState(false)
-  const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
     api
@@ -230,40 +223,20 @@ export function LandingTestimonials() {
               rating: r.rating,
             }))
           )
-          setIsDemo(false)
-        } else {
-          setItems(
-            FALLBACK_TESTIMONIAL_KEYS.map((k) => ({
-              quote: t(k.quoteKey),
-              author: t(k.authorKey),
-              rating: 5,
-            }))
-          )
-          setIsDemo(true)
         }
       })
       .catch(() => {
-        setItems(
-          FALLBACK_TESTIMONIAL_KEYS.map((k) => ({
-            quote: t(k.quoteKey),
-            author: t(k.authorKey),
-            rating: 5,
-          }))
-        )
-        setIsDemo(true)
+        setItems([])
       })
       .finally(() => setReady(true))
   }, [t])
 
-  if (!ready) return null
+  if (!ready || items.length === 0) return null
 
   return (
     <section className="landing-testimonials-section">
       <div className="layout-container max-w-[1280px]">
         <h2 className="landing-section-heading">{t('clients_say')}</h2>
-        {isDemo && (
-          <p className="mb-4 text-center text-[12px] text-[var(--kwork-text-muted)]">{t('landing_testimonials_demo_note')}</p>
-        )}
         <div className="landing-testimonials-grid">
           {items.map((item, idx) => (
             <article key={idx} className="landing-testimonial-card">

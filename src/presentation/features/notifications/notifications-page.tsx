@@ -7,8 +7,9 @@ import { Card } from '@/presentation/components/ui/card'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { SkeletonListRow } from '@/presentation/components/ui/skeleton'
-import { Bell, ShoppingBag, MessageCircle, Star, CheckCheck } from 'lucide-react'
-import { api } from '@/infrastructure/api/client'
+import { Bell, ShoppingBag, MessageCircle, Star, CheckCheck, X } from 'lucide-react'
+import { toast } from '@/presentation/components/ui/toast'
+import { ApiError, api } from '@/infrastructure/api/client'
 import type { ApiNotification } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 import { applyReadState, markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
@@ -30,6 +31,7 @@ export function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [dismissingId, setDismissingId] = useState<string | null>(null)
 
   const loadNotifications = useCallback((silent = false) => {
     if (!silent) {
@@ -67,6 +69,21 @@ export function NotificationsPage() {
     void markAllNotifsRead()
       .then(() => setItems((prev) => prev.map((n) => ({ ...n, unread: false }))))
       .catch(() => undefined)
+  }
+
+  const handleDismiss = (item: ApiNotification, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDismissingId(item.id)
+    void api
+      .dismissNotifications([item.id])
+      .then(() => {
+        setItems((prev) => prev.filter((n) => n.id !== item.id))
+        toast.success(t('notification_dismissed'))
+      })
+      .catch((err) => {
+        toast.error(err instanceof ApiError ? err.message : t('error_required'))
+      })
+      .finally(() => setDismissingId(null))
   }
 
   const handleClick = (item: ApiNotification) => {
@@ -150,41 +167,54 @@ export function NotificationsPage() {
               const Icon = TYPE_ICON[item.type]
               return (
                 <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleClick(item)}
+                  <div
                     className={cn(
-                      'flex w-full gap-4 px-5 py-4 text-left transition hover:bg-[var(--color-bg-subtle)]',
+                      'flex w-full items-stretch transition hover:bg-[var(--color-bg-subtle)]',
                       item.unread && 'bg-[var(--color-primary-light)]/40'
                     )}
                   >
-                    <div
-                      className={cn(
-                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
-                        item.type === 'order' && 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
-                        item.type === 'message' && 'bg-[var(--success-bg)] text-[var(--success-text)]',
-                        item.type === 'review' && 'bg-[var(--warning-bg)] text-[var(--warning-text)]'
-                      )}
+                    <button
+                      type="button"
+                      onClick={() => handleClick(item)}
+                      className="flex min-w-0 flex-1 gap-4 px-5 py-4 text-left"
                     >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[14px] font-semibold text-[var(--kwork-text)]">
-                          {resolveNotifText(item.title, t)}
-                        </p>
-                        <span className="shrink-0 text-[11px] text-[var(--kwork-text-muted)]">
-                          {formatRelativeTime(item.created_at, language)}
-                        </span>
+                      <div
+                        className={cn(
+                          'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
+                          item.type === 'order' && 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
+                          item.type === 'message' && 'bg-[var(--success-bg)] text-[var(--success-text)]',
+                          item.type === 'review' && 'bg-[var(--warning-bg)] text-[var(--warning-text)]'
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
                       </div>
-                      <p className="mt-0.5 text-[13px] text-[var(--kwork-text-muted)]">
-                        {resolveNotifText(item.body, t)}
-                      </p>
-                    </div>
-                    {item.unread && (
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--color-primary)]" />
-                    )}
-                  </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[14px] font-semibold text-[var(--kwork-text)]">
+                            {resolveNotifText(item.title, t)}
+                          </p>
+                          <span className="shrink-0 text-[11px] text-[var(--kwork-text-muted)]">
+                            {formatRelativeTime(item.created_at, language)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[13px] text-[var(--kwork-text-muted)]">
+                          {resolveNotifText(item.body, t)}
+                        </p>
+                      </div>
+                      {item.unread && (
+                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--color-primary)]" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('notification_dismiss')}
+                      disabled={dismissingId === item.id}
+                      onClick={(e) => handleDismiss(item, e)}
+                      className="shrink-0 px-4 text-[var(--kwork-text-muted)] hover:text-[var(--error)] disabled:opacity-50"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </li>
               )
             })}

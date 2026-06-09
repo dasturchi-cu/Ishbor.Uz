@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -20,21 +20,26 @@ import {
   ChevronRight,
   Plus,
   MessageCircle,
-  Briefcase,
   ShoppingBag,
+  CheckCircle2,
+  Timer,
+  TrendingUp,
+  User,
 } from 'lucide-react'
 import { PATHS, servicePath, dashboardOrderPath } from '@/domain/constants/routes'
-import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiService } from '@/infrastructure/api/types'
+import type { ApiOrder } from '@/infrastructure/api/types'
 import { formatPrice, orderProgress } from '@/shared/lib/format'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
-import { FreelancerOnboardingChecklist } from '@/presentation/components/dashboard/freelancer-onboarding-checklist'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-banner'
-import { ProfileCompletionBar } from '@/presentation/components/layout/profile-completion-bar'
+import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
+import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
+import { DashboardQuickActions } from '@/presentation/components/dashboard/dashboard-quick-actions'
+import { useDashboardHome } from '@/shared/lib/use-dashboard-home'
+import { useMessageUnreadCount } from '@/shared/lib/use-message-unread'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'delivered'])
 
@@ -65,6 +70,13 @@ function isLastMonth(dateStr?: string): boolean {
   const now = new Date()
   const last = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   return d.getMonth() === last.getMonth() && d.getFullYear() === last.getFullYear()
+}
+
+function formatResponseHours(hours: number | null | undefined, t: (k: TranslationKey) => string): string {
+  if (hours == null) return t('response_time_unknown')
+  if (hours < 1) return '<1h'
+  if (hours < 24) return `${Math.round(hours)}h`
+  return `${Math.round(hours / 24)}d`
 }
 
 function DashboardPanel({
@@ -106,56 +118,18 @@ function OrderRowSkeleton() {
   )
 }
 
-function QuickActionCard({
-  href,
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  href?: string
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  onClick?: () => void
-}) {
-  const className =
-    'kwork-card flex flex-col items-center gap-2 px-3 py-3 text-center'
-
-  const content = (
-    <>
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)]">
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="text-[12px] font-semibold text-[var(--kwork-text)]">{label}</span>
-    </>
-  )
-
-  if (href) {
-    return (
-      <Link href={href} className={className}>
-        {content}
-      </Link>
-    )
-  }
-
-  return (
-    <button type="button" onClick={onClick} className={className}>
-      {content}
-    </button>
-  )
-}
-
 export function FreelancerDashboard() {
   const { t, profile, userId } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const firstName = profile?.full_name?.split(/\s+/)[0]
+  const messageUnread = useMessageUnreadCount(true)
 
-  const [loading, setLoading] = useState(true)
-  const [orders, setOrders] = useState<ApiOrder[]>([])
-  const [services, setServices] = useState<ApiService[]>([])
-  const [reviewStats, setReviewStats] = useState({ average: 0, count: 0 })
+  const { orders, services, reviewStats, reputation, loading, error, reload } = useDashboardHome(
+    userId,
+    'freelancer'
+  )
+
   const [showCreatedBanner, setShowCreatedBanner] = useState(false)
-  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('created') === '1') {
@@ -163,39 +137,6 @@ export function FreelancerDashboard() {
       router.replace(PATHS.dashboardFreelancer)
     }
   }, [searchParams, router])
-
-  const loadDashboard = useCallback(() => {
-    if (!userId) {
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    setLoadError(false)
-    let failed = false
-    Promise.all([
-      api.listOrders().catch(() => {
-        failed = true
-        return [] as ApiOrder[]
-      }),
-      api.getFreelancerReviewStats(userId).catch(() => ({ average: 0, count: 0 })),
-      api.listMyServices().catch(() => {
-        failed = true
-        return [] as ApiService[]
-      }),
-    ])
-      .then(([ordersData, stats, servicesData]) => {
-        setOrders(ordersData)
-        setReviewStats(stats)
-        setServices(servicesData)
-        if (failed) setLoadError(true)
-      })
-      .finally(() => setLoading(false))
-  }, [userId])
-
-  useEffect(() => {
-    loadDashboard()
-  }, [loadDashboard])
 
   const metrics = useMemo(() => {
     const completed = orders.filter((o) => o.status === 'completed')
@@ -217,6 +158,9 @@ export function FreelancerDashboard() {
     const hasActive = active.length > 0
     const hasReviews = reviewStats.count > 0
     const hasServices = services.length > 0
+    const hasCompleted = completed.length > 0
+    const hasSuccessRate = reputation != null && reputation.success_rate > 0
+    const hasResponse = reputation?.response_time_hours != null
 
     return {
       monthlyEarnings: hasEarnings ? formatPrice(monthlyEarnings) : '0 so\'m',
@@ -228,6 +172,8 @@ export function FreelancerDashboard() {
       activeCount: String(active.length),
       activeChange: hasActive ? undefined : t('stat_no_data'),
       activeNeutral: !hasActive,
+      completedCount: String(completed.length),
+      completedNeutral: !hasCompleted,
       rating: reviewStats.average > 0 ? reviewStats.average.toFixed(1) : '—',
       ratingChange: hasReviews
         ? `${reviewStats.count} ${t('stat_reviews').toLowerCase()}`
@@ -246,21 +192,35 @@ export function FreelancerDashboard() {
             ? t('stat_coming_soon')
             : t('stat_profile_views_hint'),
       viewsNeutral: !(profile?.profile_views && profile.profile_views > 0) && !hasServices,
+      successRate: hasSuccessRate ? `${Math.round(reputation!.success_rate)}%` : '—',
+      successNeutral: !hasSuccessRate,
+      responseTime: formatResponseHours(reputation?.response_time_hours, t),
+      responseNeutral: !hasResponse,
       walletTotal:
         profile?.wallet_balance != null
           ? profile.wallet_balance
           : completed.reduce((sum, o) => sum + o.amount, 0),
     }
-  }, [orders, reviewStats, services.length, t, profile?.wallet_balance, profile?.profile_views])
+  }, [orders, reviewStats, services.length, t, profile?.wallet_balance, profile?.profile_views, reputation])
+
+  const activeOrders = useMemo(
+    () => orders.filter((o) => ACTIVE_STATUSES.has(o.status)),
+    [orders]
+  )
+
+  const pendingPayments = useMemo(
+    () => orders.filter((o) => o.payment_status === 'held' && o.status !== 'completed'),
+    [orders]
+  )
 
   const readyToAccept = useMemo(
     () => orders.filter((o) => o.status === 'pending' && o.payment_status === 'held'),
-    [orders],
+    [orders]
   )
 
   const awaitingClientPayment = useMemo(
     () => orders.filter((o) => o.status === 'pending' && o.payment_status !== 'held'),
-    [orders],
+    [orders]
   )
 
   const recentOrders = useMemo(
@@ -270,6 +230,13 @@ export function FreelancerDashboard() {
         .slice(0, 4),
     [orders]
   )
+
+  const primaryCta =
+    services.length === 0
+      ? { label: t('dash_action_create_service'), href: PATHS.dashboardServicesNew }
+      : readyToAccept.length > 0
+        ? { label: t('accept_order'), href: dashboardOrderPath(readyToAccept[0].id) }
+        : { label: t('dash_action_find_orders'), href: PATHS.dashboardOrders }
 
   const viewAllServicesLink = (
     <Link
@@ -281,23 +248,19 @@ export function FreelancerDashboard() {
     </Link>
   )
 
-  const reloadDashboard = loadDashboard
-
   return (
-    <div className="space-y-5 pb-2">
-      {loadError && (
+    <div className="dash-home space-y-5 pb-2">
+      {error && (
         <Alert variant="error">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={reloadDashboard}>
+            <Button variant="outline" size="sm" onClick={() => void reload()}>
               {t('catalog_retry')}
             </Button>
           </div>
         </Alert>
       )}
-      {showCreatedBanner && (
-        <Alert variant="success">{t('service_created')}</Alert>
-      )}
+      {showCreatedBanner && <Alert variant="success">{t('service_created')}</Alert>}
 
       {readyToAccept.length > 0 && (
         <Alert variant="info">
@@ -321,49 +284,35 @@ export function FreelancerDashboard() {
         </Alert>
       )}
 
-      <ProfileCompletionBar />
-
       <AdminPanelBanner />
 
-      <div className="dashboard-welcome flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-primary)]">
-              {t('freelancer_dashboard')}
-            </p>
-            <h2 className="mt-1 text-[22px] font-bold text-[var(--kwork-text)] md:text-[26px]">
-              {t('welcome_back')}
-              {firstName ? `, ${firstName}` : ''}
-            </h2>
-            <p className="mt-1.5 max-w-xl text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">
-              {t('freelancer_dashboard_sub')}
-            </p>
-          </div>
-          <Link href={PATHS.dashboardServicesNew} className="shrink-0">
-            <Button variant="primary" size="md" className="w-full rounded-full sm:w-auto" leftIcon={<Plus className="h-4 w-4" />}>
-              {t('create_service_title')}
-            </Button>
-          </Link>
-        </div>
+      <DashboardHero
+        role="freelancer"
+        activeOrders={activeOrders.length}
+        pendingPayments={pendingPayments.length}
+        messageUnread={messageUnread}
+        primaryCta={primaryCta}
+        orders={orders}
+      />
 
-        <div>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--kwork-text-muted)]">
-            {t('quick_actions_title')}
-          </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-            <QuickActionCard href={PATHS.dashboardServices} icon={Package} label={t('nav_my_services')} />
-            <QuickActionCard href={PATHS.dashboardOrders} icon={ShoppingBag} label={t('nav_orders')} />
-            <QuickActionCard href={PATHS.postProject} icon={Briefcase} label={t('nav_birja')} />
-            <QuickActionCard href={PATHS.dashboardMessages} icon={MessageCircle} label={t('nav_messages')} />
-          </div>
-        </div>
-      </div>
+      <DashboardRecommendedActions
+        role="freelancer"
+        services={services}
+        projects={[]}
+        orders={orders}
+        messageUnread={messageUnread}
+      />
 
-      {!loading && (
-        <FreelancerOnboardingChecklist services={services} hasOrders={orders.length > 0} />
-      )}
+      <DashboardQuickActions
+        items={[
+          { href: PATHS.dashboardServicesNew, icon: Plus, labelKey: 'dash_action_create_service' },
+          { href: PATHS.dashboardOrders, icon: ShoppingBag, labelKey: 'dash_action_find_orders' },
+          { href: PATHS.dashboardMessages, icon: MessageCircle, labelKey: 'dash_action_open_chat' },
+          { href: PATHS.dashboardProfile, icon: User, labelKey: 'dash_action_complete_profile' },
+        ]}
+      />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="dash-stats-grid">
         <StatCard
           icon={DollarSign}
           iconTone="success"
@@ -384,6 +333,14 @@ export function FreelancerDashboard() {
           loading={loading}
         />
         <StatCard
+          icon={CheckCircle2}
+          iconTone="success"
+          label={t('stat_completed_work')}
+          value={metrics.completedCount}
+          changeNeutral={metrics.completedNeutral}
+          loading={loading}
+        />
+        <StatCard
           icon={Star}
           iconTone="warning"
           label={t('stat_avg_rating')}
@@ -401,62 +358,23 @@ export function FreelancerDashboard() {
           changeNeutral={metrics.viewsNeutral}
           loading={loading}
         />
+        <StatCard
+          icon={Timer}
+          iconTone="purple"
+          label={t('response_time')}
+          value={metrics.responseTime}
+          changeNeutral={metrics.responseNeutral}
+          loading={loading}
+        />
+        <StatCard
+          icon={TrendingUp}
+          iconTone="success"
+          label={t('stat_success_rate')}
+          value={metrics.successRate}
+          changeNeutral={metrics.successNeutral}
+          loading={loading}
+        />
       </div>
-
-      <DashboardPanel
-        id="services"
-        title={t('nav_my_services')}
-        action={services.length > 0 ? viewAllServicesLink : undefined}
-      >
-        {loading ? (
-          <div className="space-y-2.5">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-16 animate-pulse rounded-[var(--r-md)] bg-[var(--color-bg-muted)]" />
-            ))}
-          </div>
-        ) : services.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<PackageIcon />}
-            title={t('no_services_yet')}
-            description={t('freelancer_no_services_desc')}
-            action={{
-              label: t('create_service_title'),
-              onClick: () => router.push(PATHS.dashboardServicesNew),
-              variant: 'outline',
-            }}
-          />
-        ) : (
-          <div className="space-y-2.5">
-            {services.slice(0, 4).map((service) => {
-              const categoryKey = CATEGORY_KEYS[service.category]
-              return (
-                <div
-                  key={service.id}
-                  className={cn(
-                    'flex flex-col gap-3 rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3.5 sm:flex-row sm:items-center sm:justify-between',
-                    'transition hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--kwork-border))] hover:bg-[var(--neutral-50)]'
-                  )}
-                >
-                  <div className="min-w-0">
-                    <h3 className="truncate font-semibold text-[var(--kwork-text)]">{service.title}</h3>
-                    <p className="mt-0.5 text-[12px] text-[var(--kwork-text-muted)]">
-                      {service.region}
-                      {categoryKey ? ` · ${t(categoryKey)}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <p className="font-bold tabular-nums text-[var(--kwork-text)]">{formatPrice(service.price)}</p>
-                    <Button size="sm" variant="outline" onClick={() => router.push(servicePath(service.id))}>
-                      {t('view')}
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </DashboardPanel>
 
       <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
         <DashboardPanel id="orders" title={t('nav_orders')}>
@@ -545,13 +463,13 @@ export function FreelancerDashboard() {
                     {t('withdraw_money')}
                   </Button>
                 </Link>
-                <Link href={PATHS.dashboardWallet} className="flex-1">
+                <Link href={PATHS.dashboardEscrow} className="flex-1">
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full border-white/20 bg-transparent text-white hover:bg-white/10"
                   >
-                    {t('nav_wallet')} →
+                    {t('nav_escrow')} →
                   </Button>
                 </Link>
               </div>
@@ -571,6 +489,61 @@ export function FreelancerDashboard() {
           </DashboardPanel>
         </div>
       </div>
+
+      <DashboardPanel
+        id="services"
+        title={t('nav_my_services')}
+        action={services.length > 0 ? viewAllServicesLink : undefined}
+      >
+        {loading ? (
+          <div className="space-y-2.5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-16 animate-pulse rounded-[var(--r-md)] bg-[var(--color-bg-muted)]" />
+            ))}
+          </div>
+        ) : services.length === 0 ? (
+          <EmptyState
+            compact
+            icon={<PackageIcon />}
+            title={t('no_services_yet')}
+            description={t('freelancer_no_services_desc')}
+            action={{
+              label: t('create_service_title'),
+              onClick: () => router.push(PATHS.dashboardServicesNew),
+              variant: 'outline',
+            }}
+          />
+        ) : (
+          <div className="space-y-2.5">
+            {services.slice(0, 3).map((service) => {
+              const categoryKey = CATEGORY_KEYS[service.category]
+              return (
+                <div
+                  key={service.id}
+                  className={cn(
+                    'flex flex-col gap-3 rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3.5 sm:flex-row sm:items-center sm:justify-between',
+                    'transition hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--kwork-border))] hover:bg-[var(--neutral-50)]'
+                  )}
+                >
+                  <div className="min-w-0">
+                    <h3 className="truncate font-semibold text-[var(--kwork-text)]">{service.title}</h3>
+                    <p className="mt-0.5 text-[12px] text-[var(--kwork-text-muted)]">
+                      {service.region}
+                      {categoryKey ? ` · ${t(categoryKey)}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <p className="font-bold tabular-nums text-[var(--kwork-text)]">{formatPrice(service.price)}</p>
+                    <Button size="sm" variant="outline" onClick={() => router.push(servicePath(service.id))}>
+                      {t('view')}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </DashboardPanel>
 
       <ReferralBanner />
     </div>

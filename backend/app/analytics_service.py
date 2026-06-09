@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.database import get_supabase_admin
+from app.db_utils import run_query
 
 
 def _period_days(key: str) -> int:
@@ -22,8 +23,8 @@ def build_user_analytics(user_id: str, role: str, period: str = "30d") -> dict[s
     days = _period_days(period)
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
-    profile = (
-        supabase.table("profiles")
+    profile = run_query(
+        lambda: supabase.table("profiles")
         .select("profile_views, role")
         .eq("id", user_id)
         .single()
@@ -32,8 +33,8 @@ def build_user_analytics(user_id: str, role: str, period: str = "30d") -> dict[s
     profile_views = (profile.data or {}).get("profile_views") or 0
 
     order_col = "freelancer_id" if role == "freelancer" else "client_id"
-    orders_res = (
-        supabase.table("orders")
+    orders_res = run_query(
+        lambda: supabase.table("orders")
         .select("id, status, amount, created_at, client_id")
         .eq(order_col, user_id)
         .gte("created_at", since.isoformat())
@@ -44,8 +45,8 @@ def build_user_analytics(user_id: str, role: str, period: str = "30d") -> dict[s
     client_ids = list({o["client_id"] for o in orders if o.get("client_id")})
     region_by_client: dict[str, str] = {}
     if client_ids:
-        clients = (
-            supabase.table("profiles")
+        clients = run_query(
+            lambda: supabase.table("profiles")
             .select("id, region")
             .in_("id", client_ids)
             .execute()
@@ -53,13 +54,15 @@ def build_user_analytics(user_id: str, role: str, period: str = "30d") -> dict[s
         for row in clients.data or []:
             region_by_client[row["id"]] = (row.get("region") or "").strip()
 
-    services_res = (
-        supabase.table("services")
-        .select("view_count")
-        .eq("freelancer_id", user_id)
-        .execute()
-    )
-    service_views = sum((s.get("view_count") or 0) for s in (services_res.data or []))
+    service_views = 0
+    if role == "freelancer":
+        services_res = run_query(
+            lambda: supabase.table("services")
+            .select("view_count")
+            .eq("freelancer_id", user_id)
+            .execute()
+        )
+        service_views = sum((s.get("view_count") or 0) for s in (services_res.data or []))
 
     completed_revenue = sum(o["amount"] for o in orders if o.get("status") == "completed")
     chart_months = 4 if period == "7d" else 6

@@ -6,7 +6,7 @@ from app.database import get_supabase_admin
 from app.notification_service import create_notification
 from app.deps import UserAuthDep
 
-from app.schemas import PublicReviewResponse, ReviewCreate, ReviewReplyUpdate, ReviewResponse
+from app.schemas import PublicReviewResponse, ReviewCreate, ReviewReplyUpdate, ReviewResponse, ReviewUpdate
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -32,6 +32,14 @@ def _enrich_reviews(supabase, reviews: list[dict]) -> list[dict]:
     for review in reviews:
         enriched.append({**review, "profiles": profiles_map.get(review["reviewer_id"])})
     return enriched
+
+
+def _enrich_reviews_freelancer(supabase, reviews: list[dict]) -> list[dict]:
+    if not reviews:
+        return []
+    freelancer_ids = list({r["freelancer_id"] for r in reviews if r.get("freelancer_id")})
+    profiles_map = _batch_profiles(supabase, freelancer_ids)
+    return [{**review, "profiles": profiles_map.get(review["freelancer_id"])} for review in reviews]
 
 
 @router.get("/recent", response_model=list[PublicReviewResponse])
@@ -98,6 +106,34 @@ def list_service_reviews(service_id: str):
     return _enrich_reviews(supabase, result.data or [])
 
 
+@router.get("/reviewer/me", response_model=list[ReviewResponse])
+def list_my_written_reviews(auth: UserAuthDep):
+    supabase = get_supabase_admin()
+    result = (
+        supabase.table("reviews")
+        .select("*")
+        .eq("reviewer_id", auth.user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return _enrich_reviews_freelancer(supabase, result.data or [])
+
+
+@router.get("/reviewer/me/stats")
+def my_written_review_stats(auth: UserAuthDep):
+    supabase = get_supabase_admin()
+    result = (
+        supabase.table("reviews")
+        .select("rating")
+        .eq("reviewer_id", auth.user_id)
+        .execute()
+    )
+    ratings = [r["rating"] for r in (result.data or [])]
+    if not ratings:
+        return {"average": 0, "count": 0}
+    return {"average": round(sum(ratings) / len(ratings), 1), "count": len(ratings)}
+
+
 @router.get("/freelancer/{freelancer_id}", response_model=list[ReviewResponse])
 def list_freelancer_reviews(freelancer_id: str):
     supabase = get_supabase_admin()
@@ -126,6 +162,23 @@ def freelancer_review_stats(freelancer_id: str):
     return {"average": round(sum(ratings) / len(ratings), 1), "count": len(ratings)}
 
 
+@router.get("/order/{order_id}", response_model=ReviewResponse | None)
+def get_review_for_order(order_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    order = supabase.table("orders").select("client_id, freelancer_id").eq("id", order_id).single().execute()
+    if not order.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
+    if user_id not in (order.data["client_id"], order.data["freelancer_id"]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+
+    result = supabase.table("reviews").select("*").eq("order_id", order_id).limit(1).execute()
+    if not result.data:
+        return None
+    enriched = _enrich_reviews(supabase, result.data)
+    return enriched[0]
+
+
 @router.patch("/{review_id}/reply", response_model=ReviewResponse)
 def reply_to_review(review_id: str, payload: ReviewReplyUpdate, auth: UserAuthDep):
     user_id = auth.user_id
@@ -150,6 +203,62 @@ def reply_to_review(review_id: str, payload: ReviewReplyUpdate, auth: UserAuthDe
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Javob saqlanmadi")
     return result.data[0]
+
+
+def _review_edit_window_ok(created_at: str | None) -> bool:
+    if not created_at:
+        return True
+    try:
+        created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - created).days <= 7
+    except (TypeError, ValueError):
+        return True
+
+
+@router.patch("/{review_id}", response_model=ReviewResponse)
+def update_review(review_id: str, payload: ReviewUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    existing = supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sharh topilmadi")
+    if existing.data["reviewer_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat sharh muallifi tahrirlashi mumkin")
+    if not _review_edit_window_ok(existing.data.get("created_at")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sharhni 7 kun ichida tahrirlash mumkin",
+        )
+
+    updates = payload.model_dump(exclude_none=True)
+    if not updates:
+        return existing.data
+
+    result = supabase.table("reviews").update(updates).eq("id", review_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sharh yangilanmadi")
+    return result.data[0]
+
+
+@router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_review(review_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    existing = supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sharh topilmadi")
+    if existing.data["reviewer_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat sharh muallifi o'chirishi mumkin")
+    if not _review_edit_window_ok(existing.data.get("created_at")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sharhni 7 kun ichida o'chirish mumkin",
+        )
+
+    supabase.table("reviews").delete().eq("id", review_id).execute()
+    return None
 
 
 @router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)

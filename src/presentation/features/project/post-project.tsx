@@ -18,7 +18,7 @@ import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { uploadProjectImage, removeProjectImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { TranslationKey } from '@/infrastructure/i18n'
-import { useFormDraft } from '@/shared/lib/use-form-draft'
+import { useServerDraft } from '@/shared/lib/use-server-draft'
 import { postProjectSchema } from '@/domain/validators/project'
 import { formatDate } from '@/shared/lib/format-date'
 import { formatPrice } from '@/shared/lib/format'
@@ -95,26 +95,29 @@ function formatFieldError(
 }
 
 export function PostProject() {
-  const { t, userId, isLoggedIn, isAuthLoading, language, currentUserRole, profile, refreshProfile } = useApp()
+  const { t, userId, isLoggedIn, isAuthLoading, language, currentUserRole, profile, refreshProfile, mergeProfile } = useApp()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState(POST_PROJECT_INITIAL_FORM)
-  const draft = useFormDraft('ishbor-post-project-draft', formData)
   const draftHydrated = useRef(false)
+  const draft = useServerDraft('post-project', formData, isLoggedIn, (remote) => {
+    const restored = { ...POST_PROJECT_INITIAL_FORM, ...remote } as PostProjectForm
+    if (!draftHydrated.current && (restored.title || restored.description || restored.budget)) {
+      draftHydrated.current = true
+      setFormData(restored)
+      toast.info(t('draft_restored'))
+    }
+  })
 
   useEffect(() => {
     if (draftHydrated.current) return
     draftHydrated.current = true
-    const restored = draft.hydrate(POST_PROJECT_INITIAL_FORM) as PostProjectForm & { deadline?: string }
+    const restored = draft.hydrate(POST_PROJECT_INITIAL_FORM) as PostProjectForm
     if (restored.title || restored.description || restored.budget) {
-      if (!restored.deadlineDays && restored.deadline) {
-        restored.deadlineDays = ''
-      }
       setFormData(restored)
-      toast.info(t('draft_restored'))
     }
-  }, [draft, t])
+  }, [draft])
 
   const deadlinePreview = formData.deadlineDays
     ? t('project_deadline_until').replace(
@@ -284,13 +287,14 @@ export function PostProject() {
       }
       const roleSync = await ensureProfileRole('client', profile)
       if (!roleSync.ok) {
-        setError(t('role_sync_failed'))
-        toast.error(t('role_sync_failed'))
+        const msg = roleSync.message
+          ? mapAuthErrorMessage(roleSync.message, t)
+          : t('role_sync_failed')
+        setError(msg)
+        toast.error(msg)
         return
       }
-      if (profile?.role !== 'client') {
-        await refreshProfile()
-      }
+      mergeProfile(roleSync.profile)
 
       await api.createProject({
         title: formData.title.trim(),
@@ -352,10 +356,13 @@ export function PostProject() {
     if (currentUserRole !== 'client' || !profile || profile.role === 'client') return
     ensureProfileRole('client', profile)
       .then((result) => {
-        if (result.ok) refreshProfile().catch(() => undefined)
+        if (result.ok) {
+          mergeProfile(result.profile)
+          refreshProfile().catch(() => undefined)
+        }
       })
       .catch(() => undefined)
-  }, [currentUserRole, profile, refreshProfile])
+  }, [currentUserRole, profile, refreshProfile, mergeProfile])
 
   if (isAuthLoading || !isLoggedIn) {
     return (

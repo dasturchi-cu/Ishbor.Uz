@@ -5,6 +5,11 @@ from supabase import Client, create_client
 from app.config import settings
 
 
+def _is_jwt_supabase_key(key: str) -> bool:
+    k = key.strip()
+    return k.startswith("eyJ") and len(k) > 80
+
+
 @lru_cache
 def get_supabase_admin() -> Client:
     if not settings.supabase_url or not settings.supabase_service_role_key:
@@ -13,11 +18,27 @@ def get_supabase_admin() -> Client:
 
 
 def create_supabase_user_client(access_token: str) -> Client:
-    if not settings.supabase_url or not settings.supabase_anon_key:
-        raise RuntimeError("SUPABASE_URL va SUPABASE_ANON_KEY .env da kerak")
-    client = create_client(settings.supabase_url, settings.supabase_anon_key)
-    client.postgrest.auth(access_token)
-    return client
+    """Autentifikatsiya qilingan foydalanuvchi uchun Supabase client.
+
+    Legacy JWT anon key bo'lsa — user JWT bilan RLS ishlaydi.
+    Yangi sb_publishable_* kalitlarda supabase-py ishlamaydi; JWT allaqachon
+    tekshirilgani uchun service role ishlatiladi (routerlar user_id bo'yicha filtrlashadi).
+    """
+    if not settings.supabase_url:
+        raise RuntimeError("SUPABASE_URL kerak")
+
+    anon = settings.supabase_anon_key.strip()
+    if _is_jwt_supabase_key(anon):
+        client = create_client(settings.supabase_url, anon)
+        client.postgrest.auth(access_token)
+        return client
+
+    if not settings.supabase_service_role_key:
+        raise RuntimeError(
+            "backend/.env da SUPABASE_SERVICE_ROLE_KEY kerak "
+            "(publishable key bilan JWT anon o'rniga)"
+        )
+    return get_supabase_admin()
 
 
 def get_supabase() -> Client:

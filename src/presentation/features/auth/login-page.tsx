@@ -8,7 +8,7 @@ import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
-import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
+import { Mail, Lock, ArrowLeft } from 'lucide-react'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { api } from '@/infrastructure/api/client'
 import { PATHS } from '@/domain/constants/routes'
@@ -28,7 +28,6 @@ function LoginPageContent() {
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
   const [loading, setLoading] = useState(false)
@@ -203,7 +202,7 @@ function LoginPageContent() {
             <div className="space-y-2">
               <Input
                 label={t('password')}
-                type={showPassword ? 'text' : 'password'}
+                type="password"
                 autoComplete="current-password"
                 inputSize="lg"
                 value={password}
@@ -215,16 +214,8 @@ function LoginPageContent() {
                 placeholder={t('password_placeholder')}
                 leftIcon={<Lock className="h-4 w-4" />}
                 error={fieldErrors.password}
-                rightIcon={
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? t('hide_password') : t('show_password')}
-                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[var(--kwork-text-muted)] transition hover:bg-[var(--color-bg-subtle)] hover:text-[var(--kwork-text)]"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                }
+                passwordToggleShowLabel={t('show_password')}
+                passwordToggleHideLabel={t('hide_password')}
               />
               <div className="flex justify-end">
                 <button

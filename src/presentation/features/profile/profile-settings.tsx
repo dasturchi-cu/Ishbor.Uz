@@ -162,10 +162,18 @@ export function ProfileSettings() {
   const [skills, setSkills] = useState<string[]>([])
   const [skillInput, setSkillInput] = useState('')
   const [browserNotif, setBrowserNotif] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setBrowserNotif(localStorage.getItem('ishbor_browser_notif') === '1')
+  }, [])
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [portfolioUrls, setPortfolioUrls] = useState('')
+  const [hourlyRate, setHourlyRate] = useState('')
+  const [experienceLevel, setExperienceLevel] = useState('intermediate')
+  const [languagesText, setLanguagesText] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const deleteDialogRef = useRef<HTMLDivElement>(null)
@@ -175,7 +183,7 @@ export function ProfileSettings() {
   const [simpleNotif, setSimpleNotif] = useState({
     emailNewOrders: true,
     emailPromotions: false,
-    smsUrgent: true,
+    smsUrgent: false,
     telegramConnect: false,
     chatMuted: false,
   })
@@ -247,6 +255,16 @@ export function ProfileSettings() {
       setUsername(profile.username ?? ((profile.full_name ?? '').toLowerCase().replace(/\s+/g, '') || ''))
       setSkills(profile.skills ?? [])
       setPortfolioUrls((profile.portfolio_urls ?? []).join(', '))
+      setHourlyRate(profile.hourly_rate != null ? String(profile.hourly_rate) : '')
+      setExperienceLevel(profile.experience_level ?? 'intermediate')
+      setLanguagesText(
+        (profile.languages ?? [])
+          .map((l) => `${l.lang}:${l.level}`)
+          .join(', ')
+      )
+      if (profile.ui_preferences?.timezone && typeof profile.ui_preferences.timezone === 'string') {
+        setTimezone(profile.ui_preferences.timezone)
+      }
     }
   }, [profile])
 
@@ -320,6 +338,9 @@ export function ProfileSettings() {
       }
     }
     setBrowserNotif(enabled)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ishbor_browser_notif', enabled ? '1' : '0')
+    }
   }
 
   const handleSave = async () => {
@@ -361,7 +382,24 @@ export function ProfileSettings() {
                 .map((u) => u.trim())
                 .filter(Boolean)
             : undefined,
+        hourly_rate:
+          currentUserRole === 'freelancer' && hourlyRate.trim()
+            ? parseInt(hourlyRate.replace(/\D/g, ''), 10)
+            : undefined,
+        experience_level: currentUserRole === 'freelancer' ? experienceLevel : undefined,
+        languages:
+          currentUserRole === 'freelancer'
+            ? languagesText
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .map((pair) => {
+                  const [lang, level] = pair.split(':').map((x) => x.trim())
+                  return { lang: lang || pair, level: level || 'intermediate' }
+                })
+            : undefined,
       })
+      await api.updateUiPreferences({ timezone })
       await refreshProfile()
       setMessage(t('save_success'))
       toast.success(t('save_success'))
@@ -447,6 +485,16 @@ export function ProfileSettings() {
                     />
                   </div>
                   <div className="settings-field-narrow">
+                    <label className="settings-field-label">{t('phone')}</label>
+                    <Input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
+                      placeholder="+998901234567"
+                      className="catalog-control !h-[42px]"
+                    />
+                  </div>
+                  <div className="settings-field-narrow">
                     <label className="settings-field-label">{t('settings_timezone')}</label>
                     <Select
                       value={timezone}
@@ -521,11 +569,9 @@ export function ProfileSettings() {
                   </div>
                 </div>
 
-                <div className="settings-footer !justify-start">
-                  <Button variant="primary" onClick={() => toast.success(t('save_success'))}>
-                    {t('settings_save')}
-                  </Button>
-                </div>
+                <p className="mt-4 text-[13px] text-[var(--kwork-text-muted)]">
+                  {t('settings_prefs_auto_save')}
+                </p>
               </>
             )}
 
@@ -602,7 +648,7 @@ export function ProfileSettings() {
                       className="max-w-[520px]"
                     />
                     <p className="mt-1 text-[11px] text-[var(--kwork-text-muted)]">
-                      {hintText(t, 'settings_chars_hint', bio.length, 1200, 200)}
+                      {hintText(t, 'settings_chars_hint', bio.length, 500, 200)}
                     </p>
                   </div>
 
@@ -655,6 +701,42 @@ export function ProfileSettings() {
                       ))}
                     </div>
                   </div>
+
+                  {currentUserRole === 'freelancer' && (
+                    <>
+                      <div className="settings-field-narrow">
+                        <label className="settings-field-label">{t('hourly_rate_label')}</label>
+                        <Input
+                          value={hourlyRate}
+                          onChange={(e) => setHourlyRate(e.target.value)}
+                          placeholder="150000"
+                          className="catalog-control !h-[42px]"
+                        />
+                      </div>
+                      <div className="settings-field-narrow">
+                        <label className="settings-field-label">{t('experience_level')}</label>
+                        <Select
+                          value={experienceLevel}
+                          onChange={(e) => setExperienceLevel(e.target.value)}
+                          options={[
+                            { value: 'junior', label: t('junior') },
+                            { value: 'intermediate', label: t('intermediate') },
+                            { value: 'senior', label: t('senior') },
+                          ]}
+                          className="catalog-control"
+                        />
+                      </div>
+                      <div>
+                        <label className="settings-field-label">{t('languages_label')}</label>
+                        <Input
+                          value={languagesText}
+                          onChange={(e) => setLanguagesText(e.target.value)}
+                          placeholder="uz:native, en:intermediate"
+                          className="catalog-control !h-[42px]"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   {currentUserRole === 'freelancer' && (
                     <div>
@@ -727,6 +809,8 @@ export function ProfileSettings() {
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder={t('password_placeholder')}
                           className="catalog-control !h-[42px]"
+                          passwordToggleShowLabel={t('show_password')}
+                          passwordToggleHideLabel={t('hide_password')}
                         />
                       </div>
                       <div>
@@ -737,6 +821,8 @@ export function ProfileSettings() {
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder={t('password_placeholder')}
                           className="catalog-control !h-[42px]"
+                          passwordToggleShowLabel={t('show_password')}
+                          passwordToggleHideLabel={t('hide_password')}
                         />
                       </div>
                     </div>
@@ -746,6 +832,28 @@ export function ProfileSettings() {
                       {t('update_password')}
                     </Button>
                   </div>
+                </div>
+
+                <div className="settings-security-block">
+                  <h2 className="settings-section-title">{t('verification_request')}</h2>
+                  <p className="settings-section-note">{t('verification_request_desc')}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={async () => {
+                      try {
+                        const vType =
+                          profile?.role === 'freelancer' ? 'freelancer' : 'employer'
+                        await api.requestVerification({ verification_type: vType })
+                        toast.success(t('verification_submitted'))
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : t('error_required'))
+                      }
+                    }}
+                  >
+                    {t('verification_submit')}
+                  </Button>
                 </div>
 
                 <div className="settings-security-block">
@@ -953,9 +1061,7 @@ export function ProfileSettings() {
                   />
                 </div>
 
-                <div className="settings-footer !justify-start">
-                  <Button variant="primary">{t('settings_save')}</Button>
-                </div>
+                <p className="mt-4 text-[12px] text-[var(--kwork-text-muted)]">{t('settings_prefs_auto_save')}</p>
               </>
             )}
           </div>

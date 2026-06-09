@@ -9,6 +9,7 @@ export interface ProfileFieldValues {
   region: string
   specialty: string
   avatar_url?: string
+  skills?: string[]
 }
 
 export async function saveProfileFields(
@@ -27,6 +28,7 @@ export async function saveProfileFields(
     bio: values.bio.trim() || undefined,
     region: values.region || undefined,
     specialty: values.specialty.trim() || undefined,
+    skills: values.skills,
     ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
   })
 }

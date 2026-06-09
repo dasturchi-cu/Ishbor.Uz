@@ -73,6 +73,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentUserRoleState(role)
       localStorage.setItem('userRole', role)
       setProfile({ ...loaded, role })
+
+      const ui = loaded.ui_preferences
+      if (ui?.theme === 'light' || ui?.theme === 'dark') {
+        setThemeState(ui.theme)
+        localStorage.setItem('theme', ui.theme)
+        document.documentElement.classList.toggle('dark', ui.theme === 'dark')
+      }
+      if (ui?.language === 'uz' || ui?.language === 'ru' || ui?.language === 'en') {
+        setLanguage(ui.language)
+        localStorage.setItem('language', ui.language)
+      }
     } catch {
       setProfile(null)
     }
@@ -84,6 +95,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     clearAuthCache()
+    const [{ clearDashboardHomeCache }, { clearMergedActivityFeedCache }] = await Promise.all([
+      import('@/shared/lib/use-dashboard-home'),
+      import('@/shared/lib/use-merged-activity-feed'),
+    ])
+    clearDashboardHomeCache(userId ?? undefined)
+    clearMergedActivityFeedCache()
     if (isSupabaseConfigured()) {
       const supabase = getSupabase()
       await supabase.auth.signOut()
@@ -94,7 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     activeRoleRef.current = 'freelancer'
     setCurrentUserRoleState('freelancer')
     localStorage.removeItem('userRole')
-  }, [])
+  }, [userId])
 
   useEffect(() => {
     setMounted(true)
@@ -158,7 +175,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUserId(session?.user.id ?? null)
 
       if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED')) {
-        if (event === 'SIGNED_IN') clearAuthCache()
+        if (event === 'SIGNED_IN') {
+          clearAuthCache()
+          import('@/infrastructure/api/client').then(({ api }) => {
+            api.auditLogin().catch(() => undefined)
+          })
+        }
         setTimeout(() => {
           refreshProfile().catch(() => {})
         }, 0)
@@ -171,7 +193,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => listener.subscription.unsubscribe()
   }, [mounted, refreshProfile])
 
-  const setTheme = (newTheme: 'light' | 'dark') => {
+  const setTheme = useCallback((newTheme: 'light' | 'dark') => {
     setThemeState(newTheme)
     localStorage.setItem('theme', newTheme)
     if (newTheme === 'dark') {
@@ -179,7 +201,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } else {
       document.documentElement.classList.remove('dark')
     }
-  }
+    if (userId) {
+      api.updateUiPreferences({ theme: newTheme }).catch(() => undefined)
+    }
+  }, [userId])
 
   const setRole = useCallback(
     (role: UserRole) => {
@@ -188,7 +213,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProfile((prev) => (prev ? { ...prev, role } : prev))
       if (!userId) return
       void api
-        .updateProfile({ role })
+        .updateProfileRole(role)
         .then((updated) => {
           setProfile({ ...updated, role })
         })
@@ -199,10 +224,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [persistRole, userId],
   )
 
-  const setLang = (lang: Language) => {
+  const setLang = useCallback((lang: Language) => {
     setLanguage(lang)
     localStorage.setItem('language', lang)
-  }
+    if (userId) {
+      api.updateUiPreferences({ language: lang }).catch(() => undefined)
+    }
+  }, [userId])
 
   const translate = useCallback((key: TranslationKey) => t(language, key), [language])
 
@@ -237,6 +265,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       mergeProfile,
       translate,
       setRole,
+      setTheme,
+      setLang,
     ]
   )
 

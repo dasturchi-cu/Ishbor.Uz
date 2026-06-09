@@ -7,7 +7,7 @@ import { GuestMobileNav } from '@/presentation/components/layout/guest-mobile-na
 import { Footer } from '@/presentation/components/layout/footer'
 import { Toaster } from '@/presentation/components/ui/toast'
 import { useApp } from '@/application/providers/app-provider'
-import { isDashboardPath, PATHS } from '@/domain/constants/routes'
+import { isAdminPath, isDashboardPath, PATHS } from '@/domain/constants/routes'
 import { cn } from '@/shared/lib/utils'
 import { BrowserNotificationWatcher } from '@/presentation/components/layout/browser-notification-watcher'
 import { SkipLink } from '@/presentation/components/layout/skip-link'
@@ -21,7 +21,7 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
   const hideFooter = onDashboard
   const showMobileNav = !isAuthPage && !isAuthLoading
 
-  if (isAuthPage) {
+  if (isAuthPage || isAdminPath(pathname)) {
     return (
       <>
         {children}

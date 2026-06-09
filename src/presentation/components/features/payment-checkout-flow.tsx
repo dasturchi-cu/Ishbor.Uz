@@ -145,7 +145,7 @@ export function PaymentCheckoutFlow({
               className="gap-2"
             >
               <CreditCard className="h-4 w-4" />
-              {t('payment_pay_now')}
+              {paymentsLive ? t('payment_pay_now') : t('payment_sandbox_pay')}
             </Button>
           )}
           {providers.includes('click') && (

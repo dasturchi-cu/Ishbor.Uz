@@ -37,6 +37,12 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editBudget, setEditBudget] = useState('')
+  const [savingProject, setSavingProject] = useState(false)
+  const [archiving, setArchiving] = useState(false)
 
   const isOwner = Boolean(userId && project?.client_id === userId)
   const isFreelancer = currentUserRole === 'freelancer'
@@ -49,6 +55,9 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
       .then((p) => {
         setProject(p)
         setProposedBudget(String(p.budget))
+        setEditTitle(p.title)
+        setEditDescription(p.description)
+        setEditBudget(String(p.budget))
       })
       .catch((e) => {
         setProject(null)
@@ -122,6 +131,43 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
       setError(e instanceof ApiError ? e.message : t('error_required'))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleSaveProject = async () => {
+    const budget = parseInt(editBudget.replace(/\D/g, ''), 10)
+    if (!editTitle.trim() || editDescription.trim().length < 10 || !budget) {
+      toast.error(t('error_required'))
+      return
+    }
+    setSavingProject(true)
+    try {
+      const updated = await api.updateProject(projectId, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        budget,
+      })
+      setProject(updated)
+      setEditing(false)
+      toast.success(t('project_updated'))
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : t('error_required'))
+    } finally {
+      setSavingProject(false)
+    }
+  }
+
+  const handleArchiveProject = async () => {
+    if (!window.confirm(t('project_archive_confirm'))) return
+    setArchiving(true)
+    try {
+      const updated = await api.updateProjectStatus(projectId, 'closed')
+      setProject(updated)
+      toast.success(t('project_archived'))
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : t('error_required'))
+    } finally {
+      setArchiving(false)
     }
   }
 
@@ -208,6 +254,16 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
               </Badge>
             </div>
             <div className="flex items-center gap-2">
+              {isOwner && project.status === 'open' && (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
+                    {t('project_edit')}
+                  </Button>
+                  <Button variant="outline" size="sm" loading={archiving} onClick={handleArchiveProject}>
+                    {t('project_archive')}
+                  </Button>
+                </div>
+              )}
               {!isOwner && (
                 <button
                   type="button"
@@ -222,9 +278,34 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          <p className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--kwork-text-sub)]">
-            {project.description}
-          </p>
+          {editing && isOwner ? (
+            <div className="mt-4 space-y-3">
+              <Input label={t('project_title')} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              <Textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={6}
+                placeholder={t('project_desc_default')}
+              />
+              <Input
+                label={t('project_proposed_budget')}
+                value={editBudget}
+                onChange={(e) => setEditBudget(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button variant="primary" size="sm" loading={savingProject} onClick={handleSaveProject}>
+                  {t('project_save')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
+                  {t('cancel')}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--kwork-text-sub)]">
+              {project.description}
+            </p>
+          )}
 
           {project.skills.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">

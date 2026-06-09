@@ -16,6 +16,7 @@ import { UZ_REGIONS } from '@/domain/constants/regions'
 import { freelancerPath } from '@/domain/constants/routes'
 import { POPULAR_SKILLS } from '@/domain/constants/skills'
 import { saveProfileFields } from '@/shared/lib/profile-fields'
+import { parseSpecialtyTitle } from '@/shared/lib/onboarding-profile'
 import { cn } from '@/shared/lib/utils'
 
 const BIO_MAX = 500
@@ -44,9 +45,10 @@ export function DashboardProfilePage() {
     if (!profile) return
     setFullName(profile.full_name ?? '')
     setUsername(profile.username ?? '')
-    setTitle(profile.specialty ?? '')
+    setTitle(parseSpecialtyTitle(profile.specialty) || profile.specialty || '')
     setBio(profile.bio ?? '')
     setRegion(profile.region ?? UZ_REGIONS[0])
+    setSkills(profile.skills ?? [])
     setAvatarPreview(profile.avatar_url ?? null)
     setPendingAvatarFile(null)
   }, [profile])
@@ -105,6 +107,7 @@ export function DashboardProfilePage() {
           bio,
           region,
           specialty: title,
+          skills: isFreelancer ? skills : undefined,
         },
         pendingAvatarFile,
         profile?.avatar_url,
@@ -150,7 +153,18 @@ export function DashboardProfilePage() {
             <p className="profile-view-name">{profile?.full_name ?? '—'}</p>
             {profile?.region && <p className="profile-view-meta mt-1">{profile.region}</p>}
             {isFreelancer && profile?.specialty && (
-              <p className="profile-view-meta mt-0.5">{profile.specialty}</p>
+              <p className="profile-view-meta mt-0.5">
+                {parseSpecialtyTitle(profile.specialty) || profile.specialty}
+              </p>
+            )}
+            {isFreelancer && (profile?.skills?.length ?? 0) > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {profile!.skills!.map((skill) => (
+                  <span key={skill} className="profile-edit-skill-tag">
+                    {skill}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           {userId && (

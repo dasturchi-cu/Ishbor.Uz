@@ -14,7 +14,7 @@ import { OrderProgressStepper } from '@/presentation/components/features/order-p
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiTransaction } from '@/infrastructure/api/types'
+import type { ApiOrder, ApiReview, ApiTransaction } from '@/infrastructure/api/types'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { PATHS } from '@/domain/constants/routes'
@@ -57,6 +57,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   const [disputeOpen, setDisputeOpen] = useState(false)
   const [disputeReason, setDisputeReason] = useState('')
   const [transactions, setTransactions] = useState<ApiTransaction[]>([])
+  const [orderReview, setOrderReview] = useState<ApiReview | null>(null)
   const disputeDialogRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(disputeOpen, disputeDialogRef)
@@ -71,9 +72,14 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
       .then(([ord, tx]) => {
         setOrder(ord)
         setTransactions(tx)
+        if (ord?.status === 'completed' && role === 'client') {
+          api.getReviewForOrder(orderId).then(setOrderReview).catch(() => setOrderReview(null))
+        } else {
+          setOrderReview(null)
+        }
       })
       .finally(() => setLoading(false))
-  }, [orderId])
+  }, [orderId, role])
 
   const otherName =
     role === 'freelancer'
@@ -121,6 +127,18 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
       setError(e instanceof Error ? e.message : t('error_required'))
     } finally {
       setDisputing(false)
+    }
+  }
+
+  const handleDeleteReview = async () => {
+    if (!orderReview) return
+    if (!window.confirm(t('review_delete_confirm'))) return
+    try {
+      await api.deleteReview(orderReview.id)
+      setOrderReview(null)
+      toast.success(t('review_deleted'))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('error_required'))
     }
   }
 
@@ -280,6 +298,25 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </Button>
         )}
 
+        {role === 'client' && order.status === 'completed' && (
+          <div className="flex flex-wrap gap-2">
+            {orderReview ? (
+              <>
+                <Button variant="outline" onClick={() => setShowReview(true)}>
+                  {t('review_edit')}
+                </Button>
+                <Button variant="outline" onClick={handleDeleteReview}>
+                  {t('review_delete')}
+                </Button>
+              </>
+            ) : (
+              <Button variant="primary" onClick={() => setShowReview(true)}>
+                {t('leave_review')}
+              </Button>
+            )}
+          </div>
+        )}
+
         {disputeOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDisputeOpen(false)}>
             <div
@@ -360,7 +397,15 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         <ReviewModal
           orderId={order.id}
           serviceTitle={order.services?.title}
+          existingReview={
+            orderReview
+              ? { id: orderReview.id, rating: orderReview.rating, comment: orderReview.comment }
+              : undefined
+          }
           onClose={() => setShowReview(false)}
+          onSubmitted={() => {
+            api.getReviewForOrder(order.id).then(setOrderReview).catch(() => setOrderReview(null))
+          }}
         />
       )}
     </div>

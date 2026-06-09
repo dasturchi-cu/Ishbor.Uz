@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
+from app.contract_service import create_contract_from_proposal
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import UserAuthDep
@@ -83,6 +84,8 @@ def create_application(payload: ApplicationCreate, auth: UserAuthDep):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ariza yaratilmadi")
 
     row = result.data[0]
+    if project.data.get("status") == "open":
+        supabase.table("projects").update({"status": "in_review"}).eq("id", payload.project_id).execute()
     client_id = project.data.get("client_id")
     if client_id:
         create_notification(
@@ -128,6 +131,28 @@ def list_project_applications(project_id: str, auth: UserAuthDep):
         .execute()
     )
     return [_enrich_application(row, supabase) for row in (result.data or [])]
+
+
+@router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
+def withdraw_application(application_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    existing = (
+        supabase.table("project_applications").select("*").eq("id", application_id).single().execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ariza topilmadi")
+    if existing.data["freelancer_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+    current_status = existing.data.get("status") or "submitted"
+    if current_status not in ("submitted", "shortlisted"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Faqat kutilayotgan arizani bekor qilish mumkin",
+        )
+
+    supabase.table("project_applications").delete().eq("id", application_id).execute()
+    return None
 
 
 @router.patch("/{application_id}/status", response_model=ApplicationResponse)
@@ -202,28 +227,17 @@ def update_application_status(
             .single()
             .execute()
         )
+        contract_id = None
         if project_full.data:
-            amount = int(row.get("proposed_budget") or project_full.data.get("budget") or 0)
-            if amount > 0:
-                admin.table("orders").insert(
-                    {
-                        "client_id": project_full.data["client_id"],
-                        "freelancer_id": row["freelancer_id"],
-                        "amount": amount,
-                        "notes": (row.get("cover_letter") or "")[:500],
-                        "status": "pending",
-                    }
-                ).execute()
-            admin.table("projects").update({"status": "closed"}).eq(
-                "id", row["project_id"]
-            ).execute()
+            contract = create_contract_from_proposal(row, project_full.data)
+            contract_id = contract.get("id")
         create_notification(
             admin,
             user_id=row["freelancer_id"],
             type="order",
             title=title,
-            body="Loyiha bo'yicha buyurtma yaratildi — to'lovni kuting",
-            href="/dashboard/orders",
+            body="Taklifingiz qabul qilindi — shartnoma yaratildi",
+            href=f"/dashboard/contracts/{contract_id}" if contract_id else "/dashboard/orders",
         )
 
     return _enrich_application(row, supabase)

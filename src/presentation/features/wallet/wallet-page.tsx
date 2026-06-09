@@ -179,8 +179,9 @@ export function WalletPage() {
             {currentUserRole === 'freelancer' && (
               <button
                 type="button"
-                className="wallet-balance-btn"
-                onClick={() => toast.info(t('top_up_coming_soon'))}
+                className="wallet-balance-btn opacity-50"
+                disabled
+                title={t('top_up_coming_soon')}
               >
                 {t('top_up')}
               </button>

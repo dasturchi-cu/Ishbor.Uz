@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 MAX_MONEY = 2_147_483_647
 
@@ -29,7 +29,23 @@ class ProfileResponse(BaseModel):
     experience_level: str | None = None
     languages: list[dict] = Field(default_factory=list)
     telegram_chat_id: str | None = None
+    ui_preferences: dict = Field(default_factory=dict)
     created_at: datetime | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_null_profile_fields(cls, data):
+        if isinstance(data, dict):
+            for key in ("skills", "portfolio_urls", "languages"):
+                if data.get(key) is None:
+                    data[key] = []
+            if data.get("wallet_balance") is None:
+                data["wallet_balance"] = 0
+            if data.get("profile_views") is None:
+                data["profile_views"] = 0
+            if data.get("ui_preferences") is None:
+                data["ui_preferences"] = {}
+        return data
 
 
 class ProfilePublicResponse(BaseModel):
@@ -47,11 +63,26 @@ class ProfilePublicResponse(BaseModel):
     profile_views: int = 0
     is_verified: bool = False
     portfolio_urls: list[str] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    hourly_rate: int | None = None
+    experience_level: str | None = None
     languages: list[dict] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_null_public_profile_fields(cls, data):
+        if isinstance(data, dict):
+            for key in ("skills", "portfolio_urls", "languages"):
+                if data.get(key) is None:
+                    data[key] = []
+        return data
+
+
+class ProfileRoleUpdate(BaseModel):
+    role: Literal["freelancer", "client"]
 
 
 class ProfileUpdate(BaseModel):
-    role: Literal["freelancer", "client"] | None = None
     full_name: str | None = None
     phone: str | None = None
     bio: str | None = None
@@ -65,6 +96,12 @@ class ProfileUpdate(BaseModel):
     experience_level: str | None = None
     languages: list[dict] | None = None
     portfolio_urls: list[str] | None = None
+
+
+class UiPreferencesUpdate(BaseModel):
+    theme: Literal["light", "dark"] | None = None
+    language: Literal["uz", "ru", "en"] | None = None
+    timezone: str | None = Field(default=None, max_length=64)
 
 
 class ServicePackage(BaseModel):
@@ -110,6 +147,18 @@ class ServiceResponse(BaseModel):
     view_count: int = 0
     created_at: datetime | None = None
     profiles: dict | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_null_service_fields(cls, data):
+        if isinstance(data, dict):
+            if data.get("image_urls") is None:
+                data["image_urls"] = []
+            if data.get("packages") is None:
+                data["packages"] = []
+            if data.get("view_count") is None:
+                data["view_count"] = 0
+        return data
 
 
 class ServiceListResponse(BaseModel):
@@ -177,6 +226,8 @@ class OrderStatusUpdate(BaseModel):
 class OrderResponse(BaseModel):
     id: str
     service_id: str | None = None
+    project_id: str | None = None
+    application_id: str | None = None
     client_id: str
     freelancer_id: str
     amount: int
@@ -243,7 +294,34 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectStatusUpdate(BaseModel):
-    status: Literal["open", "closed", "in_progress"]
+    status: Literal[
+        "draft",
+        "open",
+        "in_review",
+        "accepted",
+        "active",
+        "submitted",
+        "revision_requested",
+        "completed",
+        "cancelled",
+        "disputed",
+        "closed",
+        "in_progress",
+    ]
+
+
+class ProjectUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=3, max_length=200)
+    description: str | None = Field(default=None, min_length=10)
+    category: str | None = Field(default=None, min_length=2)
+    skills: list[str] | None = None
+    budget: int | None = Field(default=None, gt=0, le=MAX_MONEY)
+    budget_type: str | None = None
+    deadline: date | None = None
+    level: str | None = None
+    region: str | None = Field(default=None, min_length=2)
+    attachment_urls: list[str] | None = None
+    is_public: bool | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -338,6 +416,11 @@ class ReviewResponse(BaseModel):
 
 class ReviewReplyUpdate(BaseModel):
     reply: str = Field(min_length=1, max_length=2000)
+
+
+class ReviewUpdate(BaseModel):
+    rating: int | None = Field(default=None, ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=2000)
 
 
 class PublicReviewResponse(BaseModel):

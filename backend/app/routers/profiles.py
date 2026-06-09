@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
+from app.platform_services import log_activity, log_audit
+
 REFERRAL_BONUS = 50_000
 
 
 
 from app.database import get_supabase_admin
+from app.db_utils import run_query
 
 from app.deps import OptionalUserId, UserAuthDep
 
@@ -16,9 +19,11 @@ from app.schemas import (
     NotificationPrefsUpdate,
     ProfilePublicResponse,
     ProfileResponse,
+    ProfileRoleUpdate,
     ProfileUpdate,
     ReferralApply,
     ReferralStatsResponse,
+    UiPreferencesUpdate,
     UsernameCheckResponse,
 )
 
@@ -101,8 +106,10 @@ def referral_stats(auth: UserAuthDep):
 
 @router.get("/me/analytics")
 def my_analytics(auth: UserAuthDep, period: str = Query(default="30d", pattern="^(7d|30d|3m|1y)$")):
-    supabase = auth.supabase
-    profile = supabase.table("profiles").select("role").eq("id", auth.user_id).single().execute()
+    supabase = get_supabase_admin()
+    profile = run_query(
+        lambda: supabase.table("profiles").select("role").eq("id", auth.user_id).single().execute()
+    )
     if not profile.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
     role = profile.data.get("role") or "client"
@@ -129,7 +136,7 @@ def get_my_profile(auth: UserAuthDep):
 
 @router.patch("/me", response_model=ProfileResponse)
 
-def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep):
+def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Request):
     user_id = auth.user_id
     supabase = auth.supabase
 
@@ -139,8 +146,7 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep):
 
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yangilash ma'lumoti yo'q")
 
-    if "role" in data and data["role"] not in ("freelancer", "client"):
-        del data["role"]
+    data.pop("role", None)
 
     if "portfolio_urls" in data and data["portfolio_urls"] is not None:
         data["portfolio_urls"] = [u.strip() for u in data["portfolio_urls"] if u and u.strip()][:12]
@@ -182,13 +188,61 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep):
                 detail="Onboarding: viloyat talab qilinadi",
             )
 
-    result = supabase.table("profiles").update(data).eq("id", user_id).execute()
+    supabase.table("profiles").update(data).eq("id", user_id).execute()
 
-    if not result.data:
-
+    refetch = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+    if not refetch.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
 
-    return result.data[0]
+    log_audit(
+        actor_id=user_id,
+        action="profile_update",
+        entity_type="profile",
+        entity_id=user_id,
+        metadata={"fields": list(data.keys())},
+        request=request,
+    )
+    log_activity(user_id, "profile_update", "Profil yangilandi", href="/dashboard/settings")
+
+    return refetch.data
+
+
+@router.patch("/me/role", response_model=ProfileResponse)
+def update_my_role(payload: ProfileRoleUpdate, auth: UserAuthDep, request: Request):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    supabase.table("profiles").update({"role": payload.role}).eq("id", user_id).execute()
+    refetch = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+    if not refetch.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+    log_audit(
+        actor_id=user_id,
+        action="profile_role_update",
+        entity_type="profile",
+        entity_id=user_id,
+        metadata={"role": payload.role},
+        request=request,
+    )
+    return refetch.data
+
+
+@router.patch("/me/role", response_model=ProfileResponse)
+def update_my_role(payload: ProfileRoleUpdate, auth: UserAuthDep, request: Request):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    supabase.table("profiles").update({"role": payload.role}).eq("id", user_id).execute()
+    refetch = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+    if not refetch.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+    log_audit(
+        actor_id=user_id,
+        action="profile_role_update",
+        entity_type="profile",
+        entity_id=user_id,
+        metadata={"role": payload.role},
+        request=request,
+    )
+    return refetch.data
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -253,6 +307,29 @@ def update_notification_prefs(payload: NotificationPrefsUpdate, auth: UserAuthDe
     return merged
 
 
+def _load_ui_preferences(supabase, user_id: str) -> dict:
+    row = supabase.table("profiles").select("ui_preferences").eq("id", user_id).single().execute()
+    if not row.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+    prefs = row.data.get("ui_preferences") or {}
+    return prefs if isinstance(prefs, dict) else {}
+
+
+@router.get("/me/ui-preferences")
+def get_ui_preferences(auth: UserAuthDep):
+    return _load_ui_preferences(auth.supabase, auth.user_id)
+
+
+@router.patch("/me/ui-preferences")
+def update_ui_preferences(payload: UiPreferencesUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    current = _load_ui_preferences(supabase, user_id)
+    merged = {**current, **payload.model_dump(exclude_none=True)}
+    supabase.table("profiles").update({"ui_preferences": merged}).eq("id", user_id).execute()
+    return merged
+
+
 @router.get("/freelancers", response_model=list[ProfilePublicResponse])
 
 def list_freelancers(
@@ -268,7 +345,10 @@ def list_freelancers(
 
     query = (
         supabase.table("profiles")
-        .select("id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, skills, is_verified, portfolio_urls")
+        .select(
+            "id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, "
+            "skills, hourly_rate, experience_level, is_verified, portfolio_urls, languages"
+        )
         .eq("role", "freelancer")
         .eq("is_banned", False)
     )
@@ -355,7 +435,10 @@ def get_profile(profile_id: str):
 
         supabase.table("profiles")
 
-        .select("id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, is_verified, portfolio_urls, languages, is_banned")
+        .select(
+            "id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, "
+            "skills, hourly_rate, experience_level, is_verified, portfolio_urls, languages, is_banned"
+        )
 
         .eq("id", profile_id)
 

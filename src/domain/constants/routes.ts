@@ -26,10 +26,19 @@ export const PATHS = {
   projects: '/projects',
   dashboardProjects: '/dashboard/projects',
   dashboardApplications: '/dashboard/applications',
+  dashboardContracts: '/dashboard/contracts',
+  dashboardEscrow: '/dashboard/escrow',
   messages: '/dashboard/messages',
   wallet: '/dashboard/wallet',
   settings: '/dashboard/settings',
   admin: '/admin',
+  adminUsers: '/admin/users',
+  adminDisputes: '/admin/disputes',
+  adminEscrow: '/admin/escrow',
+  adminFinance: '/admin/finance',
+  adminModeration: '/admin/moderation',
+  adminServices: '/admin/services',
+  adminOrders: '/admin/orders',
   terms: '/terms',
   privacy: '/privacy',
   freelancerProfile: '/freelancer',
@@ -57,6 +66,18 @@ export function dashboardOrderPath(id: string) {
 
 export function projectPath(id: string) {
   return `/projects/${id}`
+}
+
+export function dashboardContract(id: string) {
+  return `/dashboard/contracts/${id}`
+}
+
+export function dashboardDispute(id: string) {
+  return `/dashboard/disputes/${id}`
+}
+
+export function dashboardCall(contractId: string) {
+  return `/dashboard/calls/${contractId}`
 }
 
 export type AppPath = (typeof PATHS)[keyof typeof PATHS]
@@ -110,6 +131,10 @@ export function defaultAuthDestination(
 }
 
 /** Dashboard ichki sahifalar (freelancer + client) */
+export function isAdminPath(pathname: string): boolean {
+  return pathname === PATHS.admin || pathname.startsWith(`${PATHS.admin}/`)
+}
+
 export function isDashboardPath(pathname: string): boolean {
   return (
     pathname === PATHS.dashboardFreelancer ||

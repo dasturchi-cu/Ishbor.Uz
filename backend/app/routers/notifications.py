@@ -73,6 +73,19 @@ def _read_ids_for_user(supabase, user_id: str) -> set[str]:
         return set()
 
 
+def _dismissed_ids_for_user(supabase, user_id: str) -> set[str]:
+    try:
+        result = (
+            supabase.table("notification_dismissals")
+            .select("notification_id")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return {row["notification_id"] for row in (result.data or [])}
+    except Exception:
+        return set()
+
+
 def _apply_read_state(items: list[dict], read_ids: set[str]) -> list[dict]:
     for item in items:
         if item["id"] in read_ids:
@@ -231,6 +244,8 @@ def list_notifications(auth: UserAuthDep):
     db_ids = {item["id"] for item in db_items}
     merged = db_items + [item for item in synthetic if item["id"] not in db_ids]
     merged.sort(key=lambda x: x["created_at"], reverse=True)
+    dismissed_ids = _dismissed_ids_for_user(supabase, user_id)
+    merged = [item for item in merged if item["id"] not in dismissed_ids]
     read_ids = _read_ids_for_user(supabase, user_id)
     return _apply_read_state(merged[:30], read_ids)
 
@@ -253,6 +268,31 @@ def mark_notifications_read(payload: NotificationMarkRead, auth: UserAuthDep):
     except Exception:
         for row in rows:
             supabase.table("notification_reads").insert(row).execute()
+    return None
+
+
+@router.post("/dismiss", status_code=status.HTTP_204_NO_CONTENT)
+def dismiss_notifications(payload: NotificationMarkRead, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    rows = [{"user_id": user_id, "notification_id": nid} for nid in payload.ids]
+    if rows:
+        try:
+            supabase.table("notification_dismissals").upsert(
+                rows, on_conflict="user_id,notification_id"
+            ).execute()
+        except Exception:
+            for row in rows:
+                try:
+                    supabase.table("notification_dismissals").insert(row).execute()
+                except Exception:
+                    pass
+    for nid in payload.ids:
+        if _UUID_RE.match(nid):
+            try:
+                supabase.table("notifications").delete().eq("id", nid).eq("user_id", user_id).execute()
+            except Exception:
+                pass
     return None
 
 

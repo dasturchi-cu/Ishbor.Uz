@@ -15,11 +15,22 @@ import { formatPrice } from '@/shared/lib/format'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { downloadCsv } from '@/shared/lib/csv-export'
+import { AdminSaasPanel } from '@/presentation/features/admin/admin-saas-panel'
 
 const ADMIN_PAGE_SIZE = 50
 const ADMIN_EXPORT_PAGE_SIZE = 200
 
-export function AdminPage() {
+export type AdminPageSection =
+  | 'all'
+  | 'users'
+  | 'disputes'
+  | 'services'
+  | 'finance'
+  | 'orders'
+  | 'waitlist'
+  | 'integrations'
+
+export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
   const { t, profile, isAuthLoading, isLoggedIn, currentUserRole, refreshProfile } = useApp()
   const [stats, setStats] = useState<ApiAdminStats | null>(null)
   const [users, setUsers] = useState<ApiProfile[]>([])
@@ -448,6 +459,9 @@ export function AdminPage() {
     return <LoadingBlock className="py-10" />
   }
 
+  const show = (name: AdminPageSection) => section === 'all' || section === name
+  const embedded = section !== 'all'
+
   if (!profile?.is_admin) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-4 py-16 text-center">
@@ -472,11 +486,13 @@ export function AdminPage() {
   }
 
   return (
-    <div className="layout-container mx-auto max-w-6xl space-y-8 py-10">
-      <h1 className="text-[24px] font-bold text-[var(--kwork-text)] sm:text-[28px]">{t('admin_panel')}</h1>
+    <div className={embedded ? 'space-y-6' : 'layout-container mx-auto max-w-6xl space-y-8 py-10'}>
+      {!embedded && (
+        <h1 className="text-[24px] font-bold text-[var(--kwork-text)] sm:text-[28px]">{t('admin_panel')}</h1>
+      )}
       {error && <Alert variant="error">{error}</Alert>}
 
-      {stats && (
+      {!embedded && stats && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7">
           {[
             { label: t('admin_users'), value: stats.users },
@@ -495,7 +511,7 @@ export function AdminPage() {
         </div>
       )}
 
-      {integrations && (
+      {show('integrations') && integrations && (
         <Card className="p-6">
           <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('admin_integrations')}</h2>
           <div className="flex flex-wrap gap-2">
@@ -525,6 +541,7 @@ export function AdminPage() {
         </Card>
       )}
 
+      {show('users') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-bold text-[var(--kwork-text)]">{t('admin_users')}</h2>
@@ -648,7 +665,9 @@ export function AdminPage() {
           </div>
         )}
       </Card>
+      )}
 
+      {show('disputes') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-bold text-[var(--kwork-text)]">
@@ -721,7 +740,9 @@ export function AdminPage() {
           </div>
         )}
       </Card>
+      )}
 
+      {show('services') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-bold text-[var(--kwork-text)]">{t('nav_services')}</h2>
@@ -794,7 +815,9 @@ export function AdminPage() {
           </div>
         )}
       </Card>
+      )}
 
+      {show('finance') && (
       <Card className="p-6">
         <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('admin_withdrawals')}</h2>
         {withdrawals.length === 0 ? (
@@ -846,7 +869,9 @@ export function AdminPage() {
           </div>
         )}
       </Card>
+      )}
 
+      {show('waitlist') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-bold text-[var(--kwork-text)]">
@@ -895,7 +920,11 @@ export function AdminPage() {
           </div>
         )}
       </Card>
+      )}
 
+      {!embedded && <AdminSaasPanel />}
+
+      {show('orders') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-bold text-[var(--kwork-text)]">{t('admin_orders')}</h2>
@@ -950,6 +979,7 @@ export function AdminPage() {
           </div>
         )}
       </Card>
+      )}
     </div>
   )
 }

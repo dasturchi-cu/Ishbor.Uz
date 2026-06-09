@@ -15,10 +15,12 @@ import { Star } from 'lucide-react'
 import { PATHS } from '@/domain/constants/routes'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/shared/lib/format-date'
+import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 
 export function DashboardReviewsPage() {
   const { t, userId, language } = useApp()
   const router = useRouter()
+  const isClient = useDashboardRole() === 'client'
   const [filter, setFilter] = useState<'all' | '5' | 'low'>('all')
   const [reviews, setReviews] = useState<ApiReview[]>([])
   const [stats, setStats] = useState({ average: 0, count: 0 })
@@ -33,18 +35,21 @@ export function DashboardReviewsPage() {
     setLoading(true)
     setLoadError(false)
     Promise.all([
-      api.listFreelancerReviews(userId).catch(() => {
+      (isClient ? api.listMyWrittenReviews() : api.listFreelancerReviews(userId)).catch(() => {
         setLoadError(true)
         return [] as ApiReview[]
       }),
-      api.getFreelancerReviewStats(userId).catch(() => ({ average: 0, count: 0 })),
+      (isClient ? api.getMyWrittenReviewStats() : api.getFreelancerReviewStats(userId)).catch(() => ({
+        average: 0,
+        count: 0,
+      })),
     ])
       .then(([revs, st]) => {
         setReviews(revs)
         setStats(st)
       })
       .finally(() => setLoading(false))
-  }, [userId])
+  }, [userId, isClient])
 
   useEffect(() => {
     loadReviews()
@@ -78,6 +83,10 @@ export function DashboardReviewsPage() {
           </div>
         </div>
       )}
+      {isClient && (
+        <p className="mb-4 text-[14px] text-[var(--kwork-text-muted)]">{t('client_reviews_written_desc')}</p>
+      )}
+
       <div className="mb-5 rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 sm:p-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="text-center sm:text-left">
@@ -86,7 +95,9 @@ export function DashboardReviewsPage() {
             </p>
             {stats.count > 0 && <RatingStars rating={stats.average} size="lg" className="mt-2 justify-center sm:justify-start" />}
             <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">
-              {t('reviews_count_label').replace('{n}', String(stats.count))}
+              {isClient
+                ? t('client_reviews_written_count').replace('{n}', String(stats.count))
+                : t('reviews_count_label').replace('{n}', String(stats.count))}
             </p>
           </div>
           <div className="flex-1 space-y-2">
@@ -131,7 +142,10 @@ export function DashboardReviewsPage() {
           description={reviews.length === 0 ? t('reviews_empty_cta') : undefined}
           action={
             reviews.length === 0
-              ? { label: t('nav_services'), onClick: () => router.push(PATHS.services) }
+              ? {
+                  label: isClient ? t('nav_orders') : t('nav_services'),
+                  onClick: () => router.push(isClient ? PATHS.dashboardOrders : PATHS.services),
+                }
               : undefined
           }
         />
@@ -160,7 +174,7 @@ export function DashboardReviewsPage() {
                   {r.reply}
                 </p>
               )}
-              {!r.reply && (
+              {!isClient && !r.reply && (
                 <div className="mt-3">
                   {replyingId === r.id ? (
                     <div className="space-y-2">

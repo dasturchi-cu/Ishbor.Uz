@@ -29,6 +29,14 @@ import type {
   ApiWaitlistEntry,
   ApiWithdrawalRequest,
   ApiTransaction,
+  ApiContract,
+  ApiEscrowTransaction,
+  ApiMilestone,
+  ApiDispute,
+  ApiDisputeMessage,
+  ApiConversationThread,
+  ApiCallSession,
+  ApiProjectReview,
 } from './types'
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8002'
@@ -100,6 +108,9 @@ export async function apiFetch<T>(
       } catch {
         // ignore
       }
+      if (detail === 'Internal Server Error' && res.status >= 500) {
+        detail = 'Server xatosi. Sahifani yangilab qayta urinib ko\'ring.'
+      }
       throw new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), res.status)
     }
 
@@ -127,6 +138,18 @@ export const api = {
   getProfile: () => apiFetch<ApiProfile>('/api/v1/profiles/me'),
   updateProfile: (data: Partial<ApiProfile>) =>
     apiFetch<ApiProfile>('/api/v1/profiles/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  updateProfileRole: (role: 'freelancer' | 'client') =>
+    apiFetch<ApiProfile>('/api/v1/profiles/me/role', {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+  getUiPreferences: () =>
+    apiFetch<{ theme?: string; language?: string; timezone?: string }>('/api/v1/profiles/me/ui-preferences'),
+  updateUiPreferences: (data: { theme?: 'light' | 'dark'; language?: 'uz' | 'ru' | 'en'; timezone?: string }) =>
+    apiFetch<Record<string, string>>('/api/v1/profiles/me/ui-preferences', {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
@@ -280,6 +303,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  updateProject: (id: string, data: Partial<ProjectCreateInput>) =>
+    apiFetch<ApiProject>(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
   updateProjectStatus: (id: string, status: string) =>
     apiFetch<ApiProject>(`/api/v1/projects/${id}/status`, {
       method: 'PATCH',
@@ -304,6 +332,8 @@ export const api = {
       `/api/v1/applications/${applicationId}/status`,
       { method: 'PATCH', body: JSON.stringify({ status }) }
     ),
+  withdrawApplication: (applicationId: string) =>
+    apiFetch<void>(`/api/v1/applications/${applicationId}`, { method: 'DELETE' }),
 
   listNotifications: () => apiFetch<ApiNotification[]>('/api/v1/notifications'),
   markNotificationsRead: (ids: string[]) =>
@@ -313,6 +343,11 @@ export const api = {
     }),
   markAllNotificationsRead: () =>
     apiFetch<void>('/api/v1/notifications/mark-all-read', { method: 'POST' }),
+  dismissNotifications: (ids: string[]) =>
+    apiFetch<void>('/api/v1/notifications/dismiss', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
   listSavedServices: () => apiFetch<{ service_ids: string[] }>('/api/v1/saved-items'),
   listSavedServicesEnriched: () => apiFetch<ApiService[]>('/api/v1/saved-items/services/enriched'),
   listSavedFreelancersEnriched: () =>
@@ -353,10 +388,15 @@ export const api = {
 
   listFreelancerReviews: (freelancerId: string) =>
     apiFetch<ApiReview[]>(`/api/v1/reviews/freelancer/${freelancerId}`),
+  listMyWrittenReviews: () => apiFetch<ApiReview[]>('/api/v1/reviews/reviewer/me'),
+  getMyWrittenReviewStats: () =>
+    apiFetch<{ average: number; count: number }>('/api/v1/reviews/reviewer/me/stats'),
   getFreelancerReviewStats: (freelancerId: string) =>
     apiFetch<{ average: number; count: number }>(`/api/v1/reviews/freelancer/${freelancerId}/stats`),
   listPublicReviews: (limit = 6) =>
     apiFetch<ApiPublicReview[]>(`/api/v1/reviews/recent?limit=${limit}`),
+  getReviewForOrder: (orderId: string) =>
+    apiFetch<ApiReview | null>(`/api/v1/reviews/order/${orderId}`),
   createReview: (orderId: string, rating: number, comment?: string) =>
     apiFetch<ApiReview>('/api/v1/reviews', {
       method: 'POST',
@@ -367,12 +407,24 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ reply }),
     }),
+  updateReview: (reviewId: string, data: { rating?: number; comment?: string }) =>
+    apiFetch<ApiReview>(`/api/v1/reviews/${reviewId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  deleteReview: (reviewId: string) =>
+    apiFetch<void>(`/api/v1/reviews/${reviewId}`, { method: 'DELETE' }),
 
   adminStats: () => apiFetch<ApiAdminStats>('/api/v1/admin/stats'),
-  adminDisputes: (params?: { limit?: number; offset?: number }) => {
+  adminDisputes: (params?: {
+    limit?: number
+    offset?: number
+    scope?: 'open' | 'resolved' | 'all'
+  }) => {
     const q = new URLSearchParams()
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
+    if (params?.scope) q.set('scope', params.scope)
     const qs = q.toString()
     return apiFetch<ApiPaginated<ApiOrder>>(`/api/v1/admin/disputes${qs ? `?${qs}` : ''}`)
   },
@@ -457,4 +509,209 @@ export const api = {
 
   getAnalytics: (period: '7d' | '30d' | '3m' | '1y' = '30d') =>
     apiFetch<ApiAnalytics>(`/api/v1/profiles/me/analytics?period=${period}`),
+
+  listContracts: (params?: { role?: 'client' | 'freelancer'; status?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.role) q.set('role', params.role)
+    if (params?.status) q.set('status', params.status)
+    const qs = q.toString()
+    return apiFetch<ApiContract[]>(`/api/v1/contracts${qs ? `?${qs}` : ''}`)
+  },
+  getContract: (id: string) => apiFetch<ApiContract>(`/api/v1/contracts/${id}`),
+  updateContractStatus: (id: string, status: string, delivery_notes?: string) =>
+    apiFetch<ApiContract>(`/api/v1/contracts/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, delivery_notes }),
+    }),
+  fundContract: (id: string, provider = 'sandbox') =>
+    apiFetch<ApiContract>(`/api/v1/contracts/${id}/fund`, {
+      method: 'POST',
+      body: JSON.stringify({ provider }),
+      headers: paymentIdempotencyHeaders(),
+    }),
+  listContractEscrow: (id: string) =>
+    apiFetch<ApiEscrowTransaction[]>(`/api/v1/contracts/${id}/escrow`),
+  listContractMilestones: (contractId: string) =>
+    apiFetch<ApiMilestone[]>(`/api/v1/milestones/contract/${contractId}`),
+  createMilestone: (contractId: string, data: { title: string; amount: number; description?: string; due_date?: string }) =>
+    apiFetch<ApiMilestone>(`/api/v1/milestones/contract/${contractId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  openDispute: (contractId: string, reason: string) =>
+    apiFetch<ApiDispute>(`/api/v1/disputes/contract/${contractId}`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  getDispute: (id: string) => apiFetch<ApiDispute>(`/api/v1/disputes/${id}`),
+  listDisputeMessages: (id: string) =>
+    apiFetch<ApiDisputeMessage[]>(`/api/v1/disputes/${id}/messages`),
+  postDisputeMessage: (id: string, content: string) =>
+    apiFetch<ApiDisputeMessage>(`/api/v1/disputes/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  publishProject: (id: string) =>
+    apiFetch<ApiProject>(`/api/v1/projects/${id}/publish`, { method: 'POST' }),
+  listConversationThreads: () =>
+    apiFetch<ApiConversationThread[]>('/api/v1/conversations'),
+  listConversationMessages: (conversationId: string) =>
+    apiFetch<ApiMessage[]>(`/api/v1/conversations/${conversationId}/messages`),
+  sendConversationMessage: (
+    conversationId: string,
+    content: string,
+    message_type: 'text' | 'image' | 'file' | 'document' = 'text',
+    attachments: unknown[] = []
+  ) =>
+    apiFetch<ApiMessage>(`/api/v1/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content, message_type, attachments }),
+    }),
+  markConversationRead: (conversationId: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/conversations/${conversationId}/read`, { method: 'POST' }),
+  startCall: (data: { callee_id: string; contract_id?: string; conversation_id?: string; call_type?: string }) =>
+    apiFetch<ApiCallSession>('/api/v1/calls', { method: 'POST', body: JSON.stringify(data) }),
+  getCall: (id: string) => apiFetch<ApiCallSession>(`/api/v1/calls/${id}`),
+  updateCall: (id: string, data: { status?: string; media_state?: Record<string, unknown>; signaling?: Record<string, unknown> }) =>
+    apiFetch<ApiCallSession>(`/api/v1/calls/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  createProjectReview: (contractId: string, rating: number, comment?: string) =>
+    apiFetch<ApiProjectReview>(`/api/v1/contracts/${contractId}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify({ rating, comment }),
+    }),
+  adminEscrow: (params?: {
+    limit?: number
+    offset?: number
+    action?: string
+    source_type?: string
+    status?: string
+  }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    if (params?.action) q.set('action', params.action)
+    if (params?.source_type) q.set('source_type', params.source_type)
+    if (params?.status) q.set('status', params.status)
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<ApiEscrowTransaction>>(`/api/v1/admin/escrow${qs ? `?${qs}` : ''}`)
+  },
+  adminEscrowSummary: () =>
+    apiFetch<import('./types').ApiAdminEscrowSummary>('/api/v1/admin/escrow/summary'),
+  adminMilestones: (params?: {
+    limit?: number
+    offset?: number
+    status?: string
+    payment_status?: string
+  }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    if (params?.status) q.set('status', params.status)
+    if (params?.payment_status) q.set('payment_status', params.payment_status)
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<import('./types').ApiAdminMilestone>>(
+      `/api/v1/admin/milestones${qs ? `?${qs}` : ''}`,
+    )
+  },
+  adminContractDisputes: (params?: {
+    limit?: number
+    offset?: number
+    scope?: 'open' | 'resolved' | 'all'
+  }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    if (params?.scope) q.set('scope', params.scope)
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<ApiDispute>>(`/api/v1/admin/contract-disputes${qs ? `?${qs}` : ''}`)
+  },
+  adminResolveDispute: (disputeId: string, resolution: string, admin_notes?: string) =>
+    apiFetch<ApiDispute>(`/api/v1/admin/disputes/${disputeId}/resolve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ resolution, admin_notes }),
+    }),
+
+  listActivities: (limit = 30) =>
+    apiFetch<import('./types').ApiUserActivity[]>(`/api/v1/platform/activities?limit=${limit}`),
+  getMyReputation: () => apiFetch<import('./types').ApiUserReputation>('/api/v1/platform/reputation/me'),
+  getUserReputation: (userId: string) =>
+    apiFetch<import('./types').ApiUserReputation>(`/api/v1/platform/reputation/${userId}`),
+  requestVerification: (data: {
+    verification_type: 'identity' | 'freelancer' | 'employer' | 'company'
+    document_urls?: string[]
+    notes?: string
+  }) =>
+    apiFetch<import('./types').ApiVerification>('/api/v1/platform/verifications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  listMyVerifications: () =>
+    apiFetch<import('./types').ApiVerification[]>('/api/v1/platform/verifications/mine'),
+  createReport: (data: {
+    target_type: 'user' | 'service' | 'project' | 'review' | 'message'
+    target_id: string
+    category: 'scam' | 'spam' | 'fake_account' | 'abuse'
+    description: string
+  }) =>
+    apiFetch<import('./types').ApiReport>('/api/v1/platform/reports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getDraft: (draftKey: string) =>
+    apiFetch<import('./types').ApiDraft | null>(`/api/v1/platform/drafts/${encodeURIComponent(draftKey)}`),
+  saveDraft: (draftKey: string, payload: Record<string, unknown>) =>
+    apiFetch<import('./types').ApiDraft>('/api/v1/platform/drafts', {
+      method: 'PUT',
+      body: JSON.stringify({ draft_key: draftKey, payload }),
+    }),
+  deleteDraft: (draftKey: string) =>
+    apiFetch<void>(`/api/v1/platform/drafts/${encodeURIComponent(draftKey)}`, { method: 'DELETE' }),
+  trackAnalytics: (event_name: string, properties?: Record<string, unknown>, session_id?: string) =>
+    apiFetch<void>('/api/v1/platform/analytics/track', {
+      method: 'POST',
+      body: JSON.stringify({ event_name, properties, session_id }),
+    }).catch(() => undefined),
+  listFeatureFlags: () => apiFetch<import('./types').ApiFeatureFlag[]>('/api/v1/platform/feature-flags'),
+  auditLogin: () => apiFetch<void>('/api/v1/platform/audit/login', { method: 'POST' }),
+  auditRegister: () => apiFetch<void>('/api/v1/platform/audit/register', { method: 'POST' }),
+
+  adminAuditLogs: (params?: { limit?: number; action?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.action) q.set('action', params.action)
+    const qs = q.toString()
+    return apiFetch<import('./types').ApiAuditLog[]>(`/api/v1/admin/audit-logs${qs ? `?${qs}` : ''}`)
+  },
+  adminAnalytics: (days = 30) =>
+    apiFetch<import('./types').ApiAdminAnalytics>(`/api/v1/admin/analytics?days=${days}`),
+  adminReports: (params?: { status?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.status) q.set('status', params.status)
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<import('./types').ApiReport>>(`/api/v1/admin/reports${qs ? `?${qs}` : ''}`)
+  },
+  adminUpdateReportStatus: (reportId: string, status: string) =>
+    apiFetch<import('./types').ApiReport>(`/api/v1/admin/reports/${reportId}/status?status=${status}`, {
+      method: 'PATCH',
+    }),
+  adminVerifications: (status = 'pending') =>
+    apiFetch<import('./types').ApiVerification[]>(`/api/v1/admin/verifications?status=${status}`),
+  adminReviewVerification: (id: string, status: 'approved' | 'rejected', admin_notes?: string) =>
+    apiFetch<import('./types').ApiVerification>(`/api/v1/admin/verifications/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, admin_notes }),
+    }),
+  adminFraudLogs: (resolved?: boolean) => {
+    const q = resolved === undefined ? '' : `?resolved=${resolved}`
+    return apiFetch<import('./types').ApiFraudLog[]>(`/api/v1/admin/fraud-logs${q}`)
+  },
+  adminResolveFraud: (logId: string) =>
+    apiFetch<import('./types').ApiFraudLog>(`/api/v1/admin/fraud-logs/${logId}/resolve`, { method: 'PATCH' }),
+  adminSuspendUser: (userId: string, suspended: boolean, reason?: string) =>
+    apiFetch<ApiProfile>(`/api/v1/admin/users/${userId}/suspend`, {
+      method: 'PATCH',
+      body: JSON.stringify({ suspended, reason }),
+    }),
 }

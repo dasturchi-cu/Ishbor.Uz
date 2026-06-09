@@ -14,6 +14,7 @@ import {
   Share2,
   ShieldCheck,
   Star,
+  Award,
 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
@@ -31,11 +32,17 @@ import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { PortfolioLightbox } from '@/presentation/components/ui/portfolio-lightbox'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
+import { formatPrice } from '@/shared/lib/format'
+import {
+  experienceLevelLabelKey,
+  parseSpecialtyTitle,
+} from '@/shared/lib/onboarding-profile'
 import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { SkeletonProfileHero } from '@/presentation/components/ui/skeleton'
 import { UserX } from 'lucide-react'
 import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
+import { ReportModal } from '@/presentation/components/features/report-modal'
 
 type ProfileTab = 'about' | 'services' | 'portfolio' | 'reviews'
 
@@ -71,6 +78,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('about')
   const [shareHint, setShareHint] = useState('')
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
 
   useEffect(() => {
     api.recordProfileView(profileId).catch(() => undefined)
@@ -194,6 +202,16 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
     ? t('profile_location_format').replace('{region}', profile.region)
     : t('country_uzbekistan')
   const bioText = profile.bio?.trim()
+  const specialtyLabel =
+    profile.skills?.length && profile.specialty
+      ? parseSpecialtyTitle(profile.specialty) || profile.specialty
+      : profile.specialty
+  const expLevelKey = experienceLevelLabelKey(profile.experience_level)
+  const hasAboutContent =
+    Boolean(bioText) ||
+    (profile.skills?.length ?? 0) > 0 ||
+    Boolean(profile.hourly_rate) ||
+    Boolean(expLevelKey)
 
   const tabs: { id: ProfileTab; label: string }[] = [
     { id: 'about', label: t('tab_about') },
@@ -234,7 +252,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
           <div className="freelancer-profile-hero-inner">
             <div className="freelancer-profile-hero-top">
               <div className="freelancer-profile-hero-main">
-                <Avatar name={name} size={96} verified={profile.is_verified} />
+                <Avatar name={name} src={profile.avatar_url} size={96} verified={profile.is_verified} />
                 <div className="freelancer-profile-info">
                   <div className="freelancer-profile-badges">
                     {profile.is_verified && (
@@ -244,14 +262,26 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                     )}
                   </div>
                   <h1 className="freelancer-profile-name">{name}</h1>
-                  {profile.specialty && (
-                    <p className="freelancer-profile-specialty">{profile.specialty}</p>
+                  {specialtyLabel && (
+                    <p className="freelancer-profile-specialty">{specialtyLabel}</p>
                   )}
                   <ul className="freelancer-profile-meta-list">
                     <li className="freelancer-profile-meta-item">
                       <MapPin className="h-4 w-4 shrink-0" />
                       {locationLabel}
                     </li>
+                    {expLevelKey && (
+                      <li className="freelancer-profile-meta-item">
+                        <Award className="h-4 w-4 shrink-0" />
+                        {t(expLevelKey)}
+                      </li>
+                    )}
+                    {profile.hourly_rate != null && profile.hourly_rate > 0 && (
+                      <li className="freelancer-profile-meta-item">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        {formatPrice(profile.hourly_rate)} / {t('hourly_rate_suffix')}
+                      </li>
+                    )}
                     <li className="freelancer-profile-meta-item">
                       <Calendar className="h-4 w-4 shrink-0" />
                       {t('member_since').replace('{n}', String(memberYears))}
@@ -346,10 +376,23 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                     >
                       <Share2 className="h-4 w-4" />
                     </Button>
+                    {isLoggedIn && userId !== profileId && (
+                      <Button variant="outline" size="sm" onClick={() => setReportOpen(true)}>
+                        {t('report_user')}
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
             </div>
+
+            {reportOpen && (
+              <ReportModal
+                targetType="user"
+                targetId={profileId}
+                onClose={() => setReportOpen(false)}
+              />
+            )}
 
             {shareHint && (
               <p className="mt-2 text-[12px] text-[var(--success-dark)]">{shareHint}</p>
@@ -401,8 +444,25 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
             <div className="freelancer-profile-panel" role="tabpanel">
               {activeTab === 'about' && (
-                bioText ? (
-                  <p className="freelancer-profile-about-text">{bioText}</p>
+                hasAboutContent ? (
+                  <div className="space-y-5">
+                    {bioText && <p className="freelancer-profile-about-text">{bioText}</p>}
+                    {(profile.skills?.length ?? 0) > 0 && (
+                      <div>
+                        <h3 className="text-[14px] font-bold text-[var(--kwork-text)]">{t('skills')}</h3>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {profile.skills!.map((skill) => (
+                            <span
+                              key={skill}
+                              className="inline-flex rounded-full bg-[var(--color-primary-light)] px-3 py-1 text-[12px] font-medium text-[var(--color-primary)]"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <EmptyState
                     compact

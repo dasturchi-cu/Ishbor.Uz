@@ -1,5 +1,4 @@
-import { AuthGuard } from '@/presentation/components/auth/auth-guard'
-import { AdminPage } from '@/presentation/features/admin/admin-page'
+import { AdminDashboard } from '@/presentation/features/admin/admin-dashboard'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -8,9 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function AdminRoute() {
-  return (
-    <AuthGuard>
-      <AdminPage />
-    </AuthGuard>
-  )
+  return <AdminDashboard />
 }

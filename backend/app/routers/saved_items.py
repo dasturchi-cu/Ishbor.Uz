@@ -192,6 +192,11 @@ def save_project(project_id: str, auth: UserAuthDep):
     )
     if existing.data:
         return None
+
+    project = supabase.table("projects").select("id").eq("id", project_id).single().execute()
+    if not project.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
+
     supabase.table("saved_projects").insert(
         {"user_id": user_id, "project_id": project_id}
     ).execute()

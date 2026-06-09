@@ -11,6 +11,40 @@ router = APIRouter(prefix="/messages", tags=["messages"])
 _TERMINAL_ORDER_STATUSES = frozenset({"completed", "cancelled"})
 
 
+def _order_title(supabase, order_row: dict) -> str:
+    services = order_row.get("services")
+    if isinstance(services, dict) and services.get("title"):
+        return services["title"]
+    service_id = order_row.get("service_id")
+    if service_id:
+        svc = (
+            supabase.table("services")
+            .select("title")
+            .eq("id", service_id)
+            .limit(1)
+            .execute()
+        )
+        if svc.data:
+            return svc.data[0].get("title") or "Buyurtma"
+    project_id = order_row.get("project_id")
+    if project_id:
+        proj = (
+            supabase.table("projects")
+            .select("title")
+            .eq("id", project_id)
+            .limit(1)
+            .execute()
+        )
+        if proj.data:
+            return proj.data[0].get("title") or "Loyiha buyurtmasi"
+    notes = (order_row.get("notes") or "").strip()
+    if notes.startswith("Loyiha:"):
+        line = notes.split("\n", 1)[0].replace("Loyiha:", "").strip()
+        if line:
+            return line
+    return "Buyurtma"
+
+
 @router.get("/conversations", response_model=list[ConversationResponse])
 def list_conversations(
     auth: UserAuthDep,
@@ -22,7 +56,7 @@ def list_conversations(
 
     orders_result = (
         supabase.table("orders")
-        .select("id, client_id, freelancer_id, status, services(title), created_at")
+        .select("id, client_id, freelancer_id, status, service_id, project_id, notes, services(title), created_at")
         .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
         .not_.in_("status", ["cancelled"])
         .order("created_at", desc=True)
@@ -88,7 +122,7 @@ def list_conversations(
                 "order_id": oid,
                 "other_user_id": other_id,
                 "other_user_name": profiles_map.get(other_id, "Foydalanuvchi"),
-                "order_title": (order.get("services") or {}).get("title") or "Buyurtma",
+                "order_title": _order_title(supabase, order),
                 "order_status": order["status"],
                 "last_message": stats.get("last_content"),
                 "last_message_at": stats.get("last_created_at") or order["created_at"],
@@ -166,23 +200,11 @@ def send_message(payload: MessageCreate, auth: UserAuthDep):
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xabar yuborilmadi")
 
-    service_title = (order_row.get("services") or {}).get("title") if isinstance(order_row.get("services"), dict) else None
-    if not service_title and order_row.get("service_id"):
-        svc = (
-            supabase.table("services")
-            .select("title")
-            .eq("id", order_row["service_id"])
-            .limit(1)
-            .execute()
-        )
-        if svc.data:
-            service_title = svc.data[0].get("title")
-
     create_notification(
         supabase,
         user_id=receiver_id,
         type="message",
-        title=service_title or "Yangi xabar",
+        title=_order_title(supabase, order_row),
         body=payload.content[:120],
         href=f"/dashboard/messages?order={payload.order_id}",
         urgent=True,

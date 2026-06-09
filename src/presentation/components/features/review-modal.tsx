@@ -13,15 +13,16 @@ import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 interface ReviewModalProps {
   orderId: string
   serviceTitle?: string
+  existingReview?: { id: string; rating: number; comment?: string | null }
   onClose: () => void
   onSubmitted?: () => void
 }
 
-export function ReviewModal({ orderId, serviceTitle, onClose, onSubmitted }: ReviewModalProps) {
+export function ReviewModal({ orderId, serviceTitle, existingReview, onClose, onSubmitted }: ReviewModalProps) {
   const { t } = useApp()
   const dialogRef = useRef<HTMLDivElement>(null)
-  const [rating, setRating] = useState(5)
-  const [comment, setComment] = useState('')
+  const [rating, setRating] = useState(existingReview?.rating ?? 5)
+  const [comment, setComment] = useState(existingReview?.comment ?? '')
   const [loading, setLoading] = useState(false)
 
   useFocusTrap(true, dialogRef)
@@ -38,8 +39,16 @@ export function ReviewModal({ orderId, serviceTitle, onClose, onSubmitted }: Rev
     if (rating < 1) return
     setLoading(true)
     try {
-      await api.createReview(orderId, rating, comment.trim() || undefined)
-      toast.success(t('review_submitted'))
+      if (existingReview) {
+        await api.updateReview(existingReview.id, {
+          rating,
+          comment: comment.trim() || undefined,
+        })
+        toast.success(t('review_updated'))
+      } else {
+        await api.createReview(orderId, rating, comment.trim() || undefined)
+        toast.success(t('review_submitted'))
+      }
       onSubmitted?.()
       onClose()
     } catch (e) {
@@ -61,7 +70,9 @@ export function ReviewModal({ orderId, serviceTitle, onClose, onSubmitted }: Rev
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 id="review-modal-title" className="text-[18px] font-bold text-[var(--kwork-text)]">{t('write_review')}</h2>
+            <h2 id="review-modal-title" className="text-[18px] font-bold text-[var(--kwork-text)]">
+              {existingReview ? t('review_edit') : t('write_review')}
+            </h2>
             {serviceTitle && (
               <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{serviceTitle}</p>
             )}

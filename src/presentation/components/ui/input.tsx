@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
@@ -11,6 +11,10 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
   inputSize?: 'sm' | 'md' | 'lg'
+  /** Parol maydonida ko'z ikonkasi (default: type=password bo'lsa yoqilgan) */
+  passwordToggle?: boolean
+  passwordToggleShowLabel?: string
+  passwordToggleHideLabel?: string
 }
 
 const sizeStyles = {
@@ -31,11 +35,32 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       className,
       id,
       disabled,
+      type,
+      passwordToggle,
+      passwordToggleShowLabel = 'Show password',
+      passwordToggleHideLabel = 'Hide password',
       ...props
     },
     ref
   ) => {
     const inputId = id ?? (label ? label.replace(/\s+/g, '-').toLowerCase() : undefined)
+    const [passwordVisible, setPasswordVisible] = React.useState(false)
+    const usePasswordToggle = type === 'password' && passwordToggle !== false && !rightIcon
+    const inputType = usePasswordToggle ? (passwordVisible ? 'text' : 'password') : type
+
+    const toggleButton = usePasswordToggle ? (
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setPasswordVisible((v) => !v)}
+        aria-label={passwordVisible ? passwordToggleHideLabel : passwordToggleShowLabel}
+        className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[var(--color-text-muted)] transition hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]"
+      >
+        {passwordVisible ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+      </button>
+    ) : null
+
+    const trailing = rightIcon ?? toggleButton
 
     return (
       <div className="w-full min-w-0">
@@ -66,6 +91,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             disabled={disabled}
+            type={inputType}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
             className={cn(
@@ -74,16 +100,16 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               'focus:outline-none focus:ring-0 focus:shadow-none',
               'disabled:cursor-not-allowed disabled:text-[var(--color-text-muted)]',
               leftIcon && 'pl-10',
-              rightIcon && 'pr-10',
+              trailing && 'pr-12',
               sizeStyles[inputSize],
               'input-touch text-base sm:text-sm',
               className
             )}
             {...props}
           />
-          {rightIcon && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] [&>svg]:h-4 [&>svg]:w-4">
-              {rightIcon}
+          {trailing && (
+            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 [&>*]:pointer-events-auto">
+              {trailing}
             </span>
           )}
         </div>

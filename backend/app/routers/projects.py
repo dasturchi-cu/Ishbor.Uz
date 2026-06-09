@@ -3,7 +3,9 @@ from fastapi import APIRouter, HTTPException, Query, status
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import OptionalUserId, UserAuthDep
-from app.schemas import ProjectCreate, ProjectResponse, ProjectStatusUpdate
+from app.project_transitions import validate_project_transition
+from app.schemas import ProjectCreate, ProjectResponse, ProjectStatusUpdate, ProjectUpdate
+from app.schemas_marketplace import ProjectStatusHistoryResponse
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -22,8 +24,10 @@ def list_projects(
     supabase = get_supabase_admin()
     query = supabase.table("projects").select("*, profiles(full_name, region)")
 
-    if status_filter:
+    if status_filter and status_filter != "all":
         query = query.eq("status", status_filter)
+    elif not client_id:
+        query = query.eq("status", "open")
     if client_id:
         if not user_id or client_id != user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
@@ -109,10 +113,46 @@ def create_project(payload: ProjectCreate, auth: UserAuthDep):
             detail="Faqat mijoz loyiha joylashtirishi mumkin",
         )
 
-    data = {**payload.model_dump(mode="json", exclude_none=True), "client_id": user_id}
+    initial_status = "open" if payload.is_public else "draft"
+    data = {
+        **payload.model_dump(mode="json", exclude_none=True),
+        "client_id": user_id,
+        "status": initial_status,
+    }
     result = run_query(lambda: supabase.table("projects").insert(data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Loyiha yaratilmadi")
+    return result.data[0]
+
+
+@router.patch("/{project_id}", response_model=ProjectResponse)
+def update_project(project_id: str, payload: ProjectUpdate, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+
+    existing = supabase.table("projects").select("*").eq("id", project_id).single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
+    if existing.data["client_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+    if existing.data.get("status") not in ("draft", "open"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Faqat qoralama yoki ochiq loyihani tahrirlash mumkin",
+        )
+
+    updates = payload.model_dump(mode="json", exclude_none=True)
+    if not updates:
+        return existing.data
+
+    result = (
+        supabase.table("projects")
+        .update(updates)
+        .eq("id", project_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
     return result.data[0]
 
 
@@ -127,6 +167,9 @@ def update_project_status(project_id: str, payload: ProjectStatusUpdate, auth: U
     if existing.data["client_id"] != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
 
+    current = existing.data.get("status") or "open"
+    validate_project_transition(current, payload.status, user_id, existing.data["client_id"])
+
     result = (
         supabase.table("projects")
         .update({"status": payload.status})
@@ -136,3 +179,49 @@ def update_project_status(project_id: str, payload: ProjectStatusUpdate, auth: U
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
     return result.data[0]
+
+
+@router.post("/{project_id}/publish", response_model=ProjectResponse)
+def publish_project(project_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    existing = supabase.table("projects").select("*").eq("id", project_id).single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
+    if existing.data["client_id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+    current = existing.data.get("status") or "draft"
+    validate_project_transition(current, "open", user_id, existing.data["client_id"])
+    result = supabase.table("projects").update({"status": "open", "is_public": True}).eq("id", project_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
+    return result.data[0]
+
+
+@router.get("/{project_id}/history", response_model=list[ProjectStatusHistoryResponse])
+def get_project_history(project_id: str, auth: UserAuthDep):
+    supabase = auth.supabase
+    project = supabase.table("projects").select("client_id").eq("id", project_id).single().execute()
+    if not project.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
+    user_id = auth.user_id
+    is_owner = project.data["client_id"] == user_id
+    is_applicant = bool(
+        supabase.table("project_applications")
+        .select("id")
+        .eq("project_id", project_id)
+        .eq("freelancer_id", user_id)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not is_owner and not is_applicant:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+    result = (
+        supabase.table("project_status_history")
+        .select("*")
+        .eq("project_id", project_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []

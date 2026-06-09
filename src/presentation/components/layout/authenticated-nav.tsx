@@ -88,12 +88,7 @@ export function AuthenticatedNav({ className }: { className?: string }) {
   const adminActive = pathname === PATHS.admin || pathname.startsWith(`${PATHS.admin}/`)
 
   const linkClass = (active: boolean) =>
-    cn(
-      'auth-nav-link inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold no-underline transition-all duration-200',
-      active
-        ? 'auth-nav-link--active border-[var(--color-primary)] bg-[var(--color-primary)] text-white shadow-[0_4px_14px_rgba(37,99,235,0.35)]'
-        : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text)] shadow-[var(--shadow-xs)] hover:border-[color-mix(in_srgb,var(--color-primary)_35%,var(--kwork-border))] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary)]'
-    )
+    cn('auth-nav-link', active && 'auth-nav-link--active')
 
   return (
     <nav className={cn('auth-nav w-full', className)} aria-label={t('nav_dashboard')}>
@@ -108,12 +103,8 @@ export function AuthenticatedNav({ className }: { className?: string }) {
               href={item.href}
               className={linkClass(active)}
             >
-              <Icon
-                className={cn('h-4 w-4 shrink-0', active ? 'text-white' : 'text-[var(--color-primary)]')}
-                strokeWidth={2.25}
-                aria-hidden
-              />
-              <span>{t(item.labelKey)}</span>
+              <Icon className="auth-nav-link__icon" strokeWidth={active ? 2.25 : 2} aria-hidden />
+              <span className="auth-nav-link__label">{t(item.labelKey)}</span>
               {badge > 0 && (
                 <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--error)] px-1 text-[10px] font-bold text-white">
                   {badge > 9 ? '9+' : badge}
@@ -124,12 +115,8 @@ export function AuthenticatedNav({ className }: { className?: string }) {
         })}
         {profile?.is_admin && (
           <Link href={PATHS.admin} className={linkClass(adminActive)}>
-            <Shield
-              className={cn('h-4 w-4 shrink-0', adminActive ? 'text-white' : 'text-[var(--color-primary)]')}
-              strokeWidth={2.25}
-              aria-hidden
-            />
-            <span>{t('admin_panel')}</span>
+            <Shield className="auth-nav-link__icon" strokeWidth={adminActive ? 2.25 : 2} aria-hidden />
+            <span className="auth-nav-link__label">{t('admin_panel')}</span>
           </Link>
         )}
       </div>

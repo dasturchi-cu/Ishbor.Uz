@@ -128,7 +128,7 @@ export function Header() {
                 <HeaderWalletPill compact className="show-mobile" />
                 <HeaderWalletPill />
                 <LanguagePill language={language} setLanguage={setLanguage} className="hide-mobile" />
-                <AvatarDropdown size={32} />
+                <AvatarDropdown size={28} />
               </div>
             )}
 

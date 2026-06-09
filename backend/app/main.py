@@ -14,18 +14,25 @@ from app.routers import (
     admin,
     ai,
     applications,
+    calls,
+    contracts,
+    conversations,
+    disputes,
     health,
     messages,
+    milestones,
     notifications,
     orders,
     payments,
     profiles,
     projects,
+    proposals,
     reviews,
     saved_items,
     services,
     stats,
     waitlist,
+    platform,
 )
 from app.supabase_errors import supabase_api_error_handler
 
@@ -70,6 +77,12 @@ app.include_router(orders.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(applications.router, prefix="/api/v1")
+app.include_router(proposals.router, prefix="/api/v1")
+app.include_router(contracts.router, prefix="/api/v1")
+app.include_router(milestones.router, prefix="/api/v1")
+app.include_router(disputes.router, prefix="/api/v1")
+app.include_router(conversations.router, prefix="/api/v1")
+app.include_router(calls.router, prefix="/api/v1")
 app.include_router(messages.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(saved_items.router, prefix="/api/v1")
@@ -78,6 +91,7 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(waitlist.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
+app.include_router(platform.router, prefix="/api/v1")
 
 app.add_exception_handler(APIError, supabase_api_error_handler)
 

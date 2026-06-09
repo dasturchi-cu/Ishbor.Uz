@@ -32,7 +32,7 @@ def require_user_auth(
     supabase = create_supabase_user_client(token)
     row = (
         supabase.table("profiles")
-        .select("is_banned")
+        .select("is_banned, is_suspended, suspended_until")
         .eq("id", user_id)
         .limit(1)
         .execute()
@@ -40,6 +40,25 @@ def require_user_auth(
     profile = (row.data or [None])[0]
     if profile and profile.get("is_banned"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob bloklangan")
+    if profile and profile.get("is_suspended"):
+        from datetime import datetime, timezone
+
+        until = profile.get("suspended_until")
+        if until is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob vaqtincha to'xtatilgan")
+        try:
+            end = datetime.fromisoformat(str(until).replace("Z", "+00:00"))
+            if end.tzinfo is None:
+                end = end.replace(tzinfo=timezone.utc)
+            if end > datetime.now(timezone.utc):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Hisob vaqtincha to'xtatilgan",
+                )
+        except HTTPException:
+            raise
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob vaqtincha to'xtatilgan")
 
     return UserAuth(user_id=user_id, supabase=supabase)
 

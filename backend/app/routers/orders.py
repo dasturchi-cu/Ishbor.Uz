@@ -8,6 +8,7 @@ from app.order_transitions import validate_order_transition
 from app.notification_service import notify_order_status
 from app.payment_service import refund_escrow, release_escrow
 from app.schemas import OrderCreate, OrderResponse, OrderStatusUpdate
+from app.conversation_service import ensure_order_conversation
 from app.service_packages import resolve_package_amount
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -117,7 +118,9 @@ def create_order(payload: OrderCreate, auth: UserAuthDep):
     result = run_query(lambda: supabase.table("orders").insert(order_data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Buyurtma yaratilmadi")
-    return result.data[0]
+    order = result.data[0]
+    ensure_order_conversation(order)
+    return order
 
 
 @router.get("/{order_id}", response_model=OrderResponse)

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.database import get_supabase_admin
+from app.db_utils import run_query
 from app.deps import OptionalUserId, UserAuthDep
 from app.search_utils import sanitize_search_term
 from app.schemas import ServiceCreate, ServiceListResponse, ServiceResponse, ServiceUpdate
@@ -14,8 +15,8 @@ router = APIRouter(prefix="/services", tags=["services"])
 def list_my_services(auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    result = (
-        supabase.table("services")
+    result = run_query(
+        lambda: supabase.table("services")
         .select("*")
         .eq("freelancer_id", user_id)
         .order("created_at", desc=True)

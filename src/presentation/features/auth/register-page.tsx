@@ -79,7 +79,7 @@ function RegisterPageContent() {
   const strengthLevel = passwordStrengthLevel(formData.password)
   const strengthLabel =
     strengthLevel === 0
-      ? ''
+      ? t('password_strength_short')
       : strengthLevel === 1
         ? t('password_strength_weak')
         : strengthLevel === 2
@@ -157,6 +157,7 @@ function RegisterPageContent() {
           data: {
             full_name: formData.fullName,
             role: selectedRole,
+            ...(formData.city.trim() ? { region: formData.city.trim() } : {}),
             ...(selectedRole === 'client' && formData.company.trim()
               ? { company: formData.company.trim() }
               : {}),
@@ -176,7 +177,6 @@ function RegisterPageContent() {
         try {
           const username = await pickAvailableUsername(formData.email, formData.fullName)
           const updated = await api.updateProfile({
-            role: selectedRole,
             full_name: formData.fullName,
             phone: formData.phone,
             region: formData.city,
@@ -188,6 +188,9 @@ function RegisterPageContent() {
                 : formData.bio,
             ...(selectedRole === 'client' ? { onboarding_completed: true } : {}),
           })
+          if (updated.role !== selectedRole) {
+            await api.updateProfileRole(selectedRole)
+          }
           await refreshProfile()
           if (selectedRole === 'client' && !updated.onboarding_completed) {
             destination = PATHS.onboarding
@@ -200,6 +203,10 @@ function RegisterPageContent() {
         if (ref) {
           await api.applyReferral(ref).catch(() => {})
         }
+        if (formData.city.trim()) {
+          sessionStorage.setItem('ishbor-register-region', formData.city.trim())
+        }
+        api.auditRegister().catch(() => undefined)
         router.push(destination)
       } else {
         setSuccessMessage(t('auth_email_confirm_sent'))
@@ -383,22 +390,36 @@ function RegisterPageContent() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder={t('password_placeholder')}
                 error={errors.password}
+                passwordToggleShowLabel={t('show_password')}
+                passwordToggleHideLabel={t('hide_password')}
               />
               {formData.password.length > 0 && (
-                <div className="password-strength">
-                  <div className="password-strength-track">
-                    <span
-                      className={cn(
-                        'password-strength-bar',
-                        strengthLevel >= 1 && 'password-strength-bar--1',
-                        strengthLevel >= 2 && 'password-strength-bar--2',
-                        strengthLevel >= 3 && 'password-strength-bar--3'
-                      )}
-                    />
+                <div className="password-strength" aria-live="polite">
+                  <div className="password-strength-segments">
+                    {[1, 2, 3].map((seg) => (
+                      <span
+                        key={seg}
+                        className={cn(
+                          'password-strength-segment',
+                          strengthLevel === 0 && seg === 1 && 'password-strength-segment--short',
+                          strengthLevel >= seg &&
+                            strengthLevel > 0 &&
+                            `password-strength-segment--${strengthLevel}`
+                        )}
+                      />
+                    ))}
                   </div>
-                  {strengthLabel && (
-                    <span className="password-strength-label">{strengthLabel}</span>
-                  )}
+                  <span
+                    className={cn(
+                      'password-strength-label',
+                      strengthLevel === 0 && 'password-strength-label--short',
+                      strengthLevel === 1 && 'password-strength-label--1',
+                      strengthLevel === 2 && 'password-strength-label--2',
+                      strengthLevel === 3 && 'password-strength-label--3'
+                    )}
+                  >
+                    {strengthLabel}
+                  </span>
                 </div>
               )}
               <Input
@@ -408,6 +429,8 @@ function RegisterPageContent() {
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 placeholder={t('password_placeholder')}
                 error={errors.confirmPassword}
+                passwordToggleShowLabel={t('show_password')}
+                passwordToggleHideLabel={t('hide_password')}
               />
               <label className="flex items-start gap-2 text-[13px] text-[var(--color-text-sub)]">
                 <input

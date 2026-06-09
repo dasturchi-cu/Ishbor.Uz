@@ -44,6 +44,12 @@ export interface ApiProfile {
 
   telegram_chat_id?: string | null
 
+  ui_preferences?: {
+    theme?: 'light' | 'dark'
+    language?: 'uz' | 'ru' | 'en'
+    timezone?: string
+  }
+
   created_at?: string
 
 }
@@ -77,6 +83,12 @@ export interface ApiProfilePublic {
   is_verified?: boolean
 
   portfolio_urls?: string[]
+
+  skills?: string[]
+
+  hourly_rate?: number | null
+
+  experience_level?: string | null
 
   languages?: { lang: string; level: string }[]
 
@@ -345,12 +357,152 @@ export interface ApiAdminStats {
 
   projects: number
 
+  vacancies?: number
+
   disputed_orders?: number
+
+  contracts?: number
+
+  disputed_contracts?: number
+
+  open_disputes?: number
+
+  pending_disputes?: number
+
+  escrow_held?: number
+
+  escrow_balance?: number
 
   pending_withdrawals?: number
 
   banned_users?: number
 
+  new_users_today?: number
+
+  employers?: number
+
+  freelancers?: number
+
+  active_users_7d?: number
+
+  revenue_30d?: number
+
+  conversion_rate?: number
+
+  new_users_30d?: number
+
+}
+
+export interface ApiContract {
+  id: string
+  project_id: string
+  proposal_id: string
+  order_id?: string | null
+  client_id: string
+  freelancer_id: string
+  title: string
+  amount: number
+  deadline?: string | null
+  status: string
+  payment_status: string
+  delivery_notes?: string | null
+  revision_count?: number
+  created_at?: string
+  updated_at?: string
+  project?: { id: string; title: string; status: string } | null
+  client_profile?: { id: string; full_name?: string | null; avatar_url?: string | null; region?: string | null } | null
+  freelancer_profile?: { id: string; full_name?: string | null; avatar_url?: string | null; specialty?: string | null; region?: string | null } | null
+}
+
+export interface ApiEscrowTransaction {
+  id: string
+  source_type: string
+  source_id: string
+  client_id: string
+  freelancer_id: string
+  amount: number
+  action: string
+  provider: string
+  status: string
+  metadata?: Record<string, unknown>
+  created_at?: string
+}
+
+export interface ApiMilestone {
+  id: string
+  contract_id: string
+  title: string
+  description?: string | null
+  amount: number
+  due_date?: string | null
+  sort_order: number
+  status: string
+  payment_status: string
+  created_at?: string
+}
+
+export interface ApiDispute {
+  id: string
+  contract_id: string
+  opened_by: string
+  reason: string
+  status: string
+  admin_notes?: string | null
+  resolution?: string | null
+  resolved_at?: string | null
+  created_at?: string
+  contract?: ApiContract | null
+}
+
+export interface ApiDisputeMessage {
+  id: string
+  dispute_id: string
+  sender_id: string
+  content: string
+  attachments?: unknown[]
+  created_at?: string
+}
+
+export interface ApiConversationThread {
+  id: string
+  type: string
+  order_id?: string | null
+  contract_id?: string | null
+  project_id?: string | null
+  participant_ids: string[]
+  other_user_id?: string | null
+  other_user_name?: string | null
+  title?: string | null
+  last_message?: string | null
+  last_message_at?: string | null
+  unread_count: number
+  created_at?: string
+}
+
+export interface ApiCallSession {
+  id: string
+  conversation_id?: string | null
+  contract_id?: string | null
+  initiator_id: string
+  callee_id: string
+  call_type: string
+  status: string
+  media_state?: { camera?: boolean; mic?: boolean; screen?: boolean }
+  signaling?: Record<string, unknown>
+  started_at?: string | null
+  ended_at?: string | null
+  created_at?: string
+}
+
+export interface ApiProjectReview {
+  id: string
+  contract_id: string
+  reviewer_id: string
+  reviewee_id: string
+  direction: string
+  rating: number
+  comment?: string | null
+  created_at?: string
 }
 
 
@@ -525,6 +677,124 @@ export interface ApiAnalytics {
 }
 
 
+
+export interface ApiUserActivity {
+  id: string
+  user_id: string
+  activity_type: string
+  title: string
+  body?: string | null
+  href?: string | null
+  created_at: string
+}
+
+export interface ApiUserReputation {
+  user_id: string
+  avg_rating: number
+  review_count: number
+  completed_projects: number
+  completed_orders: number
+  success_rate: number
+  response_time_hours?: number | null
+  total_earnings: number
+  trust_score: number
+  updated_at?: string
+}
+
+export interface ApiVerification {
+  id: string
+  user_id: string
+  verification_type: string
+  status: string
+  document_urls: string[]
+  notes?: string | null
+  admin_notes?: string | null
+  created_at?: string
+}
+
+export interface ApiReport {
+  id: string
+  reporter_id: string
+  target_type: string
+  target_id: string
+  category: string
+  description: string
+  status: string
+  created_at?: string
+}
+
+export interface ApiAuditLog {
+  id: string
+  actor_id?: string | null
+  action: string
+  entity_type?: string | null
+  entity_id?: string | null
+  metadata?: Record<string, unknown>
+  created_at?: string
+}
+
+export interface ApiAdminEscrowSummary {
+  contract_held: number
+  milestone_held: number
+  total_held: number
+  contracts_count: number
+  milestones_count: number
+}
+
+export interface ApiAdminMilestone {
+  id: string
+  contract_id: string
+  title: string
+  description?: string | null
+  amount: number
+  due_date?: string | null
+  sort_order: number
+  status: string
+  payment_status: string
+  created_at?: string
+  contracts?: {
+    id: string
+    title?: string
+    client_id?: string
+    freelancer_id?: string
+    project_id?: string
+  } | null
+}
+
+export interface ApiAdminAnalytics {
+  period_days: number
+  new_users: number
+  orders_total: number
+  orders_completed: number
+  revenue_completed: number
+  search_events: number
+  register_events: number
+  conversion_rate: number
+}
+
+export interface ApiFraudLog {
+  id: string
+  user_id?: string | null
+  fraud_type: string
+  severity: string
+  details?: Record<string, unknown>
+  resolved: boolean
+  created_at?: string
+}
+
+export interface ApiFeatureFlag {
+  key: string
+  enabled: boolean
+  description?: string | null
+  rollout_percent: number
+}
+
+export interface ApiDraft {
+  id: string
+  draft_key: string
+  payload: Record<string, unknown>
+  updated_at?: string
+}
 
 export interface ProjectCreateInput {
 

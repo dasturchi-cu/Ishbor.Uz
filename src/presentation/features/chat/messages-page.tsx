@@ -118,6 +118,7 @@ export function MessagesPage() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const orderFromUrl = searchParams.get('order')
+  const contractFromUrl = searchParams.get('contract')
   const inDashboard = pathname.startsWith('/dashboard')
 
   const [conversations, setConversations] = useState<ApiConversation[]>([])
@@ -144,6 +145,16 @@ export function MessagesPage() {
       setSelectedOrderId(orderFromUrl)
     }
   }, [orderFromUrl])
+
+  useEffect(() => {
+    if (!contractFromUrl || orderFromUrl) return
+    api
+      .getContract(contractFromUrl)
+      .then((contract) => {
+        if (contract.order_id) setSelectedOrderId(contract.order_id)
+      })
+      .catch(() => undefined)
+  }, [contractFromUrl, orderFromUrl])
 
   useEffect(() => {
     api

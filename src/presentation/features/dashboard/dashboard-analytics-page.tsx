@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const AnalyticsCharts = dynamic(
   () => import('./analytics-charts').then((m) => m.AnalyticsCharts),
@@ -19,31 +19,55 @@ import { DollarSign, ShoppingBag, Eye } from 'lucide-react'
 import { Button } from '@/presentation/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 import { Alert } from '@/presentation/components/ui/alert'
+import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 
 const PERIODS = ['7d', '30d', '3m', '1y'] as const
 
 export function DashboardAnalyticsPage() {
   const { t } = useApp()
+  const isClient = useDashboardRole() === 'client'
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>('30d')
   const [data, setData] = useState<ApiAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const requestSeqRef = useRef(0)
+  const loadAnalyticsRef = useRef<(attempt?: number) => Promise<void>>(async () => {})
 
-  const loadAnalytics = useCallback(() => {
-    setLoading(true)
-    setLoadError(false)
-    api
-      .getAnalytics(period)
-      .then(setData)
-      .catch(() => {
-        setData(null)
-        setLoadError(true)
-      })
-      .finally(() => setLoading(false))
+  const loadAnalytics = useCallback(async (attempt = 0) => {
+    const seq = ++requestSeqRef.current
+    if (attempt === 0) {
+      setLoading(true)
+      setLoadError(false)
+    }
+
+    try {
+      const result = await api.getAnalytics(period)
+      if (seq !== requestSeqRef.current) return
+      setData(result)
+      setLoadError(false)
+    } catch {
+      if (seq !== requestSeqRef.current) return
+      if (attempt < 1) {
+        window.setTimeout(() => {
+          void loadAnalyticsRef.current(attempt + 1)
+        }, 1200)
+        return
+      }
+      setData(null)
+      setLoadError(true)
+    } finally {
+      if (seq === requestSeqRef.current) {
+        setLoading(false)
+      }
+    }
   }, [period])
 
   useEffect(() => {
-    loadAnalytics()
+    loadAnalyticsRef.current = loadAnalytics
+  }, [loadAnalytics])
+
+  useEffect(() => {
+    void loadAnalytics()
   }, [loadAnalytics])
 
   const periodLabel = {
@@ -85,7 +109,7 @@ export function DashboardAnalyticsPage() {
         <Alert variant="error" className="mb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadAnalytics}>
+            <Button variant="outline" size="sm" onClick={() => void loadAnalytics()}>
               {t('catalog_retry')}
             </Button>
           </div>
@@ -101,7 +125,7 @@ export function DashboardAnalyticsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={DollarSign}
-          label={t('stat_revenue')}
+          label={isClient ? t('client_analytics_spent_label') : t('stat_revenue')}
           value={formatPrice(data?.completed_revenue ?? 0)}
         />
         <StatCard

@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Badge } from '@/presentation/components/ui/badge'
-import { api } from '@/infrastructure/api/client'
+import { api, ApiError } from '@/infrastructure/api/client'
+import { Button } from '@/presentation/components/ui/button'
+import { toast } from '@/presentation/components/ui/toast'
 import type { ApiProjectApplication } from '@/infrastructure/api/types'
 import { PATHS, projectPath } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
@@ -18,6 +20,7 @@ export function DashboardApplicationsPage() {
   const [apps, setApps] = useState<ApiProjectApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null)
 
   const loadApps = useCallback(() => {
     setLoading(true)
@@ -48,6 +51,20 @@ export function DashboardApplicationsPage() {
     if (s === 'shortlisted') return 'info' as const
     if (s === 'rejected') return 'error' as const
     return 'outline' as const
+  }
+
+  const handleWithdraw = async (appId: string) => {
+    if (!window.confirm(t('application_withdraw_confirm'))) return
+    setWithdrawingId(appId)
+    try {
+      await api.withdrawApplication(appId)
+      setApps((prev) => prev.filter((a) => a.id !== appId))
+      toast.success(t('application_withdrawn'))
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : t('error_required'))
+    } finally {
+      setWithdrawingId(null)
+    }
   }
 
   return (
@@ -100,6 +117,17 @@ export function DashboardApplicationsPage() {
                 </Badge>
               </div>
               <p className="mt-3 text-[14px] font-bold">{formatPrice(app.proposed_budget)}</p>
+              {(app.status === 'submitted' || app.status === 'shortlisted') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  loading={withdrawingId === app.id}
+                  onClick={() => handleWithdraw(app.id)}
+                >
+                  {t('application_withdraw')}
+                </Button>
+              )}
             </div>
           ))}
         </div>

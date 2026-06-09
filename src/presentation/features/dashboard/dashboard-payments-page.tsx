@@ -13,7 +13,6 @@ import { formatPrice } from '@/shared/lib/format'
 import { Receipt } from 'lucide-react'
 import { PATHS } from '@/domain/constants/routes'
 import { Alert } from '@/presentation/components/ui/alert'
-import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 
@@ -91,19 +90,7 @@ export function DashboardPaymentsPage() {
           {['Click', 'Payme'].map((method) => (
             <div key={method} className="flex items-center justify-between rounded-xl border border-dashed border-[var(--kwork-border)] p-4">
               <span className="font-bold text-[var(--kwork-text)]">{method}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  toast.info(
-                    paymentsLive
-                      ? t('payment_connect_live_soon')
-                      : method === 'Click'
-                        ? t('payment_click_soon')
-                        : t('payment_payme_soon')
-                  )
-                }
-              >
+              <Button variant="outline" size="sm" disabled title={t('payment_connect_live_soon')}>
                 {method === 'Click' ? t('connect_click') : t('connect_payme')}
               </Button>
             </div>

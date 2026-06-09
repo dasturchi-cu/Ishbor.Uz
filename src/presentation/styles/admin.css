@@ -1,0 +1,45 @@
+.admin-shell {
+  --admin-bg: #f8fafc;
+  --admin-sidebar: #0f172a;
+  --admin-sidebar-text: #94a3b8;
+  --admin-sidebar-active: #2563eb;
+  --admin-surface: #ffffff;
+  --admin-border: #e2e8f0;
+  --admin-text: #0f172a;
+  --admin-muted: #64748b;
+  --admin-danger: #dc2626;
+  --admin-warning: #d97706;
+  --admin-success: #059669;
+}
+
+.dark .admin-shell {
+  --admin-bg: #0b1220;
+  --admin-sidebar: #020617;
+  --admin-sidebar-text: #94a3b8;
+  --admin-sidebar-active: #3b82f6;
+  --admin-surface: #0f172a;
+  --admin-border: #1e293b;
+  --admin-text: #f1f5f9;
+  --admin-muted: #94a3b8;
+}
+
+.admin-kpi-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+}
+
+.admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.admin-nav-item:focus-visible {
+  outline: 2px solid var(--admin-sidebar-active);
+  outline-offset: 2px;
+}
+
+.admin-queue-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

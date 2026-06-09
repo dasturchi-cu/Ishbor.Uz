@@ -146,6 +146,8 @@ function ResetPasswordContent() {
                     setError('')
                   }}
                   placeholder={t('password_placeholder')}
+                  passwordToggleShowLabel={t('show_password')}
+                  passwordToggleHideLabel={t('hide_password')}
                 />
                 <Input
                   label={t('confirm_password')}
@@ -156,6 +158,8 @@ function ResetPasswordContent() {
                     setError('')
                   }}
                   placeholder={t('password_placeholder')}
+                  passwordToggleShowLabel={t('show_password')}
+                  passwordToggleHideLabel={t('hide_password')}
                 />
                 <p className="text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">
                   {t('reset_password_relogin_note')}

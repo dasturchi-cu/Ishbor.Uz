@@ -28,7 +28,7 @@ export function DashboardProjectsPage() {
     setLoading(true)
     setLoadError(false)
     api
-      .listProjects({ client_id: userId })
+      .listProjects({ client_id: userId, status: 'all' })
       .then(setProjects)
       .catch(() => {
         setProjects([])
