@@ -134,7 +134,7 @@ export function FreelancersCatalog({
                       onMouseDown={() => {
                         setSearch(f.full_name ?? '')
                         setSuggestOpen(false)
-                        router.push(freelancerPath(f.id))
+                        router.push(freelancerPath(f))
                       }}
                     >
                       {f.full_name ?? t('freelancer')}
@@ -241,7 +241,7 @@ export function FreelancersCatalog({
               variant="row"
               isVerified={f.is_verified}
               trustScore={f.trust_score}
-              onClick={() => router.push(freelancerPath(f.id))}
+              onClick={() => router.push(freelancerPath(f))}
             />
           ))}
         </div>

@@ -1,6 +1,21 @@
 # IshBor.uz — Production backlog (100 vazifa)
 
-Oxirgi yangilanish: **2026-06-09** (to'liq audit)
+Oxirgi yangilanish: **2026-06-09** — sandbox to'lov, hamyondan to'lash, escrow dashboard, revision UI
+
+> **Hozir qilinadigan 100 vazifa (Click/Payme dan tashqari):** [actionable-backlog.md](./actionable-backlog.md)
+
+## So'nggi sprint (bajarildi)
+
+- Escrow milestone UI — `contract-milestones-section.tsx` + `PATCH /milestones/{id}/status`
+- Wallet top-up — `20240629600000_wallet_topup.sql`, sandbox-only `POST /payments/wallet/topup`
+- Hamyondan buyurtma to'lash — `20240629700000_pay_order_from_wallet.sql`, `POST /pay-wallet`
+- Escrow dashboard — milestone held jami + jadval
+- Order revision UI — mijoz `delivered` → `active`
+- Profil — tasdiqlash tarixi (`listMyVerifications`)
+- Admin moderation — tab navigatsiya + verification queue
+- E2E — `wallet-topup`, `milestones`, `admin-moderation`, `verification` + backend pytest
+
+**Click/Payme** — hozircha o'chirilgan (sandbox-only). Merchant credential bo'lganda yoqiladi.
 
 **Belgilar:** ✅ Tayyor · ⚠️ Qisman · ❌ Reja · 🔒 Tashqi (credential/infra)
 
@@ -11,7 +26,7 @@ Oxirgi yangilanish: **2026-06-09** (to'liq audit)
 | # | Vazifa | Holat |
 |---|--------|-------|
 | 1 | `supabase db push` — barcha migrationlar | ✅ 39 ta migration remote sinxron |
-| 2 | Live Click/Payme env | 🔒 Merchant credential kerak |
+| 2 | Live Click/Payme env | 🔒 Keyinroq — merchant credential yo'q; [actionable-backlog](./actionable-backlog.md) dan tashqari |
 | 3 | RLS audit — yangi jadvallar | ⚠️ Asosiy jadvallar; audit qo'lda |
 | 4 | Backend production deploy + health | ⚠️ `/api/v1/health` tayyor; host deploy user |
 | 5 | CORS + rate limit production | ⚠️ Kod bor; production env tekshirish kerak |
@@ -22,12 +37,12 @@ Oxirgi yangilanish: **2026-06-09** (to'liq audit)
 
 | # | Vazifa | Holat |
 |---|--------|-------|
-| 6 | Escrow milestone RPC UI | ✅ RPC + `milestone_escrow_service` |
+| 6 | Escrow milestone RPC UI | ✅ Contract detail UI + status actions |
 | 7 | Contract detail → escrow flow | ✅ Marketplace UI |
-| 8 | Wallet top-up haqiqiy | ⚠️ Sandbox; live 🔒 |
+| 8 | Wallet top-up | ✅ Sandbox-only; Click/Payme 🔒 keyinroq |
 | 9 | Withdrawal admin tasdiqlash UI | ✅ Admin finance |
 | 10 | Dispute resolution UI | ✅ Client + admin disputes |
-| 11 | Order revision flow | ⚠️ API bor; UI qisman |
+| 11 | Order revision flow | ✅ Mijoz `delivered` → qayta ishlash |
 | 12 | Service packages CRUD UI | ❌ |
 | 13 | Project hire → contract avto | ✅ `contract_service` |
 | 14 | Birja filter + pagination | ⚠️ Projects catalog |
@@ -44,7 +59,7 @@ Oxirgi yangilanish: **2026-06-09** (to'liq audit)
 
 | # | Vazifa | Holat |
 |---|--------|-------|
-| 21 | Admin dashboard redesign | ✅ Faza 0–3 |
+| 21 | Admin dashboard redesign | ✅ Moderation tabs + verification queue |
 | 22 | Dashboard skeleton shell | ⚠️ `LoadingBlock` |
 | 23 | Onboarding → hero progress | ⚠️ |
 | 24 | Mobile 375px hero KPI | ⚠️ |
@@ -121,7 +136,7 @@ Oxirgi yangilanish: **2026-06-09** (to'liq audit)
 | 67 | Report triage workflow | ✅ Moderation |
 | 68 | KYC document viewer | ❌ |
 | 69 | Commission override | ❌ |
-| 70 | Platform health dashboard | ⚠️ KPI + health API |
+| 70 | Platform health dashboard | ✅ KPI + `/health/ready` admin panel |
 
 ---
 
@@ -192,7 +207,7 @@ Oxirgi yangilanish: **2026-06-09** (to'liq audit)
 ## Deploy
 
 ```bash
-supabase db push          # ✅ 39 migration
+supabase db push          # ✅ 40 migration (+ pay_order_from_wallet)
 cd backend && pytest      # backend test
 pnpm verify               # tsc + lint + test + build
 ```

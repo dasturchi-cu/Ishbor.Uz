@@ -26,7 +26,24 @@ copy .env.example .env
 
 ## Ishga tushirish (RUN)
 
-Ikkita alohida terminal oching.
+### Bitta buyruq (tavsiya) — avtomatik hot reload
+
+```powershell
+cd C:\Users\User\ishbor\Ishbor.Uz
+pnpm dev:start
+```
+
+Yoki portlar toza bo'lsa:
+
+```powershell
+pnpm dev:all
+```
+
+- **Frontend** kod o'zgasa → Next.js HMR avtomatik yangilaydi (restart yo'q)
+- **Backend** kod o'zgasa → uvicorn `--reload` avtomatik qayta yuklaydi (restart yo'q)
+- Cursor/VS Code loyihani ochganda **IshBor: Dev Full Stack** task avtomatik ishga tushishi mumkin
+
+### Ikkita alohida terminal (ixtiyoriy)
 
 ### Terminal 1 — FastAPI backend (port **8002**)
 

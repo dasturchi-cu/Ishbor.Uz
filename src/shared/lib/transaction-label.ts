@@ -6,6 +6,7 @@ const TX_TYPE_KEYS: Record<string, TranslationKey> = {
   escrow_refund: 'tx_type_escrow_refund',
   withdrawal: 'tx_type_withdrawal',
   platform_commission: 'tx_type_platform_commission',
+  topup: 'tx_type_topup',
 }
 
 export function transactionTypeLabel(

@@ -1,16 +1,21 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { api } from '@/infrastructure/api/client'
-import type { ApiCallSession } from '@/infrastructure/api/types'
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor } from 'lucide-react'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 
 /** Local/test WebRTC — signaling API orqali (production: TURN/STUN server kerak) */
 export function CallRoomPage({ callId }: { callId: string }) {
   const { t } = useApp()
-  const [session, setSession] = useState<ApiCallSession | null>(null)
+  const { data: session } = useProtectedLoader(() => api.getCall(callId), [callId])
+  const [endedLocally, setEndedLocally] = useState(false)
+  const activeSession = useMemo(
+    () => (endedLocally && session ? { ...session, status: 'ended' as const } : session),
+    [endedLocally, session]
+  )
   const [cameraOn, setCameraOn] = useState(true)
   const [micOn, setMicOn] = useState(true)
   const [screenOn, setScreenOn] = useState(false)
@@ -20,11 +25,7 @@ export function CallRoomPage({ callId }: { callId: string }) {
   const localStreamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
-    api.getCall(callId).then(setSession)
-  }, [callId])
-
-  useEffect(() => {
-    if (!session || session.status === 'ended') return
+    if (!activeSession || activeSession.status === 'ended') return
 
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -54,13 +55,13 @@ export function CallRoomPage({ callId }: { callId: string }) {
       pc.close()
       localStreamRef.current?.getTracks().forEach((t) => t.stop())
     }
-  }, [session, callId, cameraOn, micOn])
+  }, [activeSession, callId, cameraOn, micOn])
 
   const endCall = async () => {
     await api.updateCall(callId, { status: 'ended' })
     localStreamRef.current?.getTracks().forEach((t) => t.stop())
     pcRef.current?.close()
-    setSession((s) => (s ? { ...s, status: 'ended' } : s))
+    setEndedLocally(true)
   }
 
   const toggleTrack = (kind: 'video' | 'audio', enabled: boolean) => {
@@ -111,7 +112,7 @@ export function CallRoomPage({ callId }: { callId: string }) {
       </div>
       {session && (
         <p className="text-center text-sm text-muted-foreground capitalize">
-          {t('status')}: {session.status}
+          {t('status')}: {activeSession?.status ?? '—'}
         </p>
       )}
     </div>

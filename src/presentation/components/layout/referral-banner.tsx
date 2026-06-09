@@ -1,21 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Copy, Gift, Share2 } from 'lucide-react'
+import { useState } from 'react'
+import { Copy, Gift, Share2, Users } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { toast } from '@/presentation/components/ui/toast'
 import { api } from '@/infrastructure/api/client'
 import { formatPrice } from '@/shared/lib/format'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { Skeleton } from '@/presentation/components/ui/skeleton'
 
 export function ReferralBanner({ className }: { className?: string }) {
   const { t, userId } = useApp()
   const [copied, setCopied] = useState(false)
   const [referralCount, setReferralCount] = useState(0)
   const [bonusEarned, setBonusEarned] = useState(0)
+  const [statsLoading, setStatsLoading] = useState(true)
 
-  useEffect(() => {
-    if (!userId) return
+  useAuthedEffect(() => {
+    setStatsLoading(true)
     api
       .getReferralStats()
       .then((s) => {
@@ -23,7 +26,8 @@ export function ReferralBanner({ className }: { className?: string }) {
         setBonusEarned(s.bonus_earned ?? 0)
       })
       .catch(() => {})
-  }, [userId])
+      .finally(() => setStatsLoading(false))
+  }, [])
 
   if (!userId) return null
 
@@ -62,13 +66,26 @@ export function ReferralBanner({ className }: { className?: string }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="referral-banner-title">{t('referral_title')}</p>
-        <p className="referral-banner-desc">
-          {bonusEarned > 0
-            ? t('referral_bonus_earned').replace('{amount}', formatPrice(bonusEarned))
-            : referralCount > 0
-              ? t('referral_count').replace('{n}', String(referralCount))
-              : t('referral_desc')}
-        </p>
+        <p className="referral-banner-desc">{t('referral_desc')}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {statsLoading ? (
+            <>
+              <Skeleton className="h-6 w-28 rounded-full" />
+              <Skeleton className="h-6 w-32 rounded-full" />
+            </>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--color-primary)]">
+                <Users className="h-3 w-3" aria-hidden />
+                {t('referral_stats_invited').replace('{n}', String(referralCount))}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--success-dark)]">
+                <Gift className="h-3 w-3" aria-hidden />
+                {t('referral_stats_bonus').replace('{amount}', formatPrice(bonusEarned))}
+              </span>
+            </>
+          )}
+        </div>
       </div>
       <div className="flex shrink-0 gap-2">
         <Button variant="outline" size="sm" className="gap-1.5" onClick={share}>

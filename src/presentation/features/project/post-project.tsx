@@ -23,6 +23,7 @@ import { postProjectSchema } from '@/domain/validators/project'
 import { formatDate } from '@/shared/lib/format-date'
 import { formatPrice } from '@/shared/lib/format'
 import { ensureProfileRole } from '@/shared/lib/ensure-profile-role'
+import { captureActionError } from '@/shared/lib/action-error'
 import { toast } from '@/presentation/components/ui/toast'
 import { SkeletonFormPanel } from '@/presentation/components/ui/skeleton'
 import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
@@ -266,6 +267,10 @@ export function PostProject() {
       return
     }
 
+    await submitProject(false)
+  }
+
+  const submitProject = async (asDraft: boolean) => {
     const allErrs = validateAll()
     if (Object.keys(allErrs).length > 0) {
       setFieldErrors(allErrs)
@@ -307,16 +312,21 @@ export function PostProject() {
         level: formData.level,
         region: formData.city,
         attachment_urls: attachments.map((a) => a.url),
-        is_public: true,
+        is_public: !asDraft,
       })
       draft.clear()
-      toast.success(t('project_posted'))
-      router.push(`${PATHS.dashboardProjects}?posted=1`)
+      if (asDraft) {
+        toast.success(t('project_saved_draft'))
+        router.push(PATHS.dashboardProjects)
+      } else {
+        toast.success(t('project_posted'))
+        router.push(`${PATHS.dashboardProjects}?posted=1`)
+      }
     } catch (e) {
       if (e instanceof ApiError) {
         setError(mapAuthErrorMessage(e.message, t))
       } else {
-        setError(e instanceof Error ? e.message : t('error_generic'))
+        setError(captureActionError(e, { scope: 'project_create' }, t))
       }
     } finally {
       setSubmitting(false)
@@ -649,10 +659,21 @@ export function PostProject() {
 
             {error && <Alert variant="error">{error}</Alert>}
 
-            <div className="flex gap-3 border-t border-[var(--kwork-border)] pt-6">
+            <div className="flex flex-wrap gap-3 border-t border-[var(--kwork-border)] pt-6">
               {step > 1 && (
-                <Button variant="outline" onClick={handlePrevStep} className="flex-1 gap-2">
+                <Button variant="outline" onClick={handlePrevStep} className="flex-1 gap-2 sm:flex-none">
                   <ChevronLeft className="h-4 w-4" /> {t('back')}
+                </Button>
+              )}
+              {step === 3 && (
+                <Button
+                  variant="outline"
+                  onClick={() => void submitProject(true)}
+                  disabled={submitting}
+                  loading={submitting}
+                  className="flex-1 sm:flex-none"
+                >
+                  {t('project_save_draft')}
                 </Button>
               )}
               <Button
@@ -660,7 +681,7 @@ export function PostProject() {
                 onClick={handleNextStep}
                 disabled={submitting}
                 loading={submitting}
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 sm:ml-auto"
               >
                 {step === 3 ? t('post_project') : t('next')}
                 <ChevronRight className="h-4 w-4" />

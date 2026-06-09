@@ -1,0 +1,46 @@
+---
+description: React va Next.js UI komponentlari uchun IshBor konventsiyalari
+globs: **/*.{tsx,jsx}
+alwaysApply: false
+---
+
+# React / UI Rules
+
+## Komponentlar
+- Sahifalar: `src/presentation/features/{feature}/`
+- Layout: `src/presentation/components/layout/`
+- UI primitives: `src/presentation/components/ui/` (shadcn)
+
+## Pattern
+```tsx
+'use client'
+import { useApp } from '@/application/providers/app-provider'
+
+export function MyPage() {
+  const { t, setCurrentPage } = useApp()
+  return <h1>{t('page_title')}</h1>
+}
+```
+
+## Navigatsiya (hozir)
+```tsx
+setCurrentPage('services-catalog')  // vaqtinchalik — APP_ROUTES dan
+// Keyin: router.push('/services')
+```
+
+## Stil
+- Container: `container-responsive`
+- Animatsiya: `animate-fadeInUp`, `hover-lift`
+- Hero: `gradient-hero`, auth card: `glass-auth`
+- Card: shadcn `Card` komponenti
+
+## Formalar
+- Input: shadcn `Input`
+- Select (purple bg): `className="select-auth"`
+- Xato xabarlar: i18n kalitlari (`error_required`, ...)
+
+## Qilma
+- Landing ichida footer qo'shma (global Footer bor)
+- `$` valyuta ishlatma
+- Inglizcha hardcode matn
+- Eski `@/components/*` import — ishlatma

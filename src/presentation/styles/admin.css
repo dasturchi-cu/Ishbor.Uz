@@ -43,3 +43,47 @@
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+.admin-sticky-toolbar {
+  position: sticky;
+  top: 3.5rem;
+  z-index: 20;
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-badge--success {
+  background: color-mix(in srgb, var(--admin-success) 15%, transparent);
+  color: var(--admin-success);
+}
+
+.admin-badge--warning {
+  background: color-mix(in srgb, var(--admin-warning) 15%, transparent);
+  color: var(--admin-warning);
+}
+
+.admin-badge--danger {
+  background: color-mix(in srgb, var(--admin-danger) 15%, transparent);
+  color: var(--admin-danger);
+}
+
+.admin-badge--neutral {
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+}
+
+.admin-badge--muted {
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+}
+
+.admin-table-wrap {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}

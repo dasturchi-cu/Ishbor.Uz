@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { trackMiddlewareSupabaseRequest } from '@/infrastructure/supabase/middleware-request-debug'
 
 const PROTECTED_PREFIXES = [
   '/dashboard',
@@ -36,6 +37,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request })
+  const { pathname } = request.nextUrl
 
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -56,7 +58,11 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
+  trackMiddlewareSupabaseRequest({
+    queryName: 'auth.getUser',
+    pathname,
+    component: 'proxy.ts/updateSession',
+  })
 
   if (!user && isProtected(pathname)) {
     const loginUrl = request.nextUrl.clone()
@@ -66,6 +72,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && AUTH_PATHS.has(pathname)) {
+    trackMiddlewareSupabaseRequest({
+      queryName: 'profiles.select',
+      pathname,
+      component: 'proxy.ts/auth-redirect',
+    })
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin, onboarding_completed')
@@ -79,12 +90,26 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL(dest, request.url))
   }
 
+  const onAdmin = pathname === '/admin' || pathname.startsWith('/admin/')
+
   if (user && isProtected(pathname)) {
+    trackMiddlewareSupabaseRequest({
+      queryName: 'profiles.select',
+      pathname,
+      component: 'proxy.ts/protected-guard',
+    })
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_banned, onboarding_completed, is_admin')
       .eq('id', user.id)
       .maybeSingle()
+
+    if (onAdmin && !profile?.is_admin) {
+      const deniedUrl = request.nextUrl.clone()
+      deniedUrl.pathname = '/dashboard'
+      deniedUrl.searchParams.set('admin_denied', '1')
+      return NextResponse.redirect(deniedUrl)
+    }
 
     if (profile?.is_banned) {
       await supabase.auth.signOut()
@@ -108,8 +133,6 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
-
-  // Admin huquqi clientda AdminGuard orqali tekshiriladi (dashboard ga yashirin redirect yo'q)
 
   return response
 }

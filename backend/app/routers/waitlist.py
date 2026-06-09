@@ -19,8 +19,8 @@ def join_waitlist(payload: WaitlistCreate):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email kerak")
 
     supabase = get_supabase_admin()
-    existing = (
-        supabase.table("waitlist_emails")
+    existing = run_query(
+        lambda: supabase.table("waitlist_emails")
         .select("id")
         .eq("email", email)
         .eq("source", payload.source)

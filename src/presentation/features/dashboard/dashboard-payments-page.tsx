@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
@@ -8,49 +8,39 @@ import { Button } from '@/presentation/components/ui/button'
 import { Badge } from '@/presentation/components/ui/badge'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiTransaction } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
 import { Receipt } from 'lucide-react'
 import { PATHS } from '@/domain/constants/routes'
-import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { formatDate } from '@/shared/lib/format-date'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 
 export function DashboardPaymentsPage() {
   const { t, language } = useApp()
   const router = useRouter()
   const role = useDashboardRole()
-  const [orders, setOrders] = useState<ApiOrder[]>([])
-  const [ledger, setLedger] = useState<ApiTransaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
   const paymentsLive = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true'
 
-  const loadPayments = () => {
-    setLoading(true)
-    setLoadError(false)
-    Promise.all([
-      api.listOrders().catch(() => {
-        setLoadError(true)
-        return [] as ApiOrder[]
-      }),
-      api.listTransactions().catch(() => {
-        setLoadError(true)
-        return [] as ApiTransaction[]
-      }),
-    ])
-      .then(([ord, tx]) => {
-        setOrders(ord)
-        setLedger(tx)
-      })
-      .finally(() => setLoading(false))
-  }
+  const fetchPayments = useCallback(
+    () =>
+      Promise.all([api.listOrders(), api.listTransactions()]).then(([ord, tx]) => ({
+        orders: ord,
+        ledger: tx,
+      })),
+    []
+  )
 
-  useEffect(() => {
-    loadPayments()
-  }, [])
-
+  const {
+    data: paymentsData,
+    loading,
+    error: paymentsLoadError,
+    loadError: paymentsFetchError,
+    reload: loadPayments,
+  } = useProtectedLoader(fetchPayments, [])
   const transactions = useMemo(() => {
+    const orders = paymentsData?.orders ?? []
+    const ledger = paymentsData?.ledger ?? []
     if (ledger.length > 0) {
       return ledger.map((tx) => ({
         id: tx.id,
@@ -70,19 +60,12 @@ export function DashboardPaymentsPage() {
         amount: role === 'freelancer' ? o.amount : -o.amount,
         status: o.status === 'completed' ? 'completed' : 'pending',
       }))
-  }, [orders, ledger, role, t, language])
+  }, [paymentsData, role, t, language])
 
   return (
     <div className="space-y-5">
-      {loadError && (
-        <Alert variant="error">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadPayments}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {paymentsLoadError && (
+        <LoadErrorAlert error={paymentsFetchError} scope="payments" onRetry={loadPayments} />
       )}
       <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5">
         <h3 className="settings-section-title">{t('payments_methods_title')}</h3>

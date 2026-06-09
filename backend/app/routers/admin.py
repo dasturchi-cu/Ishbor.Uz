@@ -1,4 +1,3 @@
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -6,11 +5,12 @@ from fastapi import APIRouter, HTTPException, Query, status
 from postgrest.exceptions import APIError
 from pydantic import BaseModel, Field
 
-from app.schemas import AdminBulkUserAction, AdminUserUpdate
+from app.schemas import AdminBulkUserAction, AdminBulkUserNotify, AdminUserUpdate
 from app.schemas_pagination import PaginatedResponse
 
 from app.database import get_supabase_admin
 from app.db_utils import run_query
+from app.admin_enrichment import enrich_admin_users, user_ids_for_preset
 from app.deps import CurrentUserId
 from app.supabase_rpc import map_rpc_error, rpc_row
 from app.notification_service import notify_order_status
@@ -19,30 +19,18 @@ from app.payment_service import refund_escrow, release_escrow
 from app.schemas_marketplace import DisputeResolve
 from app.supabase_errors import map_supabase_error
 from app.platform_services import broadcast_notification, build_admin_analytics, log_audit, log_moderation
+from app.postgrest_embed import (
+    BANK_ACCOUNT_USER_PROFILE,
+    SERVICE_FREELANCER_PROFILE,
+    WITHDRAWAL_FREELANCER_PROFILE,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-_ADMIN_CACHE_TTL_SEC = 45.0
-_admin_access_cache: dict[str, tuple[bool, float]] = {}
+def _require_admin(user_id: str, minimum: str = "moderator"):
+    from app.admin_rbac import require_admin_role
 
-
-def _require_admin(user_id: str):
-    now = time.monotonic()
-    cached = _admin_access_cache.get(user_id)
-    if cached and now - cached[1] < _ADMIN_CACHE_TTL_SEC:
-        if not cached[0]:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin ruxsati kerak")
-        return
-
-    supabase = get_supabase_admin()
-    profile = run_query(
-        lambda: supabase.table("profiles").select("is_admin").eq("id", user_id).limit(1).execute()
-    )
-    row = (profile.data or [None])[0]
-    is_admin = bool(row and row.get("is_admin"))
-    _admin_access_cache[user_id] = (is_admin, now)
-    if not is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin ruxsati kerak")
+    require_admin_role(user_id, minimum)  # type: ignore[arg-type]
 
 
 def _count_table(table: str) -> int:
@@ -63,6 +51,21 @@ def _count_table_where(table: str, **filters: str) -> int:
         for key, value in filters.items():
             query = query.eq(key, value)
         result = run_query(lambda: query.limit(1).execute())
+        return int(result.count or 0)
+    except APIError:
+        return 0
+
+
+def _count_fraud_unresolved() -> int:
+    supabase = get_supabase_admin()
+    try:
+        result = run_query(
+            lambda: supabase.table("fraud_detection_logs")
+            .select("id", count="exact")
+            .eq("resolved", False)
+            .limit(1)
+            .execute()
+        )
         return int(result.count or 0)
     except APIError:
         return 0
@@ -170,6 +173,8 @@ def _compose_admin_stats(analytics: dict) -> dict:
         "revenue_30d": analytics.get("revenue_completed", 0),
         "conversion_rate": analytics.get("conversion_rate", 0),
         "new_users_30d": analytics.get("new_users", 0),
+        "active_orders": _count_table_where("orders", status="active"),
+        "fraud_alerts": _count_fraud_unresolved(),
     }
 
 
@@ -201,43 +206,200 @@ def admin_list_users(
     search: str | None = Query(default=None, max_length=120),
     role: Literal["freelancer", "client"] | None = None,
     is_banned: bool | None = None,
+    is_verified: bool | None = None,
+    is_suspended: bool | None = None,
+    preset: Literal["top_rated", "new_users", "active"] | None = None,
+    sort_by: Literal["created_at", "trust_score", "revenue", "orders_count"] = "created_at",
+    sort_dir: Literal["asc", "desc"] = "desc",
 ):
     _require_admin(user_id)
     supabase = get_supabase_admin()
-    select_cols = "id, full_name, email, role, region, created_at, is_admin, is_banned, is_verified, username"
+    select_cols = (
+        "id, full_name, email, role, region, created_at, is_admin, is_banned, is_verified, "
+        "username, phone, avatar_url, wallet_balance, is_suspended, suspended_until, suspension_reason"
+    )
+
+    preset_ids = user_ids_for_preset(preset) if preset else None
+    if preset_ids is not None and len(preset_ids) == 0:
+        return PaginatedResponse(items=[], total=0, limit=limit, offset=offset)
 
     def _build_query():
         query = supabase.table("profiles").select(select_cols, count="exact")
         if search and search.strip():
-            pattern = f"%{search.strip()}%"
-            query = query.or_(
-                f"full_name.ilike.{pattern},email.ilike.{pattern},username.ilike.{pattern}"
-            )
+            from app.search_utils import sanitize_search_term
+
+            safe_search = sanitize_search_term(search)
+            if safe_search:
+                pattern = f"%{safe_search}%"
+                query = query.or_(
+                    f"full_name.ilike.{pattern},email.ilike.{pattern},username.ilike.{pattern},phone.ilike.{pattern}"
+                )
         if role:
             query = query.eq("role", role)
         if is_banned is not None:
             query = query.eq("is_banned", is_banned)
-        return query.order("created_at", desc=True).range(offset, offset + limit - 1)
+        if is_verified is not None:
+            query = query.eq("is_verified", is_verified)
+        if is_suspended is not None:
+            query = query.eq("is_suspended", is_suspended)
+        if preset_ids is not None:
+            query = query.in_("id", preset_ids[:500])
+        descending = sort_dir == "desc"
+        if sort_by == "created_at":
+            query = query.order("created_at", desc=descending)
+        else:
+            query = query.order("created_at", desc=True)
+        return query.range(offset, offset + limit - 1)
 
     try:
         result = run_query(lambda: _build_query().execute())
     except APIError as exc:
-        if "is_admin" in str(exc).lower():
+        if "is_admin" in str(exc).lower() or "is_suspended" in str(exc).lower():
             result = run_query(
                 lambda: supabase.table("profiles")
-                .select("id, full_name, email, role, region, created_at", count="exact")
+                .select("id, full_name, email, role, region, created_at, username, phone, avatar_url", count="exact")
                 .order("created_at", desc=True)
                 .range(offset, offset + limit - 1)
                 .execute()
             )
         else:
             raise HTTPException(status_code=400, detail=map_supabase_error(exc)) from exc
+
+    items = enrich_admin_users(result.data or [])
+    if sort_by in ("trust_score", "revenue", "orders_count"):
+        reverse = sort_dir == "desc"
+        key_map = {
+            "trust_score": lambda u: u.get("trust_score") or 0,
+            "revenue": lambda u: u.get("revenue") or 0,
+            "orders_count": lambda u: u.get("orders_count") or 0,
+        }
+        items.sort(key=key_map[sort_by], reverse=reverse)
+
     return PaginatedResponse(
-        items=result.data or [],
+        items=items,
         total=int(result.count or 0),
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/users/{target_id}")
+def admin_user_detail(target_id: str, user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    profile_result = run_query(
+        lambda: supabase.table("profiles").select("*").eq("id", target_id).single().execute()
+    )
+    if not profile_result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Foydalanuvchi topilmadi")
+
+    profile = profile_result.data
+    enriched = enrich_admin_users([profile])[0]
+
+    rep_result = run_query(
+        lambda: supabase.table("user_reputation")
+        .select("*")
+        .eq("user_id", target_id)
+        .limit(1)
+        .execute()
+    )
+    reputation = rep_result.data[0] if rep_result.data else None
+
+    orders_result = run_query(
+        lambda: supabase.table("orders")
+        .select("*, services(title)")
+        .or_(f"client_id.eq.{target_id},freelancer_id.eq.{target_id}")
+        .order("created_at", desc=True)
+        .limit(25)
+        .execute()
+    )
+
+    reviews_result = run_query(
+        lambda: supabase.table("reviews")
+        .select("*")
+        .or_(f"reviewer_id.eq.{target_id},freelancer_id.eq.{target_id}")
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+
+    activities_result = run_query(
+        lambda: supabase.table("user_activities")
+        .select("*")
+        .eq("user_id", target_id)
+        .order("created_at", desc=True)
+        .limit(30)
+        .execute()
+    )
+
+    fraud_result = run_query(
+        lambda: supabase.table("fraud_detection_logs")
+        .select("*")
+        .eq("user_id", target_id)
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+
+    reports_result = run_query(
+        lambda: supabase.table("reports")
+        .select("*")
+        .eq("reported_user_id", target_id)
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+
+    mod_result = run_query(
+        lambda: supabase.table("moderation_actions")
+        .select("*")
+        .eq("target_user_id", target_id)
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+
+    audit_result = run_query(
+        lambda: supabase.table("audit_logs")
+        .select("*")
+        .or_(f"entity_id.eq.{target_id},actor_id.eq.{target_id}")
+        .order("created_at", desc=True)
+        .limit(25)
+        .execute()
+    )
+
+    verifications_result = run_query(
+        lambda: supabase.table("user_verifications")
+        .select("*")
+        .eq("user_id", target_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    escrow_held = 0
+    contract_held = run_query(
+        lambda: supabase.table("contracts")
+        .select("amount")
+        .eq("payment_status", "held")
+        .or_(f"client_id.eq.{target_id},freelancer_id.eq.{target_id}")
+        .execute()
+    )
+    escrow_held += sum(int(r.get("amount") or 0) for r in (contract_held.data or []))
+
+    return {
+        "profile": enriched,
+        "reputation": reputation,
+        "orders": orders_result.data or [],
+        "reviews": reviews_result.data or [],
+        "wallet_balance": profile.get("wallet_balance") or 0,
+        "escrow_held": escrow_held,
+        "activities": activities_result.data or [],
+        "fraud_logs": fraud_result.data or [],
+        "reports": reports_result.data or [],
+        "moderation_actions": mod_result.data or [],
+        "audit_logs": audit_result.data or [],
+        "verifications": verifications_result.data or [],
+    }
 
 
 @router.get("/disputes", response_model=PaginatedResponse[dict])
@@ -382,7 +544,7 @@ def admin_list_withdrawals(
     supabase = get_supabase_admin()
     result = run_query(
         lambda: supabase.table("withdrawal_requests")
-        .select("*, profiles(full_name, email)", count="exact")
+        .select(f"*, {WITHDRAWAL_FREELANCER_PROFILE}(full_name, email)", count="exact")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
@@ -536,6 +698,12 @@ def admin_bulk_users(body: AdminBulkUserAction, user_id: CurrentUserId):
         updates["is_verified"] = True
     elif body.action == "unverify":
         updates["is_verified"] = False
+    elif body.action == "suspend":
+        updates["is_suspended"] = True
+    elif body.action == "unsuspend":
+        updates["is_suspended"] = False
+        updates["suspended_until"] = None
+        updates["suspension_reason"] = None
 
     supabase = get_supabase_admin()
     result = run_query(
@@ -570,13 +738,41 @@ def admin_bulk_users(body: AdminBulkUserAction, user_id: CurrentUserId):
     return {"updated": len(updated), "user_ids": [row["id"] for row in updated]}
 
 
+@router.post("/users/bulk-notify")
+def admin_bulk_notify_users(body: AdminBulkUserNotify, user_id: CurrentUserId):
+    _require_admin(user_id)
+    from app.notification_service import create_notification
+
+    supabase = get_supabase_admin()
+    sent = 0
+    for uid in body.user_ids[:50]:
+        if uid == user_id:
+            continue
+        create_notification(
+            supabase,
+            user_id=uid,
+            type="order",
+            title=body.title,
+            body=body.body,
+            href="/dashboard/notifications",
+        )
+        sent += 1
+    log_audit(
+        actor_id=user_id,
+        action="bulk_notify",
+        entity_type="user",
+        metadata={"count": sent, "title": body.title},
+    )
+    return {"sent": sent}
+
+
 @router.get("/services")
 def admin_list_services(user_id: CurrentUserId, limit: int = 50, offset: int = 0):
     _require_admin(user_id)
     supabase = get_supabase_admin()
-    result = (
-        supabase.table("services")
-        .select("*, profiles(full_name)")
+    result = run_query(
+        lambda: supabase.table("services")
+        .select(f"*, {SERVICE_FREELANCER_PROFILE}(full_name)")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
@@ -726,6 +922,34 @@ def admin_escrow_summary(user_id: CurrentUserId):
     }
 
 
+@router.get("/escrow/auto-releases")
+def admin_list_escrow_auto_releases(
+    user_id: CurrentUserId,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("orders")
+        .select(
+            "id, amount, status, payment_status, auto_released, auto_release_at, updated_at, "
+            "service_id, project_id, client_id, freelancer_id, services(title), projects(title)",
+            count="exact",
+        )
+        .eq("auto_released", True)
+        .order("updated_at", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    return PaginatedResponse(
+        items=result.data or [],
+        total=result.count or 0,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @router.get("/milestones", response_model=PaginatedResponse[dict])
 def admin_list_milestones(
     user_id: CurrentUserId,
@@ -859,12 +1083,27 @@ def admin_resolve_dispute(dispute_id: str, body: DisputeResolve, user_id: Curren
 
     if body.resolution == "resolved_freelancer" and contract:
         release_contract_escrow(contract)
-        supabase.table("contracts").update({"status": "completed"}).eq("id", contract["id"]).execute()
+        run_query(
+            lambda: supabase.table("contracts")
+            .update({"status": "completed"})
+            .eq("id", contract["id"])
+            .execute()
+        )
     elif body.resolution == "resolved_client" and contract:
         refund_contract_escrow(contract)
     elif body.resolution == "closed" and contract:
-        supabase.table("contracts").update({"status": "active"}).eq("id", contract["id"]).execute()
-        supabase.table("projects").update({"status": "active"}).eq("id", contract.get("project_id")).execute()
+        run_query(
+            lambda: supabase.table("contracts")
+            .update({"status": "active"})
+            .eq("id", contract["id"])
+            .execute()
+        )
+        run_query(
+            lambda: supabase.table("projects")
+            .update({"status": "active"})
+            .eq("id", contract.get("project_id"))
+            .execute()
+        )
 
     return result.data[0]
 
@@ -899,7 +1138,141 @@ def admin_overview(user_id: CurrentUserId):
         "stats": _compose_admin_stats(analytics),
         "analytics": analytics,
         "audit_logs": _list_audit_logs(limit=15),
+        "activity_feed": _build_activity_feed(limit=20),
     }
+
+
+def _build_activity_feed(limit: int = 20) -> list[dict]:
+    supabase = get_supabase_admin()
+    events: list[dict] = []
+
+    profiles = run_query(
+        lambda: supabase.table("profiles")
+        .select("id, full_name, email, created_at")
+        .order("created_at", desc=True)
+        .limit(8)
+        .execute()
+    )
+    for row in profiles.data or []:
+        events.append(
+            {
+                "id": f"reg-{row['id']}",
+                "type": "registration",
+                "title": row.get("full_name") or row.get("email") or "Yangi foydalanuvchi",
+                "created_at": row.get("created_at"),
+                "href": f"/admin/users/{row['id']}",
+            }
+        )
+
+    orders = run_query(
+        lambda: supabase.table("orders")
+        .select("id, amount, status, created_at, services(title)")
+        .order("created_at", desc=True)
+        .limit(8)
+        .execute()
+    )
+    for row in orders.data or []:
+        title = (row.get("services") or {}).get("title") or "Buyurtma"
+        events.append(
+            {
+                "id": f"order-{row['id']}",
+                "type": "order",
+                "title": title,
+                "body": f"{row.get('status')} · {row.get('amount')}",
+                "created_at": row.get("created_at"),
+                "href": f"/admin/orders",
+            }
+        )
+
+    disputes = run_query(
+        lambda: supabase.table("disputes")
+        .select("id, status, created_at")
+        .order("created_at", desc=True)
+        .limit(5)
+        .execute()
+    )
+    for row in disputes.data or []:
+        events.append(
+            {
+                "id": f"dispute-{row['id']}",
+                "type": "dispute",
+                "title": f"Nizo · {row.get('status')}",
+                "created_at": row.get("created_at"),
+                "href": "/admin/disputes",
+            }
+        )
+
+    fraud = run_query(
+        lambda: supabase.table("fraud_detection_logs")
+        .select("id, fraud_type, severity, created_at")
+        .eq("resolved", False)
+        .order("created_at", desc=True)
+        .limit(5)
+        .execute()
+    )
+    for row in fraud.data or []:
+        events.append(
+            {
+                "id": f"fraud-{row['id']}",
+                "type": "fraud",
+                "title": row.get("fraud_type") or "Fraud",
+                "body": row.get("severity"),
+                "created_at": row.get("created_at"),
+                "href": "/admin/fraud",
+            }
+        )
+
+    events.sort(key=lambda e: e.get("created_at") or "", reverse=True)
+    return events[:limit]
+
+
+@router.get("/fraud-center")
+def admin_fraud_center(user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+
+    unresolved = run_query(
+        lambda: supabase.table("fraud_detection_logs")
+        .select("*")
+        .eq("resolved", False)
+        .order("created_at", desc=True)
+        .limit(100)
+        .execute()
+    )
+    logs = unresolved.data or []
+
+    compliance = run_query(
+        lambda: supabase.table("message_compliance_flags")
+        .select("*")
+        .eq("resolved", False)
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+
+    by_type: dict[str, list] = {}
+    for log in logs:
+        ftype = log.get("fraud_type") or "unknown"
+        by_type.setdefault(ftype, []).append(log)
+
+    high_severity = sum(1 for log in logs if log.get("severity") == "high")
+
+    return {
+        "summary": {
+            "unresolved": len(logs),
+            "high_severity": high_severity,
+            "compliance_flags": len(compliance.data or []),
+        },
+        "by_type": by_type,
+        "recent": logs[:30],
+        "compliance_flags": compliance.data or [],
+    }
+
+
+@router.get("/activity-feed")
+def admin_activity_feed(user_id: CurrentUserId, limit: int = Query(default=30, le=100)):
+    _require_admin(user_id)
+    return _build_activity_feed(limit=limit)
 
 
 @router.get("/audit-logs", response_model=list[AuditLogResponse])
@@ -1038,9 +1411,28 @@ def admin_review_verification(verification_id: str, body: VerificationReview, us
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Yangilanmadi")
 
     row = result.data[0]
-    if body.status == "approved" and row["verification_type"] in ("freelancer", "identity"):
-        supabase.table("profiles").update({"is_verified": True}).eq("id", row["user_id"]).execute()
-    if body.status == "approved" and row["verification_type"] == "company":
+    vtype = row["verification_type"]
+    uid = row["user_id"]
+    if body.status == "approved" and vtype in ("freelancer", "identity", "employer"):
+        run_query(
+            lambda: supabase.table("profiles").update({"is_verified": True}).eq("id", uid).execute()
+        )
+    elif body.status == "rejected" and vtype in ("freelancer", "identity", "employer"):
+        other_approved = run_query(
+            lambda: supabase.table("user_verifications")
+            .select("id")
+            .eq("user_id", uid)
+            .eq("status", "approved")
+            .neq("id", verification_id)
+            .in_("verification_type", ["freelancer", "identity", "employer"])
+            .limit(1)
+            .execute()
+        )
+        if not other_approved.data:
+            run_query(
+                lambda: supabase.table("profiles").update({"is_verified": False}).eq("id", uid).execute()
+            )
+    if body.status == "approved" and vtype == "company":
         stir = (row.get("notes") or "").replace("STIR:", "").strip()
         updates: dict = {
             "stir_verified": True,
@@ -1050,7 +1442,21 @@ def admin_review_verification(verification_id: str, body: VerificationReview, us
         }
         if stir:
             updates["stir"] = stir
-        supabase.table("companies").update(updates).eq("owner_id", row["user_id"]).execute()
+        company_row = run_query(
+            lambda: supabase.table("companies")
+            .select("id")
+            .eq("owner_id", uid)
+            .order("created_at")
+            .limit(1)
+            .execute()
+        )
+        if company_row.data:
+            run_query(
+                lambda: supabase.table("companies")
+                .update(updates)
+                .eq("id", company_row.data[0]["id"])
+                .execute()
+            )
 
     log_moderation(
         admin_id=user_id,
@@ -1212,13 +1618,35 @@ class AdminBulkOrderAction(BaseModel):
 def admin_bulk_orders(body: AdminBulkOrderAction, user_id: CurrentUserId):
     _require_admin(user_id)
     supabase = get_supabase_admin()
-    result = run_query(
-        lambda: supabase.table("orders").update({"status": body.status}).in_("id", body.order_ids).execute()
+    existing = run_query(
+        lambda: supabase.table("orders").select("*").in_("id", body.order_ids).execute()
     )
-    updated = result.data or []
-    for row in updated:
-        log_audit(actor_id=user_id, action="order_bulk_update", entity_type="order", entity_id=row["id"], metadata={"status": body.status})
-    return {"updated": len(updated), "order_ids": [row["id"] for row in updated]}
+    orders = existing.data or []
+    if not orders:
+        return {"updated": 0, "order_ids": []}
+
+    updated_rows: list[dict] = []
+    for order in orders:
+        result = run_query(
+            lambda o=order: supabase.table("orders")
+            .update({"status": body.status})
+            .eq("id", o["id"])
+            .execute()
+        )
+        row = (result.data or [order])[0]
+        if body.status == "completed":
+            row = release_escrow(supabase, {**order, **row})
+        elif body.status == "cancelled":
+            row = refund_escrow(supabase, {**order, **row})
+        updated_rows.append(row)
+        log_audit(
+            actor_id=user_id,
+            action="order_bulk_update",
+            entity_type="order",
+            entity_id=row["id"],
+            metadata={"status": body.status},
+        )
+    return {"updated": len(updated_rows), "order_ids": [row["id"] for row in updated_rows]}
 
 
 @router.post("/notifications/broadcast")
@@ -1252,8 +1680,12 @@ def admin_list_companies(
     def _query():
         query = supabase.table("companies").select("*", count="exact")
         if search and search.strip():
-            pattern = f"%{search.strip()}%"
-            query = query.or_(f"name.ilike.{pattern},slug.ilike.{pattern},region.ilike.{pattern}")
+            from app.search_utils import sanitize_search_term
+
+            safe_search = sanitize_search_term(search)
+            if safe_search:
+                pattern = f"%{safe_search}%"
+                query = query.or_(f"name.ilike.{pattern},slug.ilike.{pattern},region.ilike.{pattern}")
         return query.order("created_at", desc=True).range(offset, offset + limit - 1)
 
     result = run_query(lambda: _query().execute())
@@ -1316,7 +1748,7 @@ def admin_service_moderation_queue(
     supabase = get_supabase_admin()
     result = run_query(
         lambda: supabase.table("services")
-        .select("*, profiles(full_name, email)")
+        .select(f"*, {SERVICE_FREELANCER_PROFILE}(full_name, email)")
         .eq("moderation_status", "pending")
         .order("created_at", desc=True)
         .limit(limit)
@@ -1379,6 +1811,25 @@ def admin_resolve_compliance_flag(flag_id: str, user_id: CurrentUserId):
     if not result.data:
         raise HTTPException(status_code=404, detail="Flag topilmadi")
     return result.data[0]
+
+
+@router.get("/bank-accounts")
+def admin_list_bank_accounts(
+    user_id: CurrentUserId,
+    verified: bool | None = Query(default=False),
+    limit: int = Query(default=50, le=200),
+):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+
+    def _query():
+        q = supabase.table("bank_accounts").select(f"*, {BANK_ACCOUNT_USER_PROFILE}(full_name, email)", count="exact")
+        if verified is not None:
+            q = q.eq("is_verified", verified)
+        return q.order("created_at", desc=True).limit(limit).execute()
+
+    result = run_query(_query)
+    return {"items": result.data or [], "total": int(result.count or 0)}
 
 
 @router.patch("/bank-accounts/{account_id}/verify")

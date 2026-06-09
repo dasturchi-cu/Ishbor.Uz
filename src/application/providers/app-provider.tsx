@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import { t, type Language, type TranslationKey } from '@/infrastructure/i18n'
 import { isSupabaseConfigured, getSupabase } from '@/infrastructure/supabase/client'
 import { clearAuthCache, getCachedSession, updateCachedSessionToken } from '@/infrastructure/auth/session-cache'
@@ -55,7 +55,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const profileRef = useRef<ApiProfile | null>(profile)
   const refreshInflight = useRef<Promise<void> | null>(null)
 
-  profileRef.current = profile
+  useLayoutEffect(() => {
+    profileRef.current = profile
+  }, [profile])
 
   const persistRole = useCallback((role: UserRole) => {
     activeRoleRef.current = role
@@ -169,9 +171,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (session) {
           setIsLoggedIn(true)
           setUserId(session.userId)
-          setTimeout(() => {
-            refreshProfile().catch(() => {})
-          }, 0)
+          if (!profileRef.current) {
+            setTimeout(() => {
+              refreshProfile().catch(() => {})
+            }, 0)
+          }
         } else {
           setIsLoggedIn(false)
           setUserId(null)

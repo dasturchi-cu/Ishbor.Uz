@@ -37,14 +37,16 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       disabled,
       type,
       passwordToggle,
-      passwordToggleShowLabel = 'Show password',
-      passwordToggleHideLabel = 'Hide password',
+      passwordToggleShowLabel,
+      passwordToggleHideLabel,
       ...props
     },
     ref
   ) => {
     const inputId = id ?? (label ? label.replace(/\s+/g, '-').toLowerCase() : undefined)
     const [passwordVisible, setPasswordVisible] = React.useState(false)
+    const showLabel = passwordToggleShowLabel ?? "Parolni ko'rsatish"
+    const hideLabel = passwordToggleHideLabel ?? "Parolni yashirish"
     const usePasswordToggle = type === 'password' && passwordToggle !== false && !rightIcon
     const inputType = usePasswordToggle ? (passwordVisible ? 'text' : 'password') : type
 
@@ -53,7 +55,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type="button"
         tabIndex={-1}
         onClick={() => setPasswordVisible((v) => !v)}
-        aria-label={passwordVisible ? passwordToggleHideLabel : passwordToggleShowLabel}
+        aria-label={passwordVisible ? hideLabel : showLabel}
         className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[var(--color-text-muted)] transition hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text)]"
       >
         {passwordVisible ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}

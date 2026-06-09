@@ -1,5 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isSupabaseRequestDebugEnabled } from '@/shared/lib/supabase-request-debug'
+import { instrumentBrowserClient } from '@/infrastructure/supabase/instrumented-browser-client'
 
 let client: SupabaseClient | null = null
 
@@ -15,7 +17,8 @@ export function getSupabase(): SupabaseClient {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL va anon/publishable key kerak')
   }
 
-  client = createBrowserClient(url, key)
+  const base = createBrowserClient(url, key)
+  client = isSupabaseRequestDebugEnabled() ? instrumentBrowserClient(base) : base
   return client
 }
 

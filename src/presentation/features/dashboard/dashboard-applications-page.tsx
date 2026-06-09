@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -13,31 +13,20 @@ import type { ApiProjectApplication } from '@/infrastructure/api/types'
 import { PATHS, projectPath } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { FileText } from 'lucide-react'
-
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 export function DashboardApplicationsPage() {
   const { t } = useApp()
   const router = useRouter()
-  const [apps, setApps] = useState<ApiProjectApplication[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null)
 
-  const loadApps = useCallback(() => {
-    setLoading(true)
-    setLoadError(false)
-    api
-      .listMyApplications()
-      .then(setApps)
-      .catch(() => {
-        setApps([])
-        setLoadError(true)
-      })
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    loadApps()
-  }, [loadApps])
+  const {
+    data: apps,
+    loading,
+    error: appsLoadError,
+    loadError: appsFetchError,
+    reload: loadApps,
+  } = useProtectedLoader(() => api.listMyApplications(), [])
 
   const statusLabel: Record<ApiProjectApplication['status'], string> = {
     submitted: t('application_status_submitted'),
@@ -58,7 +47,7 @@ export function DashboardApplicationsPage() {
     setWithdrawingId(appId)
     try {
       await api.withdrawApplication(appId)
-      setApps((prev) => prev.filter((a) => a.id !== appId))
+      void loadApps()
       toast.success(t('application_withdrawn'))
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : t('error_required'))
@@ -69,19 +58,8 @@ export function DashboardApplicationsPage() {
 
   return (
     <div>
-      {loadError && (
-        <div className="mb-4 rounded-lg border border-[var(--error)]/30 bg-[var(--error-bg)] px-4 py-3 text-[13px] text-[var(--error-dark)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <button
-              type="button"
-              className="font-semibold text-[var(--color-primary)] hover:underline"
-              onClick={loadApps}
-            >
-              {t('catalog_retry')}
-            </button>
-          </div>
-        </div>
+      {appsLoadError && (
+        <LoadErrorAlert error={appsFetchError} scope="applications" onRetry={loadApps} className="mb-4" />
       )}
       {loading ? (
         <div className="space-y-3">
@@ -89,7 +67,7 @@ export function DashboardApplicationsPage() {
             <div key={i} className="h-24 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
           ))}
         </div>
-      ) : apps.length === 0 ? (
+      ) : (apps ?? []).length === 0 ? (
         <EmptyState
           icon={<FileText />}
           title={t('my_applications_empty')}
@@ -103,7 +81,7 @@ export function DashboardApplicationsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {apps.map((app) => (
+          {(apps ?? []).map((app) => (
             <div key={app.id} className="dashboard-order-card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>

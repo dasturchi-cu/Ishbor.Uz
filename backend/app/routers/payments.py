@@ -17,6 +17,7 @@ from app.payment_intent_service import (
     get_latest_intent_for_order,
     update_intent,
 )
+from app.conversation_service import ensure_order_conversation
 from app.payment_service import hold_escrow, pay_order_from_wallet
 from app.wallet_topup_service import create_topup_intent, credit_topup_intent, get_topup_intent
 from app.payments.click import (
@@ -284,12 +285,9 @@ def request_withdrawal(body: WithdrawalCreate, auth: UserAuthDep):
             .execute()
         )
         if not bank.data:
-            raise HTTPException(status_code=400, detail="Bank hisobi topilmadi")
+            raise HTTPException(status_code=400, detail="withdrawal_bank_not_found")
         if not bank.data[0].get("is_verified"):
-            raise HTTPException(
-                status_code=400,
-                detail="Pul yechish uchun tasdiqlangan bank hisobi kerak",
-            )
+            raise HTTPException(status_code=400, detail="withdrawal_bank_required")
     else:
         verified = run_query(
             lambda: admin.table("bank_accounts")
@@ -300,10 +298,7 @@ def request_withdrawal(body: WithdrawalCreate, auth: UserAuthDep):
             .execute()
         )
         if not verified.data:
-            raise HTTPException(
-                status_code=400,
-                detail="Avval bank hisobini qo'shing va admin tasdiqlashini kuting",
-            )
+            raise HTTPException(status_code=400, detail="withdrawal_bank_pending")
         bank_account_id = verified.data[0]["id"]
 
     try:
@@ -323,9 +318,12 @@ def request_withdrawal(body: WithdrawalCreate, auth: UserAuthDep):
     if not row:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="So'rov yaratilmadi")
     if bank_account_id:
-        admin.table("withdrawal_requests").update({"bank_account_id": bank_account_id}).eq(
-            "id", row["id"]
-        ).execute()
+        run_query(
+            lambda: admin.table("withdrawal_requests")
+            .update({"bank_account_id": bank_account_id})
+            .eq("id", row["id"])
+            .execute()
+        )
     return row
 
 
@@ -406,6 +404,10 @@ def pay_order_with_wallet(order_id: str, auth: UserAuthDep):
         )
 
     held = pay_order_from_wallet(supabase, order, user_id)
+    try:
+        ensure_order_conversation(held)
+    except Exception:
+        pass
     return CheckoutResponse(order=_order_response(held))
 
 

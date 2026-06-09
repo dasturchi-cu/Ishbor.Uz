@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     cron_secret: str = ""
     escrow_auto_release_days: int = 3
 
+    turnstile_secret_key: str = ""
+    session_idle_minutes: int = 120
+    require_email_verified: bool = False
+
     @property
     def telegram_enabled(self) -> bool:
         return bool(self.telegram_bot_token.strip())

@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.database import get_supabase_admin
+from app.db_utils import run_query
+from app.postgrest_embed import SERVICE_FREELANCER_PROFILE
 from app.review_stats import batch_min_service_prices, batch_review_stats
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -11,32 +13,36 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 def public_stats():
     supabase = get_supabase_admin()
 
-    freelancers = supabase.table("profiles").select("id", count="exact").eq("role", "freelancer").execute()
-    clients = supabase.table("profiles").select("id", count="exact").eq("role", "client").execute()
-    projects = supabase.table("projects").select("id", count="exact").execute()
-    services = (
-        supabase.table("services")
+    freelancers = run_query(
+        lambda: supabase.table("profiles").select("id", count="exact").eq("role", "freelancer").execute()
+    )
+    clients = run_query(
+        lambda: supabase.table("profiles").select("id", count="exact").eq("role", "client").execute()
+    )
+    projects = run_query(lambda: supabase.table("projects").select("id", count="exact").execute())
+    services = run_query(
+        lambda: supabase.table("services")
         .select("id", count="exact")
         .eq("is_hidden", False)
         .execute()
     )
-    orders = supabase.table("orders").select("id", count="exact").execute()
+    orders = run_query(lambda: supabase.table("orders").select("id", count="exact").execute())
 
-    reviews = supabase.table("reviews").select("rating").execute()
+    reviews = run_query(lambda: supabase.table("reviews").select("rating").execute())
     ratings = [r["rating"] for r in (reviews.data or [])]
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0.0
 
-    services_list = (
-        supabase.table("services").select("category").eq("is_hidden", False).execute()
+    services_list = run_query(
+        lambda: supabase.table("services").select("category").eq("is_hidden", False).execute()
     )
     category_counts: dict[str, int] = {}
     for row in services_list.data or []:
         cat = row.get("category") or "other"
         category_counts[cat] = category_counts.get(cat, 0) + 1
 
-    top_services = (
-        supabase.table("services")
-        .select("id, title, price, category, freelancer_id, profiles(full_name)")
+    top_services = run_query(
+        lambda: supabase.table("services")
+        .select(f"id, title, price, category, freelancer_id, {SERVICE_FREELANCER_PROFILE}(full_name)")
         .eq("is_hidden", False)
         .order("created_at", desc=True)
         .limit(8)
@@ -57,8 +63,8 @@ def public_stats():
             }
         )
 
-    top_freelancers = (
-        supabase.table("profiles")
+    top_freelancers = run_query(
+        lambda: supabase.table("profiles")
         .select("id, full_name, specialty, region, role")
         .eq("role", "freelancer")
         .eq("is_banned", False)

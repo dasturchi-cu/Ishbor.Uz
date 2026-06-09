@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useApp } from '@/application/providers/app-provider'
 import { formatPrice } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/utils'
 
@@ -48,6 +49,7 @@ export function PriceRangeSlider({
   toLabel,
   className,
 }: PriceRangeSliderProps) {
+  const { t } = useApp()
   const [low, high] = values
   const range = max - min || 1
   const lowPct = ((low - min) / range) * 100
@@ -108,7 +110,7 @@ export function PriceRangeSlider({
           value={low}
           onChange={(e) => handleLow(parseInt(e.target.value, 10))}
           className="price-range-input price-range-input--low"
-          aria-label={fromLabel ?? 'Min price'}
+          aria-label={fromLabel ?? t('price_min_aria')}
         />
         <input
           type="range"
@@ -118,7 +120,7 @@ export function PriceRangeSlider({
           value={high}
           onChange={(e) => handleHigh(parseInt(e.target.value, 10))}
           className="price-range-input price-range-input--high"
-          aria-label={toLabel ?? 'Max price'}
+          aria-label={toLabel ?? t('price_max_aria')}
         />
       </div>
 

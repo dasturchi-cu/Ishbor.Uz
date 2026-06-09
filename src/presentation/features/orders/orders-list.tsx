@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useOrdersQuery } from '@/shared/lib/use-orders-query'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
@@ -11,10 +12,10 @@ import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Alert } from '@/presentation/components/ui/alert'
 import { ShoppingBag } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder } from '@/infrastructure/api/types'
 import { formatPrice, orderProgress } from '@/shared/lib/format'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { PATHS } from '@/domain/constants/routes'
@@ -46,30 +47,19 @@ const ACTION_LABEL: Record<string, Record<string, TranslationKey>> = {
 export function OrdersList({ role }: { role: RoleView }) {
   const { t, userId } = useApp()
   const router = useRouter()
-  const [orders, setOrders] = useState<ApiOrder[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null)
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
   const [actionError, setActionError] = useState('')
 
-  const load = () => {
-    setLoading(true)
-    setLoadError(false)
-    api
-      .listOrders()
-      .then(setOrders)
-      .catch(() => {
-        setOrders([])
-        setLoadError(true)
-      })
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
+  const {
+    orders,
+    loading,
+    error: ordersLoadError,
+    loadError: ordersError,
+    reload: load,
+  } = useOrdersQuery(Boolean(userId))
+  const showLoadError = ordersLoadError
 
   const updateStatus = async (orderId: string, status: string) => {
     setActionError('')
@@ -104,7 +94,7 @@ export function OrdersList({ role }: { role: RoleView }) {
     )
   }
 
-  if (!loadError && orders.length === 0) {
+  if (!showLoadError && orders.length === 0) {
     return (
       <EmptyState
         icon={<ShoppingBag />}
@@ -125,21 +115,14 @@ export function OrdersList({ role }: { role: RoleView }) {
 
   return (
     <div className="space-y-4">
-      {loadError && (
-        <Alert variant="error">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={load}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {showLoadError && (
+        <LoadErrorAlert error={ordersError} scope="orders" onRetry={load} />
       )}
       {actionError && (
         <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{actionError}</p>
       )}
       {orders.map((order) => {
-        const title = order.services?.title ?? t('order_label')
+        const title = order.services?.title ?? order.projects?.title ?? t('order_label')
         const counterparty =
           role === 'freelancer'
             ? order.client_profile?.full_name

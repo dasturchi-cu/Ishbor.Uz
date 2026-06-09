@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from app.database import get_supabase_admin
+from app.db_utils import run_query
 from app.deps import UserAuthDep
 from app.fraud_service import flag_message_if_risky
 from app.notification_service import create_notification
@@ -18,8 +20,8 @@ def _order_title(supabase, order_row: dict) -> str:
         return services["title"]
     service_id = order_row.get("service_id")
     if service_id:
-        svc = (
-            supabase.table("services")
+        svc = run_query(
+            lambda: supabase.table("services")
             .select("title")
             .eq("id", service_id)
             .limit(1)
@@ -29,8 +31,8 @@ def _order_title(supabase, order_row: dict) -> str:
             return svc.data[0].get("title") or "Buyurtma"
     project_id = order_row.get("project_id")
     if project_id:
-        proj = (
-            supabase.table("projects")
+        proj = run_query(
+            lambda: supabase.table("projects")
             .select("title")
             .eq("id", project_id)
             .limit(1)
@@ -55,8 +57,8 @@ def list_conversations(
     user_id = auth.user_id
     supabase = auth.supabase
 
-    orders_result = (
-        supabase.table("orders")
+    orders_result = run_query(
+        lambda: supabase.table("orders")
         .select("id, client_id, freelancer_id, status, service_id, project_id, notes, services(title), created_at")
         .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
         .not_.in_("status", ["cancelled"])
@@ -76,8 +78,8 @@ def list_conversations(
         }
     )
 
-    profiles_result = (
-        supabase.table("profiles").select("id, full_name").in_("id", other_ids).execute()
+    profiles_result = run_query(
+        lambda: supabase.table("profiles").select("id, full_name").in_("id", other_ids).execute()
     )
     profiles_map = {
         p["id"]: p.get("full_name") or "Foydalanuvchi" for p in (profiles_result.data or [])
@@ -85,16 +87,19 @@ def list_conversations(
 
     stats_by_order: dict[str, dict] = {}
     try:
-        stats_result = supabase.rpc(
-            "get_conversation_message_stats",
-            {"p_user_id": user_id, "p_order_ids": order_ids},
-        ).execute()
+        admin = get_supabase_admin()
+        stats_result = run_query(
+            lambda: admin.rpc(
+                "get_conversation_message_stats",
+                {"p_user_id": user_id, "p_order_ids": order_ids},
+            ).execute()
+        )
         stats_by_order = {
             row["order_id"]: row for row in (stats_result.data or [])
         }
     except Exception:
-        messages_result = (
-            supabase.table("messages")
+        messages_result = run_query(
+            lambda: supabase.table("messages")
             .select("order_id, content, created_at, receiver_id, read_at")
             .in_("order_id", order_ids)
             .order("created_at", desc=True)
@@ -134,6 +139,35 @@ def list_conversations(
     return conversations
 
 
+def _covered_order_ids_from_threads(threads: list) -> set[str]:
+    covered: set[str] = set()
+    for thread in threads:
+        row = thread.model_dump() if hasattr(thread, "model_dump") else thread
+        oid = row.get("order_id") if isinstance(row, dict) else None
+        if oid:
+            covered.add(oid)
+    return covered
+
+
+@router.get("/inbox")
+def inbox_bundle(
+    auth: UserAuthDep,
+    limit: int = Query(default=50, le=100),
+):
+    """Xabarlar sahifasi uchun bitta so'rov: conversation threads + legacy (deduped)."""
+    from app.routers.conversations import list_conversations as list_threads
+
+    threads = list_threads(auth, limit=limit, offset=0)
+    legacy = list_conversations(auth, limit=limit, offset=0)
+    covered_orders = _covered_order_ids_from_threads(threads)
+    filtered_legacy = [c for c in legacy if c.get("order_id") not in covered_orders]
+
+    return {
+        "threads": threads,
+        "legacy_conversations": filtered_legacy,
+    }
+
+
 @router.get("", response_model=list[MessageResponse])
 def list_messages(
     auth: UserAuthDep,
@@ -144,14 +178,16 @@ def list_messages(
     user_id = auth.user_id
     supabase = auth.supabase
 
-    order = supabase.table("orders").select("*").eq("id", order_id).single().execute()
+    order = run_query(
+        lambda: supabase.table("orders").select("*").eq("id", order_id).single().execute()
+    )
     if not order.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
     if user_id not in (order.data["client_id"], order.data["freelancer_id"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
 
-    result = (
-        supabase.table("messages")
+    result = run_query(
+        lambda: supabase.table("messages")
         .select("*")
         .eq("order_id", order_id)
         .order("created_at", desc=False)
@@ -160,9 +196,14 @@ def list_messages(
     )
 
     now = datetime.now(timezone.utc).isoformat()
-    supabase.table("messages").update({"read_at": now}).eq("order_id", order_id).eq(
-        "receiver_id", user_id
-    ).is_("read_at", "null").execute()
+    run_query(
+        lambda: supabase.table("messages")
+        .update({"read_at": now})
+        .eq("order_id", order_id)
+        .eq("receiver_id", user_id)
+        .is_("read_at", "null")
+        .execute()
+    )
 
     return result.data or []
 
@@ -172,7 +213,9 @@ def send_message(payload: MessageCreate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
 
-    order = supabase.table("orders").select("*").eq("id", payload.order_id).single().execute()
+    order = run_query(
+        lambda: supabase.table("orders").select("*").eq("id", payload.order_id).single().execute()
+    )
     if not order.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
 
@@ -197,7 +240,7 @@ def send_message(payload: MessageCreate, auth: UserAuthDep):
         "receiver_id": receiver_id,
         "content": payload.content,
     }
-    result = supabase.table("messages").insert(data).execute()
+    result = run_query(lambda: supabase.table("messages").insert(data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xabar yuborilmadi")
 
@@ -205,9 +248,13 @@ def send_message(payload: MessageCreate, auth: UserAuthDep):
     if user_id == order_row["freelancer_id"] and not order_row.get("freelancer_first_response_at"):
         from app.database import get_supabase_admin
 
-        get_supabase_admin().table("orders").update(
-            {"freelancer_first_response_at": datetime.now(timezone.utc).isoformat()}
-        ).eq("id", payload.order_id).execute()
+        admin = get_supabase_admin()
+        run_query(
+            lambda: admin.table("orders")
+            .update({"freelancer_first_response_at": datetime.now(timezone.utc).isoformat()})
+            .eq("id", payload.order_id)
+            .execute()
+        )
 
     flags = flag_message_if_risky(
         message_id=msg["id"],

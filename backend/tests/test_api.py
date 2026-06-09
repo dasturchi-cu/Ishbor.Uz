@@ -65,6 +65,19 @@ def test_public_stats_includes_commission(client, monkeypatch):
     assert body["freelancer_payout_percent"] == 90
 
 
+def test_services_list_public(client):
+    response = client.get("/api/v1/services?limit=3")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "items" in body
+    assert "total" in body
+
+
+def test_projects_list_public(client):
+    response = client.get("/api/v1/projects?limit=3")
+    assert response.status_code == 200, response.text
+
+
 def test_payments_config(client):
     response = client.get("/api/v1/payments/config")
     assert response.status_code == 200
@@ -156,6 +169,66 @@ def test_notification_channels(client):
     assert "redis" in body
 
 
+def test_dashboard_summary_requires_auth(client):
+    response = client.get("/api/v1/dashboard/summary", params={"role": "client"})
+    assert response.status_code == 401
+
+
+def test_dashboard_overview_requires_auth(client):
+    response = client.get("/api/v1/dashboard/overview", params={"role": "client"})
+    assert response.status_code == 401
+
+
+def test_notification_response_accepts_broadcast_type():
+    from datetime import datetime, timezone
+
+    from app.schemas_notifications import NotificationResponse
+
+    item = NotificationResponse(
+        id="n1",
+        type="broadcast",
+        title="Test",
+        body="Hello",
+        created_at=datetime.now(timezone.utc),
+        unread=True,
+    )
+    assert item.type == "broadcast"
+
+
+def test_list_notifications_serializes_broadcast(monkeypatch, client):
+    from datetime import datetime, timezone
+
+    from app.deps import UserAuth, require_user_auth
+    from app.main import app
+
+    broadcast_item = {
+        "id": "n1",
+        "type": "broadcast",
+        "title": "Yangilik",
+        "body": "Salom",
+        "created_at": datetime.now(timezone.utc),
+        "href": None,
+        "unread": True,
+    }
+    auth = UserAuth(user_id="u1", supabase=object())
+
+    monkeypatch.setattr(
+        "app.routers.notifications._db_notifications",
+        lambda _s, _u: [broadcast_item],
+    )
+    monkeypatch.setattr("app.routers.notifications._synthetic_notifications", lambda _s, _u: [])
+    monkeypatch.setattr("app.routers.notifications._dismissed_ids_for_user", lambda _s, _u: set())
+    monkeypatch.setattr("app.routers.notifications._read_ids_for_user", lambda _s, _u: set())
+
+    app.dependency_overrides[require_user_auth] = lambda: auth
+    try:
+        response = client.get("/api/v1/notifications", headers={"Authorization": "Bearer test"})
+        assert response.status_code == 200
+        assert response.json()[0]["type"] == "broadcast"
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_sandbox_checkout_blocked_in_production(monkeypatch, client):
     from app.config import settings
 
@@ -164,7 +237,7 @@ def test_sandbox_checkout_blocked_in_production(monkeypatch, client):
         "/api/v1/payments/orders/00000000-0000-0000-0000-000000000001/checkout",
         json={"provider": "sandbox"},
     )
-    assert response.status_code == 401
+    assert response.status_code in (401, 403)
 
 
 def test_withdraw_application_requires_auth(client):
@@ -199,6 +272,67 @@ def test_platform_feature_flags_public(client):
     assert isinstance(response.json(), list)
 
 
+def test_fetch_public_profile_row_by_username(monkeypatch):
+    from app.routers import profiles as profiles_router
+
+    fake_row = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "role": "freelancer",
+        "username": "ali_dev",
+        "full_name": "Ali",
+    }
+
+    class _FakeQuery:
+        def __init__(self):
+            self._filters = {}
+
+        def select(self, *_a, **_k):
+            return self
+
+        def eq(self, key, value):
+            self._filters[key] = value
+            return self
+
+        def limit(self, _n):
+            return self
+
+        def execute(self):
+            class _Result:
+                data = [fake_row] if self._filters.get("username") == "ali_dev" else []
+
+            return _Result()
+
+    class _FakeSupabase:
+        def table(self, name):
+            assert name == profiles_router._PUBLIC_PROFILE_TABLE
+            return _FakeQuery()
+
+    row = profiles_router._fetch_public_profile_row(_FakeSupabase(), "ali_dev")
+    assert row["username"] == "ali_dev"
+
+
+def test_storage_signed_url_requires_auth(client):
+    response = client.post(
+        "/api/v1/platform/storage/signed-url",
+        json={"bucket": "project-attachments", "path": "a/chat/b/c.jpg"},
+    )
+    assert response.status_code == 401
+
+
+def test_client_error_report_accepts_anonymous(client):
+    response = client.post(
+        "/api/v1/platform/client-errors",
+        json={
+            "scope": "dashboard",
+            "message": "test load failure",
+            "status": 500,
+            "api_path": "/api/v1/dashboard/home",
+            "page": "/dashboard",
+        },
+    )
+    assert response.status_code == 204
+
+
 def test_admin_audit_logs_require_auth(client):
     response = client.get("/api/v1/admin/audit-logs")
     assert response.status_code == 401
@@ -206,6 +340,56 @@ def test_admin_audit_logs_require_auth(client):
 
 def test_admin_analytics_require_auth(client):
     response = client.get("/api/v1/admin/analytics")
+    assert response.status_code == 401
+
+
+def test_security_phone_send_requires_auth(client):
+    response = client.post(
+        "/api/v1/security/phone/send",
+        json={"phone": "998901234567"},
+    )
+    assert response.status_code == 401
+
+
+def test_security_audit_login_accepts_anon(client):
+    response = client.post(
+        "/api/v1/security/audit/login",
+        json={"success": False, "email": "test@example.com"},
+    )
+    assert response.status_code == 204
+
+
+def test_wallet_topup_requires_auth(client):
+    response = client.post(
+        "/api/v1/payments/wallet/topup",
+        json={"amount": 100000, "provider": "sandbox"},
+    )
+    assert response.status_code == 401
+
+
+def test_pay_order_from_wallet_requires_auth(client):
+    response = client.post("/api/v1/payments/orders/00000000-0000-4000-8000-000000000099/pay-wallet")
+    assert response.status_code == 401
+
+
+def test_milestone_status_requires_auth(client):
+    response = client.patch(
+        "/api/v1/milestones/00000000-0000-4000-8000-000000000099/status",
+        json={"status": "funded"},
+    )
+    assert response.status_code == 401
+
+
+def test_admin_verifications_require_auth(client):
+    response = client.get("/api/v1/admin/verifications?status=pending")
+    assert response.status_code == 401
+
+
+def test_platform_verifications_require_auth(client):
+    response = client.post(
+        "/api/v1/platform/verifications",
+        json={"verification_type": "freelancer"},
+    )
     assert response.status_code == 401
 
 

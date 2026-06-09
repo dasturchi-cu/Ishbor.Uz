@@ -1,29 +1,32 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Bell,
   CheckCheck,
   ChevronRight,
+  Megaphone,
   MessageCircle,
   ShoppingBag,
   Star,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
-import { api } from '@/infrastructure/api/client'
 import type { ApiNotification } from '@/infrastructure/api/types'
 import { PATHS } from '@/domain/constants/routes'
+import { isSafeInternalHref } from '@/shared/lib/safe-url'
 import { cn } from '@/shared/lib/utils'
-import { applyReadState, markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
+import { markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
 import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
-import { useNotificationsRealtime } from '@/shared/lib/use-notifications-realtime'
+import { useNotificationsQuery } from '@/shared/lib/use-notifications-query'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/shared/lib/query-keys'
 
 interface NotifItem {
   id: string
-  type: 'message' | 'order' | 'review'
+  type: 'message' | 'order' | 'review' | 'broadcast'
   title: string
   body: string
   time: string
@@ -39,7 +42,7 @@ function fromApiNotifications(items: ApiNotification[], language: 'uz' | 'ru' | 
     body: n.body,
     time: formatRelativeTime(n.created_at, language),
     unread: n.unread,
-    href: n.href ?? PATHS.notifications,
+    href: isSafeInternalHref(n.href) ? (n.href as string) : PATHS.notifications,
   }))
 }
 
@@ -47,33 +50,17 @@ const TYPE_META: Record<NotifItem['type'], { icon: LucideIcon; iconClass: string
   order: { icon: ShoppingBag, iconClass: 'notification-dropdown-icon--order' },
   message: { icon: MessageCircle, iconClass: 'notification-dropdown-icon--message' },
   review: { icon: Star, iconClass: 'notification-dropdown-icon--review' },
+  broadcast: { icon: Megaphone, iconClass: 'notification-dropdown-icon--broadcast' },
 }
 
 export function NotificationDropdown() {
   const { t, language, userId } = useApp()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [items, setItems] = useState<NotifItem[]>([])
   const ref = useRef<HTMLDivElement>(null)
+  const { notifications } = useNotificationsQuery(userId, Boolean(userId))
 
-  const refresh = useCallback(() => {
-    api
-      .listNotifications()
-      .then((data) => setItems(fromApiNotifications(applyReadState(data), language)))
-      .catch(() => setItems([]))
-  }, [language])
-
-  useNotificationsRealtime(userId, refresh)
-
-  useEffect(() => {
-    refresh()
-    const interval = setInterval(refresh, 60_000)
-    return () => clearInterval(interval)
-  }, [refresh])
-
-  useEffect(() => {
-    if (!open) return
-    refresh()
-  }, [open, refresh])
+  const items = fromApiNotifications(notifications, language)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -85,14 +72,20 @@ export function NotificationDropdown() {
 
   const unread = items.filter((n) => n.unread).length
 
+  const patchCache = (mapper: (rows: ApiNotification[]) => ApiNotification[]) => {
+    queryClient.setQueryData<ApiNotification[]>(queryKeys.notifications, (prev) =>
+      prev ? mapper(prev) : prev
+    )
+  }
+
   const markAllRead = () => {
     void markAllNotifsRead()
-      .then(() => setItems((prev) => prev.map((n) => ({ ...n, unread: false }))))
+      .then(() => patchCache((rows) => rows.map((n) => ({ ...n, unread: false }))))
       .catch(() => undefined)
   }
   const markOneRead = (id: string) => {
     void markNotifRead(id)
-      .then(() => setItems((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n))))
+      .then(() => patchCache((rows) => rows.map((n) => (n.id === id ? { ...n, unread: false } : n))))
       .catch(() => undefined)
   }
 

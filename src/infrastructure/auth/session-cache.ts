@@ -23,27 +23,27 @@ export async function getCachedSession(): Promise<CachedSession | null> {
   inflight = (async () => {
     try {
       const supabase = getSupabase()
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) return cached
+
+      const session = sessionData.session
+      if (session?.access_token && session.user?.id) {
+        cached = {
+          accessToken: session.access_token,
+          userId: session.user.id,
+          expiresAt: session.expires_at ?? 0,
+        }
+        return cached
+      }
+
       const { data: userData, error: userError } = await supabase.auth.getUser()
       if (userError || !userData.user) {
         cached = null
         return null
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) return cached
-
-      const session = sessionData.session
-      if (!session?.access_token) {
-        cached = null
-        return null
-      }
-
-      cached = {
-        accessToken: session.access_token,
-        userId: userData.user.id,
-        expiresAt: session.expires_at ?? 0,
-      }
-      return cached
+      cached = null
+      return null
     } catch {
       return cached
     } finally {
@@ -57,6 +57,32 @@ export async function getCachedSession(): Promise<CachedSession | null> {
 export async function getCachedAccessToken(): Promise<string | null> {
   const session = await getCachedSession()
   return session?.accessToken ?? null
+}
+
+/** 401 yoki eskirgan token — yangi sessiya olish */
+export async function refreshCachedSession(): Promise<CachedSession | null> {
+  if (!isSupabaseConfigured()) return null
+
+  cached = null
+  inflight = null
+
+  try {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.auth.refreshSession()
+    const session = data.session
+    if (!error && session?.access_token && session.user) {
+      cached = {
+        accessToken: session.access_token,
+        userId: session.user.id,
+        expiresAt: session.expires_at ?? 0,
+      }
+      return cached
+    }
+  } catch {
+    /* fallback getSession */
+  }
+
+  return getCachedSession()
 }
 
 export function clearAuthCache(): void {

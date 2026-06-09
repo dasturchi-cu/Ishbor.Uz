@@ -6,18 +6,20 @@ import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { t, profile, isAuthLoading, isLoggedIn, currentUserRole, refreshProfile } = useApp()
-  const [profileLoading, setProfileLoading] = useState(false)
+  const { t, profile, currentUserRole, refreshProfile } = useApp()
+  const { ready, authed } = useAuthReady()
+  const [profileRefreshing, setProfileRefreshing] = useState(false)
 
   useEffect(() => {
-    if (isAuthLoading || !isLoggedIn || profile || profileLoading) return
-    setProfileLoading(true)
-    refreshProfile().finally(() => setProfileLoading(false))
-  }, [isAuthLoading, isLoggedIn, profile, profileLoading, refreshProfile])
+    if (!ready || !authed || profile || profileRefreshing) return
+    setProfileRefreshing(true)
+    refreshProfile().finally(() => setProfileRefreshing(false))
+  }, [ready, authed, profile, profileRefreshing, refreshProfile])
 
-  const profileReady = !isAuthLoading && !profileLoading && (!isLoggedIn || profile !== null)
+  const profileReady = ready && (!authed || (profile !== null && !profileRefreshing))
 
   if (!profileReady) {
     return (

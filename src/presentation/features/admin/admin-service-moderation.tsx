@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import type { ApiServiceModerationItem } from '@/infrastructure/api/types'
@@ -22,7 +23,7 @@ export function AdminServiceModeration() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     load()
   }, [load])
 
@@ -39,7 +40,7 @@ export function AdminServiceModeration() {
   if (loading) return <LoadingBlock />
 
   if (items.length === 0) {
-    return <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_audit_empty')}</p>
+    return <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_service_moderation_empty')}</p>
   }
 
   return (

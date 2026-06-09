@@ -11,7 +11,8 @@ import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
 import { UZ_REGIONS, type UzRegion } from '@/domain/constants/regions'
 import type { TranslationKey } from '@/infrastructure/i18n'
-import { useFormDraft } from '@/shared/lib/use-form-draft'
+import { useServerDraft } from '@/shared/lib/use-server-draft'
+import { buildDefaultPackages } from '@/shared/lib/service-packages'
 import { toast } from '@/presentation/components/ui/toast'
 import { serviceCreateSchema } from '@/domain/validators/service'
 import { cn } from '@/shared/lib/utils'
@@ -68,23 +69,29 @@ function parseApiError(e: unknown, translate: (key: TranslationKey) => string): 
 }
 
 export function CreateServicePage() {
-  const { t, isAuthLoading, refreshProfile, currentUserRole } = useApp()
+  const { t, isAuthLoading, refreshProfile, currentUserRole, isLoggedIn } = useApp()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [form, setForm] = useState<ServiceForm>(CREATE_SERVICE_INITIAL_FORM)
-  const draft = useFormDraft('ishbor-create-service-draft', form)
   const draftHydrated = useRef(false)
+  const draft = useServerDraft('create-service', form, isLoggedIn, (remote) => {
+    const restored = { ...CREATE_SERVICE_INITIAL_FORM, ...remote } as ServiceForm
+    if (!draftHydrated.current && (restored.title || restored.description || restored.price)) {
+      draftHydrated.current = true
+      setForm(restored)
+      toast.info(t('draft_restored'))
+    }
+  })
 
   useEffect(() => {
     if (draftHydrated.current) return
     draftHydrated.current = true
-    const restored = draft.hydrate(CREATE_SERVICE_INITIAL_FORM)
+    const restored = draft.hydrate(CREATE_SERVICE_INITIAL_FORM) as ServiceForm
     if (restored.title || restored.description || restored.price) {
       setForm(restored)
-      toast.info(t('draft_restored'))
     }
-  }, [draft, t])
+  }, [draft])
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -162,21 +169,7 @@ export function CreateServicePage() {
         category: form.category,
         region: form.region,
         delivery_days: safeDays,
-        packages: [
-          { id: 'basic', label_key: 'package_basic', price, delivery_days: safeDays },
-          {
-            id: 'standard',
-            label_key: 'package_standard',
-            price: Math.round(price * 1.5),
-            delivery_days: Math.max(1, safeDays - 1),
-          },
-          {
-            id: 'premium',
-            label_key: 'package_premium',
-            price: Math.round(price * 2.2),
-            delivery_days: Math.max(1, safeDays - 2),
-          },
-        ],
+        packages: buildDefaultPackages(price, safeDays),
       })
       draft.clear()
       await refreshProfile()

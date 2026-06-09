@@ -25,7 +25,7 @@ def list_my_orders(
     supabase = auth.supabase
     result = run_query(
         lambda: supabase.table("orders")
-        .select("*, services(title, category)")
+        .select("*, services(title, category), projects(title)")
         .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
@@ -66,15 +66,17 @@ def create_order(payload: OrderCreate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
 
-    profile = supabase.table("profiles").select("role").eq("id", user_id).single().execute()
+    profile = run_query(
+        lambda: supabase.table("profiles").select("role").eq("id", user_id).single().execute()
+    )
     if not profile.data or profile.data.get("role") != "client":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Faqat mijoz buyurtma yaratishi mumkin",
         )
 
-    service = (
-        supabase.table("services")
+    service = run_query(
+        lambda: supabase.table("services")
         .select("id, price, freelancer_id, packages")
         .eq("id", payload.service_id)
         .single()
@@ -89,8 +91,8 @@ def create_order(payload: OrderCreate, auth: UserAuthDep):
             detail="O'z xizmatingizga buyurtma bera olmaysiz",
         )
 
-    active = (
-        supabase.table("orders")
+    active = run_query(
+        lambda: supabase.table("orders")
         .select("id")
         .eq("client_id", user_id)
         .eq("service_id", payload.service_id)
@@ -162,7 +164,9 @@ def update_order_status(order_id: str, payload: OrderStatusUpdate, auth: UserAut
     user_id = auth.user_id
     supabase = auth.supabase
 
-    existing = supabase.table("orders").select("*").eq("id", order_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("orders").select("*").eq("id", order_id).single().execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
 
@@ -185,16 +189,37 @@ def update_order_status(order_id: str, payload: OrderStatusUpdate, auth: UserAut
     if payload.status == "disputed" and payload.dispute_reason:
         update_payload["dispute_reason"] = payload.dispute_reason.strip()
     admin = get_supabase_admin()
-    result = (
-        admin.table("orders")
-        .update(update_payload)
-        .eq("id", order_id)
-        .execute()
+    result = run_query(
+        lambda: admin.table("orders").update(update_payload).eq("id", order_id).execute()
     )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
 
     updated_order = result.data[0]
+    if payload.status == "disputed" and payload.dispute_reason:
+        reason = payload.dispute_reason.strip()
+        if len(reason) >= 10:
+            existing_dispute = run_query(
+                lambda: admin.table("disputes")
+                .select("id")
+                .eq("order_id", order_id)
+                .in_("status", ["open", "responded", "under_review"])
+                .limit(1)
+                .execute()
+            )
+            if not existing_dispute.data:
+                run_query(
+                    lambda: admin.table("disputes")
+                    .insert(
+                        {
+                            "order_id": order_id,
+                            "opened_by": user_id,
+                            "reason": reason,
+                            "status": "open",
+                        }
+                    )
+                    .execute()
+                )
     merged = {**order, **updated_order}
     if payload.status == "completed":
         updated_order = release_escrow(admin, merged)
@@ -206,8 +231,8 @@ def update_order_status(order_id: str, payload: OrderStatusUpdate, auth: UserAut
 
     service_title = None
     if order.get("service_id"):
-        service_row = (
-            supabase.table("services")
+        service_row = run_query(
+            lambda: supabase.table("services")
             .select("title")
             .eq("id", order["service_id"])
             .limit(1)

@@ -1,0 +1,16 @@
+export const queryKeys = {
+  profile: ['profile'] as const,
+  dashboardHome: (role: 'freelancer' | 'client') => ['dashboard', 'home', role] as const,
+  dashboardSummary: (role: 'freelancer' | 'client') => ['dashboard', 'summary', role] as const,
+  dashboardBadges: ['dashboard', 'badges'] as const,
+  orders: (limit?: number) => ['orders', { limit: limit ?? 'all' }] as const,
+  notifications: ['notifications'] as const,
+  conversations: ['conversations'] as const,
+  messagesInbox: ['messages', 'inbox'] as const,
+  servicesCatalog: (params: Record<string, unknown>) => ['services', 'catalog', params] as const,
+  myServices: ['services', 'mine'] as const,
+  activities: (limit: number) => ['activities', limit] as const,
+  activityFeed: (limit: number) => ['activity-feed', limit] as const,
+  transactions: ['transactions'] as const,
+  dashboardReviews: (role: 'freelancer' | 'client') => ['dashboard', 'reviews', role] as const,
+}

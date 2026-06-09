@@ -1,4 +1,4 @@
-import { api } from '@/infrastructure/api/client'
+import { api, ApiError } from '@/infrastructure/api/client'
 import { uploadAvatar } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 
@@ -22,7 +22,7 @@ export async function saveProfileFields(
   if (pendingAvatarFile && isSupabaseConfigured()) {
     avatarUrl = await uploadAvatar(pendingAvatarFile, userId)
   }
-  await api.updateProfile({
+  const payload = {
     full_name: values.full_name.trim() || undefined,
     username: values.username?.trim() || undefined,
     bio: values.bio.trim() || undefined,
@@ -30,5 +30,18 @@ export async function saveProfileFields(
     specialty: values.specialty.trim() || undefined,
     skills: values.skills,
     ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
-  })
+  }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await api.updateProfile(payload)
+      return
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 503 && attempt < 2) {
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
+        continue
+      }
+      throw e
+    }
+  }
 }

@@ -7,8 +7,11 @@ from app.search_utils import sanitize_search_term
 from app.schemas import ServiceCreate, ServiceListResponse, ServiceResponse, ServiceUpdate
 from app.review_stats import batch_review_stats
 from app.service_packages import default_packages
+from app.postgrest_embed import SERVICE_FREELANCER_PROFILE
 
 router = APIRouter(prefix="/services", tags=["services"])
+
+_FREELANCER_PROFILE = SERVICE_FREELANCER_PROFILE
 
 
 @router.get("/mine", response_model=list[ServiceResponse])
@@ -28,8 +31,8 @@ def list_my_services(auth: UserAuthDep):
 @router.get("/freelancer/{freelancer_id}", response_model=list[ServiceResponse])
 def list_freelancer_services(freelancer_id: str):
     supabase = get_supabase_admin()
-    result = (
-        supabase.table("services")
+    result = run_query(
+        lambda: supabase.table("services")
         .select("*")
         .eq("freelancer_id", freelancer_id)
         .eq("is_hidden", False)
@@ -55,7 +58,7 @@ def list_services(
     supabase = get_supabase_admin()
     query = (
         supabase.table("services")
-        .select("*, profiles(full_name, specialty, region, is_verified)", count="exact")
+        .select(f"*, {_FREELANCER_PROFILE}(full_name, specialty, region, is_verified)", count="exact")
         .eq("is_hidden", False)
         .eq("moderation_status", "approved")
     )
@@ -115,8 +118,8 @@ def record_service_view(
     user_id: OptionalUserId = None,
 ):
     supabase = get_supabase_admin()
-    existing = (
-        supabase.table("services")
+    existing = run_query(
+        lambda: supabase.table("services")
         .select("id, view_count")
         .eq("id", service_id)
         .limit(1)
@@ -124,29 +127,30 @@ def record_service_view(
     )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Xizmat topilmadi")
-    dedup = (
-        supabase.rpc(
+    dedup = run_query(
+        lambda: supabase.rpc(
             "record_view_if_new",
             {
                 "p_target_type": "service",
                 "p_target_id": service_id,
                 "p_viewer_key": _viewer_key(request, user_id),
             },
-        )
-        .execute()
+        ).execute()
     )
     if not dedup.data:
         return None
-    supabase.rpc("increment_service_view_count", {"p_service_id": service_id}).execute()
+    run_query(
+        lambda: supabase.rpc("increment_service_view_count", {"p_service_id": service_id}).execute()
+    )
     return None
 
 
 @router.get("/{service_id}", response_model=ServiceResponse)
 def get_service(service_id: str):
     supabase = get_supabase_admin()
-    result = (
-        supabase.table("services")
-        .select("*, profiles(full_name, specialty, region, bio, is_verified)")
+    result = run_query(
+        lambda: supabase.table("services")
+        .select(f"*, {_FREELANCER_PROFILE}(full_name, specialty, region, bio, is_verified)")
         .eq("id", service_id)
         .single()
         .execute()
@@ -163,7 +167,9 @@ def create_service(payload: ServiceCreate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
 
-    profile = supabase.table("profiles").select("role").eq("id", user_id).single().execute()
+    profile = run_query(
+        lambda: supabase.table("profiles").select("role").eq("id", user_id).single().execute()
+    )
     if not profile.data or profile.data.get("role") != "freelancer":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -179,7 +185,7 @@ def create_service(payload: ServiceCreate, auth: UserAuthDep):
         "moderation_status": "pending",
         "is_hidden": True,
     }
-    result = supabase.table("services").insert(data).execute()
+    result = run_query(lambda: supabase.table("services").insert(data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xizmat yaratilmadi")
     return result.data[0]
@@ -189,8 +195,8 @@ def create_service(payload: ServiceCreate, auth: UserAuthDep):
 def update_service(service_id: str, payload: ServiceUpdate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = (
-        supabase.table("services")
+    existing = run_query(
+        lambda: supabase.table("services")
         .select("*")
         .eq("id", service_id)
         .single()
@@ -205,7 +211,14 @@ def update_service(service_id: str, payload: ServiceUpdate, auth: UserAuthDep):
     if not updates:
         return existing.data
 
-    result = supabase.table("services").update(updates).eq("id", service_id).execute()
+    content_fields = {"title", "description", "price", "delivery_days", "packages", "category", "tags"}
+    if content_fields.intersection(updates.keys()):
+        updates["moderation_status"] = "pending"
+        updates["is_hidden"] = True
+
+    result = run_query(
+        lambda: supabase.table("services").update(updates).eq("id", service_id).execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xizmat yangilanmadi")
     return result.data[0]
@@ -215,8 +228,8 @@ def update_service(service_id: str, payload: ServiceUpdate, auth: UserAuthDep):
 def delete_service(service_id: str, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = (
-        supabase.table("services")
+    existing = run_query(
+        lambda: supabase.table("services")
         .select("freelancer_id")
         .eq("id", service_id)
         .single()
@@ -227,8 +240,8 @@ def delete_service(service_id: str, auth: UserAuthDep):
     if existing.data.get("freelancer_id") != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat o'z xizmatingizni o'chirishingiz mumkin")
 
-    active_orders = (
-        supabase.table("orders")
+    active_orders = run_query(
+        lambda: supabase.table("orders")
         .select("id")
         .eq("service_id", service_id)
         .in_("status", ["pending", "active", "delivered", "disputed"])
@@ -241,5 +254,7 @@ def delete_service(service_id: str, auth: UserAuthDep):
             detail="Faol buyurtmalar mavjud — avval ularni yakunlang",
         )
 
-    supabase.table("services").update({"is_hidden": True}).eq("id", service_id).execute()
+    run_query(
+        lambda: supabase.table("services").update({"is_hidden": True}).eq("id", service_id).execute()
+    )
     return None

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
+from app.config import settings
 from app.contract_escrow_service import fund_contract_escrow, release_contract_escrow
 from app.contract_transitions import validate_contract_transition
 from app.database import get_supabase_admin
@@ -21,18 +22,22 @@ router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 
 def _enrich_contract(row: dict, supabase) -> dict:
-    project = (
-        supabase.table("projects").select("id, title, status").eq("id", row["project_id"]).single().execute()
+    project = run_query(
+        lambda: supabase.table("projects")
+        .select("id, title, status")
+        .eq("id", row["project_id"])
+        .single()
+        .execute()
     )
-    client = (
-        supabase.table("profiles")
+    client = run_query(
+        lambda: supabase.table("profiles")
         .select("id, full_name, avatar_url, region")
         .eq("id", row["client_id"])
         .single()
         .execute()
     )
-    freelancer = (
-        supabase.table("profiles")
+    freelancer = run_query(
+        lambda: supabase.table("profiles")
         .select("id, full_name, avatar_url, specialty, region")
         .eq("id", row["freelancer_id"])
         .single()
@@ -47,7 +52,9 @@ def _enrich_contract(row: dict, supabase) -> dict:
 
 
 def _get_contract_or_404(supabase, contract_id: str) -> dict:
-    result = supabase.table("contracts").select("*").eq("id", contract_id).single().execute()
+    result = run_query(
+        lambda: supabase.table("contracts").select("*").eq("id", contract_id).single().execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shartnoma topilmadi")
     return result.data
@@ -77,7 +84,9 @@ def list_contracts(
         query = query.or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
     if status_filter:
         query = query.eq("status", status_filter)
-    result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    result = run_query(
+        lambda: query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    )
     return [_enrich_contract(row, supabase) for row in (result.data or [])]
 
 
@@ -112,7 +121,9 @@ def update_contract_status(contract_id: str, payload: ContractStatusUpdate, auth
     if payload.status == "revision_requested":
         update_data["revision_count"] = int(contract.get("revision_count") or 0) + 1
 
-    result = supabase.table("contracts").update(update_data).eq("id", contract_id).execute()
+    result = run_query(
+        lambda: supabase.table("contracts").update(update_data).eq("id", contract_id).execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shartnoma topilmadi")
 
@@ -120,7 +131,12 @@ def update_contract_status(contract_id: str, payload: ContractStatusUpdate, auth
     admin = get_supabase_admin()
 
     if payload.status == "submitted":
-        admin.table("projects").update({"status": "submitted"}).eq("id", contract["project_id"]).execute()
+        run_query(
+            lambda: admin.table("projects")
+            .update({"status": "submitted"})
+            .eq("id", contract["project_id"])
+            .execute()
+        )
         create_notification(
             supabase,
             user_id=contract["client_id"],
@@ -130,7 +146,12 @@ def update_contract_status(contract_id: str, payload: ContractStatusUpdate, auth
             href=f"/dashboard/contracts/{contract_id}",
         )
     elif payload.status == "revision_requested":
-        admin.table("projects").update({"status": "revision_requested"}).eq("id", contract["project_id"]).execute()
+        run_query(
+            lambda: admin.table("projects")
+            .update({"status": "revision_requested"})
+            .eq("id", contract["project_id"])
+            .execute()
+        )
         create_notification(
             supabase,
             user_id=contract["freelancer_id"],
@@ -152,7 +173,12 @@ def update_contract_status(contract_id: str, payload: ContractStatusUpdate, auth
         )
         return _enrich_contract(refreshed, supabase)
     elif payload.status == "disputed":
-        admin.table("projects").update({"status": "disputed"}).eq("id", contract["project_id"]).execute()
+        run_query(
+            lambda: admin.table("projects")
+            .update({"status": "disputed"})
+            .eq("id", contract["project_id"])
+            .execute()
+        )
 
     return _enrich_contract(row, supabase)
 
@@ -167,6 +193,12 @@ def fund_contract(contract_id: str, payload: ContractFundRequest, auth: UserAuth
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Hozircha faqat sandbox rejimi qo'llab-quvvatlanadi",
+        )
+
+    if settings.is_production:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sandbox to'lovi production muhitida taqiqlangan",
         )
 
     updated = fund_contract_escrow(contract, auth.user_id, payload.provider, payload.provider_ref)
@@ -186,8 +218,8 @@ def list_contract_escrow(contract_id: str, auth: UserAuthDep):
     supabase = auth.supabase
     contract = _get_contract_or_404(supabase, contract_id)
     _assert_participant(contract, auth.user_id)
-    result = (
-        supabase.table("escrow_transactions")
+    result = run_query(
+        lambda: supabase.table("escrow_transactions")
         .select("*")
         .eq("source_type", "contract")
         .eq("source_id", contract_id)
@@ -202,8 +234,8 @@ def upload_contract_file(contract_id: str, payload: ProjectFileCreate, auth: Use
     supabase = auth.supabase
     contract = _get_contract_or_404(supabase, contract_id)
     _assert_participant(contract, auth.user_id)
-    result = (
-        supabase.table("project_files")
+    result = run_query(
+        lambda: supabase.table("project_files")
         .insert(
             {
                 "contract_id": contract_id,
@@ -228,8 +260,8 @@ def list_contract_files(contract_id: str, auth: UserAuthDep):
     supabase = auth.supabase
     contract = _get_contract_or_404(supabase, contract_id)
     _assert_participant(contract, auth.user_id)
-    result = (
-        supabase.table("project_files")
+    result = run_query(
+        lambda: supabase.table("project_files")
         .select("*")
         .eq("contract_id", contract_id)
         .order("created_at", desc=True)
@@ -254,8 +286,8 @@ def create_project_review(contract_id: str, payload: ProjectReviewCreate, auth: 
         direction = "freelancer_to_client"
         reviewee_id = contract["client_id"]
 
-    existing = (
-        supabase.table("project_reviews")
+    existing = run_query(
+        lambda: supabase.table("project_reviews")
         .select("id")
         .eq("contract_id", contract_id)
         .eq("reviewer_id", user_id)
@@ -265,8 +297,8 @@ def create_project_review(contract_id: str, payload: ProjectReviewCreate, auth: 
     if existing.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sharh allaqachon yozilgan")
 
-    result = (
-        supabase.table("project_reviews")
+    result = run_query(
+        lambda: supabase.table("project_reviews")
         .insert(
             {
                 "contract_id": contract_id,
@@ -289,8 +321,8 @@ def list_project_reviews(contract_id: str, auth: UserAuthDep):
     supabase = auth.supabase
     contract = _get_contract_or_404(supabase, contract_id)
     _assert_participant(contract, auth.user_id)
-    result = (
-        supabase.table("project_reviews")
+    result = run_query(
+        lambda: supabase.table("project_reviews")
         .select("*")
         .eq("contract_id", contract_id)
         .order("created_at")

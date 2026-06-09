@@ -1,4 +1,6 @@
 import { getSupabase } from './client'
+import { buildChatStorageRef } from '@/shared/lib/chat-storage-ref'
+import { validateFileMagicBytes } from '@/shared/lib/file-magic'
 
 const BUCKETS = {
   project: 'project-attachments',
@@ -25,6 +27,9 @@ async function uploadImage(
 ): Promise<string> {
   if (!ALLOWED.has(file.type)) {
     throw new Error('Faqat rasm (JPG, PNG, WebP, GIF) yuklash mumkin')
+  }
+  if (!(await validateFileMagicBytes(file))) {
+    throw new Error('Fayl turi noto\'g\'ri yoki buzilgan')
   }
   const maxBytes = MAX_BYTES[bucketKey]
   if (file.size > maxBytes) {
@@ -74,6 +79,11 @@ export async function uploadProjectImage(file: File, userId: string): Promise<st
   return uploadImage(file, userId, 'project')
 }
 
+/** Freelancer portfolio galereyasi */
+export async function uploadPortfolioImage(file: File, userId: string): Promise<string> {
+  return uploadImage(file, userId, 'project', 'portfolio')
+}
+
 export async function removeProjectImage(publicUrl: string, userId: string): Promise<void> {
   return removeImage(publicUrl, userId, 'project')
 }
@@ -113,6 +123,9 @@ async function uploadChatFile(file: File, userId: string, orderId: string): Prom
   if (!CHAT_ALLOWED.has(file.type)) {
     throw new Error('Faqat rasm yoki PDF yuklash mumkin')
   }
+  if (!(await validateFileMagicBytes(file))) {
+    throw new Error('Fayl turi noto\'g\'ri yoki buzilgan')
+  }
   const maxBytes = file.type === 'application/pdf' ? 10 * 1024 * 1024 : MAX_BYTES.project
   if (file.size > maxBytes) {
     const mb = Math.round(maxBytes / (1024 * 1024))
@@ -141,11 +154,10 @@ async function uploadChatFile(file: File, userId: string, orderId: string): Prom
     throw new Error(error.message)
   }
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-  return data.publicUrl
+  return buildChatStorageRef(bucket, path)
 }
 
-/** Chat rasm/PDF biriktirish (project-attachments/chat/) */
+/** Chat rasm/PDF biriktirish (project-attachments/chat/) — private bucket, signed URL API orqali */
 export async function uploadChatImage(file: File, userId: string, orderId: string): Promise<string> {
   return uploadChatFile(file, userId, orderId)
 }

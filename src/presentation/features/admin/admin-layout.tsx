@@ -19,6 +19,9 @@ import {
   ArrowLeft,
   RefreshCw,
   Flag,
+  Database,
+  ShieldAlert,
+  BarChart3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -45,11 +48,14 @@ interface AdminNavItem {
 const ADMIN_NAV: AdminNavItem[] = [
   { href: PATHS.admin, labelKey: 'admin_nav_dashboard', icon: LayoutDashboard, match: (p) => p === PATHS.admin },
   { href: PATHS.adminUsers, labelKey: 'admin_nav_users', icon: Users },
+  { href: PATHS.adminFraud, labelKey: 'admin_nav_fraud', icon: ShieldAlert },
   { href: PATHS.adminDisputes, labelKey: 'admin_nav_disputes', icon: Scale },
   { href: PATHS.adminEscrow, labelKey: 'admin_nav_escrow', icon: Landmark },
   { href: PATHS.adminFinance, labelKey: 'admin_nav_finance', icon: Wallet },
   { href: PATHS.adminModeration, labelKey: 'admin_nav_moderation', icon: Shield },
+  { href: PATHS.adminAnalytics, labelKey: 'admin_nav_analytics', icon: BarChart3 },
   { href: PATHS.adminFeatureFlags, labelKey: 'admin_nav_feature_flags', icon: Flag },
+  { href: PATHS.adminBackups, labelKey: 'admin_nav_backups', icon: Database },
   { href: PATHS.adminBroadcast, labelKey: 'admin_nav_broadcast', icon: Megaphone },
   { href: PATHS.adminCompanies, labelKey: 'admin_nav_companies', icon: Building2 },
   { href: PATHS.adminServices, labelKey: 'admin_nav_services', icon: Package },
@@ -63,11 +69,14 @@ function isNavActive(item: AdminNavItem, pathname: string) {
 
 function pageTitleKey(pathname: string): TranslationKey {
   if (pathname.startsWith(PATHS.adminUsers)) return 'admin_page_users'
+  if (pathname.startsWith(PATHS.adminFraud)) return 'admin_nav_fraud'
+  if (pathname.startsWith(PATHS.adminAnalytics)) return 'admin_nav_analytics'
   if (pathname.startsWith(PATHS.adminDisputes)) return 'admin_page_disputes'
   if (pathname.startsWith(PATHS.adminEscrow)) return 'admin_page_escrow'
   if (pathname.startsWith(PATHS.adminFinance)) return 'admin_page_finance'
   if (pathname.startsWith(PATHS.adminModeration)) return 'admin_page_moderation'
   if (pathname.startsWith(PATHS.adminFeatureFlags)) return 'admin_nav_feature_flags'
+  if (pathname.startsWith(PATHS.adminBackups)) return 'admin_nav_backups'
   if (pathname.startsWith(PATHS.adminServices)) return 'admin_page_services'
   if (pathname.startsWith(PATHS.adminOrders)) return 'admin_page_orders'
   if (pathname.startsWith(PATHS.adminBroadcast)) return 'admin_nav_broadcast'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Package, Pencil, Trash2 } from 'lucide-react'
@@ -10,14 +10,17 @@ import { Badge } from '@/presentation/components/ui/badge'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { SkeletonListRow } from '@/presentation/components/ui/skeleton'
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiService } from '@/infrastructure/api/types'
 import { PATHS, servicePath } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { orderCountForService } from '@/shared/lib/order-analytics'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-banner'
-import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { toast } from '@/presentation/components/ui/toast'
+import { useDashboardHome } from '@/shared/lib/use-dashboard-home'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import { serviceModerationBadge } from '@/shared/lib/marketplace-status'
+import type { ApiService } from '@/infrastructure/api/types'
 
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
   web: 'cat_web',
@@ -29,37 +32,32 @@ const CATEGORY_KEYS: Record<string, TranslationKey> = {
   seo: 'cat_seo',
 }
 
+function ServiceStatusBadge({ service }: { service: ApiService }) {
+  const { t } = useApp()
+  const badge = serviceModerationBadge(service.moderation_status, service.is_hidden)
+  return (
+    <Badge variant={badge.variant} size="xs">
+      {t(badge.labelKey)}
+    </Badge>
+  )
+}
+
 export function DashboardServicesPage() {
   const { t } = useApp()
+  const { authed, userId, ready } = useAuthReady()
   const router = useRouter()
-  const [services, setServices] = useState<ApiService[]>([])
-  const [orders, setOrders] = useState<ApiOrder[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
-  const loadServices = () => {
-    setLoading(true)
-    setLoadError(false)
-    Promise.all([
-      api.listMyServices().catch(() => {
-        setLoadError(true)
-        return [] as ApiService[]
-      }),
-      api.listOrders().catch(() => [] as ApiOrder[]),
-    ])
-      .then(([svc, ord]) => {
-        setServices(svc)
-        setOrders(ord)
-      })
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    loadServices()
-  }, [])
+  const {
+    services,
+    orders,
+    loading,
+    error,
+    loadError,
+    reload: loadServices,
+  } = useDashboardHome(userId, 'freelancer', ready && authed && Boolean(userId))
 
   const orderCounts = useMemo(() => {
     const map = new Map<string, number>()
@@ -79,7 +77,7 @@ export function DashboardServicesPage() {
     setDeletingId(serviceId)
     try {
       await api.deleteService(serviceId)
-      setServices((prev) => prev.filter((s) => s.id !== serviceId))
+      void loadServices()
       toast.success(t('service_deleted'))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('error_required'))
@@ -96,8 +94,8 @@ export function DashboardServicesPage() {
     }
     setEditingId(serviceId)
     try {
-      const updated = await api.updateService(serviceId, { title })
-      setServices((prev) => prev.map((s) => (s.id === serviceId ? updated : s)))
+      await api.updateService(serviceId, { title })
+      void loadServices()
       setEditingId(null)
       toast.success(t('service_updated'))
     } catch (e) {
@@ -108,15 +106,13 @@ export function DashboardServicesPage() {
   return (
     <div>
       <AdminPanelBanner className="mb-5" />
-      {loadError && (
-        <Alert variant="error" className="mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadServices}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {error && (
+        <LoadErrorAlert
+          error={loadError}
+          scope="services"
+          onRetry={loadServices}
+          className="mb-4"
+        />
       )}
 
       <div className="dashboard-services-toolbar mb-5">
@@ -175,7 +171,7 @@ export function DashboardServicesPage() {
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge variant="default">{categoryLabel(s.category)}</Badge>
-                    <Badge variant="success">{t('service_status_active')}</Badge>
+                    <ServiceStatusBadge service={s} />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -254,7 +250,7 @@ export function DashboardServicesPage() {
                     {orderCounts.get(s.id) ?? 0}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant="success">{t('service_status_active')}</Badge>
+                    <ServiceStatusBadge service={s} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

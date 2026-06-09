@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
@@ -10,24 +9,23 @@ import { dashboardContract } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { FileSignature } from 'lucide-react'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 
 export function ContractsListPage() {
   const { t } = useApp()
   const role = useDashboardRole()
-  const [contracts, setContracts] = useState<ApiContract[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    api
-      .listContracts({ role: role === 'client' ? 'client' : 'freelancer' })
-      .then(setContracts)
-      .catch(() => setContracts([]))
-      .finally(() => setLoading(false))
-  }, [role])
+  const { data: contracts, loading } = useProtectedLoader(
+    () =>
+      api
+        .listContracts({ role: role === 'client' ? 'client' : 'freelancer' })
+        .catch(() => [] as ApiContract[]),
+    [role]
+  )
+  const list = contracts ?? []
 
   if (loading) return <p className="p-6 text-muted-foreground">{t('loading_data')}</p>
 
-  if (!contracts.length) {
+  if (!list.length) {
     return (
       <EmptyState
         icon={<FileSignature className="h-10 w-10" />}
@@ -41,7 +39,7 @@ export function ContractsListPage() {
     <div className="mx-auto max-w-4xl p-4 md:p-6 space-y-4">
       <h1 className="text-2xl font-bold">{t('contracts')}</h1>
       <ul className="space-y-3">
-        {contracts.map((c) => (
+        {list.map((c) => (
           <li key={c.id}>
             <Link
               href={dashboardContract(c.id)}

@@ -19,6 +19,7 @@ import { DollarSign, ShoppingBag, Eye } from 'lucide-react'
 import { Button } from '@/presentation/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { TrustScoreBreakdown } from '@/presentation/components/features/trust-score-breakdown'
@@ -31,7 +32,7 @@ export function DashboardAnalyticsPage() {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>('30d')
   const [data, setData] = useState<ApiAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const [analyticsFetchError, setAnalyticsFetchError] = useState<unknown>(null)
   const requestSeqRef = useRef(0)
   const loadAnalyticsRef = useRef<(attempt?: number) => Promise<void>>(async () => {})
 
@@ -39,15 +40,15 @@ export function DashboardAnalyticsPage() {
     const seq = ++requestSeqRef.current
     if (attempt === 0) {
       setLoading(true)
-      setLoadError(false)
+      setAnalyticsFetchError(null)
     }
 
     try {
       const result = await api.getAnalytics(period)
       if (seq !== requestSeqRef.current) return
       setData(result)
-      setLoadError(false)
-    } catch {
+      setAnalyticsFetchError(null)
+    } catch (e) {
       if (seq !== requestSeqRef.current) return
       if (attempt < 1) {
         window.setTimeout(() => {
@@ -56,7 +57,7 @@ export function DashboardAnalyticsPage() {
         return
       }
       setData(null)
-      setLoadError(true)
+      setAnalyticsFetchError(e)
     } finally {
       if (seq === requestSeqRef.current) {
         setLoading(false)
@@ -107,18 +108,16 @@ export function DashboardAnalyticsPage() {
         ))}
       </div>
 
-      {loadError && (
-        <Alert variant="error" className="mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={() => void loadAnalytics()}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {analyticsFetchError != null && (
+        <LoadErrorAlert
+          error={analyticsFetchError}
+          scope="analytics"
+          onRetry={() => void loadAnalytics()}
+          className="mb-4"
+        />
       )}
 
-      {(data?.order_count ?? 0) === 0 && !loadError && (
+      {(data?.order_count ?? 0) === 0 && !analyticsFetchError && (
         <Alert variant="info" className="mb-4 text-[13px]">
           {t('analytics_empty_note')}
         </Alert>

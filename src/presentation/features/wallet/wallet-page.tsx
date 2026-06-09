@@ -1,6 +1,7 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -8,14 +9,23 @@ import { OrderStatusBadge } from '@/presentation/components/features/order-statu
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { ArrowUpRight, ChevronRight, Lock, Receipt, Shield, TrendingUp, Wallet } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiTransaction, ApiWithdrawalRequest } from '@/infrastructure/api/types'
+import type {
+  ApiBankAccount,
+  ApiLedgerEntry,
+  ApiOrder,
+  ApiTransaction,
+  ApiWithdrawalRequest,
+} from '@/infrastructure/api/types'
+import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatPrice } from '@/shared/lib/format'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { Input } from '@/presentation/components/ui/input'
 import { Button } from '@/presentation/components/ui/button'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { toast } from '@/presentation/components/ui/toast'
+import { captureActionError } from '@/shared/lib/action-error'
 import { formatDate } from '@/shared/lib/format-date'
 import { withdrawalSchema } from '@/domain/validators/withdrawal'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
@@ -24,65 +34,128 @@ import { ReferralBanner } from '@/presentation/components/layout/referral-banner
 import { WalletTopupModal } from '@/presentation/features/wallet/wallet-topup-modal'
 import { BankAccountsSection } from '@/presentation/features/wallet/bank-accounts-section'
 import { useSearchParams } from 'next/navigation'
-import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import {
+  isWalletTopupComplete,
+  isWalletTopupFailed,
+  isWalletTopupIntentId,
+  pollWalletTopupUntilDone,
+} from '@/shared/lib/wallet-topup-poll'
+
+const WITHDRAWAL_ERROR_KEYS = new Set<TranslationKey>([
+  'withdrawal_bank_required',
+  'withdrawal_bank_pending',
+  'withdrawal_bank_not_found',
+])
+
+function resolveWithdrawalError(msg: string, t: (key: TranslationKey) => string): string {
+  if (WITHDRAWAL_ERROR_KEYS.has(msg as TranslationKey)) return t(msg as TranslationKey)
+  return msg || t('error_required')
+}
 
 export function WalletPage() {
   const { t, currentUserRole, language, profile, refreshProfile } = useApp()
   const pathname = usePathname()
   const router = useRouter()
   const inDashboard = pathname.startsWith('/dashboard')
-  const [orders, setOrders] = useState<ApiOrder[]>([])
-  const [ledger, setLedger] = useState<ApiTransaction[]>([])
-  const [loading, setLoading] = useState(true)
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawNote, setWithdrawNote] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
-  const [withdrawals, setWithdrawals] = useState<ApiWithdrawalRequest[]>([])
   const [clientWithdrawHint, setClientWithdrawHint] = useState(false)
-  const [loadError, setLoadError] = useState(false)
+  const [partialLoadError, setPartialLoadError] = useState(false)
   const [topupOpen, setTopupOpen] = useState(false)
   const searchParams = useSearchParams()
 
-  const loadWallet = useCallback(async () => {
-    setLoading(true)
-    setLoadError(false)
-    try {
-      const [ord, tx] = await Promise.all([
-        api.listOrders().catch(() => {
-          setLoadError(true)
-          return [] as ApiOrder[]
-        }),
-        api.listTransactions().catch(() => {
-          setLoadError(true)
-          return [] as ApiTransaction[]
-        }),
-      ])
-      setOrders(ord)
-      setLedger(tx)
-      await refreshProfile().catch(() => undefined)
-      if (currentUserRole === 'freelancer') {
-        const pending = await api.listWithdrawals().catch(() => [] as ApiWithdrawalRequest[])
-        setWithdrawals(pending)
-      } else {
-        setWithdrawals([])
-      }
-    } finally {
-      setLoading(false)
+  const {
+    data: walletData,
+    loading,
+    error: loaderError,
+    loadError: walletFetchError,
+    reload: loadWallet,
+  } = useProtectedLoader(async () => {
+    setPartialLoadError(false)
+    const [ord, ledgerRes, tx] = await Promise.all([
+      api.listOrders().catch(() => {
+        setPartialLoadError(true)
+        return [] as ApiOrder[]
+      }),
+      api.listLedgerEntries(50).catch(() => {
+        setPartialLoadError(true)
+        return { items: [] as ApiLedgerEntry[] }
+      }),
+      api.listTransactions().catch(() => {
+        setPartialLoadError(true)
+        return [] as ApiTransaction[]
+      }),
+    ])
+    await refreshProfile().catch(() => undefined)
+    const withdrawals =
+      currentUserRole === 'freelancer'
+        ? await api.listWithdrawals().catch(() => [] as ApiWithdrawalRequest[])
+        : ([] as ApiWithdrawalRequest[])
+    const bankAccounts =
+      currentUserRole === 'freelancer'
+        ? await api.listBankAccounts().catch(() => [] as ApiBankAccount[])
+        : ([] as ApiBankAccount[])
+    return {
+      orders: ord,
+      ledgerEntries: ledgerRes.items ?? [],
+      transactions: tx,
+      withdrawals,
+      bankAccounts,
     }
   }, [currentUserRole, refreshProfile])
 
-  useAuthedEffect(() => {
-    void loadWallet()
-  }, [loadWallet])
+  const withdrawals = walletData?.withdrawals ?? []
+  const bankAccounts = walletData?.bankAccounts ?? []
+  const hasVerifiedBank = bankAccounts.some((a) => a.is_verified)
+  const hasPendingBank = bankAccounts.length > 0 && !hasVerifiedBank
+  const loadError = partialLoadError || loaderError
+  const walletError = loaderError ? walletFetchError : partialLoadError ? new Error('partial_wallet') : null
 
   useEffect(() => {
-    if (searchParams.get('topup') === 'success') {
+    const topup = searchParams.get('topup')
+    if (!topup) return
+
+    if (topup === 'success') {
       toast.success(t('wallet_topup_success'))
       void loadWallet()
+      router.replace(pathname)
+      return
     }
-  }, [searchParams, t, loadWallet])
+
+    if (!isWalletTopupIntentId(topup)) return
+
+    let cancelled = false
+    ;(async () => {
+      toast.info(t('wallet_topup_polling'))
+      try {
+        const result = await pollWalletTopupUntilDone(topup)
+        if (cancelled) return
+        if (isWalletTopupComplete(result.status)) {
+          toast.success(t('wallet_topup_success'))
+          await loadWallet()
+          await refreshProfile()
+        } else if (isWalletTopupFailed(result.status)) {
+          toast.error(t('wallet_topup_failed'))
+        } else {
+          toast.error(t('wallet_topup_poll_timeout'))
+        }
+      } catch (e) {
+        if (cancelled) return
+        const msg = e instanceof Error ? e.message : ''
+        toast.error(captureActionError(e, { scope: 'wallet_topup' }, t))
+      } finally {
+        if (!cancelled) router.replace(pathname)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, t, loadWallet, refreshProfile, router, pathname])
 
   const { completed, active, pending, balance, activeCount } = useMemo(() => {
+    const orders = walletData?.orders ?? []
     let completed = 0
     let active = 0
     let pending = 0
@@ -109,9 +182,25 @@ export function WalletPage() {
           ? dbBalance
           : computed
     return { completed, active, pending, balance, activeCount }
-  }, [orders, currentUserRole, profile?.wallet_balance])
+  }, [walletData, currentUserRole, profile?.wallet_balance])
 
   const recentTx = useMemo(() => {
+    const orders = walletData?.orders ?? []
+    const ledgerEntries = walletData?.ledgerEntries ?? []
+    const ledger = walletData?.transactions ?? []
+    if (ledgerEntries.length > 0) {
+      return [...ledgerEntries]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 6)
+        .map((entry) => ({
+          id: entry.id,
+          label: entry.description?.trim() || entry.account_code,
+          date: entry.created_at,
+          amount: entry.entry_type === 'credit' ? entry.amount : -entry.amount,
+          status: entry.entry_type,
+          fromLedger: true,
+        }))
+    }
     if (ledger.length > 0) {
       return ledger
         .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
@@ -122,6 +211,7 @@ export function WalletPage() {
           date: tx.created_at,
           amount: tx.type === 'withdrawal' ? -tx.amount : tx.amount,
           status: tx.status,
+          fromLedger: false,
         }))
     }
     return [...orders]
@@ -133,8 +223,9 @@ export function WalletPage() {
         date: o.created_at,
         amount: o.amount,
         status: o.status,
+        fromLedger: false,
       }))
-  }, [orders, ledger, t])
+  }, [walletData, t])
 
   const ordersHref = PATHS.dashboardOrders
 
@@ -156,14 +247,12 @@ export function WalletPage() {
         )}
         <p className="wallet-intro-desc">{t('wallet_desc')}</p>
         {loadError && (
-          <Alert variant="error" className="mt-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span>{t('data_load_failed')}</span>
-              <Button variant="outline" size="sm" onClick={() => void loadWallet()}>
-                {t('catalog_retry')}
-              </Button>
-            </div>
-          </Alert>
+          <LoadErrorAlert
+            error={walletError}
+            scope="wallet"
+            onRetry={() => void loadWallet()}
+            className="mt-3"
+          />
         )}
         <span className="wallet-intro-note">
           <Shield className="h-3 w-3" />
@@ -214,6 +303,12 @@ export function WalletPage() {
                   return
                 }
                 setClientWithdrawHint(false)
+                if (!hasVerifiedBank) {
+                  toast.error(
+                    t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_required')
+                  )
+                  return
+                }
                 setWithdrawAmount(String(balance > 0 ? balance : ''))
               }}
             >
@@ -264,6 +359,12 @@ export function WalletPage() {
         </div>
       )}
 
+      {currentUserRole === 'freelancer' && !hasVerifiedBank && (
+        <Alert variant="info" className="mb-4">
+          {t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_hint')}
+        </Alert>
+      )}
+
       {withdrawAmount !== '' && currentUserRole === 'freelancer' && (
         <section className="surface-panel mb-5 p-4">
           <h3 className="settings-section-title">{t('withdraw_funds')}</h3>
@@ -298,6 +399,12 @@ export function WalletPage() {
                   toast.error(t('error_required'))
                   return
                 }
+                if (!hasVerifiedBank) {
+                  toast.error(
+                    t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_required')
+                  )
+                  return
+                }
                 setWithdrawing(true)
                 try {
                   await api.requestWithdrawal(amount, withdrawNote.trim() || undefined)
@@ -307,7 +414,8 @@ export function WalletPage() {
                   await refreshProfile()
                   loadWallet()
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : t('error_required'))
+                  const raw = e instanceof Error ? e.message : ''
+                  toast.error(resolveWithdrawalError(raw, t))
                 } finally {
                   setWithdrawing(false)
                 }
@@ -395,7 +503,7 @@ export function WalletPage() {
                   <p className="wallet-tx-name">{tx.label}</p>
                   <div className="wallet-tx-meta flex flex-wrap items-center gap-1.5">
                     <span>{tx.date ? formatDate(tx.date, language) : '—'}</span>
-                    {ledger.length === 0 && <OrderStatusBadge status={tx.status as ApiOrder['status']} />}
+                    {!tx.fromLedger && <OrderStatusBadge status={tx.status as ApiOrder['status']} />}
                   </div>
                 </div>
                 <p className="wallet-tx-amount">{formatPrice(Math.abs(tx.amount))}</p>

@@ -10,6 +10,8 @@ export interface ApiProfile {
 
   phone: string | null
 
+  phone_verified_at?: string | null
+
   bio: string | null
 
   region: string | null
@@ -29,6 +31,12 @@ export interface ApiProfile {
   username?: string | null
 
   is_banned?: boolean
+
+  is_suspended?: boolean
+
+  suspended_until?: string | null
+
+  suspension_reason?: string | null
 
   is_verified?: boolean
 
@@ -61,6 +69,8 @@ export interface ApiProfilePublic {
   id: string
 
   role: 'freelancer' | 'client'
+
+  username?: string | null
 
   full_name: string | null
 
@@ -133,6 +143,8 @@ export interface ApiService {
 
   is_hidden?: boolean
 
+  moderation_status?: 'pending' | 'approved' | 'rejected' | string
+
   created_at?: string
 
   profiles?: {
@@ -192,12 +204,32 @@ export interface ApiOrder {
 
   updated_at?: string
 
+  project_id?: string | null
+
+  contract_id?: string | null
+
   services?: { title?: string; category?: string }
+
+  projects?: { title?: string }
 
   client_profile?: { full_name?: string; region?: string }
 
   freelancer_profile?: { full_name?: string; region?: string }
 
+}
+
+export interface ApiAutoReleasedOrder {
+  id: string
+  amount: number
+  status: string
+  payment_status?: string | null
+  auto_released?: boolean
+  auto_release_at?: string | null
+  updated_at?: string
+  service_id?: string | null
+  project_id?: string | null
+  services?: { title?: string }
+  projects?: { title?: string }
 }
 
 export interface ApiPaymentIntent {
@@ -244,6 +276,8 @@ export interface ApiProject {
   is_public?: boolean
 
   application_count?: number
+
+  contract_id?: string | null
 
   attachment_urls?: string[]
 
@@ -395,6 +429,51 @@ export interface ApiAdminStats {
 
   new_users_30d?: number
 
+  active_orders?: number
+
+  fraud_alerts?: number
+
+}
+
+export interface ApiAdminUser extends ApiProfile {
+  trust_score?: number | null
+  avg_rating?: number | null
+  orders_count?: number
+  revenue?: number
+  last_active_at?: string | null
+  verification_status?: 'verified' | 'unverified'
+  account_status?: 'active' | 'suspended' | 'banned'
+}
+
+export interface ApiAdminUserDetail {
+  profile: ApiAdminUser
+  reputation: Record<string, unknown> | null
+  orders: ApiOrder[]
+  reviews: Record<string, unknown>[]
+  wallet_balance: number
+  escrow_held: number
+  activities: Record<string, unknown>[]
+  fraud_logs: Record<string, unknown>[]
+  reports: Record<string, unknown>[]
+  moderation_actions: Record<string, unknown>[]
+  audit_logs: ApiAuditLog[]
+  verifications: Record<string, unknown>[]
+}
+
+export interface ApiAdminActivityEvent {
+  id: string
+  type: 'registration' | 'order' | 'dispute' | 'fraud' | 'payment'
+  title: string
+  body?: string
+  created_at?: string
+  href?: string
+}
+
+export interface ApiAdminFraudCenter {
+  summary: { unresolved: number; high_severity: number; compliance_flags: number }
+  by_type: Record<string, Record<string, unknown>[]>
+  recent: Record<string, unknown>[]
+  compliance_flags: Record<string, unknown>[]
 }
 
 export interface ApiContract {
@@ -447,7 +526,8 @@ export interface ApiMilestone {
 
 export interface ApiDispute {
   id: string
-  contract_id: string
+  contract_id?: string | null
+  order_id?: string | null
   opened_by: string
   reason: string
   status: string
@@ -456,6 +536,7 @@ export interface ApiDispute {
   resolved_at?: string | null
   created_at?: string
   contract?: ApiContract | null
+  order?: ApiOrder | null
 }
 
 export interface ApiDisputeMessage {
@@ -651,7 +732,7 @@ export interface ApiWithdrawalRequest {
 
 export interface ApiNotification {
   id: string
-  type: 'order' | 'message' | 'review'
+  type: 'order' | 'message' | 'review' | 'broadcast'
   title: string
   body: string
   created_at: string
@@ -690,6 +771,18 @@ export interface ApiUserActivity {
   body?: string | null
   href?: string | null
   created_at: string
+}
+
+export interface ApiActivityFeedItem {
+  id: string
+  kind: 'activity' | 'order' | 'message' | 'payment'
+  title: string
+  body?: string | null
+  href?: string | null
+  created_at: string
+  order_status?: string | null
+  amount?: number | null
+  payment_type?: string | null
 }
 
 export interface ApiTrustBreakdown {
@@ -862,23 +955,48 @@ export interface ApiAdminAnalyticsSeriesPoint {
   value: number
 }
 
+export interface ApiAdminSearchTerm {
+  query: string
+  surface: string
+  count: number
+}
+
+export interface ApiHealthReady {
+  status: string
+  database: string
+  payments: {
+    click: boolean
+    payme: boolean
+  }
+  notifications: {
+    email: boolean
+    sms: boolean
+    telegram: boolean
+    redis: boolean
+  }
+}
+
 export interface ApiAdminAnalytics {
   period_days: number
   new_users: number
   orders_total: number
   orders_completed: number
   revenue_completed: number
+  platform_revenue_completed?: number
   search_events: number
   register_events: number
   conversion_rate: number
   users_series?: ApiAdminAnalyticsSeriesPoint[]
   revenue_series?: ApiAdminAnalyticsSeriesPoint[]
+  commission_series?: ApiAdminAnalyticsSeriesPoint[]
+  top_searches?: ApiAdminSearchTerm[]
 }
 
 export interface ApiAdminOverview {
   stats: ApiAdminStats
   analytics: ApiAdminAnalytics
   audit_logs: ApiAuditLog[]
+  activity_feed?: ApiAdminActivityEvent[]
 }
 
 export interface ApiAdminDisputesOverview {
@@ -886,6 +1004,15 @@ export interface ApiAdminDisputesOverview {
   order_total: number
   contract_disputes: ApiDispute[]
   contract_total: number
+}
+
+export interface ApiSecurityEvent {
+  id: string
+  event_type: string
+  severity: string
+  ip_address?: string | null
+  metadata?: Record<string, unknown>
+  created_at?: string
 }
 
 export interface ApiVacancy {
@@ -914,6 +1041,9 @@ export interface ApiCompany {
   is_verified: boolean
   is_featured: boolean
   is_published: boolean
+  stir?: string | null
+  stir_document_url?: string | null
+  stir_verified?: boolean
   created_at?: string
   updated_at?: string
 }
@@ -933,6 +1063,16 @@ export interface ApiFeatureFlag {
   enabled: boolean
   description?: string | null
   rollout_percent: number
+}
+
+export interface ApiBackupMetadata {
+  id: string
+  backup_type: string
+  status: string
+  storage_path?: string | null
+  size_bytes?: number | null
+  notes?: string | null
+  created_at?: string
 }
 
 export interface ApiDraft {

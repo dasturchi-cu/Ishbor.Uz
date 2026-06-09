@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
+from app.db_utils import run_query
 from app.deps import UserAuthDep
 from app.milestone_escrow_service import fund_milestone_escrow, release_milestone_escrow
 from app.schemas_marketplace import MilestoneCreate, MilestoneResponse, MilestoneStatusUpdate
@@ -17,7 +18,9 @@ _MILESTONE_TRANSITIONS: dict[str, set[str]] = {
 
 
 def _get_contract(supabase, contract_id: str) -> dict:
-    result = supabase.table("contracts").select("*").eq("id", contract_id).single().execute()
+    result = run_query(
+        lambda: supabase.table("contracts").select("*").eq("id", contract_id).single().execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shartnoma topilmadi")
     return result.data
@@ -30,8 +33,8 @@ def create_milestone(contract_id: str, payload: MilestoneCreate, auth: UserAuthD
     if auth.user_id != contract["client_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz bosqich yaratadi")
 
-    result = (
-        supabase.table("milestones")
+    result = run_query(
+        lambda: supabase.table("milestones")
         .insert(
             {
                 "contract_id": contract_id,
@@ -55,8 +58,8 @@ def list_milestones(contract_id: str, auth: UserAuthDep):
     contract = _get_contract(supabase, contract_id)
     if auth.user_id not in (contract["client_id"], contract["freelancer_id"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
-    result = (
-        supabase.table("milestones")
+    result = run_query(
+        lambda: supabase.table("milestones")
         .select("*")
         .eq("contract_id", contract_id)
         .order("sort_order")
@@ -69,7 +72,9 @@ def list_milestones(contract_id: str, auth: UserAuthDep):
 def update_milestone_status(milestone_id: str, payload: MilestoneStatusUpdate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = supabase.table("milestones").select("*").eq("id", milestone_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("milestones").select("*").eq("id", milestone_id).single().execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bosqich topilmadi")
 
@@ -99,7 +104,12 @@ def update_milestone_status(milestone_id: str, payload: MilestoneStatusUpdate, a
     if payload.status == "released":
         return release_milestone_escrow(milestone)
 
-    result = supabase.table("milestones").update({"status": payload.status}).eq("id", milestone_id).execute()
+    result = run_query(
+        lambda: supabase.table("milestones")
+        .update({"status": payload.status})
+        .eq("id", milestone_id)
+        .execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bosqich topilmadi")
     return result.data[0]

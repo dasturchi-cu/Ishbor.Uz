@@ -6,6 +6,7 @@ import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import type { ApiCompany } from '@/infrastructure/api/types'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
+import { isSafeExternalWebsiteUrl } from '@/shared/lib/safe-url'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { Card } from '@/presentation/components/ui/card'
@@ -50,7 +51,7 @@ export function CompaniesCatalog() {
               {company.description && (
                 <p className="line-clamp-3 text-[13px] text-[var(--kwork-text-sub)]">{company.description}</p>
               )}
-              {company.website && (
+              {company.website && isSafeExternalWebsiteUrl(company.website) && (
                 <a
                   href={company.website}
                   target="_blank"

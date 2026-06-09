@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
@@ -17,6 +17,8 @@ import { AdminLayout } from '@/presentation/features/admin/admin-layout'
 import { AdminTabs } from '@/presentation/features/admin/admin-tabs'
 import { dashboardContract } from '@/domain/constants/routes'
 import { useAdminSavedFilters } from '@/shared/lib/use-admin-saved-filters'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 type DisputeTab = 'all' | 'orders' | 'contracts' | 'resolved'
 type DisputeScope = 'open' | 'resolved' | 'all'
@@ -57,14 +59,14 @@ export function AdminDisputesPage() {
       setOrderDisputes(loadOrders ? overview.order_disputes : [])
       setContractDisputes(loadContracts ? overview.contract_disputes : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('data_load_failed'))
+      setError(captureLoadError(e, { scope: 'admin' }, t))
     } finally {
       setLoading(false)
     }
   }, [scope, tab, t])
 
-  useEffect(() => {
-    load()
+  useAuthedEffect(() => {
+    void load()
   }, [load])
 
   const tabs = useMemo(
@@ -215,7 +217,7 @@ export function AdminDisputesPage() {
                     <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-[var(--admin-text)]">
-                          {d.contract?.title ?? d.contract_id.slice(0, 8)}
+                          {d.contract?.title ?? d.contract_id?.slice(0, 8) ?? '—'}
                         </p>
                         <p className="mt-1 line-clamp-2 text-[12px] text-[var(--admin-muted)]">{d.reason}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import type { ApiBankAccount } from '@/infrastructure/api/types'
@@ -8,27 +9,19 @@ import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { toast } from '@/presentation/components/ui/toast'
+import { captureLoadError } from '@/shared/lib/load-error'
 import { VerifiedBadge } from '@/presentation/components/features/verified-badge'
 
 export function BankAccountsSection() {
   const { t } = useApp()
-  const [accounts, setAccounts] = useState<ApiBankAccount[]>([])
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ bank_name: '', account_holder: '', account_number: '', mfo: '' })
-
-  const load = useCallback(() => {
-    setLoading(true)
-    api
-      .listBankAccounts()
-      .then(setAccounts)
-      .catch(() => setAccounts([]))
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
+  const {
+    data: accounts,
+    loading,
+    reload,
+  } = useProtectedLoader(() => api.listBankAccounts().catch(() => [] as ApiBankAccount[]), [])
+  const list = accounts ?? []
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,9 +35,9 @@ export function BankAccountsSection() {
       })
       toast.success(t('bank_saved'))
       setForm({ bank_name: '', account_holder: '', account_number: '', mfo: '' })
-      load()
-    } catch {
-      toast.error(t('data_load_failed'))
+      void reload()
+    } catch (e) {
+      toast.error(captureLoadError(e, { scope: 'wallet' }, t))
     } finally {
       setSaving(false)
     }
@@ -55,9 +48,9 @@ export function BankAccountsSection() {
   return (
     <section className="surface-panel p-5">
       <h2 className="mb-4 text-[15px] font-bold text-[var(--kwork-text)]">{t('bank_accounts_title')}</h2>
-      {accounts.length > 0 && (
+      {list.length > 0 && (
         <ul className="mb-5 space-y-2">
-          {accounts.map((a) => (
+          {list.map((a) => (
             <li
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3 text-[13px]"
@@ -97,7 +90,7 @@ export function BankAccountsSection() {
           required
         />
         <Input
-          placeholder="MFO"
+          placeholder={t('bank_mfo')}
           value={form.mfo}
           onChange={(e) => setForm((f) => ({ ...f, mfo: e.target.value }))}
         />

@@ -12,37 +12,67 @@ import type { ApiProject } from '@/infrastructure/api/types'
 import { PATHS, projectPath } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Briefcase, Plus } from 'lucide-react'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import {
+  PROJECT_STATUS_KEYS,
+  marketplaceStatusLabel,
+  projectStatusBadgeVariant,
+} from '@/shared/lib/marketplace-status'
+import { captureActionError } from '@/shared/lib/action-error'
+import { toast } from '@/presentation/components/ui/toast'
 
 export function DashboardProjectsPage() {
-  const { t, userId } = useApp()
+  const { t } = useApp()
+  const { authed, userId, ready } = useAuthReady()
   const router = useRouter()
   const searchParams = useSearchParams()
   const justPosted = searchParams.get('posted') === '1'
   const [projects, setProjects] = useState<ApiProject[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const [projectsFetchError, setProjectsFetchError] = useState<unknown>(null)
+  const [publishingId, setPublishingId] = useState<string | null>(null)
 
   const loadProjects = useCallback(() => {
-    if (!userId) return
+    if (!authed || !userId) {
+      setProjects([])
+      setLoading(false)
+      setProjectsFetchError(null)
+      return
+    }
     setLoading(true)
-    setLoadError(false)
+    setProjectsFetchError(null)
     api
       .listProjects({ client_id: userId, status: 'all' })
       .then(setProjects)
-      .catch(() => {
+      .catch((e) => {
         setProjects([])
-        setLoadError(true)
+        setProjectsFetchError(e)
       })
       .finally(() => setLoading(false))
-  }, [userId])
+  }, [userId, authed])
 
   useEffect(() => {
+    if (!ready) return
     loadProjects()
-  }, [loadProjects])
+  }, [loadProjects, ready])
 
   const projectStatusLabel = (status: string) =>
-    status === 'open' ? t('project_status_open') : status === 'closed' ? t('project_status_closed') : status
+    marketplaceStatusLabel(PROJECT_STATUS_KEYS, status, t)
+
+  const publishProject = async (projectId: string) => {
+    setPublishingId(projectId)
+    try {
+      await api.publishProject(projectId)
+      toast.success(t('project_published_success'))
+      loadProjects()
+    } catch (e) {
+      toast.error(captureActionError(e, { scope: 'project_publish' }, t))
+    } finally {
+      setPublishingId(null)
+    }
+  }
 
   return (
     <div>
@@ -62,15 +92,13 @@ export function DashboardProjectsPage() {
         </Button>
       </div>
 
-      {loadError && (
-        <Alert variant="error" className="mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadProjects}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {projectsFetchError != null && (
+        <LoadErrorAlert
+          error={projectsFetchError}
+          scope="projects"
+          onRetry={loadProjects}
+          className="mb-4"
+        />
       )}
 
       {loading ? (
@@ -79,7 +107,7 @@ export function DashboardProjectsPage() {
             <div key={i} className="h-24 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
           ))}
         </div>
-      ) : projects.length === 0 && !loadError ? (
+      ) : projects.length === 0 && projectsFetchError == null ? (
         <EmptyState
           icon={<Briefcase />}
           title={t('no_projects_yet')}
@@ -103,18 +131,30 @@ export function DashboardProjectsPage() {
                     {p.region} · {formatPrice(p.budget)}
                   </p>
                 </div>
-                <Badge variant={p.status === 'open' ? 'success' : 'outline'} size="xs">
+                <Badge variant={projectStatusBadgeVariant(p.status)} size="xs">
                   {projectStatusLabel(p.status)}
                 </Badge>
               </div>
               <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">
                 {t('project_applications_count').replace('{n}', String(p.application_count ?? 0))}
               </p>
-              <Link href={projectPath(p.id)} className="mt-3 inline-block">
-                <Button variant="outline" size="sm">
-                  {t('project_view_applications')}
-                </Button>
-              </Link>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {p.status === 'draft' && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={publishingId === p.id}
+                    onClick={() => void publishProject(p.id)}
+                  >
+                    {t('project_publish')}
+                  </Button>
+                )}
+                <Link href={projectPath(p.id)}>
+                  <Button variant="outline" size="sm">
+                    {p.status === 'draft' ? t('project_view_detail') : t('project_view_applications')}
+                  </Button>
+                </Link>
+              </div>
             </div>
           ))}
         </div>

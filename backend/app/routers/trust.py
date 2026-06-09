@@ -59,11 +59,8 @@ def buyer_protection_content():
     dispute_row = (stats.data or [{}])[0] if hasattr(stats, "data") else {}
     if not dispute_row:
         try:
-            dispute_row = (
-                admin.table("disputes")
-                .select("id", count="exact")
-                .limit(0)
-                .execute()
+            dispute_row = run_query(
+                lambda: admin.table("disputes").select("id", count="exact").limit(0).execute()
             )
             dispute_row = {"total_disputes": dispute_row.count or 0}
         except Exception:
@@ -216,14 +213,19 @@ def my_ledger(auth: UserAuthDep, limit: int = Query(default=50, le=200), offset:
 
 @router.get("/bank-accounts/mine")
 def list_bank_accounts(auth: UserAuthDep):
-    result = auth.supabase.table("bank_accounts").select("*").order("created_at", desc=True).execute()
+    result = run_query(
+        lambda: auth.supabase.table("bank_accounts")
+        .select("*")
+        .order("created_at", desc=True)
+        .execute()
+    )
     return result.data or []
 
 
 @router.post("/bank-accounts", status_code=status.HTTP_201_CREATED)
 def create_bank_account(payload: BankAccountCreate, auth: UserAuthDep):
-    result = (
-        auth.supabase.table("bank_accounts")
+    result = run_query(
+        lambda: auth.supabase.table("bank_accounts")
         .insert(
             {
                 "user_id": auth.user_id,
@@ -242,15 +244,21 @@ def create_bank_account(payload: BankAccountCreate, auth: UserAuthDep):
 
 @router.get("/receipts/order/{order_id}")
 def get_order_receipt(order_id: str, auth: UserAuthDep):
-    order = auth.supabase.table("orders").select("client_id, freelancer_id").eq("id", order_id).single().execute()
+    order = run_query(
+        lambda: auth.supabase.table("orders")
+        .select("client_id, freelancer_id")
+        .eq("id", order_id)
+        .single()
+        .execute()
+    )
     if not order.data:
         raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
     if auth.user_id not in (order.data["client_id"], order.data["freelancer_id"]):
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
 
     admin = get_supabase_admin()
-    receipt = (
-        admin.table("payment_receipts")
+    receipt = run_query(
+        lambda: admin.table("payment_receipts")
         .select("*")
         .eq("order_id", order_id)
         .order("created_at", desc=True)
@@ -282,15 +290,17 @@ def download_receipt_pdf(order_id: str, auth: UserAuthDep):
 
 @router.post("/companies/{company_id}/stir")
 def submit_company_stir(company_id: str, payload: CompanyStirSubmit, auth: UserAuthDep):
-    company = auth.supabase.table("companies").select("*").eq("id", company_id).single().execute()
+    company = run_query(
+        lambda: auth.supabase.table("companies").select("*").eq("id", company_id).single().execute()
+    )
     if not company.data:
         raise HTTPException(status_code=404, detail="Kompaniya topilmadi")
     if company.data.get("owner_id") != auth.user_id:
         raise HTTPException(status_code=403, detail="Faqat egasi STIR yuborishi mumkin")
 
     admin = get_supabase_admin()
-    result = (
-        admin.table("companies")
+    result = run_query(
+        lambda: admin.table("companies")
         .update(
             {
                 "stir": payload.stir,
@@ -304,15 +314,19 @@ def submit_company_stir(company_id: str, payload: CompanyStirSubmit, auth: UserA
     if not result.data:
         raise HTTPException(status_code=500, detail="STIR saqlanmadi")
 
-    admin.table("user_verifications").insert(
-        {
-            "user_id": auth.user_id,
-            "verification_type": "company",
-            "status": "pending",
-            "document_urls": [payload.document_url] if payload.document_url else [],
-            "notes": f"STIR: {payload.stir}",
-        }
-    ).execute()
+    run_query(
+        lambda: admin.table("user_verifications")
+        .insert(
+            {
+                "user_id": auth.user_id,
+                "verification_type": "company",
+                "status": "pending",
+                "document_urls": [payload.document_url] if payload.document_url else [],
+                "notes": f"STIR: {payload.stir}",
+            }
+        )
+        .execute()
+    )
     return result.data[0]
 
 
@@ -322,3 +336,27 @@ def run_trust_jobs_cron(x_cron_secret: str | None = Header(default=None, alias="
     if not secret or x_cron_secret != secret:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     return run_all_trust_jobs()
+
+
+@router.post("/jobs/backup-checkpoint", tags=["jobs"])
+def record_scheduled_backup(
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+    backup_type: str = Query(default="scheduled"),
+):
+    """Cron: daily/weekly backup checkpoint metadata (Supabase PITR alohida)."""
+    secret = settings.cron_secret.strip()
+    if not secret or x_cron_secret != secret:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    admin = get_supabase_admin()
+    result = run_query(
+        lambda: admin.table("backups_metadata")
+        .insert(
+            {
+                "backup_type": backup_type,
+                "status": "recorded",
+                "notes": "Automated checkpoint via /trust/jobs/backup-checkpoint",
+            }
+        )
+        .execute()
+    )
+    return (result.data or [{}])[0]

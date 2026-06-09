@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.config import settings
 from app.database import get_supabase_admin
+from app.db_utils import run_query
 
 logger = logging.getLogger("ishbor.rate_limit")
 
@@ -66,13 +67,18 @@ def _check_postgres(bucket_key: str, *, max_hits: int) -> bool:
     window_start = (datetime.now(UTC) - timedelta(seconds=_WINDOW_SECONDS)).isoformat()
 
     try:
-        supabase.table("rate_limit_hits").delete().lt("created_at", window_start).execute()
+        run_query(
+            lambda: supabase.table("rate_limit_hits")
+            .delete()
+            .lt("created_at", window_start)
+            .execute()
+        )
     except Exception:
         pass
 
     try:
-        recent = (
-            supabase.table("rate_limit_hits")
+        recent = run_query(
+            lambda: supabase.table("rate_limit_hits")
             .select("id", count="exact")
             .eq("bucket_key", bucket_key)
             .gte("created_at", window_start)
@@ -80,10 +86,14 @@ def _check_postgres(bucket_key: str, *, max_hits: int) -> bool:
         )
         if (recent.count or 0) >= max_hits:
             return False
-        supabase.table("rate_limit_hits").insert({"bucket_key": bucket_key}).execute()
+        run_query(
+            lambda: supabase.table("rate_limit_hits")
+            .insert({"bucket_key": bucket_key})
+            .execute()
+        )
         return True
     except Exception:
-        return True
+        return False
 
 
 def check_rate_limit(bucket_key: str, *, max_hits: int = _MAX_HITS) -> bool:

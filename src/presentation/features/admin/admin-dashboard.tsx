@@ -13,6 +13,8 @@ import {
   TrendingUp,
   Activity,
   ArrowRight,
+  ShieldAlert,
+  Download,
 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
@@ -26,7 +28,10 @@ import { formatPrice } from '@/shared/lib/format'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
 import { AdminCharts } from '@/presentation/features/admin/admin-charts'
+import { AdminHealthPanel } from '@/presentation/features/admin/admin-health-panel'
 import type { TranslationKey } from '@/infrastructure/i18n'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import { exportAuditLogsCsv, fetchAllAuditLogs } from '@/shared/lib/audit-log-export'
 
 const POLL_MS = 30_000
 
@@ -41,12 +46,15 @@ interface KpiItem {
 
 export function AdminDashboard() {
   const { t, language } = useApp()
+  const { authed, ready } = useAuthReady()
   const [stats, setStats] = useState<ApiAdminStats | null>(null)
   const [analytics, setAnalytics] = useState<ApiAdminAnalytics | null>(null)
   const [auditLogs, setAuditLogs] = useState<ApiAuditLog[]>([])
+  const [activityFeed, setActivityFeed] = useState<import('@/infrastructure/api/types').ApiAdminActivityEvent[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [exportingAudit, setExportingAudit] = useState(false)
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -57,6 +65,7 @@ export function AdminDashboard() {
       setStats(overview.stats)
       setAnalytics(overview.analytics)
       setAuditLogs(overview.audit_logs)
+      setActivityFeed(overview.activity_feed ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : t('admin_load_stats_failed'))
     } finally {
@@ -66,10 +75,22 @@ export function AdminDashboard() {
   }, [t])
 
   useEffect(() => {
+    if (!ready || !authed) return
     load()
     const id = window.setInterval(() => load(true), POLL_MS)
     return () => window.clearInterval(id)
-  }, [load])
+  }, [load, ready, authed])
+
+  const exportAuditCsv = async () => {
+    setExportingAudit(true)
+    try {
+      exportAuditLogsCsv(await fetchAllAuditLogs())
+    } catch {
+      setError(t('admin_load_stats_failed'))
+    } finally {
+      setExportingAudit(false)
+    }
+  }
 
   const pendingDisputes = stats?.pending_disputes ?? (stats?.disputed_orders ?? 0) + (stats?.open_disputes ?? 0)
   const pendingWithdrawals = stats?.pending_withdrawals ?? 0
@@ -96,6 +117,21 @@ export function AdminDashboard() {
           value: formatPrice(stats.escrow_balance ?? 0),
           icon: Landmark,
           href: PATHS.adminEscrow,
+        },
+        {
+          key: 'fraud',
+          labelKey: 'admin_kpi_fraud',
+          value: String(stats.fraud_alerts ?? 0),
+          icon: ShieldAlert,
+          href: PATHS.adminFraud,
+          accent: (stats.fraud_alerts ?? 0) > 0 ? 'danger' : 'default',
+        },
+        {
+          key: 'active_orders',
+          labelKey: 'admin_kpi_active_orders',
+          value: String(stats.active_orders ?? 0),
+          icon: Briefcase,
+          href: PATHS.adminOrders,
         },
         {
           key: 'disputes',
@@ -185,6 +221,8 @@ export function AdminDashboard() {
             })}
           </div>
 
+          <AdminHealthPanel />
+
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="p-5 lg:col-span-1">
               <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-[var(--admin-muted)]">
@@ -219,11 +257,14 @@ export function AdminDashboard() {
                 {t('admin_analytics_section')}
               </h2>
               {analytics ? (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {[
                     { label: t('admin_growth_users'), value: String(analytics.new_users) },
                     { label: t('admin_growth_revenue'), value: formatPrice(analytics.revenue_completed) },
-                    { label: t('admin_growth_projects'), value: String(stats?.projects ?? 0) },
+                    {
+                      label: t('admin_growth_commission'),
+                      value: formatPrice(analytics.platform_revenue_completed ?? 0),
+                    },
                     { label: t('admin_conversion'), value: `${analytics.conversion_rate}%` },
                   ].map((item) => (
                     <div key={item.label} className="rounded-lg border border-[var(--admin-border)] p-3">
@@ -241,6 +282,7 @@ export function AdminDashboard() {
                     analytics={analytics}
                     usersLabel={t('admin_chart_users')}
                     revenueLabel={t('admin_chart_revenue')}
+                    commissionLabel={t('admin_chart_commission')}
                     emptyLabel={t('admin_chart_empty')}
                   />
                 </div>
@@ -251,13 +293,52 @@ export function AdminDashboard() {
           <Card className="p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--admin-muted)]">
+                {t('admin_realtime_feed')}
+              </h2>
+            </div>
+            {activityFeed.length === 0 ? (
+              <p className="text-sm text-[var(--admin-muted)]">{t('admin_activity_empty')}</p>
+            ) : (
+              <ul className="divide-y divide-[var(--admin-border)]">
+                {activityFeed.map((event) => (
+                  <li key={event.id} className="flex flex-wrap items-start justify-between gap-2 py-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium text-[var(--admin-text)]">{event.title}</p>
+                      {event.body && <p className="text-[12px] text-[var(--admin-muted)]">{event.body}</p>}
+                      <span className="mt-0.5 inline-block rounded bg-[var(--admin-bg)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--admin-muted)]">
+                        {event.type}
+                      </span>
+                    </div>
+                    <time className="shrink-0 text-[12px] text-[var(--admin-muted)]">
+                      {event.created_at ? formatRelativeTime(event.created_at, language) : '—'}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--admin-muted)]">
                 {t('admin_activity_feed')}
               </h2>
-              <Link href={PATHS.adminModeration}>
-                <Button variant="ghost" size="sm">
-                  {t('admin_view_all')}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={exportingAudit}
+                  onClick={() => void exportAuditCsv()}
+                >
+                  <Download className="mr-1.5 size-3.5" aria-hidden />
+                  {exportingAudit ? t('admin_exporting') : t('admin_export_csv')}
                 </Button>
-              </Link>
+                <Link href={PATHS.adminModeration}>
+                  <Button variant="ghost" size="sm">
+                    {t('admin_view_all')}
+                  </Button>
+                </Link>
+              </div>
             </div>
             {auditLogs.length === 0 ? (
               <p className="text-sm text-[var(--admin-muted)]">{t('admin_activity_empty')}</p>

@@ -18,11 +18,13 @@ import { POPULAR_SKILLS } from '@/domain/constants/skills'
 import { saveProfileFields } from '@/shared/lib/profile-fields'
 import { parseSpecialtyTitle } from '@/shared/lib/onboarding-profile'
 import { cn } from '@/shared/lib/utils'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
 
 const BIO_MAX = 500
 
 export function DashboardProfilePage() {
   const { t, profile, userId, refreshProfile } = useApp()
+  const { ready, authed } = useAuthReady()
   const role = useDashboardRole()
   const isFreelancer = role === 'freelancer'
   const fileRef = useRef<HTMLInputElement>(null)
@@ -32,6 +34,7 @@ export function DashboardProfilePage() {
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageIsError, setMessageIsError] = useState(false)
   const [fullName, setFullName] = useState('')
   const [username, setUsername] = useState('')
   const [title, setTitle] = useState('')
@@ -58,6 +61,7 @@ export function DashboardProfilePage() {
   }, [syncFromProfile])
 
   useEffect(() => {
+    if (!ready || !authed) return
     const slug = username.trim().toLowerCase().replace(/^@/, '')
     if (slug.length < 3 || slug === profile?.username) {
       setUsernameStatus('idle')
@@ -70,7 +74,7 @@ export function DashboardProfilePage() {
         .catch(() => setUsernameStatus('idle'))
     }, 400)
     return () => clearTimeout(id)
-  }, [username, profile?.username])
+  }, [username, profile?.username, ready, authed])
 
   const handleAvatarChange = (file: File | undefined) => {
     if (!file) return
@@ -94,9 +98,11 @@ export function DashboardProfilePage() {
     if (!userId) return
     setSaving(true)
     setMessage('')
+    setMessageIsError(false)
     try {
       if (usernameStatus === 'taken') {
         setMessage(t('username_taken'))
+        setMessageIsError(true)
         return
       }
       await saveProfileFields(
@@ -115,8 +121,10 @@ export function DashboardProfilePage() {
       await refreshProfile()
       setPendingAvatarFile(null)
       setMessage(t('save_success'))
+      setMessageIsError(false)
     } catch (e) {
       setMessage(e instanceof Error ? e.message : t('error_required'))
+      setMessageIsError(true)
     } finally {
       setSaving(false)
     }
@@ -141,7 +149,7 @@ export function DashboardProfilePage() {
       </div>
 
       {message && (
-        <Alert variant="success" className="mb-4">
+        <Alert variant={messageIsError ? 'error' : 'success'} className="mb-4">
           {message}
         </Alert>
       )}
@@ -168,7 +176,7 @@ export function DashboardProfilePage() {
             )}
           </div>
           {userId && (
-            <Link href={freelancerPath(userId)} className="profile-view-link">
+            <Link href={freelancerPath({ id: userId, username: profile?.username })} className="profile-view-link">
               {t('view_public_profile')}
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
@@ -334,7 +342,7 @@ export function DashboardProfilePage() {
 
           {userId && (
             <Link
-              href={freelancerPath(userId)}
+              href={freelancerPath({ id: userId, username: profile?.username })}
               className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
             >
               {t('view_public_profile')}

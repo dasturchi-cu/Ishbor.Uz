@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useApp } from '@/application/providers/app-provider'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { api } from '@/infrastructure/api/client'
 import type { ApiUserReputation } from '@/infrastructure/api/types'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
@@ -27,17 +28,32 @@ const ROWS: { key: BreakdownKey; labelKey: 'trust_pts_reviews' | 'trust_pts_orde
 
 export function TrustScoreBreakdown({ userId }: { userId?: string }) {
   const { t } = useApp()
+  const { ready, authed } = useAuthReady()
   const [data, setData] = useState<ApiUserReputation | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (userId) {
+      setLoading(true)
+      api
+        .getTrustBreakdown(userId)
+        .then(setData)
+        .catch(() => setData(null))
+        .finally(() => setLoading(false))
+      return
+    }
+    if (!ready || !authed) {
+      setLoading(false)
+      setData(null)
+      return
+    }
     setLoading(true)
-    const req = userId ? api.getTrustBreakdown(userId) : api.getMyTrustBreakdown()
-    req
+    api
+      .getMyTrustBreakdown()
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false))
-  }, [userId])
+  }, [userId, ready, authed])
 
   if (loading) return <LoadingBlock className="py-6" />
   if (!data) return null

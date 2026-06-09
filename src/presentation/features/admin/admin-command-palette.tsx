@@ -41,6 +41,7 @@ export function AdminCommandPalette({
       { id: 'broadcast', labelKey: 'admin_nav_broadcast', href: PATHS.adminBroadcast },
       { id: 'companies', labelKey: 'admin_nav_companies', href: PATHS.adminCompanies },
       { id: 'flags', labelKey: 'admin_nav_feature_flags', href: PATHS.adminFeatureFlags },
+      { id: 'backups', labelKey: 'admin_nav_backups', href: PATHS.adminBackups },
       { id: 'services', labelKey: 'admin_nav_services', href: PATHS.adminServices },
       { id: 'orders', labelKey: 'admin_nav_orders', href: PATHS.adminOrders },
       {

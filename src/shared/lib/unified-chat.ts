@@ -119,6 +119,15 @@ export function finalizeInboxThreads(rows: UnifiedChatThread[]): UnifiedChatThre
     .sort((a, b) => messageAtMs(b.lastMessageAt) - messageAtMs(a.lastMessageAt))
 }
 
+/** Inbox API javobidan bitta ro'yxat (threads + legacy, client-side dedupe). */
+export function buildInboxFromBundle(
+  threads: ApiConversationThread[],
+  legacyConversations: ApiConversation[],
+  orderTitleFallback: string
+): UnifiedChatThread[] {
+  return mergeUnifiedChatThreads(threads, legacyConversations, orderTitleFallback)
+}
+
 export function mergeUnifiedChatThreads(
   threads: ApiConversationThread[],
   legacyConversations: ApiConversation[],

@@ -1,62 +1,45 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
-import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { SkeletonListRow } from '@/presentation/components/ui/skeleton'
-import { Bell, ShoppingBag, MessageCircle, Star, CheckCheck, X } from 'lucide-react'
+import { Bell, ShoppingBag, MessageCircle, Star, Megaphone, CheckCheck, X } from 'lucide-react'
 import { toast } from '@/presentation/components/ui/toast'
 import { ApiError, api } from '@/infrastructure/api/client'
 import type { ApiNotification } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
-import { applyReadState, markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
+import { markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
 import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { PATHS } from '@/domain/constants/routes'
-import { useNotificationsRealtime } from '@/shared/lib/use-notifications-realtime'
+import { useNotificationsQuery } from '@/shared/lib/use-notifications-query'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/shared/lib/query-keys'
 
 const TYPE_ICON = {
   order: ShoppingBag,
   message: MessageCircle,
   review: Star,
+  broadcast: Megaphone,
 } as const
 
 export function NotificationsPage() {
   const { t, language, userId } = useApp()
   const router = useRouter()
-  const [items, setItems] = useState<ApiNotification[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const queryClient = useQueryClient()
+  const { notifications: items, loading, error, loadError, refetch } = useNotificationsQuery(userId, Boolean(userId))
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [dismissingId, setDismissingId] = useState<string | null>(null)
 
-  const loadNotifications = useCallback((silent = false) => {
-    if (!silent) {
-      setLoading(true)
-      setLoadError(false)
-    }
-    api
-      .listNotifications()
-      .then((data) => setItems(applyReadState(data)))
-      .catch(() => {
-        if (!silent) {
-          setItems([])
-          setLoadError(true)
-        }
-      })
-      .finally(() => {
-        if (!silent) setLoading(false)
-      })
-  }, [])
-
-  useNotificationsRealtime(userId, () => loadNotifications(true))
-
-  useEffect(() => {
-    loadNotifications()
-  }, [loadNotifications])
+  const patchCache = (mapper: (rows: ApiNotification[]) => ApiNotification[]) => {
+    queryClient.setQueryData<ApiNotification[]>(queryKeys.notifications, (prev) =>
+      prev ? mapper(prev) : prev
+    )
+  }
 
   const filtered = useMemo(
     () => (filter === 'unread' ? items.filter((n) => n.unread) : items),
@@ -67,7 +50,7 @@ export function NotificationsPage() {
 
   const markAllRead = () => {
     void markAllNotifsRead()
-      .then(() => setItems((prev) => prev.map((n) => ({ ...n, unread: false }))))
+      .then(() => patchCache((prev) => prev.map((n) => ({ ...n, unread: false }))))
       .catch(() => undefined)
   }
 
@@ -77,7 +60,7 @@ export function NotificationsPage() {
     void api
       .dismissNotifications([item.id])
       .then(() => {
-        setItems((prev) => prev.filter((n) => n.id !== item.id))
+        patchCache((prev) => prev.filter((n) => n.id !== item.id))
         toast.success(t('notification_dismissed'))
       })
       .catch((err) => {
@@ -88,7 +71,7 @@ export function NotificationsPage() {
 
   const handleClick = (item: ApiNotification) => {
     void markNotifRead(item.id)
-      .then(() => setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))))
+      .then(() => patchCache((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))))
       .catch(() => undefined)
     if (item.href) router.push(item.href)
   }
@@ -129,15 +112,13 @@ export function NotificationsPage() {
         ))}
       </div>
 
-      {loadError && (
-        <Alert variant="error" className="mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={() => loadNotifications()}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {error && (
+        <LoadErrorAlert
+          error={loadError}
+          scope="notifications"
+          onRetry={() => void refetch()}
+          className="mb-4"
+        />
       )}
 
       <Card className="overflow-hidden p-0">

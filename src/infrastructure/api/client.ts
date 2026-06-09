@@ -1,4 +1,5 @@
 import { getCachedAccessToken, refreshCachedSession } from '@/infrastructure/auth/session-cache'
+import { trackRequest } from '@/shared/lib/request-debug'
 import type { NotificationPrefs } from '@/shared/lib/notification-prefs'
 import type {
   ApiAdminStats,
@@ -63,7 +64,8 @@ async function getAuthHeader(forceRefresh = false): Promise<Record<string, strin
 export class ApiError extends Error {
   constructor(
     message: string,
-    public status: number
+    public status: number,
+    public path?: string
   ) {
     super(message)
     this.name = 'ApiError'
@@ -84,7 +86,7 @@ function paymentIdempotencyHeaders(): Record<string, string> {
 const RETRYABLE_GET_STATUSES = new Set([0, 408, 429, 503])
 const MAX_GET_ATTEMPTS = 3
 
-async function parseApiError(res: Response): Promise<ApiError> {
+async function parseApiError(res: Response, path: string): Promise<ApiError> {
   let detail = res.statusText
   try {
     const body = await res.json()
@@ -95,7 +97,7 @@ async function parseApiError(res: Response): Promise<ApiError> {
   if (detail === 'Internal Server Error' && res.status >= 500) {
     detail = "Server xatosi. Sahifani yangilab qayta urinib ko'ring."
   }
-  return new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), res.status)
+  return new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), res.status, path)
 }
 
 async function retryGet<T>(
@@ -126,6 +128,8 @@ export async function apiFetch<T>(
   const isGet = method === 'GET'
   const canRetry = isGet && attempt < MAX_GET_ATTEMPTS - 1
 
+  trackRequest(`${method} ${path}`, { method, path })
+
   try {
     const res = await fetch(`${resolveApiUrl()}${path}`, {
       ...options,
@@ -134,7 +138,7 @@ export async function apiFetch<T>(
     })
 
     if (!res.ok) {
-      const err = await parseApiError(res)
+      const err = await parseApiError(res, path)
       if (canRetry) {
         if (err.status === 401 && !refreshAuth) {
           await refreshCachedSession()
@@ -154,7 +158,7 @@ export async function apiFetch<T>(
   } catch (e) {
     if (e instanceof ApiError) throw e
     if (e instanceof DOMException && e.name === 'AbortError') {
-      const err = new ApiError("Server javob bermadi. Qayta urinib ko'ring.", 408)
+      const err = new ApiError("Server javob bermadi. Qayta urinib ko'ring.", 408, path)
       if (canRetry) {
         await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
         return retryGet<T>(path, options, attempt + 1, refreshAuth)
@@ -162,7 +166,7 @@ export async function apiFetch<T>(
       throw err
     }
     if (e instanceof TypeError && e.message.toLowerCase().includes('fetch')) {
-      const err = new ApiError('Backend ishlamayapti. Terminalda: pnpm dev:api (port 8002)', 0)
+      const err = new ApiError('Backend ishlamayapti. Terminalda: pnpm dev:api (port 8002)', 0, path)
       if (canRetry) {
         await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
         return retryGet<T>(path, options, attempt + 1, refreshAuth)
@@ -176,7 +180,8 @@ export async function apiFetch<T>(
 }
 
 export const api = {
-  health: () => apiFetch<{ status: string }>('/api/v1/health'),
+  health: () => apiFetch<{ status: string; service?: string; environment?: string }>('/api/v1/health'),
+  healthReady: () => apiFetch<import('./types').ApiHealthReady>('/api/v1/health/ready'),
 
   getProfile: () => apiFetch<ApiProfile>('/api/v1/profiles/me'),
   updateProfile: (data: Partial<ApiProfile>) =>
@@ -331,6 +336,8 @@ export const api = {
     q?: string
     region?: string
     category?: string
+    budget_min?: number
+    budget_max?: number
     limit?: number
     offset?: number
   }) => {
@@ -340,6 +347,8 @@ export const api = {
     if (params?.q) q.set('q', params.q)
     if (params?.region) q.set('region', params.region)
     if (params?.category) q.set('category', params.category)
+    if (params?.budget_min != null) q.set('budget_min', String(params.budget_min))
+    if (params?.budget_max != null) q.set('budget_max', String(params.budget_max))
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
     const qs = q.toString()
@@ -384,6 +393,45 @@ export const api = {
     apiFetch<void>(`/api/v1/applications/${applicationId}`, { method: 'DELETE' }),
 
   listNotifications: () => apiFetch<ApiNotification[]>('/api/v1/notifications'),
+  getDashboardBadges: () =>
+    apiFetch<{ message_unread: number; notification_unread: number }>('/api/v1/dashboard/badges'),
+  getDashboardHome: (role: 'freelancer' | 'client') =>
+    apiFetch<{
+      orders: ApiOrder[]
+      services: ApiService[]
+      projects: import('./types').ApiProject[]
+      review_stats: { average: number; count: number }
+      reputation: import('./types').ApiUserReputation | null
+    }>(`/api/v1/dashboard/home?role=${role}`),
+  getDashboardOverview: (role: 'freelancer' | 'client') =>
+    apiFetch<{
+      orders: ApiOrder[]
+      services: ApiService[]
+      projects: import('./types').ApiProject[]
+      review_stats: { average: number; count: number }
+      reputation: import('./types').ApiUserReputation | null
+      badges: { message_unread: number; notification_unread: number }
+    }>(`/api/v1/dashboard/overview?role=${role}`),
+  getDashboardSummary: (role: 'freelancer' | 'client') =>
+    apiFetch<{
+      profile: ApiProfile
+      wallet_balance: number
+      orders: ApiOrder[]
+      services: ApiService[]
+      projects: import('./types').ApiProject[]
+      review_stats: { average: number; count: number }
+      reputation: import('./types').ApiUserReputation | null
+      badges: { message_unread: number; notification_unread: number }
+    }>(`/api/v1/dashboard/summary?role=${role}`),
+  getDashboardReviews: (role: 'freelancer' | 'client') =>
+    apiFetch<{ reviews: ApiReview[]; stats: { average: number; count: number } }>(
+      `/api/v1/dashboard/reviews?role=${role}`
+    ),
+  getMessagesInbox: () =>
+    apiFetch<{
+      threads: import('./types').ApiConversationThread[]
+      legacy_conversations: ApiConversation[]
+    }>('/api/v1/messages/inbox'),
   markNotificationsRead: (ids: string[]) =>
     apiFetch<void>('/api/v1/notifications/mark-read', {
       method: 'POST',
@@ -423,6 +471,7 @@ export const api = {
   listServiceReviews: (serviceId: string) =>
     apiFetch<ApiReview[]>(`/api/v1/reviews/service/${serviceId}`),
   listTransactions: () => apiFetch<ApiTransaction[]>('/api/v1/payments/transactions'),
+  /** @deprecated getMessagesInbox ishlating — inbox_bundle strategiyasi */
   listConversations: () => apiFetch<ApiConversation[]>('/api/v1/messages/conversations'),
   listMessages: (orderId: string, limit = 200) =>
     apiFetch<ApiMessage[]>(
@@ -491,6 +540,11 @@ export const api = {
     search?: string
     role?: 'freelancer' | 'client'
     is_banned?: boolean
+    is_verified?: boolean
+    is_suspended?: boolean
+    preset?: 'top_rated' | 'new_users' | 'active'
+    sort_by?: 'created_at' | 'trust_score' | 'revenue' | 'orders_count'
+    sort_dir?: 'asc' | 'desc'
   }) => {
     const q = new URLSearchParams()
     if (params?.limit != null) q.set('limit', String(params.limit))
@@ -498,14 +552,29 @@ export const api = {
     if (params?.search?.trim()) q.set('search', params.search.trim())
     if (params?.role) q.set('role', params.role)
     if (params?.is_banned != null) q.set('is_banned', String(params.is_banned))
+    if (params?.is_verified != null) q.set('is_verified', String(params.is_verified))
+    if (params?.is_suspended != null) q.set('is_suspended', String(params.is_suspended))
+    if (params?.preset) q.set('preset', params.preset)
+    if (params?.sort_by) q.set('sort_by', params.sort_by)
+    if (params?.sort_dir) q.set('sort_dir', params.sort_dir)
     const qs = q.toString()
-    return apiFetch<ApiPaginated<ApiProfile>>(`/api/v1/admin/users${qs ? `?${qs}` : ''}`)
+    return apiFetch<ApiPaginated<import('./types').ApiAdminUser>>(`/api/v1/admin/users${qs ? `?${qs}` : ''}`)
   },
+  adminUserDetail: (userId: string) =>
+    apiFetch<import('./types').ApiAdminUserDetail>(`/api/v1/admin/users/${userId}`),
+  adminFraudCenter: () => apiFetch<import('./types').ApiAdminFraudCenter>('/api/v1/admin/fraud-center'),
+  adminActivityFeed: (limit = 30) =>
+    apiFetch<import('./types').ApiAdminActivityEvent[]>(`/api/v1/admin/activity-feed?limit=${limit}`),
   adminBulkUsers: (data: {
     user_ids: string[]
-    action: 'ban' | 'unban' | 'verify' | 'unverify'
+    action: 'ban' | 'unban' | 'verify' | 'unverify' | 'suspend' | 'unsuspend'
   }) =>
     apiFetch<{ updated: number; user_ids: string[] }>('/api/v1/admin/users/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  adminBulkNotifyUsers: (data: { user_ids: string[]; title: string; body: string }) =>
+    apiFetch<{ sent: number }>('/api/v1/admin/users/bulk-notify', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -630,6 +699,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+  getDisputeForOrder: (orderId: string) => apiFetch<ApiDispute>(`/api/v1/disputes/order/${orderId}`),
   getDispute: (id: string) => apiFetch<ApiDispute>(`/api/v1/disputes/${id}`),
   listDisputeMessages: (id: string) =>
     apiFetch<ApiDisputeMessage[]>(`/api/v1/disputes/${id}/messages`),
@@ -661,6 +731,8 @@ export const api = {
   getCall: (id: string) => apiFetch<ApiCallSession>(`/api/v1/calls/${id}`),
   updateCall: (id: string, data: { status?: string; media_state?: Record<string, unknown>; signaling?: Record<string, unknown> }) =>
     apiFetch<ApiCallSession>(`/api/v1/calls/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  listProjectReviews: (contractId: string) =>
+    apiFetch<ApiProjectReview[]>(`/api/v1/contracts/${contractId}/reviews`),
   createProjectReview: (contractId: string, rating: number, comment?: string) =>
     apiFetch<ApiProjectReview>(`/api/v1/contracts/${contractId}/reviews`, {
       method: 'POST',
@@ -684,6 +756,15 @@ export const api = {
   },
   adminEscrowSummary: () =>
     apiFetch<import('./types').ApiAdminEscrowSummary>('/api/v1/admin/escrow/summary'),
+  adminEscrowAutoReleases: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<import('./types').ApiAutoReleasedOrder>>(
+      `/api/v1/admin/escrow/auto-releases${qs ? `?${qs}` : ''}`
+    )
+  },
   adminMilestones: (params?: {
     limit?: number
     offset?: number
@@ -734,6 +815,8 @@ export const api = {
 
   listActivities: (limit = 30) =>
     apiFetch<import('./types').ApiUserActivity[]>(`/api/v1/platform/activities?limit=${limit}`),
+  getActivityFeed: (limit = 12) =>
+    apiFetch<import('./types').ApiActivityFeedItem[]>(`/api/v1/platform/activity-feed?limit=${limit}`),
   getMyReputation: () => apiFetch<import('./types').ApiUserReputation>('/api/v1/platform/reputation/me'),
   getUserReputation: (userId: string) =>
     apiFetch<import('./types').ApiUserReputation>(`/api/v1/platform/reputation/${userId}`),
@@ -773,8 +856,30 @@ export const api = {
       body: JSON.stringify({ event_name, properties, session_id }),
     }).catch(() => undefined),
   listFeatureFlags: () => apiFetch<import('./types').ApiFeatureFlag[]>('/api/v1/platform/feature-flags'),
+  getStorageSignedUrl: (bucket: string, path: string) =>
+    apiFetch<{ url: string }>('/api/v1/platform/storage/signed-url', {
+      method: 'POST',
+      body: JSON.stringify({ bucket, path }),
+    }),
   auditLogin: () => apiFetch<void>('/api/v1/platform/audit/login', { method: 'POST' }),
   auditRegister: () => apiFetch<void>('/api/v1/platform/audit/register', { method: 'POST' }),
+  sendPhoneOtp: (phone: string) =>
+    apiFetch<void>('/api/v1/security/phone/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    }),
+  verifyPhoneOtp: (phone: string, code: string) =>
+    apiFetch<void>('/api/v1/security/phone/verify', {
+      method: 'POST',
+      body: JSON.stringify({ phone, code }),
+    }),
+  auditLoginAttempt: (success: boolean, email?: string, captcha_token?: string) =>
+    apiFetch<void>('/api/v1/security/audit/login', {
+      method: 'POST',
+      body: JSON.stringify({ success, email, captcha_token }),
+    }).catch(() => undefined),
+  listMySecurityEvents: (limit = 20) =>
+    apiFetch<import('./types').ApiSecurityEvent[]>(`/api/v1/security/events/me?limit=${limit}`),
 
   getBuyerProtection: () => apiFetch<import('./types').ApiBuyerProtection>('/api/v1/trust/buyer-protection'),
   getPublicDisputeStats: () =>
@@ -816,7 +921,7 @@ export const api = {
     const res = await fetch(`${resolveApiUrl()}/api/v1/trust/receipts/order/${orderId}/pdf`, {
       headers: { ...authHeader },
     })
-    if (!res.ok) throw await parseApiError(res)
+    if (!res.ok) throw await parseApiError(res, `/api/v1/trust/receipts/order/${orderId}/pdf`)
     return res.blob()
   },
   adminServiceModerationQueue: () =>
@@ -830,16 +935,25 @@ export const api = {
     apiFetch<import('./types').ApiComplianceFlag[]>(
       `/api/v1/admin/compliance-flags?resolved=${resolved}`,
     ),
+  adminListBankAccounts: (verified = false) =>
+    apiFetch<{ items: import('./types').ApiBankAccount[]; total: number }>(
+      `/api/v1/admin/bank-accounts?verified=${verified}`,
+    ),
   adminVerifyBankAccount: (accountId: string) =>
     apiFetch<import('./types').ApiBankAccount>(`/api/v1/admin/bank-accounts/${accountId}/verify`, {
+      method: 'PATCH',
+    }),
+  adminResolveComplianceFlag: (flagId: string) =>
+    apiFetch<import('./types').ApiComplianceFlag>(`/api/v1/admin/compliance-flags/${flagId}/resolve`, {
       method: 'PATCH',
     }),
   adminRunTrustJobs: () =>
     apiFetch<Record<string, unknown>>('/api/v1/admin/trust-jobs/run', { method: 'POST' }),
 
-  adminAuditLogs: (params?: { limit?: number; action?: string }) => {
+  adminAuditLogs: (params?: { limit?: number; offset?: number; action?: string }) => {
     const q = new URLSearchParams()
     if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
     if (params?.action) q.set('action', params.action)
     const qs = q.toString()
     return apiFetch<import('./types').ApiAuditLog[]>(`/api/v1/admin/audit-logs${qs ? `?${qs}` : ''}`)
@@ -902,6 +1016,39 @@ export const api = {
     const qs = q.toString()
     return apiFetch<import('./types').ApiCompany[]>(`/api/v1/companies${qs ? `?${qs}` : ''}`)
   },
+  listMyCompanies: () =>
+    apiFetch<import('./types').ApiCompany[]>('/api/v1/companies/me/list'),
+  createMyCompany: (data: {
+    name: string
+    slug: string
+    description?: string
+    website?: string
+    region?: string
+    employee_count?: number
+  }) =>
+    apiFetch<import('./types').ApiCompany>('/api/v1/companies/me', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateMyCompany: (
+    companyId: string,
+    data: Partial<{
+      name: string
+      description: string
+      website: string
+      region: string
+      employee_count: number
+    }>
+  ) =>
+    apiFetch<import('./types').ApiCompany>(`/api/v1/companies/me/${companyId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  submitCompanyStir: (companyId: string, stir: string, documentUrl?: string) =>
+    apiFetch<import('./types').ApiCompany>(`/api/v1/trust/companies/${companyId}/stir`, {
+      method: 'POST',
+      body: JSON.stringify({ stir, document_url: documentUrl }),
+    }),
   adminCreateCompany: (data: {
     name: string
     slug: string
@@ -941,6 +1088,18 @@ export const api = {
     }),
   adminDeleteCompany: (companyId: string) =>
     apiFetch<{ ok: boolean }>(`/api/v1/admin/companies/${companyId}`, { method: 'DELETE' }),
+  adminBackups: (limit = 20) =>
+    apiFetch<import('./types').ApiBackupMetadata[]>(`/api/v1/admin/backups?limit=${limit}`),
+  adminRecordBackup: (params?: { backup_type?: string; notes?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.backup_type) q.set('backup_type', params.backup_type)
+    if (params?.notes) q.set('notes', params.notes)
+    const qs = q.toString()
+    return apiFetch<import('./types').ApiBackupMetadata>(
+      `/api/v1/admin/backups/record${qs ? `?${qs}` : ''}`,
+      { method: 'POST' }
+    )
+  },
   adminFeatureFlags: () => apiFetch<import('./types').ApiFeatureFlag[]>('/api/v1/admin/feature-flags'),
   adminUpdateFeatureFlag: (
     key: string,
@@ -962,4 +1121,17 @@ export const api = {
     const qs = q.toString()
     return apiFetch<import('./types').ApiVacancy[]>(`/api/v1/vacancies${qs ? `?${qs}` : ''}`)
   },
+  createVacancy: (data: {
+    title: string
+    description?: string
+    region?: string
+    employment_type?: 'full_time' | 'part_time' | 'contract' | 'internship'
+    salary_min?: number
+    salary_max?: number
+    is_published?: boolean
+  }) =>
+    apiFetch<import('./types').ApiVacancy>('/api/v1/vacancies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }

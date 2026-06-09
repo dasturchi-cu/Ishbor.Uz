@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -9,13 +10,18 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
+import { ContractStatusBadge } from '@/presentation/components/features/contract-status-badge'
 import { api } from '@/infrastructure/api/client'
-import type { ApiContract, ApiEscrowTransaction } from '@/infrastructure/api/types'
-import { PATHS, dashboardCall, dashboardDispute } from '@/domain/constants/routes'
+import type { ApiContract, ApiEscrowTransaction, ApiProjectReview } from '@/infrastructure/api/types'
+import { ContractReviewModal } from '@/presentation/components/features/contract-review-modal'
+import { PATHS, dashboardCallRoom, dashboardDispute } from '@/domain/constants/routes'
+import { startVideoCall } from '@/shared/lib/start-video-call'
 import { formatPrice } from '@/shared/lib/format'
 import { formatDate } from '@/shared/lib/format-date'
 import { toast } from '@/presentation/components/ui/toast'
+import { captureActionError } from '@/shared/lib/action-error'
 import { FileText, Shield, MessageSquare, Phone } from 'lucide-react'
+import { ContractMilestonesSection } from '@/presentation/features/marketplace/contract-milestones-section'
 
 const CLIENT_ACTIONS: Record<string, string> = {
   pending_payment: 'fund_escrow',
@@ -27,36 +33,47 @@ const FREELANCER_ACTIONS: Record<string, string> = {
 }
 
 export function ContractDetailPage({ contractId }: { contractId: string }) {
-  const { t, language } = useApp()
+  const { t, language, userId } = useApp()
   const role = useDashboardRole()
   const router = useRouter()
   const [contract, setContract] = useState<ApiContract | null>(null)
   const [escrow, setEscrow] = useState<ApiEscrowTransaction[]>([])
-  const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
+  const [reviews, setReviews] = useState<ApiProjectReview[]>([])
+  const [showReview, setShowReview] = useState(false)
+  const [callStarting, setCallStarting] = useState(false)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    Promise.all([
+  const { data, loading, reload } = useProtectedLoader(async () => {
+    const [c, e] = await Promise.all([
       api.getContract(contractId).catch(() => null),
-      api.listContractEscrow(contractId).catch(() => []),
+      api.listContractEscrow(contractId).catch(() => [] as ApiEscrowTransaction[]),
     ])
-      .then(([c, e]) => {
-        setContract(c)
-        setEscrow(e)
-      })
-      .finally(() => setLoading(false))
+    let rev: ApiProjectReview[] = []
+    if (c?.status === 'completed') {
+      rev = await api.listProjectReviews(contractId).catch(() => [] as ApiProjectReview[])
+    }
+    return { contract: c, escrow: e, reviews: rev }
   }, [contractId])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (!data) return
+    setContract(data.contract)
+    setEscrow(data.escrow)
+    setReviews(data.reviews)
+  }, [data])
+
+  const load = useCallback(() => {
+    void reload()
+  }, [reload])
 
   const isClient = role === 'client'
+  const calleeId =
+    contract && userId ? (isClient ? contract.freelancer_id : contract.client_id) : null
   const status = contract?.status ?? ''
   const actionKey = isClient ? CLIENT_ACTIONS[status] : FREELANCER_ACTIONS[status]
+  const myReview = reviews.find((r) => r.reviewer_id === userId)
 
   const handleAction = async () => {
     if (!contract || !actionKey) return
@@ -75,9 +92,25 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
       }
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('error_generic'))
+      setError(captureActionError(e, { scope: 'contract' }, t))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const handleVideoCall = async () => {
+    if (!contract || !calleeId || callStarting) return
+    setCallStarting(true)
+    try {
+      const session = await startVideoCall({
+        calleeId,
+        contractId: contract.id,
+      })
+      router.push(dashboardCallRoom(session.id))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('call_start_failed'))
+    } finally {
+      setCallStarting(false)
     }
   }
 
@@ -89,7 +122,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
       toast.success(t('marketplace_revision_toast'))
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('error_generic'))
+      setError(captureActionError(e, { scope: 'contract' }, t))
     } finally {
       setBusy(false)
     }
@@ -102,7 +135,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
       const dispute = await api.openDispute(contract.id, notes)
       router.push(dashboardDispute(dispute.id))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('error_generic'))
+      setError(captureActionError(e, { scope: 'contract' }, t))
     } finally {
       setBusy(false)
     }
@@ -132,9 +165,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <PaymentStatusBadge status={contract.payment_status} />
-          <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium capitalize">
-            {t(`contract_status_${contract.status}` as never) || contract.status}
-          </span>
+          <ContractStatusBadge status={contract.status} />
         </div>
       </div>
 
@@ -179,7 +210,17 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
                 {t('open_dispute')}
               </Button>
             )}
+            {status === 'completed' && !myReview && (
+              <Button variant="outline" onClick={() => setShowReview(true)}>
+                {t('leave_review')}
+              </Button>
+            )}
           </div>
+          {myReview && (
+            <p className="text-[13px] text-[var(--kwork-text-muted)]">
+              {t('review_submitted')} · {myReview.rating}/5
+            </p>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -201,16 +242,26 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
               <MessageSquare className="h-4 w-4 mr-2" />
               {t('messages')}
             </Link>
-            <Link
-              href={dashboardCall(contract.id)}
-              className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+            <Button
+              variant="outline"
+              className="w-full justify-center"
+              loading={callStarting}
+              disabled={!calleeId}
+              onClick={() => void handleVideoCall()}
             >
-              <Phone className="h-4 w-4 mr-2" />
-              {t('video_call')}
-            </Link>
+              <Phone className="h-4 w-4 mr-2" aria-hidden />
+              {callStarting ? t('call_starting') : t('video_call')}
+            </Button>
           </div>
         </div>
       </div>
+
+      <ContractMilestonesSection
+        contractId={contract.id}
+        contractStatus={status}
+        escrowTransactions={escrow}
+        onUpdated={() => void reload()}
+      />
 
       {escrow.length > 0 && (
         <div className="rounded-xl border bg-card p-4">
@@ -224,6 +275,17 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
             ))}
           </ul>
         </div>
+      )}
+
+      {showReview && contract && (
+        <ContractReviewModal
+          contractId={contract.id}
+          contractTitle={contract.title}
+          onClose={() => setShowReview(false)}
+          onSubmitted={() => {
+            void reload()
+          }}
+        />
       )}
     </div>
   )

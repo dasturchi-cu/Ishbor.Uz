@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Alert } from '@/presentation/components/ui/alert'
@@ -11,6 +11,8 @@ import { ConfirmModal } from '@/presentation/components/dashboard/confirm-modal'
 import { api } from '@/infrastructure/api/client'
 import type { ApiCompany } from '@/infrastructure/api/types'
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 export function AdminCompaniesPage() {
   const { t } = useApp()
@@ -36,13 +38,13 @@ export function AdminCompaniesPage() {
       setCompanies(res.items)
       setTotal(res.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('data_load_failed'))
+      setError(captureLoadError(e, { scope: 'admin' }, t))
     } finally {
       setLoading(false)
     }
   }, [search, t])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     const timer = window.setTimeout(() => {
       void load()
     }, 300)

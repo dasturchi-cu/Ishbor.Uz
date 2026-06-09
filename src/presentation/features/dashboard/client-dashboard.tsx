@@ -1,10 +1,11 @@
 ﻿'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { StatCard } from '@/presentation/components/ui/stat-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
@@ -35,8 +36,11 @@ import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
 import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
 import { DashboardQuickActions } from '@/presentation/components/dashboard/dashboard-quick-actions'
-import { useDashboardHome } from '@/shared/lib/use-dashboard-home'
-import { useMessageUnreadCount } from '@/shared/lib/use-message-unread'
+import { useDashboardSummary } from '@/shared/lib/use-dashboard-summary'
+import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
+import { ClientOnboardingChecklist } from '@/presentation/components/dashboard/client-onboarding-checklist'
+import { clientOnboardingProgress } from '@/shared/lib/onboarding-progress'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'delivered'])
 
@@ -78,11 +82,12 @@ function OrderRowSkeleton() {
 }
 
 export function ClientDashboard() {
-  const { t, userId } = useApp()
+  const { t, profile, userId, isAuthLoading, isLoggedIn } = useApp()
   const router = useRouter()
-  const messageUnread = useMessageUnreadCount(true)
+  const { messageUnread } = useBadgeCounts()
+  const authReady = !isAuthLoading && isLoggedIn && Boolean(userId)
 
-  const { orders, projects, loading, error, reload } = useDashboardHome(userId, 'client')
+  const { orders, projects, loading, error, loadError, reload } = useDashboardSummary(userId, 'client', authReady)
   const [freelancers, setFreelancers] = useState<ApiProfilePublic[]>([])
   const [freelancersLoading, setFreelancersLoading] = useState(true)
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null)
@@ -96,7 +101,7 @@ export function ClientDashboard() {
       .finally(() => setFreelancersLoading(false))
   }, [])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     loadFreelancers()
   }, [loadFreelancers])
 
@@ -143,6 +148,11 @@ export function ClientDashboard() {
     [freelancers]
   )
 
+  const onboardingProgress = useMemo(
+    () => clientOnboardingProgress(profile, projects, orders.length > 0),
+    [profile, projects, orders.length]
+  )
+
   const primaryCta =
     projects.length === 0
       ? { label: t('dash_action_post_project'), href: PATHS.postProject }
@@ -163,14 +173,12 @@ export function ClientDashboard() {
   return (
     <div className="dash-home space-y-5 pb-2">
       {error && (
-        <Alert variant="error">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={() => void reload()}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+        <LoadErrorAlert
+          error={loadError}
+          scope="dashboard"
+          onRetry={reload}
+          context={{ queryKey: 'dashboard/summary', apiPath: '/api/v1/dashboard/summary?role=client' }}
+        />
       )}
 
       {unpaidOrders.length > 0 && (
@@ -198,7 +206,10 @@ export function ClientDashboard() {
         messageUnread={messageUnread}
         primaryCta={primaryCta}
         orders={orders}
+        onboardingProgress={onboardingProgress}
       />
+
+      <ClientOnboardingChecklist projects={projects} hasOrders={orders.length > 0} />
 
       <DashboardRecommendedActions
         role="client"
@@ -353,7 +364,7 @@ export function ClientDashboard() {
                 isVerified={f.is_verified}
                 trustScore={f.trust_score}
                 variant="grid"
-                onClick={() => router.push(freelancerPath(f.id))}
+                onClick={() => router.push(freelancerPath(f))}
               />
             ))}
           </div>

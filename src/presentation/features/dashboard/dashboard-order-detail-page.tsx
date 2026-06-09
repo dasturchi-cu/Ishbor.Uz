@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
@@ -14,10 +16,10 @@ import { OrderProgressStepper } from '@/presentation/components/features/order-p
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiReview, ApiTransaction } from '@/infrastructure/api/types'
+import type { ApiDispute, ApiOrder, ApiReview, ApiTransaction } from '@/infrastructure/api/types'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
-import { PATHS } from '@/domain/constants/routes'
+import { dashboardDispute, PATHS } from '@/domain/constants/routes'
 import {
   calcFreelancerPayout,
   calcPlatformFee,
@@ -31,6 +33,7 @@ import { formatDate } from '@/shared/lib/format-date'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 import { toast } from '@/presentation/components/ui/toast'
 import { ShoppingBag } from 'lucide-react'
+import { OrderReceiptCard } from '@/presentation/components/features/order-receipt-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 
 const NEXT_STATUS: Record<string, Record<string, string>> = {
@@ -43,12 +46,25 @@ const ACTION_LABEL: Record<string, Record<string, TranslationKey>> = {
   client: { delivered: 'accept_work', pending: 'cancel_order' },
 }
 
+const DISPUTE_STATUS_KEYS: Record<string, TranslationKey> = {
+  open: 'dispute_status_open',
+  responded: 'dispute_status_responded',
+  under_review: 'dispute_status_under_review',
+  resolved_client: 'dispute_status_resolved_client',
+  resolved_freelancer: 'dispute_status_resolved_freelancer',
+  closed: 'dispute_status_closed',
+}
+
+function disputeStatusLabel(status: string, t: (key: TranslationKey) => string): string {
+  const key = DISPUTE_STATUS_KEYS[status]
+  return key ? t(key) : status
+}
+
 export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   const { t, language, profile, refreshProfile } = useApp()
   const role = useDashboardRole()
   const router = useRouter()
   const [order, setOrder] = useState<ApiOrder | null>(null)
-  const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [walletPaying, setWalletPaying] = useState(false)
   const [error, setError] = useState('')
@@ -59,28 +75,41 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   const [disputeReason, setDisputeReason] = useState('')
   const [transactions, setTransactions] = useState<ApiTransaction[]>([])
   const [orderReview, setOrderReview] = useState<ApiReview | null>(null)
+  const [orderDispute, setOrderDispute] = useState<ApiDispute | null>(null)
   const disputeDialogRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(disputeOpen, disputeDialogRef)
   useEscapeClose(disputeOpen, () => setDisputeOpen(false))
 
-  useEffect(() => {
-    setLoading(true)
-    Promise.all([
+  const {
+    data: orderData,
+    loading,
+    error: orderLoadFailed,
+    loadError: orderFetchError,
+    reload: reloadOrder,
+  } = useProtectedLoader(async () => {
+    const [ord, tx] = await Promise.all([
       api.getOrder(orderId).catch(() => null),
       api.listOrderTransactions(orderId).catch(() => [] as ApiTransaction[]),
     ])
-      .then(([ord, tx]) => {
-        setOrder(ord)
-        setTransactions(tx)
-        if (ord?.status === 'completed' && role === 'client') {
-          api.getReviewForOrder(orderId).then(setOrderReview).catch(() => setOrderReview(null))
-        } else {
-          setOrderReview(null)
-        }
-      })
-      .finally(() => setLoading(false))
+    let review: ApiReview | null = null
+    if (ord?.status === 'completed' && role === 'client') {
+      review = await api.getReviewForOrder(orderId).catch(() => null)
+    }
+    let dispute: ApiDispute | null = null
+    if (ord?.status === 'disputed') {
+      dispute = await api.getDisputeForOrder(orderId).catch(() => null)
+    }
+    return { order: ord, transactions: tx, orderReview: review, orderDispute: dispute }
   }, [orderId, role])
+
+  useEffect(() => {
+    if (!orderData) return
+    setOrder(orderData.order)
+    setTransactions(orderData.transactions)
+    setOrderReview(orderData.orderReview)
+    setOrderDispute(orderData.orderDispute)
+  }, [orderData])
 
   const otherName =
     role === 'freelancer'
@@ -121,6 +150,8 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
     try {
       const updated = await api.updateOrderStatus(order.id, 'disputed', { disputeReason: reason })
       setOrder(updated)
+      const dispute = await api.getDisputeForOrder(order.id).catch(() => null)
+      setOrderDispute(dispute)
       setDisputeOpen(false)
       setDisputeReason('')
       toast.success(t('dispute_opened'))
@@ -212,6 +243,16 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
 
   if (loading) {
     return <div className="h-48 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+  }
+
+  if (orderLoadFailed && !order) {
+    return (
+      <LoadErrorAlert
+        error={orderFetchError}
+        scope="orders"
+        onRetry={() => void reloadOrder()}
+      />
+    )
   }
 
   if (!order) {
@@ -351,10 +392,24 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </Button>
         )}
 
-        {order.status === 'disputed' && order.dispute_reason && (
+        {order.status === 'disputed' && (
           <Alert variant="info">
             <p className="text-[13px] font-semibold">{t('disputed')}</p>
-            <p className="mt-1 text-[13px]">{order.dispute_reason}</p>
+            {order.dispute_reason && <p className="mt-1 text-[13px]">{order.dispute_reason}</p>}
+            {orderDispute && (
+              <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">
+                {t('admin_dispute_status')}: {disputeStatusLabel(orderDispute.status, t)}
+              </p>
+            )}
+            <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('dispute_under_review')}</p>
+            {orderDispute && (
+              <Link
+                href={dashboardDispute(orderDispute.id)}
+                className="mt-2 inline-block text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
+              >
+                {t('dispute_view_details')} →
+              </Link>
+            )}
           </Alert>
         )}
 
@@ -460,7 +515,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </div>
         )}
         {(order.payment_status === 'held' || order.payment_status === 'released') && role === 'client' && (
-          <ReceiptDownloadButton orderId={order.id} />
+          <OrderReceiptCard orderId={order.id} />
         )}
         <Button variant="outline" fullWidth onClick={() => router.push(PATHS.dashboardOrders)}>
           {t('back')}
@@ -483,33 +538,5 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         />
       )}
     </div>
-  )
-}
-
-function ReceiptDownloadButton({ orderId }: { orderId: string }) {
-  const { t } = useApp()
-  const [loading, setLoading] = useState(false)
-
-  const download = async () => {
-    setLoading(true)
-    try {
-      const blob = await api.downloadOrderReceiptPdf(orderId)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `receipt-${orderId.slice(0, 8)}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch {
-      toast.error(t('data_load_failed'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <Button variant="outline" fullWidth loading={loading} onClick={() => void download()}>
-      {t('receipt_download')}
-    </Button>
   )
 }

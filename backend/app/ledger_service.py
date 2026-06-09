@@ -6,6 +6,7 @@ import uuid
 from typing import Any
 
 from app.database import get_supabase_admin
+from app.db_utils import run_query
 
 
 def post_ledger_pair(
@@ -88,8 +89,8 @@ def record_escrow_refund(order_id: str, client_id: str, amount: int) -> None:
 
 def list_user_ledger(user_id: str, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     admin = get_supabase_admin()
-    result = (
-        admin.table("ledger_entries")
+    result = run_query(
+        lambda: admin.table("ledger_entries")
         .select("*")
         .eq("user_id", user_id)
         .order("created_at", desc=True)

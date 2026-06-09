@@ -8,27 +8,44 @@ import { api } from '@/infrastructure/api/client'
 import type { ApiDispute, ApiDisputeMessage } from '@/infrastructure/api/types'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Scale } from 'lucide-react'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
+import Link from 'next/link'
+import type { TranslationKey } from '@/infrastructure/i18n'
+import { dashboardOrderPath } from '@/domain/constants/routes'
+
+const DISPUTE_STATUS_KEYS: Record<string, TranslationKey> = {
+  open: 'dispute_status_open',
+  responded: 'dispute_status_responded',
+  under_review: 'dispute_status_under_review',
+  resolved_client: 'dispute_status_resolved_client',
+  resolved_freelancer: 'dispute_status_resolved_freelancer',
+  closed: 'dispute_status_closed',
+}
 
 export function DisputePage({ disputeId }: { disputeId: string }) {
   const { t } = useApp()
   const [dispute, setDispute] = useState<ApiDispute | null>(null)
   const [messages, setMessages] = useState<ApiDisputeMessage[]>([])
   const [reply, setReply] = useState('')
-  const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(() => {
-    Promise.all([api.getDispute(disputeId), api.listDisputeMessages(disputeId)])
-      .then(([d, m]) => {
-        setDispute(d)
-        setMessages(m)
-      })
-      .finally(() => setLoading(false))
-  }, [disputeId])
+  const { data, loading, reload } = useProtectedLoader(
+    () =>
+      Promise.all([api.getDispute(disputeId), api.listDisputeMessages(disputeId)]).then(
+        ([d, m]) => ({ dispute: d, messages: m })
+      ),
+    [disputeId]
+  )
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (!data) return
+    setDispute(data.dispute)
+    setMessages(data.messages)
+  }, [data])
+
+  const load = useCallback(() => {
+    void reload()
+  }, [reload])
 
   const sendReply = async () => {
     if (!reply.trim()) return
@@ -50,8 +67,18 @@ export function DisputePage({ disputeId }: { disputeId: string }) {
       <div className="flex items-center gap-2">
         <Scale className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold">{t('dispute')}</h1>
-        <span className="ml-auto rounded-full bg-muted px-3 py-1 text-sm capitalize">{dispute.status}</span>
+        <span className="ml-auto rounded-full bg-muted px-3 py-1 text-sm">
+          {DISPUTE_STATUS_KEYS[dispute.status] ? t(DISPUTE_STATUS_KEYS[dispute.status]) : dispute.status}
+        </span>
       </div>
+      {dispute.order_id && (
+        <Link
+          href={dashboardOrderPath(dispute.order_id)}
+          className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+        >
+          {t('nav_orders')} →
+        </Link>
+      )}
       <div className="rounded-xl border bg-card p-4">
         <p className="text-sm text-muted-foreground">{t('dispute_reason')}</p>
         <p className="mt-1">{dispute.reason}</p>

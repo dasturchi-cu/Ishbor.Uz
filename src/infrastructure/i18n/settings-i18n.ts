@@ -55,6 +55,13 @@ export const settingsI18nUz = {
   settings_browser_notifications_desc: 'Saytda bildirishnoma kelganda brauzerda ham ko\'rsatiladi.',
   settings_browser_toggle: 'Brauzer bildirishnomalari',
   settings_about_placeholder: 'Men 5 yildan ortiq tajribaga ega...',
+  phone_otp_sent: 'SMS kod yuborildi',
+  phone_otp_resend: 'Kodni qayta yuborish',
+  phone_otp_label: 'SMS tasdiqlash kodi',
+  phone_otp_confirm: 'Telefonni tasdiqlash',
+  phone_verified_badge: 'Telefon tasdiqlangan',
+  phone_verified_success: 'Telefon muvaffaqiyatli tasdiqlandi',
+  error_phone_required: 'Telefon raqamini kiriting',
 } as const
 
 export const settingsI18nRu = {
@@ -113,6 +120,13 @@ export const settingsI18nRu = {
   settings_browser_notifications_desc: 'При уведомлениях на сайте они появятся в браузере.',
   settings_browser_toggle: 'Браузерные уведомления',
   settings_about_placeholder: 'У меня более 5 лет опыта...',
+  phone_otp_sent: 'SMS-код отправлен',
+  phone_otp_resend: 'Отправить код снова',
+  phone_otp_label: 'Код из SMS',
+  phone_otp_confirm: 'Подтвердить телефон',
+  phone_verified_badge: 'Телефон подтверждён',
+  phone_verified_success: 'Телефон успешно подтверждён',
+  error_phone_required: 'Укажите номер телефона',
 } as const
 
 export const settingsI18nEn = {
@@ -171,4 +185,11 @@ export const settingsI18nEn = {
   settings_browser_notifications_desc: 'When you receive notifications on the site, they will pop up in your browser.',
   settings_browser_toggle: 'Browser notifications',
   settings_about_placeholder: 'I have over 5 years of experience in...',
+  phone_otp_sent: 'SMS code sent',
+  phone_otp_resend: 'Resend code',
+  phone_otp_label: 'SMS verification code',
+  phone_otp_confirm: 'Verify phone',
+  phone_verified_badge: 'Phone verified',
+  phone_verified_success: 'Phone verified successfully',
+  error_phone_required: 'Enter your phone number',
 } as const

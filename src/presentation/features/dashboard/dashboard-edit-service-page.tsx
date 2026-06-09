@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Input } from '@/presentation/components/ui/input'
@@ -16,6 +16,11 @@ import { FileUploadZone } from '@/presentation/components/dashboard/file-upload-
 import { uploadServiceImages } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { serviceCreateSchema } from '@/domain/validators/service'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { useServerDraft } from '@/shared/lib/use-server-draft'
+import { ServicePackagesEditor } from '@/presentation/components/dashboard/service-packages-editor'
+import { buildDefaultPackages, normalizePackages } from '@/shared/lib/service-packages'
+import type { ApiServicePackage } from '@/infrastructure/api/types'
 
 export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
   const { t, profile, userId } = useApp()
@@ -31,8 +36,41 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [packages, setPackages] = useState<ApiServicePackage[]>(buildDefaultPackages(0, 5))
+  const [serviceLoaded, setServiceLoaded] = useState(false)
+  const draftHydrated = useRef(false)
 
-  useEffect(() => {
+  const draftPayload = useMemo(
+    () => ({
+      title,
+      category,
+      description,
+      price,
+      deliveryDays,
+      region,
+      imageUrls,
+      packages,
+    }),
+    [title, category, description, price, deliveryDays, region, imageUrls, packages]
+  )
+
+  const draft = useServerDraft(`edit-service-${serviceId}`, draftPayload, serviceLoaded, (remote) => {
+    if (draftHydrated.current) return
+    if (!remote.title && !remote.description) return
+    draftHydrated.current = true
+    if (typeof remote.title === 'string') setTitle(remote.title)
+    if (typeof remote.category === 'string') setCategory(remote.category)
+    if (typeof remote.description === 'string') setDescription(remote.description)
+    if (typeof remote.price === 'string') setPrice(remote.price)
+    if (typeof remote.deliveryDays === 'string') setDeliveryDays(remote.deliveryDays)
+    if (typeof remote.region === 'string') setRegion(remote.region)
+    if (Array.isArray(remote.imageUrls)) setImageUrls(remote.imageUrls as string[])
+    if (Array.isArray(remote.packages)) setPackages(remote.packages as ApiServicePackage[])
+    toast.info(t('draft_restored'))
+  })
+
+  useAuthedEffect(() => {
+    setLoading(true)
     api
       .getService(serviceId)
       .then((s) => {
@@ -43,10 +81,41 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
         setDeliveryDays(String(s.delivery_days ?? 5))
         setRegion(s.region)
         setImageUrls(s.image_urls ?? [])
+        setPackages(
+          normalizePackages(s.packages, s.price, s.delivery_days ?? 5)
+        )
+        setServiceLoaded(true)
+        if (!draftHydrated.current) {
+          draftHydrated.current = true
+          const restored = draft.hydrate({
+            title: s.title,
+            category: s.category,
+            description: s.description,
+            price: String(s.price),
+            deliveryDays: String(s.delivery_days ?? 5),
+            region: s.region,
+            imageUrls: s.image_urls ?? [],
+            packages: normalizePackages(s.packages, s.price, s.delivery_days ?? 5),
+          }) as typeof draftPayload
+          if (
+            restored.title !== s.title ||
+            restored.description !== s.description ||
+            restored.price !== String(s.price)
+          ) {
+            setTitle(restored.title)
+            setCategory(restored.category)
+            setDescription(restored.description)
+            setPrice(restored.price)
+            setDeliveryDays(restored.deliveryDays)
+            setRegion(restored.region)
+            if (Array.isArray(restored.imageUrls)) setImageUrls(restored.imageUrls)
+            if (Array.isArray(restored.packages)) setPackages(restored.packages)
+          }
+        }
       })
       .catch(() => toast.error(t('error_required')))
       .finally(() => setLoading(false))
-  }, [serviceId, t])
+  }, [serviceId, t, draft])
 
   const parsePrice = (raw: string) => {
     const digits = raw.replace(/\D/g, '')
@@ -54,8 +123,12 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
   }
 
   const handleSave = async () => {
-    const priceNum = parsePrice(price)
-    const safeDays = Math.min(365, Math.max(1, parseInt(deliveryDays, 10) || 5))
+    const basicPkg = packages.find((p) => p.id === 'basic')
+    const priceNum = basicPkg?.price && basicPkg.price > 0 ? basicPkg.price : parsePrice(price)
+    const safeDays =
+      basicPkg?.delivery_days && basicPkg.delivery_days > 0
+        ? basicPkg.delivery_days
+        : Math.min(365, Math.max(1, parseInt(deliveryDays, 10) || 5))
     const parsed = serviceCreateSchema.safeParse({
       title: title.trim(),
       description: description.trim(),
@@ -90,22 +163,9 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
         region,
         image_urls: urls,
         delivery_days: safeDays,
-        packages: [
-          { id: 'basic', label_key: 'package_basic', price: priceNum, delivery_days: safeDays },
-          {
-            id: 'standard',
-            label_key: 'package_standard',
-            price: Math.round(priceNum * 1.5),
-            delivery_days: Math.max(1, safeDays - 1),
-          },
-          {
-            id: 'premium',
-            label_key: 'package_premium',
-            price: Math.round(priceNum * 2.2),
-            delivery_days: Math.max(1, safeDays - 2),
-          },
-        ],
+        packages,
       })
+      draft.clear()
       toast.success(t('service_updated'))
       router.push(PATHS.dashboardServices)
     } catch (e) {
@@ -132,20 +192,23 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
           error={errors.category}
         />
         <Textarea label={t('description')} value={description} onChange={(e) => setDescription(e.target.value)} rows={6} error={errors.description} />
-        <Input label={t('package_basic')} value={price} onChange={(e) => setPrice(e.target.value)} error={errors.price} />
-        <Input
-          label={t('delivery_time')}
-          type="number"
-          min={1}
-          max={365}
-          value={deliveryDays}
-          onChange={(e) => setDeliveryDays(e.target.value)}
-          hint={t('delivery_days_hint')}
-          rightIcon={
-            <span className="text-[12px] font-semibold text-[var(--kwork-text-muted)]">
-              {t('delivery_days_unit')}
-            </span>
-          }
+        <ServicePackagesEditor
+          packages={packages}
+          onChange={(next) => {
+            setPackages(next)
+            const basic = next.find((p) => p.id === 'basic')
+            if (basic) {
+              setPrice(String(basic.price))
+              setDeliveryDays(String(basic.delivery_days))
+            }
+          }}
+          onResetSuggested={() => {
+            const next = buildDefaultPackages(parsePrice(price) || 0, parseInt(deliveryDays, 10) || 5)
+            setPackages(next)
+            setPrice(String(next[0]?.price ?? 0))
+            setDeliveryDays(String(next[0]?.delivery_days ?? 5))
+          }}
+          disabled={saving}
         />
         <Select
           label={t('city')}

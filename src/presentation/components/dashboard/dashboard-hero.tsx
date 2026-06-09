@@ -15,6 +15,7 @@ import { PATHS, dashboardOrderPath } from '@/domain/constants/routes'
 import { profileCompletionPercent } from '@/shared/lib/profile-completion'
 import { cn } from '@/shared/lib/utils'
 import type { ApiOrder } from '@/infrastructure/api/types'
+import type { OnboardingProgress } from '@/shared/lib/onboarding-progress'
 
 interface DashboardHeroProps {
   role: 'freelancer' | 'client'
@@ -23,6 +24,7 @@ interface DashboardHeroProps {
   messageUnread: number
   primaryCta: { label: string; href: string }
   orders: ApiOrder[]
+  onboardingProgress?: OnboardingProgress | null
 }
 
 export function DashboardHero({
@@ -32,6 +34,7 @@ export function DashboardHero({
   messageUnread,
   primaryCta,
   orders,
+  onboardingProgress,
 }: DashboardHeroProps) {
   const { t, profile } = useApp()
   const firstName = profile?.full_name?.split(/\s+/)[0]
@@ -93,6 +96,26 @@ export function DashboardHero({
               </span>
             )}
           </div>
+          {onboardingProgress && !onboardingProgress.complete && (
+            <Link href={PATHS.dashboardProfile} className="dash-hero__onboarding">
+              <div className="dash-hero__onboarding-head">
+                <span>{t('onboarding_first_steps')}</span>
+                <span className="tabular-nums">
+                  {onboardingProgress.done}/{onboardingProgress.total}
+                </span>
+              </div>
+              <div
+                className="dash-hero__onboarding-bar"
+                role="progressbar"
+                aria-valuenow={onboardingProgress.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={t('onboarding_first_steps')}
+              >
+                <span style={{ width: `${onboardingProgress.percent}%` }} />
+              </div>
+            </Link>
+          )}
         </div>
         <div className="dash-hero__cta">
           <Link href={primaryCta.href}>

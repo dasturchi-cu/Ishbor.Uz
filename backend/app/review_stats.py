@@ -37,8 +37,8 @@ def batch_min_service_prices(supabase: Client, freelancer_ids: list[str]) -> dic
     if not freelancer_ids:
         return {}
 
-    result = (
-        supabase.table("services")
+    result = run_query(
+        lambda: supabase.table("services")
         .select("freelancer_id, price")
         .in_("freelancer_id", freelancer_ids)
         .execute()

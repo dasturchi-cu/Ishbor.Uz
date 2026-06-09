@@ -3,6 +3,7 @@
 from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 
+from app.config import settings
 from app.database import get_supabase_admin
 from app.supabase_rpc import map_rpc_error, rpc_row
 
@@ -13,6 +14,11 @@ def fund_contract_escrow(
     provider: str = "sandbox",
     provider_ref: str | None = None,
 ) -> dict:
+    if settings.is_production and provider == "sandbox":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sandbox to'lovi production muhitida taqiqlangan",
+        )
     if user_id != contract["client_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz to'laydi")
     admin = get_supabase_admin()

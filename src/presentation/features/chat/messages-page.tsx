@@ -5,90 +5,40 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
-import { ArrowLeft, BellOff, Check, CheckCheck, ExternalLink, Paperclip, Search, Send } from 'lucide-react'
-import { api } from '@/infrastructure/api/client'
-import type { ApiConversation, ApiMessage, ApiOrder } from '@/infrastructure/api/types'
+import { ArrowLeft, BellOff, Check, CheckCheck, ExternalLink, Paperclip, Phone, Search, Send } from 'lucide-react'
+import { api, ApiError } from '@/infrastructure/api/client'
+import type { ApiMessage } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 import { toast } from '@/presentation/components/ui/toast'
 import { formatDateShort, formatTime } from '@/shared/lib/format-date'
 import { useOrderMessagesRealtime } from '@/shared/lib/use-order-messages-realtime'
 import { useConversationMessagesRealtime } from '@/shared/lib/use-conversation-messages-realtime'
-import { useInboxRealtime } from '@/shared/lib/use-inbox-realtime'
+import { useMessagesInbox } from '@/shared/lib/use-messages-inbox'
 import { useOrderTyping } from '@/shared/lib/use-order-typing'
-import {
-  mergeUnifiedChatThreads,
-  stableThreadKey,
-  type UnifiedChatThread,
-} from '@/shared/lib/unified-chat'
+import { buildInboxFromBundle, stableThreadKey } from '@/shared/lib/unified-chat'
 import { uploadChatImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
-import type { Language } from '@/infrastructure/i18n'
+import type { Language, TranslationKey } from '@/infrastructure/i18n'
 import { Skeleton, SkeletonAvatar } from '@/presentation/components/ui/skeleton'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Button } from '@/presentation/components/ui/button'
 import { Alert } from '@/presentation/components/ui/alert'
-import { dashboardContract, dashboardOrderPath, PATHS } from '@/domain/constants/routes'
-import { isAllowedExternalUrl } from '@/shared/lib/safe-url'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { dashboardCallRoom, dashboardContract, dashboardOrderPath, PATHS } from '@/domain/constants/routes'
+import { startVideoCall } from '@/shared/lib/start-video-call'
+import {
+  mergeIncomingChatMessage,
+  stripTempChatMessage,
+} from '@/shared/lib/chat-message-merge'
+import { useAuthReady, useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { loadThreadMessages } from '@/shared/lib/load-thread-messages'
+import { resolveActionError } from '@/shared/lib/action-error'
+import { chatAttachmentLabelContent } from '@/shared/lib/chat-storage-ref'
+import { ChatAttachmentContent } from '@/presentation/components/features/chat-attachment-content'
 
-function orderToLegacyConversation(order: ApiOrder, userId: string, orderTitleFallback: string): ApiConversation {
-  const isClient = order.client_id === userId
-  const otherProfile = isClient ? order.freelancer_profile : order.client_profile
-  return {
-    order_id: order.id,
-    other_user_id: isClient ? order.freelancer_id : order.client_id,
-    other_user_name: otherProfile?.full_name ?? '—',
-    order_title: order.services?.title ?? orderTitleFallback,
-    order_status: order.status,
-    last_message: null,
-    last_message_at: order.created_at ?? null,
-    unread_count: 0,
-  }
-}
-
-function buildUnifiedInbox(
-  threads: Awaited<ReturnType<typeof api.listConversationThreads>>,
-  legacyConvs: ApiConversation[],
-  orders: ApiOrder[],
-  userId: string,
-  orderTitleFallback: string
-): UnifiedChatThread[] {
-  const threadOrderIds = new Set(
-    threads.map((thread) => thread.order_id).filter((id): id is string => Boolean(id))
-  )
-  const legacyOrderIds = new Set(legacyConvs.map((conv) => conv.order_id))
-  const legacyFromOrders = orders
-    .filter((order) => !threadOrderIds.has(order.id) && !legacyOrderIds.has(order.id))
-    .map((order) => orderToLegacyConversation(order, userId, orderTitleFallback))
-  return mergeUnifiedChatThreads(threads, [...legacyConvs, ...legacyFromOrders], orderTitleFallback)
-}
-
-async function loadThreadMessages(thread: UnifiedChatThread): Promise<ApiMessage[]> {
-  if (thread.conversationId) {
-    try {
-      const rows = await api.listConversationMessages(thread.conversationId)
-      if (rows.length > 0 || !thread.orderId) return rows
-    } catch {
-      if (!thread.orderId) throw new Error('conversation_messages_failed')
-    }
-    return api.listMessages(thread.orderId)
-  }
-  if (thread.orderId) return api.listMessages(thread.orderId)
-  return []
-}
-
-function messageAttachmentUrl(content: string): string | null {
-  const match = content.match(/https?:\/\/\S+/i)
-  if (!match) return null
-  const url = match[0].replace(/[),.]+$/, '')
-  return isAllowedExternalUrl(url) ? url : null
-}
-
-function messageImageUrl(content: string): string | null {
-  const url = messageAttachmentUrl(content)
-  if (!url) return null
-  if (/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url)) return url
-  return null
+function resolveChatError(msg: string, t: (key: TranslationKey) => string): string {
+  return resolveActionError(msg || null, t, 'message_send')
 }
 
 function formatMessageTime(dateStr: string | null | undefined, language: Language): string {
@@ -131,6 +81,7 @@ function ChatEmptyState({
 
 export function MessagesPage() {
   const { t, userId, language } = useApp()
+  const { ready, authed } = useAuthReady()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -139,7 +90,22 @@ export function MessagesPage() {
   const conversationFromUrl = searchParams.get('conversation')
   const inDashboard = pathname.startsWith('/dashboard')
 
-  const [conversations, setConversations] = useState<UnifiedChatThread[]>([])
+  const {
+    threads,
+    legacyConversations,
+    loading: inboxLoading,
+    error: inboxLoadFailed,
+    loadError: inboxFetchError,
+    refresh: refreshConversations,
+  } = useMessagesInbox(userId, ready && authed && Boolean(userId))
+
+  const conversations = useMemo(() => {
+    if (!userId) return []
+    return buildInboxFromBundle(threads, legacyConversations, t('order_title_fallback'))
+  }, [threads, legacyConversations, userId, t])
+
+  const loading = inboxLoading
+  const inboxLoadError = inboxLoadFailed
   const [selectedKey, setSelectedKey] = useState<string | null>(conversationFromUrl ?? orderFromUrl)
   const [messages, setMessages] = useState<ApiMessage[]>([])
   const [messageText, setMessageText] = useState('')
@@ -148,14 +114,13 @@ export function MessagesPage() {
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   const [attachLoading, setAttachLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [loading, setLoading] = useState(true)
-  const [inboxLoadError, setInboxLoadError] = useState(false)
   const [messagesLoading, setMessagesLoading] = useState(false)
-  const [messagesLoadError, setMessagesLoadError] = useState(false)
+  const [messagesLoadError, setMessagesLoadError] = useState<unknown>(null)
   const [sendLoading, setSendLoading] = useState(false)
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [activeOnly, setActiveOnly] = useState(false)
   const [peerTyping, setPeerTyping] = useState(false)
+  const [callStarting, setCallStarting] = useState(false)
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -169,7 +134,7 @@ export function MessagesPage() {
   }, [conversationFromUrl, orderFromUrl])
 
   useEffect(() => {
-    if (!contractFromUrl || conversationFromUrl || orderFromUrl) return
+    if (!ready || !authed || !contractFromUrl || conversationFromUrl || orderFromUrl) return
     api
       .getContract(contractFromUrl)
       .then((contract) => {
@@ -181,9 +146,9 @@ export function MessagesPage() {
         }
       })
       .catch(() => undefined)
-  }, [contractFromUrl, conversationFromUrl, orderFromUrl, conversations])
+  }, [ready, authed, contractFromUrl, conversationFromUrl, orderFromUrl, conversations])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     api
       .getNotificationPrefs()
       .then((prefs) => {
@@ -193,73 +158,25 @@ export function MessagesPage() {
       .catch(() => setPrefsLoaded(true))
   }, [])
 
-  const refreshConversations = useCallback(() => {
-    if (!userId) return
-    setInboxLoadError(false)
-    Promise.all([
-      api.listConversationThreads().catch(() => {
-        setInboxLoadError(true)
-        return []
-      }),
-      api.listConversations().catch(() => {
-        setInboxLoadError(true)
-        return [] as ApiConversation[]
-      }),
-      api.listOrders().catch(() => {
-        setInboxLoadError(true)
-        return [] as ApiOrder[]
-      }),
-    ]).then(([threads, legacyConvs, orders]) => {
-      setConversations(
-        buildUnifiedInbox(threads, legacyConvs, orders, userId, t('order_title_fallback'))
-      )
-    })
-  }, [userId, t])
-
   useEffect(() => {
-    if (!userId) {
-      setLoading(false)
+    if (conversations.length === 0) return
+
+    if (conversationFromUrl && conversations.some((thread) => thread.key === conversationFromUrl)) {
+      setSelectedKey(conversationFromUrl)
       return
     }
-
-    setLoading(true)
-    setInboxLoadError(false)
-    Promise.all([
-      api.listConversationThreads().catch(() => {
-        setInboxLoadError(true)
-        return []
-      }),
-      api.listConversations().catch(() => {
-        setInboxLoadError(true)
-        return [] as ApiConversation[]
-      }),
-      api.listOrders().catch(() => {
-        setInboxLoadError(true)
-        return [] as ApiOrder[]
-      }),
-    ])
-      .then(([threads, legacyConvs, orders]) => {
-        const merged = buildUnifiedInbox(threads, legacyConvs, orders, userId, t('order_title_fallback'))
-        setConversations(merged)
-
-        if (conversationFromUrl && merged.some((thread) => thread.key === conversationFromUrl)) {
-          setSelectedKey(conversationFromUrl)
-        } else if (orderFromUrl) {
-          const orderThread = merged.find(
-            (thread) => thread.orderId === orderFromUrl || thread.key === `order:${orderFromUrl}`
-          )
-          if (orderThread) setSelectedKey(orderThread.key)
-        } else if (merged.length > 0) {
-          setSelectedKey((cur) => cur ?? merged[0].key)
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [userId, conversationFromUrl, orderFromUrl, t])
-
-  useInboxRealtime(userId, refreshConversations)
+    if (orderFromUrl) {
+      const orderThread = conversations.find(
+        (thread) => thread.orderId === orderFromUrl || thread.key === `order:${orderFromUrl}`
+      )
+      if (orderThread) setSelectedKey(orderThread.key)
+      return
+    }
+    setSelectedKey((cur) => cur ?? conversations[0]?.key ?? null)
+  }, [conversations, conversationFromUrl, orderFromUrl])
 
   const onRealtimeMessage = useCallback((msg: ApiMessage) => {
-    setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+    setMessages((prev) => mergeIncomingChatMessage(prev, msg))
     setPeerTyping(false)
   }, [])
 
@@ -281,14 +198,18 @@ export function MessagesPage() {
     onRealtimeMessage,
     onRealtimeMessageUpdate
   )
-  useOrderMessagesRealtime(activeThread?.orderId ?? null, onRealtimeMessage, onRealtimeMessageUpdate)
+  useOrderMessagesRealtime(
+    activeThread?.conversationId ? null : (activeThread?.orderId ?? null),
+    onRealtimeMessage,
+    onRealtimeMessageUpdate
+  )
 
   const sendTyping = useOrderTyping(activeThread?.orderId ?? null, userId, setPeerTyping)
 
   useEffect(() => {
-    if (!activeThread) return
+    if (!ready || !authed || !activeThread) return
     setMessagesLoading(true)
-    setMessagesLoadError(false)
+    setMessagesLoadError(null)
     void loadThreadMessages(activeThread)
       .then((rows) => {
         setMessages(rows)
@@ -296,12 +217,12 @@ export function MessagesPage() {
           void api.markConversationRead(activeThread.conversationId).catch(() => undefined)
         }
       })
-      .catch(() => {
+      .catch((e) => {
         setMessages([])
-        setMessagesLoadError(true)
+        setMessagesLoadError(e)
       })
       .finally(() => setMessagesLoading(false))
-  }, [activeThread])
+  }, [activeThread, ready, authed])
 
   const handleAttach = async (file: File) => {
     if (!activeThread || !userId) return
@@ -312,21 +233,19 @@ export function MessagesPage() {
     setAttachLoading(true)
     try {
       const scopeId = activeThread.orderId ?? activeThread.conversationId ?? activeThread.key
-      const url = await uploadChatImage(file, userId, scopeId)
-      const content = `${t('chat_attachment_label')}: ${url}`
+      const storageRef = await uploadChatImage(file, userId, scopeId)
+      const content = chatAttachmentLabelContent(t('chat_attachment_label'), storageRef)
       if (activeThread.conversationId) {
-        await api.sendConversationMessage(activeThread.conversationId, content, 'image')
-        const updated = await api.listConversationMessages(activeThread.conversationId)
-        setMessages(updated)
+        const sent = await api.sendConversationMessage(activeThread.conversationId, content, 'image')
+        setMessages((prev) => mergeIncomingChatMessage(prev, sent))
       } else if (activeThread.orderId) {
-        await api.sendMessage(activeThread.orderId, content)
-        const updated = await api.listMessages(activeThread.orderId)
-        setMessages(updated)
+        const sent = await api.sendMessage(activeThread.orderId, content)
+        setMessages((prev) => mergeIncomingChatMessage(prev, sent))
       }
       refreshConversations()
       toast.success(t('save_success'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('error_required'))
+      toast.error(resolveChatError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : '', t))
     } finally {
       setAttachLoading(false)
     }
@@ -351,19 +270,21 @@ export function MessagesPage() {
     setSendLoading(true)
     try {
       if (activeThread.conversationId) {
-        await api.sendConversationMessage(activeThread.conversationId, text)
-        const updated = await api.listConversationMessages(activeThread.conversationId)
-        setMessages(updated)
+        const sent = await api.sendConversationMessage(activeThread.conversationId, text)
+        setMessages((prev) =>
+          mergeIncomingChatMessage(stripTempChatMessage(prev, tempId), sent)
+        )
       } else if (activeThread.orderId) {
-        await api.sendMessage(activeThread.orderId, text)
-        const updated = await api.listMessages(activeThread.orderId)
-        setMessages(updated)
+        const sent = await api.sendMessage(activeThread.orderId, text)
+        setMessages((prev) =>
+          mergeIncomingChatMessage(stripTempChatMessage(prev, tempId), sent)
+        )
       }
       refreshConversations()
-    } catch {
+    } catch (e) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
       setMessageText(text)
-      toast.error(t('error_required'))
+      toast.error(resolveChatError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : '', t))
     } finally {
       setSendLoading(false)
     }
@@ -382,6 +303,24 @@ export function MessagesPage() {
     }
   }, [messageText, activeThread?.orderId, sendTyping])
 
+  const handleStartCall = async () => {
+    if (!activeThread?.otherUserId || callStarting) return
+    setCallStarting(true)
+    try {
+      const session = await startVideoCall({
+        calleeId: activeThread.otherUserId,
+        conversationId: activeThread.conversationId,
+        contractId: activeThread.contractId,
+      })
+      router.push(dashboardCallRoom(session.id))
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : ''
+      toast.error(resolveChatError(msg, t) || t('call_start_failed'))
+    } finally {
+      setCallStarting(false)
+    }
+  }
+
   const filtered = useMemo(() => {
     const activeStatuses = new Set(['pending', 'active', 'delivered'])
     return conversations.filter((thread) => {
@@ -397,6 +336,7 @@ export function MessagesPage() {
   }, [conversations, searchQuery, unreadOnly, activeOnly])
 
   const showChat = Boolean(selectedKey && activeThread)
+  const chatSendBlocked = activeThread?.status === 'cancelled'
 
   return (
     <div className={cn('chat-layout', inDashboard && 'chat-layout--dashboard', showChat && 'chat-layout--thread')}>
@@ -447,14 +387,12 @@ export function MessagesPage() {
         </div>
 
         {inboxLoadError && !loading && (
-          <Alert variant="error" className="mx-2 mb-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span>{t('data_load_failed')}</span>
-              <Button variant="outline" size="sm" onClick={refreshConversations}>
-                {t('catalog_retry')}
-              </Button>
-            </div>
-          </Alert>
+          <LoadErrorAlert
+            error={inboxFetchError}
+            scope="messages"
+            onRetry={refreshConversations}
+            className="mx-2 mb-2"
+          />
         )}
 
         <div className="chat-list">
@@ -563,6 +501,18 @@ export function MessagesPage() {
                   ) : null}
                 </div>
               </div>
+              {activeThread.otherUserId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={callStarting}
+                  onClick={() => void handleStartCall()}
+                  aria-label={t('video_call')}
+                  title={t('video_call')}
+                >
+                  <Phone className="h-4 w-4" aria-hidden />
+                </Button>
+              ) : null}
             </header>
 
             <div className="chat-messages">
@@ -576,31 +526,24 @@ export function MessagesPage() {
                   ))}
                 </div>
               )}
-              {!messagesLoading && messagesLoadError && (
+              {!messagesLoading && messagesLoadError != null && (
                 <div className="p-4">
-                  <Alert variant="error">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span>{t('data_load_failed')}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (!activeThread) return
-                          setMessagesLoading(true)
-                          setMessagesLoadError(false)
-                          loadThreadMessages(activeThread)
-                            .then(setMessages)
-                            .catch(() => {
-                              setMessages([])
-                              setMessagesLoadError(true)
-                            })
-                            .finally(() => setMessagesLoading(false))
-                        }}
-                      >
-                        {t('catalog_retry')}
-                      </Button>
-                    </div>
-                  </Alert>
+                  <LoadErrorAlert
+                    error={messagesLoadError}
+                    scope="messages"
+                    onRetry={() => {
+                      if (!activeThread) return
+                      setMessagesLoading(true)
+                      setMessagesLoadError(null)
+                      loadThreadMessages(activeThread)
+                        .then(setMessages)
+                        .catch((e) => {
+                          setMessages([])
+                          setMessagesLoadError(e)
+                        })
+                        .finally(() => setMessagesLoading(false))
+                    }}
+                  />
                 </div>
               )}
               {!messagesLoading && !messagesLoadError && messages.length === 0 && (
@@ -632,36 +575,7 @@ export function MessagesPage() {
                           isMine ? 'chat-bubble--mine' : 'chat-bubble--theirs'
                         )}
                       >
-                        {(() => {
-                          const img = messageImageUrl(msg.content)
-                          if (img) {
-                            return (
-                              <a href={img} target="_blank" rel="noopener noreferrer">
-                                <img
-                                  src={img}
-                                  alt={t('chat_attachment_image')}
-                                  className="max-h-48 max-w-full rounded-md object-cover"
-                                />
-                              </a>
-                            )
-                          }
-                          const fileUrl = messageAttachmentUrl(msg.content)
-                          if (fileUrl) {
-                            return (
-                              <a
-                                href={fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-[13px] font-medium underline"
-                              >
-                                <Paperclip className="h-3.5 w-3.5 shrink-0" />
-                                {t('chat_attachment_file')}
-                                <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
-                              </a>
-                            )
-                          }
-                          return <span>{msg.content}</span>
-                        })()}
+                        <ChatAttachmentContent content={msg.content} />
                         <div className="chat-bubble-meta">
                           {msg.created_at && (
                             <p className="chat-bubble-time">{formatMessageTime(msg.created_at, language)}</p>
@@ -688,6 +602,11 @@ export function MessagesPage() {
             </div>
 
             <footer className="chat-composer">
+              {chatSendBlocked && (
+                <Alert variant="info" className="mb-3">
+                  {t('chat_order_cancelled_no_send')}
+                </Alert>
+              )}
               <div className="chat-templates">
                 <p className="chat-templates-label">{t('chat_templates_title')}</p>
                 <div className="chat-templates-row">
@@ -719,7 +638,7 @@ export function MessagesPage() {
                   type="button"
                   className="chat-composer-attach"
                   aria-label={t('attach_file')}
-                  disabled={attachLoading}
+                  disabled={attachLoading || chatSendBlocked}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="h-4 w-4" />
@@ -728,14 +647,15 @@ export function MessagesPage() {
                   className="chat-composer-input kwork-search-input"
                   placeholder={t('type_message_ph')}
                   value={messageText}
+                  disabled={chatSendBlocked}
                   onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && !chatSendBlocked && send()}
                 />
                 <button
                   type="button"
                   className="chat-composer-send"
                   onClick={send}
-                  disabled={!messageText.trim() || sendLoading || attachLoading}
+                  disabled={chatSendBlocked || !messageText.trim() || sendLoading || attachLoading}
                   aria-label={t('send_message')}
                   aria-busy={sendLoading}
                 >

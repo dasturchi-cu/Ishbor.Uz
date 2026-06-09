@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { StatCard } from '@/presentation/components/ui/stat-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
@@ -38,8 +39,10 @@ import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-b
 import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
 import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
 import { DashboardQuickActions } from '@/presentation/components/dashboard/dashboard-quick-actions'
-import { useDashboardHome } from '@/shared/lib/use-dashboard-home'
-import { useMessageUnreadCount } from '@/shared/lib/use-message-unread'
+import { useDashboardSummary } from '@/shared/lib/use-dashboard-summary'
+import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
+import { FreelancerOnboardingChecklist } from '@/presentation/components/dashboard/freelancer-onboarding-checklist'
+import { freelancerOnboardingProgress } from '@/shared/lib/onboarding-progress'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'delivered'])
 
@@ -119,17 +122,33 @@ function OrderRowSkeleton() {
 }
 
 export function FreelancerDashboard() {
-  const { t, profile, userId } = useApp()
+  const { t, profile, userId, isAuthLoading, isLoggedIn } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const messageUnread = useMessageUnreadCount(true)
+  const { messageUnread } = useBadgeCounts()
+  const authReady = !isAuthLoading && isLoggedIn && Boolean(userId)
 
-  const { orders, services, reviewStats, reputation, loading, error, reload } = useDashboardHome(
+  const { orders, services, reviewStats, reputation, loading, error, loadError, reload } = useDashboardSummary(
     userId,
-    'freelancer'
+    'freelancer',
+    authReady
   )
 
   const [showCreatedBanner, setShowCreatedBanner] = useState(false)
+  const [birjaSeen, setBirjaSeen] = useState(false)
+
+  useEffect(() => {
+    try {
+      setBirjaSeen(localStorage.getItem('ishbor_onboarding_birja_seen') === '1')
+    } catch {
+      setBirjaSeen(false)
+    }
+  }, [])
+
+  const onboardingProgress = useMemo(
+    () => freelancerOnboardingProgress(profile, services, orders.length > 0, birjaSeen),
+    [profile, services, orders.length, birjaSeen]
+  )
 
   useEffect(() => {
     if (searchParams.get('created') === '1') {
@@ -162,7 +181,12 @@ export function FreelancerDashboard() {
     const hasSuccessRate = reputation != null && reputation.success_rate > 0
     const hasResponse = reputation?.response_time_hours != null
 
+    const pipelineAmount = orders
+      .filter((o) => o.status === 'active' || o.status === 'delivered' || o.status === 'pending')
+      .reduce((sum, o) => sum + o.amount, 0)
+
     return {
+      pipelineForecast: pipelineAmount,
       monthlyEarnings: hasEarnings ? formatPrice(monthlyEarnings) : '0 so\'m',
       earningsChange: hasEarnings
         ? t('stat_vs_last_month').replace('{pct}', String(Math.abs(earningsPct)))
@@ -200,6 +224,10 @@ export function FreelancerDashboard() {
         profile?.wallet_balance != null
           ? profile.wallet_balance
           : completed.reduce((sum, o) => sum + o.amount, 0),
+      pipelineForecastLabel:
+        pipelineAmount > 0
+          ? t('freelancer_earnings_forecast').replace('{amount}', formatPrice(pipelineAmount))
+          : '',
     }
   }, [orders, reviewStats, services.length, t, profile?.wallet_balance, profile?.profile_views, reputation])
 
@@ -251,14 +279,7 @@ export function FreelancerDashboard() {
   return (
     <div className="dash-home space-y-5 pb-2">
       {error && (
-        <Alert variant="error">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={() => void reload()}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+        <LoadErrorAlert error={loadError} scope="dashboard" onRetry={reload} />
       )}
       {showCreatedBanner && <Alert variant="success">{t('service_created')}</Alert>}
 
@@ -293,6 +314,12 @@ export function FreelancerDashboard() {
         messageUnread={messageUnread}
         primaryCta={primaryCta}
         orders={orders}
+        onboardingProgress={onboardingProgress}
+      />
+
+      <FreelancerOnboardingChecklist
+        services={services}
+        hasOrders={orders.length > 0}
       />
 
       <DashboardRecommendedActions
@@ -375,6 +402,12 @@ export function FreelancerDashboard() {
           loading={loading}
         />
       </div>
+
+      {!loading && metrics.pipelineForecastLabel ? (
+        <p className="mb-4 text-sm text-muted-foreground" title={t('freelancer_earnings_forecast_hint')}>
+          {metrics.pipelineForecastLabel}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
         <DashboardPanel id="orders" title={t('nav_orders')}>

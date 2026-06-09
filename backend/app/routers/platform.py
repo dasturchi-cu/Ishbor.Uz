@@ -1,3 +1,5 @@
+import logging
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -6,13 +8,16 @@ from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import OptionalUserId, UserAuthDep
 from app.platform_services import (
+    build_user_activity_feed,
     get_user_reputation,
     log_activity,
     log_audit,
     track_analytics_event,
 )
 from app.schemas_platform import (
+    ActivityFeedItemResponse,
     AnalyticsTrack,
+    ClientErrorReport,
     DraftResponse,
     DraftUpsert,
     FeatureFlagResponse,
@@ -20,13 +25,19 @@ from app.schemas_platform import (
     ReportMessageCreate,
     ReportMessageResponse,
     ReportResponse,
+    RequestAuditClientBatch,
+    RequestAuditStat,
+    StorageSignedUrlRequest,
+    StorageSignedUrlResponse,
     UserActivityResponse,
     UserReputationResponse,
     VerificationCreate,
     VerificationResponse,
 )
+from app.supabase_instrumentation import get_stats, get_top10, merge_client_events, reset_stats
 
 router = APIRouter(prefix="/platform", tags=["platform"])
+_client_error_logger = logging.getLogger("ishbor.client_errors")
 
 
 @router.get("/activities", response_model=list[UserActivityResponse])
@@ -35,8 +46,8 @@ def list_my_activities(
     limit: int = Query(default=30, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    result = (
-        auth.supabase.table("user_activities")
+    result = run_query(
+        lambda: auth.supabase.table("user_activities")
         .select("*")
         .eq("user_id", auth.user_id)
         .order("created_at", desc=True)
@@ -44,6 +55,11 @@ def list_my_activities(
         .execute()
     )
     return result.data or []
+
+
+@router.get("/activity-feed", response_model=list[ActivityFeedItemResponse])
+def merged_activity_feed(auth: UserAuthDep, limit: int = Query(default=12, le=50)):
+    return build_user_activity_feed(auth.user_id, limit=limit)
 
 
 @router.get("/reputation/{user_id}", response_model=UserReputationResponse)
@@ -64,8 +80,8 @@ def get_my_reputation(auth: UserAuthDep):
 
 @router.post("/verifications", response_model=VerificationResponse, status_code=status.HTTP_201_CREATED)
 def request_verification(payload: VerificationCreate, auth: UserAuthDep, request: Request):
-    existing = (
-        auth.supabase.table("user_verifications")
+    existing = run_query(
+        lambda: auth.supabase.table("user_verifications")
         .select("id")
         .eq("user_id", auth.user_id)
         .eq("verification_type", payload.verification_type)
@@ -76,8 +92,8 @@ def request_verification(payload: VerificationCreate, auth: UserAuthDep, request
     if existing.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tasdiqlash so'rovi allaqachon mavjud")
 
-    result = (
-        auth.supabase.table("user_verifications")
+    result = run_query(
+        lambda: auth.supabase.table("user_verifications")
         .insert(
             {
                 "user_id": auth.user_id,
@@ -111,8 +127,8 @@ def request_verification(payload: VerificationCreate, auth: UserAuthDep, request
 
 @router.get("/verifications/mine", response_model=list[VerificationResponse])
 def list_my_verifications(auth: UserAuthDep):
-    result = (
-        auth.supabase.table("user_verifications")
+    result = run_query(
+        lambda: auth.supabase.table("user_verifications")
         .select("*")
         .eq("user_id", auth.user_id)
         .order("created_at", desc=True)
@@ -126,8 +142,8 @@ def create_report(payload: ReportCreate, auth: UserAuthDep, request: Request):
     if payload.target_type == "user" and payload.target_id == auth.user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="O'zingiz haqingizda shikoyat yuborib bo'lmaydi")
 
-    dup = (
-        auth.supabase.table("reports")
+    dup = run_query(
+        lambda: auth.supabase.table("reports")
         .select("id")
         .eq("reporter_id", auth.user_id)
         .eq("target_type", payload.target_type)
@@ -139,8 +155,8 @@ def create_report(payload: ReportCreate, auth: UserAuthDep, request: Request):
     if dup.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Shikoyat allaqachon yuborilgan")
 
-    result = (
-        auth.supabase.table("reports")
+    result = run_query(
+        lambda: auth.supabase.table("reports")
         .insert(
             {
                 "reporter_id": auth.user_id,
@@ -168,8 +184,8 @@ def create_report(payload: ReportCreate, auth: UserAuthDep, request: Request):
 
 @router.get("/reports/mine", response_model=list[ReportResponse])
 def list_my_reports(auth: UserAuthDep):
-    result = (
-        auth.supabase.table("reports")
+    result = run_query(
+        lambda: auth.supabase.table("reports")
         .select("*")
         .eq("reporter_id", auth.user_id)
         .order("created_at", desc=True)
@@ -180,8 +196,8 @@ def list_my_reports(auth: UserAuthDep):
 
 @router.get("/reports/{report_id}/messages", response_model=list[ReportMessageResponse])
 def list_report_messages(report_id: str, auth: UserAuthDep):
-    report = (
-        auth.supabase.table("reports")
+    report = run_query(
+        lambda: auth.supabase.table("reports")
         .select("reporter_id")
         .eq("id", report_id)
         .single()
@@ -190,8 +206,8 @@ def list_report_messages(report_id: str, auth: UserAuthDep):
     if not report.data or report.data["reporter_id"] != auth.user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shikoyat topilmadi")
 
-    result = (
-        auth.supabase.table("report_messages")
+    result = run_query(
+        lambda: auth.supabase.table("report_messages")
         .select("*")
         .eq("report_id", report_id)
         .order("created_at", desc=False)
@@ -202,8 +218,8 @@ def list_report_messages(report_id: str, auth: UserAuthDep):
 
 @router.post("/reports/{report_id}/messages", response_model=ReportMessageResponse, status_code=status.HTTP_201_CREATED)
 def post_report_message(report_id: str, payload: ReportMessageCreate, auth: UserAuthDep):
-    report = (
-        auth.supabase.table("reports")
+    report = run_query(
+        lambda: auth.supabase.table("reports")
         .select("reporter_id, status")
         .eq("id", report_id)
         .single()
@@ -214,8 +230,8 @@ def post_report_message(report_id: str, payload: ReportMessageCreate, auth: User
     if report.data["status"] in ("resolved", "dismissed"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Shikoyat yopilgan")
 
-    result = (
-        auth.supabase.table("report_messages")
+    result = run_query(
+        lambda: auth.supabase.table("report_messages")
         .insert(
             {
                 "report_id": report_id,
@@ -233,8 +249,8 @@ def post_report_message(report_id: str, payload: ReportMessageCreate, auth: User
 
 @router.get("/drafts/{draft_key}", response_model=DraftResponse | None)
 def get_draft(draft_key: str, auth: UserAuthDep):
-    result = (
-        auth.supabase.table("saved_drafts")
+    result = run_query(
+        lambda: auth.supabase.table("saved_drafts")
         .select("*")
         .eq("user_id", auth.user_id)
         .eq("draft_key", draft_key)
@@ -249,8 +265,8 @@ def get_draft(draft_key: str, auth: UserAuthDep):
 @router.put("/drafts", response_model=DraftResponse)
 def upsert_draft(payload: DraftUpsert, auth: UserAuthDep):
     now = datetime.now(timezone.utc).isoformat()
-    result = (
-        auth.supabase.table("saved_drafts")
+    result = run_query(
+        lambda: auth.supabase.table("saved_drafts")
         .upsert(
             {
                 "user_id": auth.user_id,
@@ -269,14 +285,20 @@ def upsert_draft(payload: DraftUpsert, auth: UserAuthDep):
 
 @router.delete("/drafts/{draft_key}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_draft(draft_key: str, auth: UserAuthDep):
-    auth.supabase.table("saved_drafts").delete().eq("user_id", auth.user_id).eq(
-        "draft_key", draft_key
-    ).execute()
+    run_query(
+        lambda: auth.supabase.table("saved_drafts")
+        .delete()
+        .eq("user_id", auth.user_id)
+        .eq("draft_key", draft_key)
+        .execute()
+    )
     return None
 
 
 @router.post("/analytics/track", status_code=status.HTTP_204_NO_CONTENT)
 def track_event(payload: AnalyticsTrack, request: Request, user_id: OptionalUserId = None):
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Autentifikatsiya talab qilinadi")
     track_analytics_event(
         payload.event_name,
         user_id=user_id,
@@ -293,10 +315,76 @@ def track_event(payload: AnalyticsTrack, request: Request, user_id: OptionalUser
     return None
 
 
+_CHAT_STORAGE_BUCKET = "project-attachments"
+
+
+def _assert_chat_storage_access(admin, user_id: str, path: str) -> None:
+    if ".." in path or path.startswith("/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Noto'g'ri yo'l")
+    parts = path.split("/")
+    if len(parts) < 4 or parts[1] != "chat":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+    if parts[0] == user_id:
+        return
+    scope_id = parts[2]
+    conv = run_query(
+        lambda: admin.table("conversations")
+        .select("participant_ids")
+        .eq("id", scope_id)
+        .limit(1)
+        .execute()
+    )
+    if conv.data and user_id in (conv.data[0].get("participant_ids") or []):
+        return
+    order = run_query(
+        lambda: admin.table("orders")
+        .select("client_id, freelancer_id")
+        .eq("id", scope_id)
+        .limit(1)
+        .execute()
+    )
+    if order.data:
+        row = order.data[0]
+        if user_id in (row.get("client_id"), row.get("freelancer_id")):
+            return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
+
+
+@router.post("/storage/signed-url", response_model=StorageSignedUrlResponse)
+def storage_signed_url(payload: StorageSignedUrlRequest, auth: UserAuthDep):
+    admin = get_supabase_admin()
+    _assert_chat_storage_access(admin, auth.user_id, payload.path)
+    try:
+        result = admin.storage.from_(payload.bucket).create_signed_url(payload.path, 3600)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fayl topilmadi",
+        ) from exc
+    url = None
+    if isinstance(result, dict):
+        url = result.get("signedURL") or result.get("signedUrl") or result.get("signed_url")
+    else:
+        url = getattr(result, "signed_url", None) or getattr(result, "signedURL", None)
+    if not url:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="URL yaratilmadi")
+    return {"url": url}
+
+
+_PUBLIC_FLAG_KEYS = frozenset({"live_payments", "vacancies", "companies"})
+
+
 @router.get("/feature-flags", response_model=list[FeatureFlagResponse])
 def list_feature_flags():
     admin = get_supabase_admin()
-    result = run_query(lambda: admin.table("feature_flags").select("*").order("key").execute())
+    result = run_query(
+        lambda: admin.table("feature_flags")
+        .select("key, enabled, description")
+        .eq("enabled", True)
+        .in_("key", list(_PUBLIC_FLAG_KEYS))
+        .order("key")
+        .execute()
+    )
     return result.data or []
 
 
@@ -312,4 +400,52 @@ def audit_register(auth: UserAuthDep, request: Request):
     log_audit(actor_id=auth.user_id, action="register", request=request)
     track_analytics_event("register", user_id=auth.user_id)
     log_activity(auth.user_id, "register", "Ro'yxatdan o'tildi", href="/onboarding")
+    return None
+
+
+@router.post("/client-errors", status_code=status.HTTP_204_NO_CONTENT)
+def report_client_error(
+    payload: ClientErrorReport,
+    request: Request,
+    user_id: OptionalUserId = None,
+):
+    meta = payload.model_dump(exclude_none=True)
+    _client_error_logger.warning(
+        "client_error scope=%s status=%s api_path=%s page=%s msg=%s",
+        payload.scope,
+        payload.status,
+        payload.api_path,
+        payload.page,
+        payload.message[:200],
+    )
+    log_audit(
+        actor_id=user_id,
+        action="client_error",
+        entity_type="frontend",
+        metadata=meta,
+        request=request,
+    )
+    return None
+
+
+@router.get("/request-audit/top", response_model=list[RequestAuditStat])
+def request_audit_top():
+    """SUPABASE_REQUEST_DEBUG=1 — oxirgi 1 soatda eng ko'p DB so'rovlar (backend + client batch)."""
+    return [RequestAuditStat.model_validate(row) for row in get_top10()]
+
+
+@router.get("/request-audit/all", response_model=list[RequestAuditStat])
+def request_audit_all():
+    return [RequestAuditStat.model_validate(row) for row in get_stats()]
+
+
+@router.post("/request-audit/client", status_code=status.HTTP_204_NO_CONTENT)
+def request_audit_client_batch(payload: RequestAuditClientBatch):
+    merge_client_events([e.model_dump(by_alias=True) for e in payload.events])
+    return None
+
+
+@router.post("/request-audit/reset", status_code=status.HTTP_204_NO_CONTENT)
+def request_audit_reset():
+    reset_stats()
     return None

@@ -14,6 +14,8 @@ export interface FileUploadZoneProps {
   disabled?: boolean
   initialUrls?: string[]
   onFilesChange?: (files: File[]) => void
+  /** Yuklangan URL lar o'zgarganda (o'chirish yoki yangi yuklash) */
+  onUrlsChange?: (urls: string[]) => void
   /** Yuklash + URL qaytarish (Supabase Storage) */
   onUpload?: (files: File[]) => Promise<string[]>
 }
@@ -27,6 +29,7 @@ export function FileUploadZone({
   disabled = false,
   initialUrls = [],
   onFilesChange,
+  onUrlsChange,
   onUpload,
 }: FileUploadZoneProps) {
   const { t } = useApp()
@@ -73,6 +76,7 @@ export function FileUploadZone({
           if (urls.length > 0) {
             setUploadedUrls(urls)
             setPreviews(urls)
+            onUrlsChange?.(urls)
             setFiles([])
           } else {
             setPreviews(merged.map((f) => URL.createObjectURL(f)))
@@ -87,7 +91,7 @@ export function FileUploadZone({
         setPreviews(merged.map((f) => URL.createObjectURL(f)))
       }
     },
-    [disabled, files, maxFiles, maxSizeMb, onFilesChange, onUpload, previews, t]
+    [disabled, files, maxFiles, maxSizeMb, onFilesChange, onUrlsChange, onUpload, previews, t]
   )
 
   const removeAt = (index: number) => {
@@ -98,6 +102,7 @@ export function FileUploadZone({
     setFiles(next)
     setPreviews(nextPreviews)
     setUploadedUrls(nextUrls)
+    onUrlsChange?.(nextUrls)
     onFilesChange?.(next)
   }
 

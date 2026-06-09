@@ -12,6 +12,7 @@ class ProfileResponse(BaseModel):
     full_name: str | None = None
     email: str | None = None
     phone: str | None = None
+    phone_verified_at: datetime | None = None
     bio: str | None = None
     region: str | None = None
     specialty: str | None = None
@@ -23,6 +24,9 @@ class ProfileResponse(BaseModel):
     onboarding_completed: bool = False
     username: str | None = None
     is_banned: bool = False
+    is_suspended: bool = False
+    suspended_until: datetime | None = None
+    suspension_reason: str | None = None
     portfolio_urls: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     hourly_rate: int | None = None
@@ -51,6 +55,7 @@ class ProfileResponse(BaseModel):
 class ProfilePublicResponse(BaseModel):
     id: str
     role: Literal["freelancer", "client"]
+    username: str | None = None
     full_name: str | None = None
     bio: str | None = None
     region: str | None = None
@@ -210,17 +215,13 @@ class AdminUserUpdate(BaseModel):
 
 class AdminBulkUserAction(BaseModel):
     user_ids: list[str] = Field(min_length=1, max_length=50)
-    action: Literal["ban", "unban", "verify", "unverify"]
+    action: Literal["ban", "unban", "verify", "unverify", "suspend", "unsuspend"]
 
 
-class NotificationResponse(BaseModel):
-    id: str
-    type: Literal["order", "message", "review"]
-    title: str
-    body: str
-    created_at: datetime
-    href: str | None = None
-    unread: bool = True
+class AdminBulkUserNotify(BaseModel):
+    user_ids: list[str] = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=500)
 
 
 class OrderStatusUpdate(BaseModel):
@@ -234,6 +235,7 @@ class OrderResponse(BaseModel):
     service_id: str | None = None
     project_id: str | None = None
     application_id: str | None = None
+    contract_id: str | None = None
     client_id: str
     freelancer_id: str
     amount: int
@@ -246,6 +248,7 @@ class OrderResponse(BaseModel):
     package_id: str | None = None
     created_at: datetime | None = None
     services: dict | None = None
+    projects: dict | None = None
     client_profile: dict | None = None
     freelancer_profile: dict | None = None
 
@@ -348,6 +351,7 @@ class ProjectResponse(BaseModel):
     created_at: datetime | None = None
     profiles: dict | None = None
     application_count: int = 0
+    contract_id: str | None = None
 
 
 class ApplicationCreate(BaseModel):

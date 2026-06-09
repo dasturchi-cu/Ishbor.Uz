@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useApp } from '@/application/providers/app-provider'
-import { api } from '@/infrastructure/api/client'
+import { useNotificationsQuery } from '@/shared/lib/use-notifications-query'
 
 const SEEN_STORAGE_KEY = 'ishbor:browser-notif-seen'
 const MAX_SEEN_IDS = 200
@@ -30,9 +30,10 @@ function persistSeenIds(ids: Set<string>) {
 }
 
 export function BrowserNotificationWatcher() {
-  const { isLoggedIn } = useApp()
+  const { isLoggedIn, userId } = useApp()
   const seenRef = useRef<Set<string>>(loadSeenIds())
   const askedRef = useRef(false)
+  const { notifications } = useNotificationsQuery(userId, isLoggedIn)
 
   useEffect(() => {
     if (!isLoggedIn || typeof window === 'undefined' || !('Notification' in window)) return
@@ -42,36 +43,25 @@ export function BrowserNotificationWatcher() {
       Notification.requestPermission().catch(() => {})
     }
 
-    const poll = async () => {
-      if (Notification.permission !== 'granted') return
-      const healthy = await api.health().catch(() => null)
-      if (!healthy) return
-      const items = await api.listNotifications().catch(() => [])
-      let changed = false
-      for (const item of items) {
-        if (!item.unread || seenRef.current.has(item.id)) continue
-        seenRef.current.add(item.id)
-        changed = true
-        try {
-          new Notification(item.title, {
-            body: item.body,
-            tag: item.id,
-            icon: '/icon.svg',
-          })
-        } catch {
-          /* ignore */
-        }
-      }
-      if (changed) persistSeenIds(seenRef.current)
-    }
+    if (Notification.permission !== 'granted') return
 
-    const timer = setInterval(poll, 60_000)
-    const initial = setTimeout(poll, 5_000)
-    return () => {
-      clearInterval(timer)
-      clearTimeout(initial)
+    let changed = false
+    for (const item of notifications) {
+      if (!item.unread || seenRef.current.has(item.id)) continue
+      seenRef.current.add(item.id)
+      changed = true
+      try {
+        new Notification(item.title, {
+          body: item.body,
+          tag: item.id,
+          icon: '/icon.svg',
+        })
+      } catch {
+        /* ignore */
+      }
     }
-  }, [isLoggedIn])
+    if (changed) persistSeenIds(seenRef.current)
+  }, [isLoggedIn, notifications])
 
   return null
 }

@@ -37,12 +37,15 @@ import { cn } from '@/shared/lib/utils'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
-import { useMessageUnreadCount } from '@/shared/lib/use-message-unread'
-import { useNotificationUnreadCount } from '@/shared/lib/use-notification-unread'
+import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
 import { useAdminDeniedToast } from '@/shared/lib/use-admin-denied-toast'
 import { VerifyEmailBanner } from '@/presentation/components/dashboard/verify-email-banner'
+import { SuspendedBanner } from '@/presentation/components/layout/suspended-banner'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatDashboardHeaderDate } from '@/shared/lib/format-date'
+import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
+import { buildDashboardBreadcrumbs } from '@/shared/lib/dashboard-breadcrumbs'
+import { useSessionIdleTimeout } from '@/shared/lib/use-session-idle'
 
 interface NavItem {
   id: string
@@ -202,8 +205,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { t, profile, signOut } = useApp()
   const role = useDashboardRole()
   const isClient = role === 'client'
-  const messageUnread = useMessageUnreadCount(true)
-  const notificationUnread = useNotificationUnreadCount(true)
+  const { messageUnread, notificationUnread } = useBadgeCounts()
 
   const sections = useMemo(() => {
     const base = filterSections(isClient ? CLIENT_SECTIONS : FREELANCER_SECTIONS, isClient)
@@ -321,6 +323,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, language, profile } = useApp()
   const role = useDashboardRole()
   useAdminDeniedToast()
+  useSessionIdleTimeout()
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileDrawerRef = useRef<HTMLElement>(null)
   const pageTitle = getPageTitle(pathname)
@@ -337,6 +340,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const formattedDate = useMemo(
     () => formatDashboardHeaderDate(today, language),
     [today, language]
+  )
+
+  const breadcrumbs = useMemo(
+    () => buildDashboardBreadcrumbs(pathname, isClient ? 'client' : 'freelancer', t),
+    [pathname, isClient, t]
   )
 
   useEffect(() => {
@@ -393,6 +401,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           <div className="dashboard-main flex-1 overflow-y-auto p-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
             <div className="mx-auto max-w-[1280px]">
+              {breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} className="mb-4" />}
+              <SuspendedBanner />
               <VerifyEmailBanner />
               {children}
             </div>
@@ -430,8 +440,7 @@ function DashboardBottomNav() {
   const pathname = usePathname()
   const { t } = useApp()
   const role = useDashboardRole()
-  const messageUnread = useMessageUnreadCount(true)
-  const notificationUnread = useNotificationUnreadCount(true)
+  const { messageUnread, notificationUnread } = useBadgeCounts()
   const isClient = role === 'client'
   const homeHref = isClient ? PATHS.dashboardClient : PATHS.dashboardFreelancer
 

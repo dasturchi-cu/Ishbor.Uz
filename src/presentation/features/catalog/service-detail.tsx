@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Avatar } from '@/presentation/components/ui/avatar'
@@ -67,11 +68,11 @@ const CATEGORY_KEYS: Record<string, TranslationKey> = {
 }
 
 export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
-  const { t, isLoggedIn, currentUserRole, userId } = useApp()
+  const { t, isLoggedIn, isAuthLoading, currentUserRole, userId } = useApp()
   const router = useRouter()
   const [service, setService] = useState<ApiService | null>(null)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const [fetchError, setFetchError] = useState<unknown>(null)
   const [ordering, setOrdering] = useState(false)
   const [error, setError] = useState('')
   const [activePackage, setActivePackage] = useState<'basic' | 'standard' | 'premium'>('basic')
@@ -89,13 +90,13 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
   const loadService = useCallback(() => {
     setLoading(true)
-    setLoadError(false)
+    setFetchError(null)
     api
       .getService(serviceId)
       .then(setService)
       .catch((e) => {
         setService(null)
-        setLoadError(!(e instanceof ApiError && e.status === 404))
+        setFetchError(e instanceof ApiError && e.status === 404 ? null : e)
       })
       .finally(() => setLoading(false))
   }, [serviceId])
@@ -114,9 +115,9 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   }, [serviceId, service?.freelancer_id])
 
   useEffect(() => {
-    if (!isLoggedIn) return
+    if (isAuthLoading || !isLoggedIn) return
     syncSavedServicesFromApi().then(() => setSaved(isServiceSaved(serviceId)))
-  }, [isLoggedIn, serviceId])
+  }, [isAuthLoading, isLoggedIn, serviceId])
 
   useEffect(() => {
     if (!service) return
@@ -252,15 +253,8 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   if (!service) {
     return (
       <PageWrapper>
-        {loadError ? (
-          <Alert variant="error">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span>{t('data_load_failed')}</span>
-              <Button variant="outline" size="sm" onClick={loadService}>
-                {t('catalog_retry')}
-              </Button>
-            </div>
-          </Alert>
+        {fetchError ? (
+          <LoadErrorAlert error={fetchError} scope="services" onRetry={loadService} />
         ) : (
           <EmptyState
             icon={<Shield />}

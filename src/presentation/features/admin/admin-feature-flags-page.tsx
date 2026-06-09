@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Alert } from '@/presentation/components/ui/alert'
@@ -9,6 +9,8 @@ import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { api } from '@/infrastructure/api/client'
 import type { ApiFeatureFlag } from '@/infrastructure/api/types'
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 export function AdminFeatureFlagsPage() {
   const { t } = useApp()
@@ -22,11 +24,11 @@ export function AdminFeatureFlagsPage() {
     api
       .adminFeatureFlags()
       .then(setFlags)
-      .catch((e) => setError(e instanceof Error ? e.message : t('data_load_failed')))
+      .catch((e) => setError(captureLoadError(e, { scope: 'admin' }, t)))
       .finally(() => setLoading(false))
   }, [t])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     load()
   }, [load])
 

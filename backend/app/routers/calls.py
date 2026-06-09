@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.db_utils import run_query
 from app.deps import UserAuthDep
 from app.notification_service import create_notification
 from app.schemas_marketplace import CallCreate, CallSessionResponse, CallSignalUpdate
@@ -18,8 +19,12 @@ def start_call(payload: CallCreate, auth: UserAuthDep):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="O'zingizga qo'ng'iroq qilib bo'lmaydi")
 
     if payload.contract_id:
-        contract = (
-            supabase.table("contracts").select("client_id, freelancer_id").eq("id", payload.contract_id).single().execute()
+        contract = run_query(
+            lambda: supabase.table("contracts")
+            .select("client_id, freelancer_id")
+            .eq("id", payload.contract_id)
+            .single()
+            .execute()
         )
         if not contract.data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shartnoma topilmadi")
@@ -28,8 +33,8 @@ def start_call(payload: CallCreate, auth: UserAuthDep):
         if payload.callee_id not in (contract.data["client_id"], contract.data["freelancer_id"]):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ishtirokchi emas")
 
-    result = (
-        supabase.table("call_sessions")
+    result = run_query(
+        lambda: supabase.table("call_sessions")
         .insert(
             {
                 "conversation_id": payload.conversation_id,
@@ -60,7 +65,9 @@ def start_call(payload: CallCreate, auth: UserAuthDep):
 @router.get("/{call_id}", response_model=CallSessionResponse)
 def get_call(call_id: str, auth: UserAuthDep):
     supabase = auth.supabase
-    result = supabase.table("call_sessions").select("*").eq("id", call_id).single().execute()
+    result = run_query(
+        lambda: supabase.table("call_sessions").select("*").eq("id", call_id).single().execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Qo'ng'iroq topilmadi")
     call = result.data
@@ -73,7 +80,9 @@ def get_call(call_id: str, auth: UserAuthDep):
 def update_call(call_id: str, payload: CallSignalUpdate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = supabase.table("call_sessions").select("*").eq("id", call_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("call_sessions").select("*").eq("id", call_id).single().execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Qo'ng'iroq topilmadi")
     call = existing.data
@@ -96,7 +105,9 @@ def update_call(call_id: str, payload: CallSignalUpdate, auth: UserAuthDep):
     if not update_data:
         return call
 
-    result = supabase.table("call_sessions").update(update_data).eq("id", call_id).execute()
+    result = run_query(
+        lambda: supabase.table("call_sessions").update(update_data).eq("id", call_id).execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Qo'ng'iroq topilmadi")
     return result.data[0]

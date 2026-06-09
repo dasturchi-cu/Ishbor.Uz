@@ -1,0 +1,47 @@
+---
+description: Backend va API — Supabase + FastAPI
+globs: backend/**/*,src/infrastructure/api/**/*,src/infrastructure/supabase/**/*
+alwaysApply: false
+---
+
+# Backend Rules (Supabase + FastAPI)
+
+## Stack
+- **Supabase** — PostgreSQL, Auth (JWT), RLS
+- **FastAPI** — biznes logika API (`backend/`)
+- **Next.js** — frontend, Supabase client, FastAPI fetch
+
+## Arxitektura
+```
+Next.js → Supabase Auth (login/register)
+Next.js → FastAPI /api/v1/* (Bearer JWT)
+FastAPI → Supabase PostgreSQL (service role)
+```
+
+## API konventsiya
+```
+GET    /api/v1/health
+GET    /api/v1/profiles/me
+PATCH  /api/v1/profiles/me
+GET    /api/v1/services
+POST   /api/v1/services
+GET    /api/v1/orders
+POST   /api/v1/orders
+PATCH  /api/v1/orders/{id}/status
+```
+
+## Frontend import
+- Supabase: `@/infrastructure/supabase/client`
+- API: `@/infrastructure/api/client`
+
+## Env
+- Frontend: `.env.local` — `NEXT_PUBLIC_SUPABASE_*`, `NEXT_PUBLIC_API_URL`
+- Backend: `backend/.env` — `SUPABASE_*`, `SUPABASE_JWT_SECRET`
+
+## Migration
+`supabase/migrations/` — SQL Editor yoki `supabase db push`
+
+## Xavfsizlik
+- Service role key faqat backend da
+- Anon key frontend da
+- `.env` commit qilma

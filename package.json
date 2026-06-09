@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:api": "cd backend && .venv\\Scripts\\python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8002",
+    "dev": "next dev --turbopack",
+    "dev:api": "cd backend && .venv\\Scripts\\python -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8002",
+    "dev:all": "concurrently -n frontend,backend -c cyan,magenta --handle-input=false \"pnpm dev\" \"pnpm dev:api\"",
+    "dev:start": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "dev:check": "powershell -ExecutionPolicy Bypass -File scripts/dev-check.ps1",
+    "dev:check:strict": "powershell -ExecutionPolicy Bypass -File scripts/dev-check.ps1 -Strict",
+    "db:push": "supabase db push --linked --yes",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -24,6 +29,7 @@
     "@sentry/nextjs": "^10.56.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.49.1",
+    "@tanstack/react-query": "^5.101.0",
     "@vercel/analytics": "1.6.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -40,17 +46,18 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^10.0.3",
     "eslint": "^10.4.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
     "typescript": "5.7.3",
     "typescript-eslint": "^8.60.1",
-    "@playwright/test": "^1.52.0",
     "vitest": "^3.2.6"
   }
 }

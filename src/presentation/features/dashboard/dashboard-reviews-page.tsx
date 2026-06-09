@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { toast } from '@/presentation/components/ui/toast'
@@ -16,44 +16,28 @@ import { PATHS } from '@/domain/constants/routes'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/shared/lib/format-date'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
+import { useDashboardReviews } from '@/shared/lib/use-dashboard-reviews'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import { ReviewModal } from '@/presentation/components/features/review-modal'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 
 export function DashboardReviewsPage() {
-  const { t, userId, language } = useApp()
+  const { t, language } = useApp()
+  const { authed, userId, ready } = useAuthReady()
   const router = useRouter()
-  const isClient = useDashboardRole() === 'client'
+  const role = useDashboardRole()
+  const isClient = role === 'client'
   const [filter, setFilter] = useState<'all' | '5' | 'low'>('all')
-  const [reviews, setReviews] = useState<ApiReview[]>([])
-  const [stats, setStats] = useState({ average: 0, count: 0 })
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [replyLoading, setReplyLoading] = useState(false)
+  const [editingReview, setEditingReview] = useState<ApiReview | null>(null)
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null)
 
-  const loadReviews = useCallback(() => {
-    if (!userId) return
-    setLoading(true)
-    setLoadError(false)
-    Promise.all([
-      (isClient ? api.listMyWrittenReviews() : api.listFreelancerReviews(userId)).catch(() => {
-        setLoadError(true)
-        return [] as ApiReview[]
-      }),
-      (isClient ? api.getMyWrittenReviewStats() : api.getFreelancerReviewStats(userId)).catch(() => ({
-        average: 0,
-        count: 0,
-      })),
-    ])
-      .then(([revs, st]) => {
-        setReviews(revs)
-        setStats(st)
-      })
-      .finally(() => setLoading(false))
-  }, [userId, isClient])
-
-  useEffect(() => {
-    loadReviews()
-  }, [loadReviews])
+  const { reviews, stats, loading, error, loadError, reload: loadReviews } = useDashboardReviews(
+    role,
+    ready && authed && Boolean(userId)
+  )
 
   const filtered = reviews.filter((r) => {
     if (filter === '5') return r.rating === 5
@@ -73,15 +57,8 @@ export function DashboardReviewsPage() {
 
   return (
     <div>
-      {loadError && (
-        <div className="mb-4 rounded-lg border border-[var(--error)]/30 bg-[var(--error-bg)] px-4 py-3 text-[13px] text-[var(--error-dark)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadReviews}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </div>
+      {error && (
+        <LoadErrorAlert error={loadError} scope="reviews" onRetry={loadReviews} className="mb-4" />
       )}
       {isClient && (
         <p className="mb-4 text-[14px] text-[var(--kwork-text-muted)]">{t('client_reviews_written_desc')}</p>
@@ -168,6 +145,33 @@ export function DashboardReviewsPage() {
                 )}
               </div>
               {r.comment && <p className="mt-3 text-[14px] text-[var(--kwork-text-muted)]">{r.comment}</p>}
+              {isClient && userId && r.reviewer_id === userId && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setEditingReview(r)}>
+                    {t('review_edit')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={deleteLoadingId === r.id}
+                    onClick={async () => {
+                      if (!window.confirm(t('review_delete_confirm'))) return
+                      setDeleteLoadingId(r.id)
+                      try {
+                        await api.deleteReview(r.id)
+                        toast.success(t('review_deleted'))
+                        loadReviews()
+                      } catch {
+                        toast.error(t('error_required'))
+                      } finally {
+                        setDeleteLoadingId(null)
+                      }
+                    }}
+                  >
+                    {t('review_delete')}
+                  </Button>
+                </div>
+              )}
               {r.reply && (
                 <p className="mt-3 rounded-lg bg-[var(--color-primary-light)] px-3 py-2 text-[13px] text-[var(--kwork-text-sub)]">
                   <span className="font-semibold text-[var(--color-primary)]">{t('review_reply')}: </span>
@@ -193,8 +197,8 @@ export function DashboardReviewsPage() {
                             if (!replyText.trim()) return
                             setReplyLoading(true)
                             try {
-                              const updated = await api.replyToReview(r.id, replyText.trim())
-                              setReviews((prev) => prev.map((x) => (x.id === r.id ? updated : x)))
+                              await api.replyToReview(r.id, replyText.trim())
+                              loadReviews()
                               setReplyingId(null)
                               setReplyText('')
                               toast.success(t('save_success'))
@@ -222,6 +226,19 @@ export function DashboardReviewsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {editingReview && (
+        <ReviewModal
+          orderId={editingReview.order_id}
+          existingReview={{
+            id: editingReview.id,
+            rating: editingReview.rating,
+            comment: editingReview.comment,
+          }}
+          onClose={() => setEditingReview(null)}
+          onSubmitted={loadReviews}
+        />
       )}
     </div>
   )

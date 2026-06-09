@@ -1,7 +1,9 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.url_safety import is_allowed_storage_file_url
 
 MAX_MONEY = 2_147_483_647
 
@@ -41,7 +43,7 @@ class ContractStatusUpdate(BaseModel):
 
 
 class ContractFundRequest(BaseModel):
-    provider: str = "sandbox"
+    provider: Literal["sandbox"] = "sandbox"
     provider_ref: str | None = None
 
 
@@ -100,7 +102,8 @@ class DisputeResolve(BaseModel):
 
 class DisputeResponse(BaseModel):
     id: str
-    contract_id: str
+    contract_id: str | None = None
+    order_id: str | None = None
     opened_by: str
     reason: str
     status: str
@@ -109,6 +112,7 @@ class DisputeResponse(BaseModel):
     resolved_at: datetime | None = None
     created_at: datetime | None = None
     contract: dict | None = None
+    order: dict | None = None
 
 
 class DisputeMessageResponse(BaseModel):
@@ -126,6 +130,13 @@ class ProjectFileCreate(BaseModel):
     file_type: str | None = None
     file_size: int | None = None
     purpose: Literal["attachment", "deliverable", "dispute_evidence", "revision"] = "deliverable"
+
+    @field_validator("file_url")
+    @classmethod
+    def validate_file_url(cls, value: str) -> str:
+        if not is_allowed_storage_file_url(value):
+            raise ValueError("Faqat Supabase storage URL qabul qilinadi")
+        return value
 
 
 class ProjectFileResponse(BaseModel):

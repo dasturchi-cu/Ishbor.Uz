@@ -33,9 +33,13 @@ export function EmptyState({ icon, title, description, action, secondaryAction, 
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
-      <div className="text-[var(--kwork-text-muted)] [&>svg]:h-14 [&>svg]:w-14">
-        {icon}
+    <div className="empty-state flex flex-col items-center gap-4 px-6 py-10 text-center">
+      <div className="empty-state__illustration" aria-hidden>
+        <span className="empty-state__ring empty-state__ring--outer" />
+        <span className="empty-state__ring empty-state__ring--inner" />
+        <div className="empty-state__icon text-[var(--color-primary)] [&>svg]:h-10 [&>svg]:w-10">
+          {icon}
+        </div>
       </div>
       <h3 className="text-[var(--text-h4)] font-bold text-[var(--kwork-text)]">{title}</h3>
       {description && (

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase_admin
+from app.db_utils import run_query
 from app.notification_service import create_notification
 from app.deps import UserAuthDep
 from app.platform_services import refresh_reputation
@@ -15,8 +16,8 @@ router = APIRouter(prefix="/reviews", tags=["reviews"])
 def _batch_profiles(supabase, profile_ids: list[str]) -> dict[str, dict]:
     if not profile_ids:
         return {}
-    result = (
-        supabase.table("profiles")
+    result = run_query(
+        lambda: supabase.table("profiles")
         .select("id, full_name, role, specialty")
         .in_("id", profile_ids)
         .execute()
@@ -157,8 +158,8 @@ def list_freelancer_reviews(freelancer_id: str):
 @router.get("/freelancer/{freelancer_id}/stats")
 def freelancer_review_stats(freelancer_id: str):
     supabase = get_supabase_admin()
-    result = (
-        supabase.table("reviews")
+    result = run_query(
+        lambda: supabase.table("reviews")
         .select("rating")
         .eq("freelancer_id", freelancer_id)
         .execute()
@@ -173,13 +174,21 @@ def freelancer_review_stats(freelancer_id: str):
 def get_review_for_order(order_id: str, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    order = supabase.table("orders").select("client_id, freelancer_id").eq("id", order_id).single().execute()
+    order = run_query(
+        lambda: supabase.table("orders")
+        .select("client_id, freelancer_id")
+        .eq("id", order_id)
+        .single()
+        .execute()
+    )
     if not order.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
     if user_id not in (order.data["client_id"], order.data["freelancer_id"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
 
-    result = supabase.table("reviews").select("*").eq("order_id", order_id).limit(1).execute()
+    result = run_query(
+        lambda: supabase.table("reviews").select("*").eq("order_id", order_id).limit(1).execute()
+    )
     if not result.data:
         return None
     enriched = _enrich_reviews(supabase, result.data)
@@ -190,14 +199,16 @@ def get_review_for_order(order_id: str, auth: UserAuthDep):
 def reply_to_review(review_id: str, payload: ReviewReplyUpdate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sharh topilmadi")
     if existing.data["freelancer_id"] != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat freelancer javob bera oladi")
 
-    result = (
-        supabase.table("reviews")
+    result = run_query(
+        lambda: supabase.table("reviews")
         .update(
             {
                 "reply": payload.reply.strip(),
@@ -228,7 +239,9 @@ def _review_edit_window_ok(created_at: str | None) -> bool:
 def update_review(review_id: str, payload: ReviewUpdate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sharh topilmadi")
     if existing.data["reviewer_id"] != user_id:
@@ -243,7 +256,9 @@ def update_review(review_id: str, payload: ReviewUpdate, auth: UserAuthDep):
     if not updates:
         return existing.data
 
-    result = supabase.table("reviews").update(updates).eq("id", review_id).execute()
+    result = run_query(
+        lambda: supabase.table("reviews").update(updates).eq("id", review_id).execute()
+    )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sharh yangilanmadi")
     return result.data[0]
@@ -253,7 +268,9 @@ def update_review(review_id: str, payload: ReviewUpdate, auth: UserAuthDep):
 def delete_review(review_id: str, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("reviews").select("*").eq("id", review_id).single().execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sharh topilmadi")
     if existing.data["reviewer_id"] != user_id:
@@ -264,7 +281,7 @@ def delete_review(review_id: str, auth: UserAuthDep):
             detail="Sharhni 7 kun ichida o'chirish mumkin",
         )
 
-    supabase.table("reviews").delete().eq("id", review_id).execute()
+    run_query(lambda: supabase.table("reviews").delete().eq("id", review_id).execute())
     return None
 
 
@@ -273,7 +290,9 @@ def create_review(payload: ReviewCreate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
 
-    order = supabase.table("orders").select("*").eq("id", payload.order_id).single().execute()
+    order = run_query(
+        lambda: supabase.table("orders").select("*").eq("id", payload.order_id).single().execute()
+    )
     if not order.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
 
@@ -286,7 +305,9 @@ def create_review(payload: ReviewCreate, auth: UserAuthDep):
             detail="Faqat tugallangan buyurtmaga sharh qoldirish mumkin",
         )
 
-    existing = supabase.table("reviews").select("id").eq("order_id", payload.order_id).execute()
+    existing = run_query(
+        lambda: supabase.table("reviews").select("id").eq("order_id", payload.order_id).execute()
+    )
     if existing.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sharh allaqachon mavjud")
 
@@ -298,14 +319,14 @@ def create_review(payload: ReviewCreate, auth: UserAuthDep):
         "comment": payload.comment,
         "is_verified": True,
     }
-    result = supabase.table("reviews").insert(data).execute()
+    result = run_query(lambda: supabase.table("reviews").insert(data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sharh yaratilmadi")
 
     service_title = None
     if order_row.get("service_id"):
-        svc = (
-            supabase.table("services")
+        svc = run_query(
+            lambda: supabase.table("services")
             .select("title")
             .eq("id", order_row["service_id"])
             .limit(1)

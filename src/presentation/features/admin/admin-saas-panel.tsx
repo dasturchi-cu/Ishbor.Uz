@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
@@ -16,6 +16,9 @@ import type {
 } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { captureLoadError } from '@/shared/lib/load-error'
+import { AdminVerificationQueue } from '@/presentation/features/admin/admin-verification-queue'
 
 export function AdminSaasPanel() {
   const { t, language } = useApp()
@@ -45,11 +48,11 @@ export function AdminSaasPanel() {
         setVerifications(vers)
         setFraudLogs(fraud)
       })
-      .catch(() => setError(t('data_load_failed')))
+      .catch((e) => setError(captureLoadError(e, { scope: 'admin' }, t)))
       .finally(() => setLoading(false))
   }, [t])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     load()
   }, [load])
 
@@ -58,16 +61,6 @@ export function AdminSaasPanel() {
     try {
       await api.adminUpdateReportStatus(id, status)
       setReports((prev) => prev.filter((r) => r.id !== id))
-    } finally {
-      setActionId(null)
-    }
-  }
-
-  const reviewVerification = async (id: string, approved: boolean) => {
-    setActionId(id)
-    try {
-      await api.adminReviewVerification(id, approved ? 'approved' : 'rejected')
-      setVerifications((prev) => prev.filter((v) => v.id !== id))
     } finally {
       setActionId(null)
     }
@@ -177,27 +170,10 @@ export function AdminSaasPanel() {
 
       <Card className="p-6">
         <h2 className="mb-4 font-bold">{t('admin_verifications_title')}</h2>
-        {verifications.length === 0 ? (
-          <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_verifications_empty')}</p>
-        ) : (
-          <div className="space-y-3">
-            {verifications.map((v) => (
-              <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 border-b py-2">
-                <span className="text-[13px]">
-                  {v.verification_type} · {v.user_id.slice(0, 8)}
-                </span>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="primary" loading={actionId === v.id} onClick={() => reviewVerification(v.id, true)}>
-                    {t('admin_verify_approve')}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => reviewVerification(v.id, false)}>
-                    {t('admin_verify_reject')}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <AdminVerificationQueue
+          items={verifications}
+          onReviewed={(id) => setVerifications((prev) => prev.filter((v) => v.id !== id))}
+        />
       </Card>
 
       <Card className="p-6">

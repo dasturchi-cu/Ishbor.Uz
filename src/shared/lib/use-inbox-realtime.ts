@@ -1,16 +1,38 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
+import { trackSupabaseRequest } from '@/shared/lib/supabase-request-debug'
 
-/** Refresh inbox when any message arrives for the current user. */
+const DEBOUNCE_MS = 400
+
+/** Inbox yangilash — yangi xabar kelganda debounced refresh. */
 export function useInboxRealtime(userId: string | null | undefined, onRefresh: () => void) {
+  const onRefreshRef = useRef(onRefresh)
+  const listenerId = useId().replace(/:/g, '')
+  const component = `use-inbox-realtime:${listenerId}`
+
+  useEffect(() => {
+    onRefreshRef.current = onRefresh
+  }, [onRefresh])
+
   useEffect(() => {
     if (!userId || !isSupabaseConfigured()) return
 
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const scheduleRefresh = () => {
+      trackSupabaseRequest({
+        queryName: 'realtime.trigger:inbox',
+        component,
+        kind: 'realtime_event',
+      })
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => onRefreshRef.current(), DEBOUNCE_MS)
+    }
+
     const supabase = getSupabase()
     const channel = supabase
-      .channel(`inbox-${userId}`)
+      .channel(`inbox-${userId}-${listenerId}`)
       .on(
         'postgres_changes',
         {
@@ -19,12 +41,13 @@ export function useInboxRealtime(userId: string | null | undefined, onRefresh: (
           table: 'messages',
           filter: `receiver_id=eq.${userId}`,
         },
-        () => onRefresh()
+        scheduleRefresh
       )
       .subscribe()
 
     return () => {
+      if (timer) clearTimeout(timer)
       void supabase.removeChannel(channel)
     }
-  }, [userId, onRefresh])
+  }, [userId, listenerId])
 }

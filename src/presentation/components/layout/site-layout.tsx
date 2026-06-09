@@ -11,6 +11,8 @@ import { isAdminPath, isDashboardPath, PATHS } from '@/domain/constants/routes'
 import { cn } from '@/shared/lib/utils'
 import { BrowserNotificationWatcher } from '@/presentation/components/layout/browser-notification-watcher'
 import { SkipLink } from '@/presentation/components/layout/skip-link'
+import { BadgeCountsProvider } from '@/application/providers/badge-counts-provider'
+import { SupabaseRequestAuditReporter } from '@/presentation/components/dev/supabase-request-audit-reporter'
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -31,16 +33,19 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--body-bg)]">
-      <SkipLink />
-      <Header />
-      <main id="main-content" tabIndex={-1} className={cn('flex-1 outline-none', showMobileNav && 'has-mobile-nav')}>
-        {children}
-      </main>
-      {!hideFooter && <Footer />}
-      {isLoggedIn ? <MobileNav /> : <GuestMobileNav />}
-      <BrowserNotificationWatcher />
-      <Toaster />
-    </div>
+    <BadgeCountsProvider>
+      <div className="flex min-h-screen flex-col bg-[var(--body-bg)]">
+        <SkipLink />
+        <Header />
+        <main id="main-content" tabIndex={-1} className={cn('flex-1 outline-none', showMobileNav && !onDashboard && 'has-mobile-nav')}>
+          {children}
+        </main>
+        {!hideFooter && <Footer />}
+        {isLoggedIn && !onDashboard ? <MobileNav /> : !isLoggedIn ? <GuestMobileNav /> : null}
+        <BrowserNotificationWatcher />
+        <SupabaseRequestAuditReporter />
+        <Toaster />
+      </div>
+    </BadgeCountsProvider>
   )
 }

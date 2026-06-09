@@ -15,6 +15,9 @@ export function mapAuthErrorMessage(
   if (lower.includes('invalid login credentials')) {
     return t('error_invalid_credentials')
   }
+  if (lower.includes('invalid totp') || (lower.includes('mfa') && lower.includes('invalid'))) {
+    return t('mfa_invalid_code')
+  }
   if (lower.includes('email not confirmed')) {
     return t('auth_email_confirm_sent')
   }

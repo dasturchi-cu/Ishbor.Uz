@@ -30,6 +30,7 @@ import {
   PriceRangeSlider,
   buildPriceHistogram,
 } from '@/presentation/components/ui/price-range-slider'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
 
 type CatalogService = {
   id: string
@@ -124,6 +125,7 @@ function ServicesCatalogContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { t, isLoggedIn } = useApp()
+  const { authed } = useAuthReady()
   const router = useRouter()
   const [services, setServices] = useState<CatalogService[]>([])
   const [loading, setLoading] = useState(true)
@@ -158,6 +160,7 @@ function ServicesCatalogContent() {
   const [selectedRegion, setSelectedRegion] = useState('')
   const [experienceFilters, setExperienceFilters] = useState<string[]>([])
   const [priceCeiling, setPriceCeiling] = useState(5_000_000)
+  const priceCeilingRef = useRef(5_000_000)
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5_000_000])
   const [savedTick, setSavedTick] = useState(0)
   const [loadError, setLoadError] = useState(false)
@@ -189,9 +192,9 @@ function ServicesCatalogContent() {
   }, [searchTerm])
 
   useEffect(() => {
-    if (!debouncedSearch) return
+    if (!authed || !debouncedSearch) return
     api.trackAnalytics('search', { query: debouncedSearch, surface: 'services' }).catch(() => undefined)
-  }, [debouncedSearch])
+  }, [authed, debouncedSearch])
 
   const handleCategorySelect = useCallback(
     (cat: string) => {
@@ -217,7 +220,7 @@ function ServicesCatalogContent() {
         region: selectedRegion || undefined,
         sort: sortBy,
         min_price: minPrice > 0 ? minPrice : undefined,
-        max_price: maxPrice < priceCeiling ? maxPrice : undefined,
+        max_price: maxPrice < priceCeilingRef.current ? maxPrice : undefined,
         max_delivery_days: maxDeliveryDays > 0 ? maxDeliveryDays : undefined,
         limit: PAGE_SIZE,
         offset: (currentPage - 1) * PAGE_SIZE,
@@ -229,6 +232,7 @@ function ServicesCatalogContent() {
         setHasMore(currentPage * PAGE_SIZE < data.total)
         const top = mapped.reduce((acc, s) => Math.max(acc, s.price), 0)
         const ceiling = roundCeiling(top)
+        priceCeilingRef.current = ceiling
         setPriceCeiling(ceiling)
         setPriceRange(([low, high]) => [
           Math.min(low, ceiling),
@@ -242,7 +246,7 @@ function ServicesCatalogContent() {
         setLoadError(true)
       })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, maxDeliveryDays, priceCeiling, reloadTick, t])
+  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, maxDeliveryDays, reloadTick, t])
 
   const categories = [
     { id: 'all', label: t('cat_all') },

@@ -10,6 +10,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Input } from '@/presentation/components/ui/input'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Badge } from '@/presentation/components/ui/badge'
 import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiProject, ApiProjectApplication } from '@/infrastructure/api/types'
@@ -22,15 +23,21 @@ import { Bookmark, Briefcase } from 'lucide-react'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { isProjectSaved, syncSavedProjectsFromApi, toggleSavedProject } from '@/shared/lib/saved-items'
 import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
+import {
+  PROJECT_STATUS_KEYS,
+  marketplaceStatusLabel,
+  projectStatusBadgeVariant,
+} from '@/shared/lib/marketplace-status'
+import { dashboardContract } from '@/domain/constants/routes'
 
 export function ProjectDetailPage({ projectId }: { projectId: string }) {
-  const { t, isLoggedIn, currentUserRole, userId, language, profile } = useApp()
+  const { t, isLoggedIn, isAuthLoading, currentUserRole, userId, language, profile } = useApp()
   const router = useRouter()
   const [project, setProject] = useState<ApiProject | null>(null)
   const [applications, setApplications] = useState<ApiProjectApplication[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
-  const [appsLoadError, setAppsLoadError] = useState(false)
+  const [fetchError, setFetchError] = useState<unknown>(null)
+  const [appsFetchError, setAppsFetchError] = useState<unknown>(null)
   const [coverLetter, setCoverLetter] = useState('')
   const [proposedBudget, setProposedBudget] = useState('')
   const [proposedDays, setProposedDays] = useState('7')
@@ -49,7 +56,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
 
   const loadProject = useCallback(() => {
     setLoading(true)
-    setLoadError(false)
+    setFetchError(null)
     api
       .getProject(projectId)
       .then((p) => {
@@ -61,7 +68,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
       })
       .catch((e) => {
         setProject(null)
-        setLoadError(!(e instanceof ApiError && e.status === 404))
+        setFetchError(e instanceof ApiError && e.status === 404 ? null : e)
       })
       .finally(() => setLoading(false))
   }, [projectId])
@@ -71,21 +78,21 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   }, [loadProject])
 
   useEffect(() => {
-    if (!isLoggedIn) return
+    if (isAuthLoading || !isLoggedIn) return
     syncSavedProjectsFromApi().then(() => setSaved(isProjectSaved(projectId)))
-  }, [isLoggedIn, projectId])
+  }, [isAuthLoading, isLoggedIn, projectId])
 
   useEffect(() => {
-    if (!isOwner || !project) return
-    setAppsLoadError(false)
+    if (isAuthLoading || !isOwner || !project) return
+    setAppsFetchError(null)
     api
       .listProjectApplications(projectId)
       .then(setApplications)
-      .catch(() => {
+      .catch((e) => {
         setApplications([])
-        setAppsLoadError(true)
+        setAppsFetchError(e)
       })
-  }, [isOwner, project, projectId])
+  }, [isAuthLoading, isOwner, project, projectId])
 
   const handleSave = async () => {
     if (!isLoggedIn) {
@@ -175,11 +182,16 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
     try {
       const updated = await api.updateApplicationStatus(appId, status)
       setApplications((prev) => prev.map((a) => (a.id === appId ? updated : a)))
+      if (status === 'hired') {
+        loadProject()
+      }
       toast.success(t('application_status_updated'))
     } catch {
       toast.error(t('error_required'))
     }
   }
+
+  const canManageApplications = ['open', 'in_review'].includes(project?.status ?? '')
 
   const statusLabel = (s: string) => {
     const map: Record<string, string> = {
@@ -202,15 +214,8 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   if (!project) {
     return (
       <PageWrapper className="bg-[var(--kwork-bg)] pt-5">
-        {loadError ? (
-          <Alert variant="error">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span>{t('data_load_failed')}</span>
-              <Button variant="outline" size="sm" onClick={loadProject}>
-                {t('catalog_retry')}
-              </Button>
-            </div>
-          </Alert>
+        {fetchError ? (
+          <LoadErrorAlert error={fetchError} scope="projects" onRetry={loadProject} />
         ) : (
           <EmptyState
             icon={<Briefcase />}
@@ -228,8 +233,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
     )
   }
 
-  const projectStatusLabel =
-    project.status === 'open' ? t('project_status_open') : project.status === 'closed' ? t('project_status_closed') : project.status
+  const projectStatusLabel = marketplaceStatusLabel(PROJECT_STATUS_KEYS, project.status, t)
 
   return (
     <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
@@ -249,9 +253,17 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
               <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">
                 {project.region} · {project.category} · {project.level}
               </p>
-              <Badge variant={project.status === 'open' ? 'success' : 'outline'} size="xs" className="mt-2">
+              <Badge variant={projectStatusBadgeVariant(project.status)} size="xs" className="mt-2">
                 {projectStatusLabel}
               </Badge>
+              {project.contract_id && (
+                <Link
+                  href={dashboardContract(project.contract_id)}
+                  className="mt-2 inline-flex text-[13px] font-medium text-[var(--color-primary)] hover:underline"
+                >
+                  {t('contract_details')} →
+                </Link>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {isOwner && project.status === 'open' && (
@@ -334,25 +346,19 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
           {isOwner ? (
             <div className="surface-panel p-5">
               <h2 className="settings-section-title mb-3">{t('project_applications_title')}</h2>
-              {appsLoadError && (
-                <Alert variant="error" className="mb-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>{t('data_load_failed')}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setAppsLoadError(false)
-                        api
-                          .listProjectApplications(projectId)
-                          .then(setApplications)
-                          .catch(() => setAppsLoadError(true))
-                      }}
-                    >
-                      {t('catalog_retry')}
-                    </Button>
-                  </div>
-                </Alert>
+              {appsFetchError != null && (
+                <LoadErrorAlert
+                  error={appsFetchError}
+                  scope="applications"
+                  className="mb-3"
+                  onRetry={() => {
+                    setAppsFetchError(null)
+                    api
+                      .listProjectApplications(projectId)
+                      .then(setApplications)
+                      .catch((e) => setAppsFetchError(e))
+                  }}
+                />
               )}
               {applications.length === 0 ? (
                 <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('project_no_applications')}</p>
@@ -364,7 +370,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
                       <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{statusLabel(app.status)}</p>
                       <p className="mt-2 line-clamp-3 text-[13px]">{app.cover_letter}</p>
                       <p className="mt-2 text-[13px] font-semibold">{formatPrice(app.proposed_budget)}</p>
-                      {app.status === 'submitted' && (
+                      {canManageApplications && app.status === 'submitted' && (
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Button size="sm" variant="primary" onClick={() => updateAppStatus(app.id, 'shortlisted')}>
                             {t('application_shortlist')}
@@ -374,7 +380,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
                           </Button>
                         </div>
                       )}
-                      {app.status === 'shortlisted' && (
+                      {canManageApplications && app.status === 'shortlisted' && (
                         <Button size="sm" variant="primary" className="mt-3" onClick={() => updateAppStatus(app.id, 'hired')}>
                           {t('application_hire')}
                         </Button>

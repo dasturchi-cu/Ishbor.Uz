@@ -21,6 +21,8 @@ import { isGoogleAuthEnabled } from '@/infrastructure/auth/google-auth'
 import { requestPasswordReset } from '@/infrastructure/auth/password'
 import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallback'
 import { loginSchema } from '@/domain/validators/auth'
+import { needsMfaChallenge, verifyTotpLogin } from '@/infrastructure/auth/mfa-totp'
+import { TurnstileWidget, isTurnstileEnabled } from '@/presentation/components/auth/turnstile-widget'
 
 function LoginPageContent() {
   const { t, refreshProfile, isLoggedIn, isAuthLoading, currentUserRole, profile } = useApp()
@@ -34,13 +36,19 @@ function LoginPageContent() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetMessage, setResetMessage] = useState('')
+  const [mfaStep, setMfaStep] = useState(false)
+  const [mfaCode, setMfaCode] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
 
   useEffect(() => {
     if (searchParams.get('banned') === '1') {
       toast.error(t('account_banned'))
     }
     if (searchParams.get('error') === 'config') {
-      setError(t('data_load_failed'))
+      setError(t('error_network'))
+    }
+    if (searchParams.get('idle') === '1') {
+      toast.info(t('session_idle_logout'))
     }
   }, [searchParams, t])
 
@@ -81,17 +89,17 @@ function LoginPageContent() {
         const supabase = getSupabase()
         const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
         if (authError) {
+          void api.auditLoginAttempt(false, email, captchaToken || undefined)
           setError(mapAuthErrorMessage(authError.message, t))
           return
         }
-        clearAuthCache()
-        await refreshProfile()
-        const me = await api.getProfile().catch(() => null)
-        const role = me?.role === 'client' ? 'client' : 'freelancer'
-        const name = me?.full_name ?? profile?.full_name ?? email.split('@')[0]
-        toast.success(`${t('login_title')}, ${name}!`)
-        router.refresh()
-        router.replace(resolvePostAuthDestination(searchParams, me, role))
+        void api.auditLoginAttempt(true, email, captchaToken || undefined)
+        if (await needsMfaChallenge()) {
+          setMfaStep(true)
+          setMfaCode('')
+          return
+        }
+        await completeLogin()
       } else {
         setError(t('auth_supabase_not_configured'))
       }
@@ -120,6 +128,36 @@ function LoginPageContent() {
       setError(err instanceof Error ? mapAuthErrorMessage(err.message, t) : t('error_required'))
     } finally {
       setResetLoading(false)
+    }
+  }
+
+  const completeLogin = async () => {
+    clearAuthCache()
+    await refreshProfile()
+    const me = await api.getProfile().catch(() => null)
+    const role = me?.role === 'client' ? 'client' : 'freelancer'
+    const name = me?.full_name ?? profile?.full_name ?? email.split('@')[0]
+    toast.success(`${t('login_title')}, ${name}!`)
+    router.refresh()
+    router.replace(resolvePostAuthDestination(searchParams, me, role))
+  }
+
+  const handleMfaVerify = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (mfaCode.trim().length < 6) {
+      setError(t('mfa_invalid_code'))
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await verifyTotpLogin(mfaCode)
+      setMfaStep(false)
+      await completeLogin()
+    } catch (err) {
+      setError(err instanceof Error ? mapAuthErrorMessage(err.message, t) : t('mfa_invalid_code'))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -182,6 +220,43 @@ function LoginPageContent() {
             </Alert>
           )}
 
+          {mfaStep ? (
+            <form id="login-mfa-form" className="auth-form-fields" onSubmit={handleMfaVerify} noValidate>
+              <header className="mb-2">
+                <h2 className="text-[18px] font-bold text-[var(--kwork-text)]">{t('mfa_login_title')}</h2>
+                <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('mfa_login_desc')}</p>
+              </header>
+              <Input
+                label={t('mfa_code_label')}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                inputSize="lg"
+                value={mfaCode}
+                onChange={(e) => {
+                  setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  setError('')
+                }}
+                placeholder={t('mfa_code_placeholder')}
+              />
+              <Button type="submit" variant="primary" size="lg" className="w-full" loading={loading}>
+                {t('mfa_verify_btn')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setMfaStep(false)
+                  setMfaCode('')
+                  void getSupabase().auth.signOut()
+                }}
+              >
+                {t('cancel')}
+              </Button>
+            </form>
+          ) : (
+          <>
           <form id="login-form" className="auth-form-fields" onSubmit={handleLogin} noValidate>
             <Input
               label={t('email')}
@@ -229,6 +304,10 @@ function LoginPageContent() {
               </div>
             </div>
 
+            {isTurnstileEnabled() && (
+              <TurnstileWidget onToken={setCaptchaToken} />
+            )}
+
             <Button variant="primary" fullWidth size="lg" loading={loading} type="submit" className="!min-h-[48px]">
               {t('sign_in')}
             </Button>
@@ -260,6 +339,8 @@ function LoginPageContent() {
                 )}
               </button>
             </>
+          )}
+          </>
           )}
 
           <p className="auth-footer-link">

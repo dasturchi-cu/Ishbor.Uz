@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Alert } from '@/presentation/components/ui/alert'
@@ -12,6 +12,15 @@ import { formatPrice } from '@/shared/lib/format'
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
 import { AdminTabs } from '@/presentation/features/admin/admin-tabs'
 import { useAdminSavedFilters } from '@/shared/lib/use-admin-saved-filters'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { captureLoadError } from '@/shared/lib/load-error'
+import {
+  ESCROW_ACTION_KEYS,
+  ESCROW_SOURCE_KEYS,
+  MILESTONE_STATUS_KEYS,
+  PAYMENT_STATUS_KEYS,
+  marketplaceStatusLabel,
+} from '@/shared/lib/marketplace-status'
 
 const PAGE_SIZE = 50
 
@@ -71,7 +80,7 @@ export function AdminEscrowPage() {
         setItems((prev) => (append ? [...prev, ...res.items] : res.items))
         setTotal(res.total)
       } catch (e) {
-        setError(e instanceof Error ? e.message : t('data_load_failed'))
+        setError(captureLoadError(e, { scope: 'admin' }, t))
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -90,7 +99,7 @@ export function AdminEscrowPage() {
         setMilestones((prev) => (append ? [...prev, ...res.items] : res.items))
         setMilestonesTotal(res.total)
       } catch (e) {
-        setError(e instanceof Error ? e.message : t('data_load_failed'))
+        setError(captureLoadError(e, { scope: 'admin' }, t))
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -99,13 +108,13 @@ export function AdminEscrowPage() {
     [t],
   )
 
-  useEffect(() => {
-    loadSummary()
+  useAuthedEffect(() => {
+    void loadSummary()
   }, [loadSummary])
 
-  useEffect(() => {
-    if (mainTab === 'transactions') loadTransactions()
-    else loadMilestones()
+  useAuthedEffect(() => {
+    if (mainTab === 'transactions') void loadTransactions()
+    else void loadMilestones()
   }, [mainTab, loadTransactions, loadMilestones])
 
   const mainTabs = useMemo(
@@ -206,15 +215,19 @@ export function AdminEscrowPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="rounded bg-[var(--admin-bg)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--admin-text)]">
-                            {row.source_type}
+                            {marketplaceStatusLabel(ESCROW_SOURCE_KEYS, row.source_type, t)}
                           </span>
                           <span className="ml-1 font-mono text-[11px] text-[var(--admin-muted)]">
                             {row.source_id?.slice(0, 8)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-medium text-[var(--admin-text)]">{row.action}</td>
+                        <td className="px-4 py-3 font-medium text-[var(--admin-text)]">
+                          {marketplaceStatusLabel(ESCROW_ACTION_KEYS, row.action, t)}
+                        </td>
                         <td className="px-4 py-3 font-semibold text-[var(--admin-text)]">{formatPrice(row.amount)}</td>
-                        <td className="px-4 py-3 text-[var(--admin-muted)]">{row.status}</td>
+                        <td className="px-4 py-3 text-[var(--admin-muted)]">
+                          {marketplaceStatusLabel(PAYMENT_STATUS_KEYS, row.status, t)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -261,8 +274,12 @@ export function AdminEscrowPage() {
                         </p>
                       </td>
                       <td className="px-4 py-3 font-semibold">{formatPrice(m.amount)}</td>
-                      <td className="px-4 py-3 text-[var(--admin-text)]">{m.status}</td>
-                      <td className="px-4 py-3 text-[var(--admin-muted)]">{m.payment_status}</td>
+                      <td className="px-4 py-3 text-[var(--admin-text)]">
+                        {marketplaceStatusLabel(MILESTONE_STATUS_KEYS, m.status, t)}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--admin-muted)]">
+                        {marketplaceStatusLabel(PAYMENT_STATUS_KEYS, m.payment_status, t)}
+                      </td>
                       <td className="px-4 py-3 text-[var(--admin-muted)]">
                         {m.created_at?.slice(0, 10) ?? '—'}
                       </td>

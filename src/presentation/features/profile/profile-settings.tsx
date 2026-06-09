@@ -15,11 +15,12 @@ import { FileUploadZone } from '@/presentation/components/dashboard/file-upload-
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { POPULAR_SKILLS } from '@/domain/constants/skills'
 import { api } from '@/infrastructure/api/client'
+import type { ApiVerification } from '@/infrastructure/api/types'
 import { dashboardPathForRole, freelancerPath, PATHS } from '@/domain/constants/routes'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
-import { uploadAvatar } from '@/infrastructure/supabase/storage'
+import { uploadAvatar, uploadPortfolioImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { updatePassword } from '@/infrastructure/auth/password'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
@@ -31,6 +32,21 @@ import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
 import { NotificationChannelStatus } from '@/presentation/components/layout/notification-channel-status'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
+import { TrustScoreBreakdown } from '@/presentation/components/features/trust-score-breakdown'
+import { CompanyStirSection } from '@/presentation/components/features/company-stir-section'
+import { CompanySelfServiceSection } from '@/presentation/components/features/company-self-service-section'
+import { TotpSettingsSection } from '@/presentation/components/auth/totp-settings-section'
+import { PhoneVerifySection } from '@/presentation/components/auth/phone-verify-section'
+import { EmailChangeSection } from '@/presentation/components/auth/email-change-section'
+import { ActiveSessionsSection } from '@/presentation/components/auth/active-sessions-section'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+
+const VERIFICATION_TYPE_KEYS: Record<string, TranslationKey> = {
+  employer: 'verification_type_employer',
+  freelancer: 'verification_type_freelancer',
+  identity: 'verification_type_identity',
+  company: 'verification_type_company',
+}
 
 type SettingsTab =
   | 'general'
@@ -170,7 +186,8 @@ export function ProfileSettings() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
-  const [portfolioUrls, setPortfolioUrls] = useState('')
+  const [portfolioImages, setPortfolioImages] = useState<string[]>([])
+  const [portfolioUploading, setPortfolioUploading] = useState(false)
   const [hourlyRate, setHourlyRate] = useState('')
   const [experienceLevel, setExperienceLevel] = useState('intermediate')
   const [languagesText, setLanguagesText] = useState('')
@@ -194,6 +211,18 @@ export function ProfileSettings() {
     telegram_bot_username: null as string | null,
   })
   const telegramHintShown = useRef(false)
+  const [verifications, setVerifications] = useState<ApiVerification[]>([])
+  const [verificationsLoading, setVerificationsLoading] = useState(false)
+
+  useAuthedEffect(() => {
+    if (activeTab !== 'security') return
+    setVerificationsLoading(true)
+    api
+      .listMyVerifications()
+      .then(setVerifications)
+      .catch(() => setVerifications([]))
+      .finally(() => setVerificationsLoading(false))
+  }, [activeTab])
 
   useEffect(() => {
     api
@@ -254,7 +283,7 @@ export function ProfileSettings() {
       setTitle(profile.specialty ?? '')
       setUsername(profile.username ?? ((profile.full_name ?? '').toLowerCase().replace(/\s+/g, '') || ''))
       setSkills(profile.skills ?? [])
-      setPortfolioUrls((profile.portfolio_urls ?? []).join(', '))
+      setPortfolioImages(profile.portfolio_urls ?? [])
       setHourlyRate(profile.hourly_rate != null ? String(profile.hourly_rate) : '')
       setExperienceLevel(profile.experience_level ?? 'intermediate')
       setLanguagesText(
@@ -301,9 +330,9 @@ export function ProfileSettings() {
 
   const profileLink =
     userId && typeof window !== 'undefined'
-      ? `${window.location.origin}${freelancerPath(userId)}`
+      ? `${window.location.origin}${freelancerPath({ id: userId, username: profile?.username ?? username })}`
       : userId
-        ? freelancerPath(userId)
+        ? freelancerPath({ id: userId, username: profile?.username ?? username })
         : PATHS.services
 
   const handlePasswordUpdate = async () => {
@@ -375,13 +404,7 @@ export function ProfileSettings() {
         phone: formData.phone,
         specialty: title,
         skills: currentUserRole === 'freelancer' ? skills : undefined,
-        portfolio_urls:
-          currentUserRole === 'freelancer'
-            ? portfolioUrls
-                .split(',')
-                .map((u) => u.trim())
-                .filter(Boolean)
-            : undefined,
+        portfolio_urls: currentUserRole === 'freelancer' ? portfolioImages : undefined,
         hourly_rate:
           currentUserRole === 'freelancer' && hourlyRate.trim()
             ? parseInt(hourlyRate.replace(/\D/g, ''), 10)
@@ -741,11 +764,26 @@ export function ProfileSettings() {
                   {currentUserRole === 'freelancer' && (
                     <div>
                       <label className="settings-field-label">{t('portfolio_urls_label')}</label>
-                      <Textarea
-                        value={portfolioUrls}
-                        onChange={(e) => setPortfolioUrls(e.target.value)}
-                        rows={3}
-                        placeholder={t('settings_url_placeholder')}
+                      <p className="mb-2 text-[12px] text-[var(--kwork-text-muted)]">{t('portfolio_upload_hint')}</p>
+                      <FileUploadZone
+                        maxFiles={12}
+                        maxSizeMb={5}
+                        initialUrls={portfolioImages}
+                        disabled={portfolioUploading || !userId || !isSupabaseConfigured()}
+                        onUrlsChange={setPortfolioImages}
+                        onUpload={async (files) => {
+                          if (!userId || !files.length) return portfolioImages
+                          setPortfolioUploading(true)
+                          try {
+                            const newUrls = await Promise.all(files.map((f) => uploadPortfolioImage(f, userId)))
+                            return [...portfolioImages, ...newUrls].slice(0, 12)
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : t('error_required'))
+                            return portfolioImages
+                          } finally {
+                            setPortfolioUploading(false)
+                          }
+                        }}
                       />
                     </div>
                   )}
@@ -786,7 +824,10 @@ export function ProfileSettings() {
                     {t('settings_save')}
                   </Button>
                   {userId && (
-                    <Link href={freelancerPath(userId)} className="settings-link-action">
+                    <Link
+                      href={freelancerPath({ id: userId, username: profile?.username ?? username })}
+                      className="settings-link-action"
+                    >
                       {t('view_profile')} →
                     </Link>
                   )}
@@ -796,6 +837,16 @@ export function ProfileSettings() {
 
             {activeTab === 'security' && (
               <>
+                <div className="settings-security-block">
+                  <h2 className="settings-section-title">{t('change_email')}</h2>
+                  <EmailChangeSection />
+                </div>
+
+                <div className="settings-security-block">
+                  <h2 className="settings-section-title">{t('active_sessions')}</h2>
+                  <ActiveSessionsSection />
+                </div>
+
                 <div className="settings-security-block">
                   <h2 className="settings-section-title">{t('change_password')}</h2>
                   <p className="settings-section-note">{t('security_supabase_note')}</p>
@@ -847,6 +898,8 @@ export function ProfileSettings() {
                           profile?.role === 'freelancer' ? 'freelancer' : 'employer'
                         await api.requestVerification({ verification_type: vType })
                         toast.success(t('verification_submitted'))
+                        const list = await api.listMyVerifications().catch(() => [])
+                        setVerifications(list)
                       } catch (e) {
                         toast.error(e instanceof Error ? e.message : t('error_required'))
                       }
@@ -854,19 +907,64 @@ export function ProfileSettings() {
                   >
                     {t('verification_submit')}
                   </Button>
+                  {(verificationsLoading || verifications.length > 0) && (
+                    <div className="mt-5">
+                      <h3 className="text-[13px] font-semibold text-[var(--kwork-text)]">
+                        {t('verification_history')}
+                      </h3>
+                      {verificationsLoading ? (
+                        <div className="mt-2 h-12 animate-pulse rounded-lg bg-[var(--color-bg-muted)]" />
+                      ) : (
+                        <ul className="mt-2 space-y-2">
+                          {verifications.map((v) => {
+                            const statusKey =
+                              v.status === 'approved'
+                                ? 'verification_status_approved'
+                                : v.status === 'rejected'
+                                  ? 'verification_status_rejected'
+                                  : 'verification_status_pending'
+                            return (
+                              <li
+                                key={v.id}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--kwork-border)] px-3 py-2 text-[13px]"
+                              >
+                                <span className="font-medium">
+                                  {t(VERIFICATION_TYPE_KEYS[v.verification_type] ?? 'verification_type_identity')}
+                                </span>
+                                <span className="text-[var(--kwork-text-muted)]">{t(statusKey)}</span>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="settings-security-block">
+                  <TrustScoreBreakdown />
+                </div>
+
+                <div className="settings-security-block">
+                  <h2 className="settings-section-title">{t('company_section_title')}</h2>
+                  <p className="settings-section-note">{t('company_section_desc')}</p>
+                  <div className="mt-4">
+                    <CompanySelfServiceSection />
+                  </div>
+                </div>
+
+                <div className="settings-security-block">
+                  <h2 className="settings-section-title">{t('stir_section_title')}</h2>
+                  <p className="settings-section-note">{t('stir_section_desc')}</p>
+                  <div className="mt-4">
+                    <CompanyStirSection />
+                  </div>
                 </div>
 
                 <div className="settings-security-block">
                   <h2 className="settings-section-title">{t('two_factor')}</h2>
                   <p className="settings-section-note">{t('two_factor_desc')}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={() => toast.info(t('two_factor_soon'))}
-                  >
-                    {t('enable_2fa')}
-                  </Button>
+                  <TotpSettingsSection />
                 </div>
               </>
             )}
@@ -880,9 +978,11 @@ export function ProfileSettings() {
                   <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">
                     {t('settings_verify_phone_desc')}
                   </p>
-                  <Button variant="primary" size="sm" className="mt-4">
-                    {t('settings_verify_now')}
-                  </Button>
+                  <PhoneVerifySection
+                    phone={formData.phone}
+                    verified={Boolean(profile?.phone_verified_at)}
+                    onVerified={() => void refreshProfile()}
+                  />
                 </div>
 
                 <div className="settings-form-stack mt-5">

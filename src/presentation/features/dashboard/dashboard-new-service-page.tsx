@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -20,6 +20,11 @@ import { cn } from '@/shared/lib/utils'
 import { serviceCreateSchema } from '@/domain/validators/service'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { toast } from '@/presentation/components/ui/toast'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import { useServerDraft } from '@/shared/lib/use-server-draft'
+import { ServicePackagesEditor } from '@/presentation/components/dashboard/service-packages-editor'
+import { buildDefaultPackages } from '@/shared/lib/service-packages'
+import type { ApiServicePackage } from '@/infrastructure/api/types'
 
 function fieldMsg(template: string, field: string, n?: number): string {
   return template.replace('{field}', field).replace('{n}', String(n ?? ''))
@@ -39,6 +44,7 @@ const STEPS = [1, 2, 3] as const
 
 export function DashboardNewServicePage() {
   const { t, userId, profile } = useApp()
+  const { ready, authed } = useAuthReady()
   const router = useRouter()
   const [step, setStep] = useState<(typeof STEPS)[number]>(1)
   const [title, setTitle] = useState('')
@@ -53,17 +59,91 @@ export function DashboardNewServicePage() {
   const [publishing, setPublishing] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const draftHydrated = useRef(false)
+  const [packages, setPackages] = useState<ApiServicePackage[]>(buildDefaultPackages(0, 5))
+  const [packagesCustomized, setPackagesCustomized] = useState(false)
+
+  const parsePrice = (raw: string) => {
+    const digits = raw.replace(/\D/g, '')
+    return digits ? parseInt(digits, 10) : 0
+  }
+
+  const draftPayload = useMemo(
+    () => ({
+      step,
+      title,
+      category,
+      description,
+      price,
+      deliveryDays,
+      region,
+      imageUrls,
+      packages,
+    }),
+    [step, title, category, description, price, deliveryDays, region, imageUrls, packages]
+  )
+
+  const draft = useServerDraft('new-service', draftPayload, authed, (remote) => {
+    if (draftHydrated.current) return
+    if (!remote.title && !remote.description && !remote.category) return
+    draftHydrated.current = true
+    if (typeof remote.step === 'number') setStep(remote.step as (typeof STEPS)[number])
+    if (typeof remote.title === 'string') setTitle(remote.title)
+    if (typeof remote.category === 'string') setCategory(remote.category)
+    if (typeof remote.description === 'string') setDescription(remote.description)
+    if (typeof remote.price === 'string') setPrice(remote.price)
+    if (typeof remote.deliveryDays === 'string') setDeliveryDays(remote.deliveryDays)
+    if (typeof remote.region === 'string') setRegion(remote.region)
+    if (Array.isArray(remote.imageUrls)) setImageUrls(remote.imageUrls as string[])
+    if (Array.isArray(remote.packages)) {
+      setPackages(remote.packages as ApiServicePackage[])
+      setPackagesCustomized(true)
+    }
+    toast.info(t('draft_restored'))
+  })
+
+  useEffect(() => {
+    if (draftHydrated.current) return
+    draftHydrated.current = true
+    const restored = draft.hydrate({
+      step: 1,
+      title: '',
+      category: '',
+      description: '',
+      price: '',
+      deliveryDays: '5',
+      region: profile?.region ?? UZ_REGIONS[0],
+      imageUrls: [] as string[],
+      packages: buildDefaultPackages(0, 5),
+    }) as typeof draftPayload
+    if (restored.title || restored.description || restored.category) {
+      if (typeof restored.step === 'number') setStep(restored.step as (typeof STEPS)[number])
+      setTitle(restored.title)
+      setCategory(restored.category)
+      setDescription(restored.description)
+      setPrice(restored.price)
+      setDeliveryDays(restored.deliveryDays)
+      setRegion(restored.region)
+      if (Array.isArray(restored.imageUrls)) setImageUrls(restored.imageUrls)
+      if (Array.isArray(restored.packages)) {
+        setPackages(restored.packages)
+        setPackagesCustomized(true)
+      }
+    }
+  }, [draft, profile?.region])
+
+  useEffect(() => {
+    if (packagesCustomized) return
+    const priceNum = parsePrice(price)
+    const days = parseInt(deliveryDays, 10) || 5
+    setPackages(buildDefaultPackages(priceNum, days))
+  }, [price, deliveryDays, packagesCustomized])
 
   const stepLabels = [
     t('create_service_step_basic'),
     t('create_service_step_pricing'),
     t('create_service_step_media'),
   ]
-
-  const parsePrice = (raw: string) => {
-    const digits = raw.replace(/\D/g, '')
-    return digits ? parseInt(digits, 10) : 0
-  }
 
   const fieldLabels: Record<string, string> = {
     title: t('service_title'),
@@ -145,8 +225,13 @@ export function DashboardNewServicePage() {
   }
 
   const handlePublish = async () => {
-    const priceNum = parsePrice(price)
-    const days = parseInt(deliveryDays, 10) || 5
+    if (!ready || !authed || !userId) return
+    const basicPkg = packages.find((p) => p.id === 'basic')
+    const priceNum = basicPkg?.price && basicPkg.price > 0 ? basicPkg.price : parsePrice(price)
+    const days =
+      basicPkg?.delivery_days && basicPkg.delivery_days > 0
+        ? basicPkg.delivery_days
+        : parseInt(deliveryDays, 10) || 5
     if (
       !collectFieldErrors({
         title: title.trim(),
@@ -178,22 +263,9 @@ export function DashboardNewServicePage() {
         region,
         image_urls: urls,
         delivery_days: safeDays,
-        packages: [
-          { id: 'basic', label_key: 'package_basic', price: priceNum, delivery_days: safeDays },
-          {
-            id: 'standard',
-            label_key: 'package_standard',
-            price: Math.round(priceNum * 1.5),
-            delivery_days: Math.max(1, safeDays - 1),
-          },
-          {
-            id: 'premium',
-            label_key: 'package_premium',
-            price: Math.round(priceNum * 2.2),
-            delivery_days: Math.max(1, safeDays - 2),
-          },
-        ],
+        packages,
       })
+      draft.clear()
       router.push(`${PATHS.dashboardFreelancer}?created=1`)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error_required'))
@@ -325,6 +397,26 @@ export function DashboardNewServicePage() {
               onChange={(e) => setRegion(e.target.value)}
               options={UZ_REGIONS.map((r) => ({ value: r, label: r }))}
               placeholder={t('select')}
+            />
+            <ServicePackagesEditor
+              packages={packages}
+              onChange={(next) => {
+                setPackagesCustomized(true)
+                setPackages(next)
+                const basic = next.find((p) => p.id === 'basic')
+                if (basic) {
+                  setPrice(String(basic.price))
+                  setDeliveryDays(String(basic.delivery_days))
+                }
+              }}
+              onResetSuggested={() => {
+                setPackagesCustomized(false)
+                const next = buildDefaultPackages(parsePrice(price), parseInt(deliveryDays, 10) || 5)
+                setPackages(next)
+                setPrice(String(next[0]?.price ?? 0))
+                setDeliveryDays(String(next[0]?.delivery_days ?? 5))
+              }}
+              disabled={publishing}
             />
           </div>
         )}

@@ -42,6 +42,10 @@ export const PATHS = {
   adminBroadcast: '/admin/broadcast',
   adminCompanies: '/admin/companies',
   adminFeatureFlags: '/admin/feature-flags',
+  adminBackups: '/admin/backups',
+  adminFraud: '/admin/fraud',
+  adminAnalytics: '/admin/analytics',
+  adminUserDetail: (id: string) => `/admin/users/${id}`,
   terms: '/terms',
   privacy: '/privacy',
   buyerProtection: '/buyer-protection',
@@ -60,8 +64,15 @@ export function servicePath(id: string) {
   return `/services/${id}`
 }
 
-export function freelancerPath(id: string) {
-  return `/freelancer/${id}`
+export type FreelancerPathInput =
+  | string
+  | { id: string; username?: string | null }
+
+export function freelancerPath(target: FreelancerPathInput): string {
+  if (typeof target === 'string') return `/freelancer/${target}`
+  const slug = target.username?.trim()
+  if (slug && slug.length >= 3) return `/freelancer/${slug}`
+  return `/freelancer/${target.id}`
 }
 
 export function dashboardOrderPath(id: string) {
@@ -80,8 +91,14 @@ export function dashboardDispute(id: string) {
   return `/dashboard/disputes/${id}`
 }
 
-export function dashboardCall(contractId: string) {
-  return `/dashboard/calls/${contractId}`
+/** Call session ID (POST /calls javobi) */
+export function dashboardCallRoom(callId: string) {
+  return `/dashboard/calls/${callId}`
+}
+
+/** @deprecated dashboardCallRoom ishlating — bu call session ID */
+export function dashboardCall(callId: string) {
+  return dashboardCallRoom(callId)
 }
 
 export type AppPath = (typeof PATHS)[keyof typeof PATHS]

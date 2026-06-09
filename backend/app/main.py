@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 from postgrest.exceptions import APIError
 
 from app.config import settings
+from app.supabase_instrumentation import reset_request_route, set_request_route
+from app.origin_guard import validate_origin
 from app.rate_limit import check_rate_limit
 from app.idempotency import idempotency_middleware
 from app.sentry_init import init_sentry
@@ -18,6 +20,7 @@ from app.routers import (
     companies,
     contracts,
     conversations,
+    dashboard,
     disputes,
     health,
     messages,
@@ -36,6 +39,7 @@ from app.routers import (
     waitlist,
     platform,
     trust,
+    security,
 )
 from app.supabase_errors import supabase_api_error_handler
 
@@ -86,6 +90,7 @@ app.include_router(contracts.router, prefix="/api/v1")
 app.include_router(milestones.router, prefix="/api/v1")
 app.include_router(disputes.router, prefix="/api/v1")
 app.include_router(conversations.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(calls.router, prefix="/api/v1")
 app.include_router(messages.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
@@ -98,23 +103,45 @@ app.include_router(waitlist.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
 app.include_router(platform.router, prefix="/api/v1")
 app.include_router(trust.router, prefix="/api/v1")
+app.include_router(security.router, prefix="/api/v1")
 
 app.add_exception_handler(APIError, supabase_api_error_handler)
 
 _RATE_PATHS = (
     "/api/v1/messages",
-    "/api/v1/payments/orders",
+    "/api/v1/payments",
     "/api/v1/orders",
     "/api/v1/waitlist",
     "/api/v1/profiles/me/referral",
     "/api/v1/ai",
+    "/api/v1/security",
+    "/api/v1/admin",
+    "/api/v1/platform/analytics",
+    "/api/v1/contracts",
 )
 _WEBHOOK_PATH_PREFIX = "/api/v1/payments/webhooks"
 
 
 @app.middleware("http")
+async def supabase_request_audit(request: Request, call_next):
+    token = set_request_route(request.method, request.url.path)
+    try:
+        return await call_next(request)
+    finally:
+        reset_request_route(token)
+
+
+@app.middleware("http")
 async def idempotency(request: Request, call_next):
     return await idempotency_middleware(request, call_next)
+
+
+@app.middleware("http")
+async def origin_guard(request: Request, call_next):
+    blocked = validate_origin(request)
+    if blocked is not None:
+        return blocked
+    return await call_next(request)
 
 
 @app.middleware("http")

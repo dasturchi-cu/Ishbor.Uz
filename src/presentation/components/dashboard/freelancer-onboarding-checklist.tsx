@@ -8,6 +8,7 @@ import { PATHS } from '@/domain/constants/routes'
 import { profileCompletionPercent } from '@/shared/lib/profile-completion'
 import type { ApiService } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
+import { freelancerOnboardingProgress } from '@/shared/lib/onboarding-progress'
 
 const BIRJA_SEEN_KEY = 'ishbor_onboarding_birja_seen'
 
@@ -72,8 +73,8 @@ export function FreelancerOnboardingChecklist({
     [birjaSeen, completion, hasOrders, profile?.bio, services, t]
   )
 
-  const allDone = steps.every((s) => s.done)
-  if (allDone) return null
+  const progress = freelancerOnboardingProgress(profile, services, hasOrders, birjaSeen)
+  if (progress.complete) return null
 
   const markBirjaSeen = () => {
     try {
@@ -95,7 +96,7 @@ export function FreelancerOnboardingChecklist({
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-[15px] font-bold text-[var(--kwork-text)]">{t('onboarding_first_steps')}</h2>
         <span className="text-[12px] font-medium text-[var(--kwork-text-muted)]">
-          {steps.filter((s) => s.done).length}/{steps.length}
+          {progress.done}/{progress.total}
         </span>
       </div>
       <ul className="space-y-2">

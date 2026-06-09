@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Bookmark } from 'lucide-react'
@@ -9,15 +9,16 @@ import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { ServiceCard } from '@/presentation/components/features/service-card'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { Button } from '@/presentation/components/ui/button'
-import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { SkeletonCard } from '@/presentation/components/ui/skeleton'
 import { api } from '@/infrastructure/api/client'
-import type { ApiProject, ApiService } from '@/infrastructure/api/types'
+import type { ApiProject } from '@/infrastructure/api/types'
 import { toggleSavedFreelancer } from '@/shared/lib/saved-items'
 import { PATHS, servicePath, freelancerPath, projectPath } from '@/domain/constants/routes'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { formatPrice } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/utils'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 
 type SavedTab = 'services' | 'freelancers' | 'projects'
 
@@ -25,34 +26,38 @@ export function DashboardSavedPage() {
   const { t } = useApp()
   const router = useRouter()
   const [tab, setTab] = useState<SavedTab>('services')
-  const [services, setServices] = useState<ApiService[]>([])
-  const [freelancers, setFreelancers] = useState<Awaited<ReturnType<typeof api.listFreelancers>>>([])
-  const [projects, setProjects] = useState<ApiProject[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
-
-  const loadSaved = () => {
-    setLoading(true)
-    setLoadError(false)
-    Promise.all([
+  const fetchSaved = useCallback(async () => {
+    const [svcResult, frResult, prResult] = await Promise.allSettled([
       api.listSavedServicesEnriched(),
       api.listSavedFreelancersEnriched(),
       api.listSavedProjects().then((rows) =>
         rows.map((r) => r.projects).filter(Boolean) as ApiProject[]
       ),
     ])
-      .then(([svc, fr, pr]) => {
-        setServices(svc)
-        setFreelancers(fr as Awaited<ReturnType<typeof api.listFreelancers>>)
-        setProjects(pr)
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    loadSaved()
+    const failures = [svcResult, frResult, prResult].filter((r) => r.status === 'rejected')
+    if (failures.length === 3) {
+      throw failures[0].reason
+    }
+    return {
+      services: svcResult.status === 'fulfilled' ? svcResult.value : [],
+      freelancers:
+        frResult.status === 'fulfilled'
+          ? (frResult.value as Awaited<ReturnType<typeof api.listFreelancers>>)
+          : [],
+      projects: prResult.status === 'fulfilled' ? prResult.value : [],
+    }
   }, [])
+
+  const {
+    data: savedData,
+    loading,
+    error: savedLoadError,
+    loadError: savedFetchError,
+    reload: loadSaved,
+  } = useProtectedLoader(fetchSaved, [])
+  const services = savedData?.services ?? []
+  const freelancers = savedData?.freelancers ?? []
+  const projects = savedData?.projects ?? []
 
   const counts: Record<SavedTab, number> = {
     services: services.length,
@@ -93,15 +98,13 @@ export function DashboardSavedPage() {
         ))}
       </div>
 
-      {loadError && (
-        <Alert variant="error" className="mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('data_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadSaved}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {savedLoadError && (
+        <LoadErrorAlert
+          error={savedFetchError}
+          scope="saved"
+          onRetry={loadSaved}
+          className="mb-4"
+        />
       )}
 
       {loading ? (
@@ -110,7 +113,7 @@ export function DashboardSavedPage() {
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : !hasItems && !loadError ? (
+      ) : !hasItems && !savedFetchError ? (
         <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
           <EmptyState
             icon={<Bookmark />}
@@ -172,7 +175,7 @@ export function DashboardSavedPage() {
                 isVerified={f.is_verified}
                 trustScore={f.trust_score}
                 variant="grid"
-                onClick={() => router.push(freelancerPath(f.id))}
+                onClick={() => router.push(freelancerPath(f))}
               />
               <button
                 type="button"
@@ -180,7 +183,7 @@ export function DashboardSavedPage() {
                 onClick={async (e) => {
                   e.stopPropagation()
                   await toggleSavedFreelancer(f.id)
-                  setFreelancers((prev) => prev.filter((x) => x.id !== f.id))
+                  void loadSaved()
                 }}
               >
                 {t('unsave')}

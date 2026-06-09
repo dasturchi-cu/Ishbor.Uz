@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
-import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { api } from '@/infrastructure/api/client'
 import type { ApiAdminStats, ApiOrder, ApiProfile, ApiService, ApiWaitlistEntry, ApiWithdrawalRequest } from '@/infrastructure/api/types'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
@@ -17,6 +17,8 @@ import { OrderStatusBadge } from '@/presentation/components/features/order-statu
 import { downloadCsv } from '@/shared/lib/csv-export'
 import { AdminSaasPanel } from '@/presentation/features/admin/admin-saas-panel'
 import { ConfirmModal } from '@/presentation/components/dashboard/confirm-modal'
+import { Badge } from '@/presentation/components/ui/badge'
+import { withdrawalStatusLabel } from '@/shared/lib/withdrawal-status'
 
 type PendingConfirm = {
   title: string
@@ -39,12 +41,12 @@ export type AdminPageSection =
   | 'integrations'
 
 export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
-  const { t, profile, isAuthLoading, isLoggedIn, currentUserRole, refreshProfile } = useApp()
+  const { t, profile, currentUserRole } = useApp()
+  const { ready, authed } = useAuthReady()
   const [stats, setStats] = useState<ApiAdminStats | null>(null)
   const [users, setUsers] = useState<ApiProfile[]>([])
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [error, setError] = useState('')
-  const [profileLoading, setProfileLoading] = useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set())
@@ -80,13 +82,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
   const [exporting, setExporting] = useState<'users' | 'orders' | 'waitlist' | 'disputes' | 'services' | null>(null)
 
   useEffect(() => {
-    if (isAuthLoading || !isLoggedIn || profile || profileLoading) return
-    setProfileLoading(true)
-    refreshProfile().finally(() => setProfileLoading(false))
-  }, [isAuthLoading, isLoggedIn, profile, profileLoading, refreshProfile])
-
-  useEffect(() => {
-    if (!profile?.is_admin) return
+    if (!ready || !authed || !profile?.is_admin) return
 
     let cancelled = false
     setError('')
@@ -196,7 +192,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
     return () => {
       cancelled = true
     }
-  }, [profile, t])
+  }, [ready, authed, profile?.is_admin, t])
 
   const isUsersSection = section === 'users'
   const isOrdersSection = section === 'orders'
@@ -625,12 +621,6 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
     }
   }
 
-  const profileReady = !isAuthLoading && !profileLoading && (!isLoggedIn || profile !== null)
-
-  if (!profileReady) {
-    return <LoadingBlock className="py-10" />
-  }
-
   const show = (name: AdminPageSection) => section === 'all' || section === name
   const embedded = section !== 'all'
 
@@ -834,7 +824,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={userActionId === u.id || u.id === profile?.id || u.role !== 'freelancer'}
+                        disabled={userActionId === u.id || u.id === profile?.id}
                         onClick={async () => {
                           setUserActionId(u.id)
                           try {
@@ -848,6 +838,29 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                         }}
                       >
                         {u.is_verified ? t('admin_unverify') : t('badge_verified')}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={userActionId === u.id || u.id === profile?.id}
+                        onClick={() => {
+                          const nextSuspended = !u.is_suspended
+                          setPendingConfirm({
+                            title: nextSuspended ? t('admin_confirm_suspend') : t('admin_confirm_unsuspend'),
+                            danger: nextSuspended,
+                            onConfirm: async () => {
+                              setUserActionId(u.id)
+                              try {
+                                const updated = await api.adminSuspendUser(u.id, nextSuspended)
+                                setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)))
+                              } finally {
+                                setUserActionId(null)
+                              }
+                            },
+                          })
+                        }}
+                      >
+                        {u.is_suspended ? t('admin_unsuspend') : t('admin_suspend')}
                       </Button>
                       <Button
                         variant={u.is_banned ? 'primary' : 'danger'}
@@ -1064,7 +1077,14 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                   <p className="text-[12px] text-[var(--kwork-text-muted)]">{w.profiles?.email ?? '—'}</p>
                 </div>
                 <span className="font-semibold">{formatPrice(w.amount)}</span>
-                <span className="text-[var(--kwork-text-muted)]">{w.status}</span>
+                <Badge
+                  variant={
+                    w.status === 'approved' ? 'success' : w.status === 'rejected' ? 'error' : 'warning'
+                  }
+                  size="xs"
+                >
+                  {withdrawalStatusLabel(w.status, t)}
+                </Badge>
                 {w.status === 'pending' && (
                   <div className="flex gap-2">
                     <Button

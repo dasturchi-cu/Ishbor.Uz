@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -22,6 +22,7 @@ import { cn } from '@/shared/lib/utils'
 import { ShoppingBag } from 'lucide-react'
 import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
+import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 
 const TABS = ['all', 'pending', 'active', 'delivered', 'disputed', 'completed', 'cancelled'] as const
 const PAYMENT_FILTERS = ['all', 'unpaid', 'escrow'] as const
@@ -33,27 +34,14 @@ export function DashboardOrdersPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('all')
   const [paymentFilter, setPaymentFilter] = useState<(typeof PAYMENT_FILTERS)[number]>('all')
   const [search, setSearch] = useState('')
-  const [orders, setOrders] = useState<ApiOrder[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null)
-
-  const loadOrders = () => {
-    setLoading(true)
-    setLoadError(false)
-    api
-      .listOrders()
-      .then(setOrders)
-      .catch(() => {
-        setOrders([])
-        setLoadError(true)
-      })
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    loadOrders()
-  }, [])
+  const {
+    data: ordersData,
+    loading,
+    error: loadError,
+    reload: loadOrders,
+  } = useProtectedLoader(() => api.listOrders(), [])
+  const orders = ordersData ?? []
 
   const filtered = orders.filter((o) => {
     if (tab !== 'all' && o.status !== tab) return false
@@ -86,7 +74,7 @@ export function DashboardOrdersPage() {
   const updateStatus = async (order: ApiOrder, status: string, openReview = false) => {
     try {
       const updated = await api.updateOrderStatus(order.id, status)
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)))
+      void loadOrders()
       if (openReview) setReviewOrder(updated)
     } catch {
       toast.error(t('error_order_update'))

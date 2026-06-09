@@ -19,12 +19,14 @@ import {
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { RatingStars } from '@/presentation/components/ui/rating-stars'
 import { ServiceCard } from '@/presentation/components/features/service-card'
 import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiProfilePublic, ApiReview, ApiService } from '@/infrastructure/api/types'
-import { PATHS, servicePath } from '@/domain/constants/routes'
+import { freelancerPath, PATHS, servicePath } from '@/domain/constants/routes'
+import { isUuid } from '@/shared/lib/uuid'
 import { loginPath, registerPath } from '@/shared/lib/auth-redirect'
 import { toast } from '@/presentation/components/ui/toast'
 import type { TranslationKey } from '@/infrastructure/i18n'
@@ -72,7 +74,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   const [services, setServices] = useState<ApiService[]>([])
   const [reviews, setReviews] = useState<ApiReview[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const [fetchError, setFetchError] = useState<unknown>(null)
   const [favorite, setFavorite] = useState(false)
   const [contactHint, setContactHint] = useState(false)
   const [activeTab, setActiveTab] = useState<ProfileTab>('about')
@@ -86,12 +88,16 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
   const loadProfile = useCallback(() => {
     setLoading(true)
-    setLoadError(false)
-    Promise.all([
-      api.getProfileById(profileId),
-      api.listFreelancerServices(profileId),
-      api.listFreelancerReviews(profileId),
-    ])
+    setFetchError(null)
+    api
+      .getProfileById(profileId)
+      .then((p) =>
+        Promise.all([
+          Promise.resolve(p),
+          api.listFreelancerServices(p.id),
+          api.listFreelancerReviews(p.id),
+        ])
+      )
       .then(([p, s, r]) => {
         setProfile(p)
         setServices(s)
@@ -99,10 +105,17 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
       })
       .catch((e) => {
         setProfile(null)
-        setLoadError(!(e instanceof ApiError && e.status === 404))
+        setFetchError(e instanceof ApiError && e.status === 404 ? null : e)
       })
       .finally(() => setLoading(false))
   }, [profileId])
+
+  useEffect(() => {
+    if (!profile?.username || profile.username.length < 3) return
+    if (isUuid(profileId)) {
+      router.replace(freelancerPath(profile))
+    }
+  }, [profile, profileId, router])
 
   useEffect(() => {
     loadProfile()
@@ -173,15 +186,8 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   if (!profile) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16">
-        {loadError ? (
-          <Alert variant="error">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span>{t('data_load_failed')}</span>
-              <Button variant="outline" size="sm" onClick={loadProfile}>
-                {t('catalog_retry')}
-              </Button>
-            </div>
-          </Alert>
+        {fetchError ? (
+          <LoadErrorAlert error={fetchError} scope="profile" onRetry={loadProfile} />
         ) : (
           <EmptyState
             icon={<UserX />}

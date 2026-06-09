@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.platform_services import log_activity, log_audit
@@ -31,6 +33,16 @@ from app.schemas import (
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
+_PUBLIC_PROFILE_TABLE = "public_freelancer_profiles"
+_PUBLIC_PROFILE_COLUMNS = (
+    "id, role, username, full_name, bio, region, specialty, avatar_url, created_at, profile_views, "
+    "skills, hourly_rate, experience_level, is_verified, portfolio_urls, languages"
+)
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
 DEFAULT_NOTIF_PREFS = {
     "emailNewOrders": True,
     "emailPromotions": False,
@@ -46,6 +58,27 @@ def normalize_username(raw: str) -> str:
     return slug
 
 
+def _is_uuid(value: str) -> bool:
+    return bool(_UUID_RE.match(value.strip()))
+
+
+def _fetch_public_profile_row(supabase, identifier: str) -> dict:
+    """UUID yoki username — xavfsiz public_freelancer_profiles view."""
+    ident = identifier.strip()
+    query = supabase.table(_PUBLIC_PROFILE_TABLE).select(_PUBLIC_PROFILE_COLUMNS)
+    if _is_uuid(ident):
+        query = query.eq("id", ident)
+    else:
+        slug = normalize_username(ident)
+        if len(slug) < 3:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+        query = query.eq("username", slug)
+    result = run_query(lambda: query.limit(1).execute())
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+    return result.data[0]
+
+
 
 
 
@@ -58,26 +91,34 @@ def apply_referral(payload: ReferralApply, auth: UserAuthDep):
 
     supabase = get_supabase_admin()
 
-    referrer = supabase.table("profiles").select("id").eq("id", referrer_id).single().execute()
+    referrer = run_query(
+        lambda: supabase.table("profiles").select("id").eq("id", referrer_id).single().execute()
+    )
     if not referrer.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Referrer topilmadi")
 
-    me = supabase.table("profiles").select("referred_by").eq("id", user_id).single().execute()
+    me = run_query(
+        lambda: supabase.table("profiles").select("referred_by").eq("id", user_id).single().execute()
+    )
     if not me.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
     if me.data.get("referred_by"):
         return None
 
-    existing = (
-        supabase.table("referrals").select("id").eq("referred_id", user_id).limit(1).execute()
+    existing = run_query(
+        lambda: supabase.table("referrals").select("id").eq("referred_id", user_id).limit(1).execute()
     )
     if existing.data:
         return None
 
-    supabase.table("referrals").insert(
-        {"referrer_id": referrer_id, "referred_id": user_id}
-    ).execute()
-    supabase.table("profiles").update({"referred_by": referrer_id}).eq("id", user_id).execute()
+    run_query(
+        lambda: supabase.table("referrals")
+        .insert({"referrer_id": referrer_id, "referred_id": user_id})
+        .execute()
+    )
+    run_query(
+        lambda: supabase.table("profiles").update({"referred_by": referrer_id}).eq("id", user_id).execute()
+    )
     return None
 
 
@@ -85,14 +126,14 @@ def apply_referral(payload: ReferralApply, auth: UserAuthDep):
 def referral_stats(auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    all_refs = (
-        supabase.table("referrals")
+    all_refs = run_query(
+        lambda: supabase.table("referrals")
         .select("id", count="exact")
         .eq("referrer_id", user_id)
         .execute()
     )
-    credited = (
-        supabase.table("referrals")
+    credited = run_query(
+        lambda: supabase.table("referrals")
         .select("id", count="exact")
         .eq("referrer_id", user_id)
         .eq("bonus_credited", True)
@@ -122,12 +163,11 @@ def get_my_profile(auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
 
-    result = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-
+    result = run_query(
+        lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+    )
     if not result.data:
-
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-
     return result.data
 
 
@@ -155,8 +195,8 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
         slug = normalize_username(data["username"])
         if len(slug) < 3:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username juda qisqa")
-        taken = (
-            supabase.table("profiles")
+        taken = run_query(
+            lambda: supabase.table("profiles")
             .select("id")
             .eq("username", slug)
             .neq("id", user_id)
@@ -168,8 +208,8 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
         data["username"] = slug
 
     if data.get("onboarding_completed"):
-        current_row = (
-            supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        current_row = run_query(
+            lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
         )
         merged = {**(current_row.data or {}), **data}
         if not (merged.get("full_name") or "").strip():
@@ -188,9 +228,11 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
                 detail="Onboarding: viloyat talab qilinadi",
             )
 
-    supabase.table("profiles").update(data).eq("id", user_id).execute()
+    run_query(lambda: supabase.table("profiles").update(data).eq("id", user_id).execute())
 
-    refetch = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+    refetch = run_query(
+        lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+    )
     if not refetch.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
 
@@ -211,27 +253,10 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
 def update_my_role(payload: ProfileRoleUpdate, auth: UserAuthDep, request: Request):
     user_id = auth.user_id
     supabase = auth.supabase
-    supabase.table("profiles").update({"role": payload.role}).eq("id", user_id).execute()
-    refetch = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-    if not refetch.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-    log_audit(
-        actor_id=user_id,
-        action="profile_role_update",
-        entity_type="profile",
-        entity_id=user_id,
-        metadata={"role": payload.role},
-        request=request,
+    run_query(lambda: supabase.table("profiles").update({"role": payload.role}).eq("id", user_id).execute())
+    refetch = run_query(
+        lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
     )
-    return refetch.data
-
-
-@router.patch("/me/role", response_model=ProfileResponse)
-def update_my_role(payload: ProfileRoleUpdate, auth: UserAuthDep, request: Request):
-    user_id = auth.user_id
-    supabase = auth.supabase
-    supabase.table("profiles").update({"role": payload.role}).eq("id", user_id).execute()
-    refetch = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
     if not refetch.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
     log_audit(
@@ -249,17 +274,22 @@ def update_my_role(payload: ProfileRoleUpdate, auth: UserAuthDep, request: Reque
 def delete_my_profile(auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    supabase.table("profiles").update(
-        {
-            "is_banned": True,
-            "full_name": "Deleted User",
-            "bio": None,
-            "specialty": None,
-            "avatar_url": None,
-            "portfolio_urls": [],
-            "skills": [],
-        }
-    ).eq("id", user_id).execute()
+    run_query(
+        lambda: supabase.table("profiles")
+        .update(
+            {
+                "is_banned": True,
+                "full_name": "Deleted User",
+                "bio": None,
+                "specialty": None,
+                "avatar_url": None,
+                "portfolio_urls": [],
+                "skills": [],
+            }
+        )
+        .eq("id", user_id)
+        .execute()
+    )
     try:
         get_supabase_admin().auth.admin.delete_user(user_id)
     except Exception as exc:
@@ -271,7 +301,13 @@ def delete_my_profile(auth: UserAuthDep):
 
 
 def _load_notification_prefs(supabase, user_id: str) -> dict:
-    row = supabase.table("profiles").select("notification_preferences").eq("id", user_id).single().execute()
+    row = run_query(
+        lambda: supabase.table("profiles")
+        .select("notification_preferences")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
     if not row.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
     prefs = row.data.get("notification_preferences") or DEFAULT_NOTIF_PREFS
@@ -284,7 +320,9 @@ def check_username(user_id: OptionalUserId, username: str = Query(..., min_lengt
     if len(slug) < 3:
         return {"available": False}
     supabase = get_supabase_admin()
-    existing = supabase.table("profiles").select("id").eq("username", slug).limit(1).execute()
+    existing = run_query(
+        lambda: supabase.table("profiles").select("id").eq("username", slug).limit(1).execute()
+    )
     if not existing.data:
         return {"available": True}
     if user_id and existing.data[0]["id"] == user_id:
@@ -303,12 +341,19 @@ def update_notification_prefs(payload: NotificationPrefsUpdate, auth: UserAuthDe
     supabase = auth.supabase
     current = _load_notification_prefs(supabase, user_id)
     merged = {**current, **payload.model_dump(exclude_none=True)}
-    supabase.table("profiles").update({"notification_preferences": merged}).eq("id", user_id).execute()
+    run_query(
+        lambda: supabase.table("profiles")
+        .update({"notification_preferences": merged})
+        .eq("id", user_id)
+        .execute()
+    )
     return merged
 
 
 def _load_ui_preferences(supabase, user_id: str) -> dict:
-    row = supabase.table("profiles").select("ui_preferences").eq("id", user_id).single().execute()
+    row = run_query(
+        lambda: supabase.table("profiles").select("ui_preferences").eq("id", user_id).single().execute()
+    )
     if not row.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
     prefs = row.data.get("ui_preferences") or {}
@@ -326,7 +371,9 @@ def update_ui_preferences(payload: UiPreferencesUpdate, auth: UserAuthDep):
     supabase = auth.supabase
     current = _load_ui_preferences(supabase, user_id)
     merged = {**current, **payload.model_dump(exclude_none=True)}
-    supabase.table("profiles").update({"ui_preferences": merged}).eq("id", user_id).execute()
+    run_query(
+        lambda: supabase.table("profiles").update({"ui_preferences": merged}).eq("id", user_id).execute()
+    )
     return merged
 
 
@@ -343,24 +390,22 @@ def list_freelancers(
 
     supabase = get_supabase_admin()
 
-    query = (
-        supabase.table("profiles")
-        .select(
-            "id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, "
-            "skills, hourly_rate, experience_level, is_verified, portfolio_urls, languages"
-        )
-        .eq("role", "freelancer")
-        .eq("is_banned", False)
-    )
+    query = supabase.table(_PUBLIC_PROFILE_TABLE).select(_PUBLIC_PROFILE_COLUMNS)
     if region:
         query = query.eq("region", region)
     if specialty:
         query = query.ilike("specialty", f"%{specialty}%")
     if q:
-        pattern = f"%{q.strip()}%"
-        query = query.or_(f"full_name.ilike.{pattern},specialty.ilike.{pattern},bio.ilike.{pattern}")
+        from app.search_utils import sanitize_search_term
 
-    result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        safe_search = sanitize_search_term(q)
+        if safe_search:
+            pattern = f"%{safe_search}%"
+            query = query.or_(f"full_name.ilike.{pattern},specialty.ilike.{pattern},bio.ilike.{pattern}")
+
+    result = run_query(
+        lambda: query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    )
 
     rows = result.data or []
 
@@ -409,23 +454,21 @@ def record_profile_view(
     user_id: OptionalUserId = None,
 ):
     supabase = get_supabase_admin()
-    existing = supabase.table("profiles").select("id, profile_views").eq("id", profile_id).single().execute()
-    if not existing.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-    dedup = (
-        supabase.rpc(
+    row = _fetch_public_profile_row(supabase, profile_id)
+    resolved_id = row["id"]
+    dedup = run_query(
+        lambda: supabase.rpc(
             "record_view_if_new",
             {
                 "p_target_type": "profile",
-                "p_target_id": profile_id,
+                "p_target_id": resolved_id,
                 "p_viewer_key": _viewer_key(request, user_id),
             },
-        )
-        .execute()
+        ).execute()
     )
     if not dedup.data:
         return None
-    supabase.rpc("increment_profile_view_count", {"p_profile_id": profile_id}).execute()
+    run_query(lambda: supabase.rpc("increment_profile_view_count", {"p_profile_id": resolved_id}).execute())
     return None
 
 
@@ -434,39 +477,20 @@ def record_profile_view(
 def get_profile(profile_id: str):
 
     supabase = get_supabase_admin()
+    row = _fetch_public_profile_row(supabase, profile_id)
+    resolved_id = row["id"]
 
-    result = (
-
-        supabase.table("profiles")
-
-        .select(
-            "id, role, full_name, bio, region, specialty, avatar_url, created_at, profile_views, "
-            "skills, hourly_rate, experience_level, is_verified, portfolio_urls, languages, is_banned"
-        )
-
-        .eq("id", profile_id)
-
-        .single()
-
-        .execute()
-
-    )
-
-    if not result.data or result.data.get("is_banned"):
-
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-
-    avg, count = batch_review_stats(supabase, [profile_id]).get(profile_id, (0.0, 0))
-    completed = (
-        supabase.table("orders")
+    avg, count = batch_review_stats(supabase, [resolved_id]).get(resolved_id, (0.0, 0))
+    completed = run_query(
+        lambda: supabase.table("orders")
         .select("id", count="exact")
-        .eq("freelancer_id", profile_id)
+        .eq("freelancer_id", resolved_id)
         .eq("status", "completed")
         .execute()
     )
 
     return {
-        **result.data,
+        **row,
         "avg_rating": avg,
         "review_count": count,
         "completed_orders": completed.count or 0,

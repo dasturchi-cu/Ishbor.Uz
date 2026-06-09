@@ -1,166 +1,204 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+
+
+import { useQuery } from '@tanstack/react-query'
+
+import { useMemo } from 'react'
+
 import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiTransaction, ApiUserActivity } from '@/infrastructure/api/types'
-import { PATHS, dashboardOrderPath } from '@/domain/constants/routes'
+
+import type { ApiActivityFeedItem } from '@/infrastructure/api/types'
+
 import { formatPrice } from '@/shared/lib/format'
+
 import type { TranslationKey } from '@/infrastructure/i18n'
+
+import { queryKeys } from '@/shared/lib/query-keys'
+
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
+
+import { wrapQueryFn } from '@/shared/lib/request-debug'
+
+
 
 export type FeedKind = 'activity' | 'order' | 'message' | 'payment'
 
+
+
 export interface MergedFeedItem {
+
   id: string
+
   kind: FeedKind
+
   title: string
+
   body?: string
+
   href?: string
+
   created_at: string
+
 }
 
-const CACHE_TTL_MS = 30_000
-let cache: { at: number; items: MergedFeedItem[] } | null = null
+
 
 function orderStatusKey(status: string): TranslationKey {
+
   const map: Record<string, TranslationKey> = {
+
     pending: 'order_status_pending',
+
     active: 'order_status_active',
+
     delivered: 'order_status_delivered',
+
     completed: 'order_status_completed',
+
     cancelled: 'order_status_cancelled',
+
     revision: 'order_status_revision',
+
+    disputed: 'disputed',
+
   }
+
   return map[status] ?? 'order_status_pending'
+
 }
+
+
 
 function paymentLabelKey(type: string): TranslationKey {
+
   if (type.includes('withdraw')) return 'withdraw_money'
+
   if (type.includes('release') || type.includes('payout')) return 'payment_status_released'
+
   if (type.includes('refund')) return 'payment_status_refunded'
+
   if (type.includes('hold') || type.includes('escrow')) return 'payment_status_held'
+
   return 'nav_payments'
+
 }
 
-function dedupeItems(items: MergedFeedItem[]): MergedFeedItem[] {
-  const seen = new Set<string>()
-  const out: MergedFeedItem[] = []
-  for (const item of items) {
-    const key = item.href ? `${item.kind}:${item.href}` : item.id
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(item)
+
+
+function mapFeedItem(item: ApiActivityFeedItem, t: (key: TranslationKey) => string): MergedFeedItem {
+
+  if (item.kind === 'order') {
+
+    const amount = item.amount ?? 0
+
+    const status = item.order_status ?? 'pending'
+
+    return {
+
+      id: item.id,
+
+      kind: item.kind,
+
+      title: item.title === 'order' ? t('nav_orders') : item.title,
+
+      body: `${formatPrice(amount)} · ${t(orderStatusKey(status))}`,
+
+      href: item.href ?? undefined,
+
+      created_at: item.created_at,
+
+    }
+
   }
-  return out
+
+  if (item.kind === 'payment') {
+
+    return {
+
+      id: item.id,
+
+      kind: item.kind,
+
+      title: t(paymentLabelKey(item.payment_type ?? '')),
+
+      body: formatPrice(item.amount ?? 0),
+
+      href: item.href ?? undefined,
+
+      created_at: item.created_at,
+
+    }
+
+  }
+
+  return {
+
+    id: item.id,
+
+    kind: item.kind,
+
+    title: item.title,
+
+    body: item.body ?? undefined,
+
+    href: item.href ?? undefined,
+
+    created_at: item.created_at,
+
+  }
+
 }
 
-function buildFeed(
-  activities: ApiUserActivity[],
-  orders: ApiOrder[],
-  conversations: Awaited<ReturnType<typeof api.listConversations>>,
-  transactions: ApiTransaction[],
-  t: (key: TranslationKey) => string
-): MergedFeedItem[] {
-  const items: MergedFeedItem[] = []
 
-  for (const a of activities) {
-    items.push({
-      id: `activity-${a.id}`,
-      kind: 'activity',
-      title: a.title,
-      body: a.body ?? undefined,
-      href: a.href ?? undefined,
-      created_at: a.created_at,
-    })
-  }
-
-  for (const o of orders) {
-    const at = o.updated_at ?? o.created_at
-    if (!at) continue
-    items.push({
-      id: `order-${o.id}`,
-      kind: 'order',
-      title: o.services?.title ?? t('nav_orders'),
-      body: `${formatPrice(o.amount)} · ${t(orderStatusKey(o.status))}`,
-      href: dashboardOrderPath(o.id),
-      created_at: at,
-    })
-  }
-
-  for (const c of conversations) {
-    if (!c.last_message_at || !c.last_message) continue
-    items.push({
-      id: `message-${c.order_id}`,
-      kind: 'message',
-      title: c.other_user_name,
-      body: c.last_message,
-      href: `${PATHS.dashboardMessages}?order=${c.order_id}`,
-      created_at: c.last_message_at,
-    })
-  }
-
-  for (const tx of transactions) {
-    if (!tx.created_at) continue
-    items.push({
-      id: `payment-${tx.id}`,
-      kind: 'payment',
-      title: t(paymentLabelKey(tx.type ?? '')),
-      body: formatPrice(Math.abs(tx.amount)),
-      href: tx.order_id ? dashboardOrderPath(tx.order_id) : PATHS.dashboardWallet,
-      created_at: tx.created_at,
-    })
-  }
-
-  return dedupeItems(items)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 12)
-}
 
 export function useMergedActivityFeed(t: (key: TranslationKey) => string, limit = 12) {
-  const [items, setItems] = useState<MergedFeedItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const mounted = useRef(true)
 
-  const load = useCallback(
-    async (opts?: { silent?: boolean; force?: boolean }) => {
-      if (!opts?.force && cache && Date.now() - cache.at < CACHE_TTL_MS) {
-        setItems(cache.items.slice(0, limit))
-        setLoading(false)
-        return
-      }
+  const { ready, authed, userId } = useAuthReady()
 
-      if (!opts?.silent) setLoading(true)
 
-      const [activities, orders, conversations, transactions] = await Promise.all([
-        api.listActivities(10).catch(() => [] as ApiUserActivity[]),
-        api.listOrders({ limit: 12 }).catch(() => [] as ApiOrder[]),
-        api.listConversations().catch(() => []),
-        api.listTransactions().catch(() => [] as ApiTransaction[]),
-      ])
 
-      if (!mounted.current) return
+  const query = useQuery({
 
-      const merged = buildFeed(activities, orders, conversations, transactions, t)
-      cache = { at: Date.now(), items: merged }
-      setItems(merged.slice(0, limit))
-      setLoading(false)
-    },
-    [t, limit]
+    queryKey: queryKeys.activityFeed(limit),
+
+    queryFn: wrapQueryFn('activity-feed', () => api.getActivityFeed(limit), {
+      queryKey: `activity-feed:${limit}`,
+    }),
+    enabled: ready && authed && Boolean(userId),
+    staleTime: 60_000,
+    refetchOnMount: false,
+  })
+
+
+
+  const items = useMemo(
+
+    () => (query.data ?? []).map((item) => mapFeedItem(item, t)),
+
+    [query.data, t]
+
   )
 
-  useEffect(() => {
-    mounted.current = true
-    void load()
-    const onFocus = () => void load({ silent: true })
-    window.addEventListener('focus', onFocus)
-    return () => {
-      mounted.current = false
-      window.removeEventListener('focus', onFocus)
-    }
-  }, [load])
 
-  return { items, loading, reload: () => load({ force: true }) }
+
+  return {
+
+    items,
+
+    loading: query.isLoading,
+
+    reload: () => void query.refetch(),
+
+  }
+
 }
+
+
 
 export function clearMergedActivityFeedCache() {
-  cache = null
+
+  /* React Query cache — invalidate via queryClient if needed */
+
 }
+

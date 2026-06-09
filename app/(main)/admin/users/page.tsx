@@ -1,4 +1,4 @@
-import { AdminSectionPage } from '@/presentation/features/admin/admin-section-page'
+import { AdminUsersPage } from '@/presentation/features/admin/admin-users-page'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function AdminUsersRoute() {
-  return <AdminSectionPage section="users" />
+  return <AdminUsersPage />
 }

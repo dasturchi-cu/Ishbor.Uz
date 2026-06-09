@@ -104,7 +104,7 @@ def create_notification(
     _supabase,
     *,
     user_id: str,
-    type: Literal["order", "message", "review"],
+    type: Literal["order", "message", "review", "broadcast"],
     title: str,
     body: str,
     href: str | None = None,
@@ -121,11 +121,11 @@ def create_notification(
                 "href": href,
             }
         ).execute()
-        if type in ("order", "message", "review"):
+        if type in ("order", "message", "review", "broadcast"):
             _send_email(user_id, title, body)
         if urgent and type in ("order", "message"):
             _send_sms(user_id, f"{title}: {body}")
-        if type in ("order", "message", "review"):
+        if type in ("order", "message", "review", "broadcast"):
             _send_telegram(user_id, f"{title}\n{body}")
     except Exception:
         pass

@@ -18,15 +18,15 @@ _APPLICATION_TRANSITIONS: dict[str, set[str]] = {
 
 
 def _enrich_application(row: dict, supabase) -> dict:
-    freelancer = (
-        supabase.table("profiles")
+    freelancer = run_query(
+        lambda: supabase.table("profiles")
         .select("id, full_name, specialty, region, avatar_url")
         .eq("id", row["freelancer_id"])
         .single()
         .execute()
     )
-    project = (
-        supabase.table("projects")
+    project = run_query(
+        lambda: supabase.table("projects")
         .select("id, title, client_id, status, budget")
         .eq("id", row["project_id"])
         .single()
@@ -44,11 +44,15 @@ def create_application(payload: ApplicationCreate, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
 
-    profile = supabase.table("profiles").select("role").eq("id", user_id).single().execute()
+    profile = run_query(
+        lambda: supabase.table("profiles").select("role").eq("id", user_id).single().execute()
+    )
     if not profile.data or profile.data.get("role") != "freelancer":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat freelancer ariza yuborishi mumkin")
 
-    project = supabase.table("projects").select("*").eq("id", payload.project_id).single().execute()
+    project = run_query(
+        lambda: supabase.table("projects").select("*").eq("id", payload.project_id).single().execute()
+    )
     if not project.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
     if project.data.get("status") != "open":
@@ -56,8 +60,8 @@ def create_application(payload: ApplicationCreate, auth: UserAuthDep):
     if project.data.get("client_id") == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="O'z loyihangizga ariza yuborib bo'lmaydi")
 
-    existing = (
-        supabase.table("project_applications")
+    existing = run_query(
+        lambda: supabase.table("project_applications")
         .select("id")
         .eq("project_id", payload.project_id)
         .eq("freelancer_id", user_id)
@@ -85,7 +89,12 @@ def create_application(payload: ApplicationCreate, auth: UserAuthDep):
 
     row = result.data[0]
     if project.data.get("status") == "open":
-        supabase.table("projects").update({"status": "in_review"}).eq("id", payload.project_id).execute()
+        run_query(
+            lambda: supabase.table("projects")
+            .update({"status": "in_review"})
+            .eq("id", payload.project_id)
+            .execute()
+        )
     client_id = project.data.get("client_id")
     if client_id:
         create_notification(
@@ -103,8 +112,8 @@ def create_application(payload: ApplicationCreate, auth: UserAuthDep):
 def list_my_applications(auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    result = (
-        supabase.table("project_applications")
+    result = run_query(
+        lambda: supabase.table("project_applications")
         .select("*")
         .eq("freelancer_id", user_id)
         .order("created_at", desc=True)
@@ -117,14 +126,16 @@ def list_my_applications(auth: UserAuthDep):
 def list_project_applications(project_id: str, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    project = supabase.table("projects").select("client_id").eq("id", project_id).single().execute()
+    project = run_query(
+        lambda: supabase.table("projects").select("client_id").eq("id", project_id).single().execute()
+    )
     if not project.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
     if project.data["client_id"] != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
 
-    result = (
-        supabase.table("project_applications")
+    result = run_query(
+        lambda: supabase.table("project_applications")
         .select("*")
         .eq("project_id", project_id)
         .order("created_at", desc=True)
@@ -137,8 +148,12 @@ def list_project_applications(project_id: str, auth: UserAuthDep):
 def withdraw_application(application_id: str, auth: UserAuthDep):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = (
-        supabase.table("project_applications").select("*").eq("id", application_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("project_applications")
+        .select("*")
+        .eq("id", application_id)
+        .single()
+        .execute()
     )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ariza topilmadi")
@@ -151,7 +166,7 @@ def withdraw_application(application_id: str, auth: UserAuthDep):
             detail="Faqat kutilayotgan arizani bekor qilish mumkin",
         )
 
-    supabase.table("project_applications").delete().eq("id", application_id).execute()
+    run_query(lambda: supabase.table("project_applications").delete().eq("id", application_id).execute())
     return None
 
 
@@ -161,14 +176,18 @@ def update_application_status(
 ):
     user_id = auth.user_id
     supabase = auth.supabase
-    existing = (
-        supabase.table("project_applications").select("*").eq("id", application_id).single().execute()
+    existing = run_query(
+        lambda: supabase.table("project_applications")
+        .select("*")
+        .eq("id", application_id)
+        .single()
+        .execute()
     )
     if not existing.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ariza topilmadi")
 
-    project = (
-        supabase.table("projects")
+    project = run_query(
+        lambda: supabase.table("projects")
         .select("client_id")
         .eq("id", existing.data["project_id"])
         .single()
@@ -185,8 +204,8 @@ def update_application_status(
             detail=f"'{current_status}' dan '{payload.status}' ga o'tish mumkin emas",
         )
 
-    result = (
-        supabase.table("project_applications")
+    result = run_query(
+        lambda: supabase.table("project_applications")
         .update({"status": payload.status})
         .eq("id", application_id)
         .execute()
@@ -195,8 +214,8 @@ def update_application_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ariza topilmadi")
 
     row = result.data[0]
-    project_row = (
-        supabase.table("projects")
+    project_row = run_query(
+        lambda: supabase.table("projects")
         .select("title")
         .eq("id", row["project_id"])
         .single()
@@ -220,8 +239,8 @@ def update_application_status(
 
     if payload.status == "hired":
         admin = get_supabase_admin()
-        project_full = (
-            admin.table("projects")
+        project_full = run_query(
+            lambda: admin.table("projects")
             .select("*")
             .eq("id", row["project_id"])
             .single()
