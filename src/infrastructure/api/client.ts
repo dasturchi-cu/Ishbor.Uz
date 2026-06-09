@@ -1,4 +1,4 @@
-import { getCachedAccessToken } from '@/infrastructure/auth/session-cache'
+import { getCachedAccessToken, refreshCachedSession } from '@/infrastructure/auth/session-cache'
 import type { NotificationPrefs } from '@/shared/lib/notification-prefs'
 import type {
   ApiAdminStats,
@@ -52,8 +52,10 @@ export function getApiBaseUrl(): string {
   return resolveApiUrl() || DEFAULT_API_URL
 }
 
-async function getAuthHeader(): Promise<Record<string, string>> {
-  const token = await getCachedAccessToken()
+async function getAuthHeader(forceRefresh = false): Promise<Record<string, string>> {
+  const token = forceRefresh
+    ? (await refreshCachedSession())?.accessToken ?? null
+    : await getCachedAccessToken()
   if (token) return { Authorization: `Bearer ${token}` }
   return {}
 }
@@ -79,11 +81,39 @@ function paymentIdempotencyHeaders(): Record<string, string> {
   return {}
 }
 
+const RETRYABLE_GET_STATUSES = new Set([0, 408, 429, 503])
+const MAX_GET_ATTEMPTS = 3
+
+async function parseApiError(res: Response): Promise<ApiError> {
+  let detail = res.statusText
+  try {
+    const body = await res.json()
+    detail = body.detail ?? body.message ?? detail
+  } catch {
+    // ignore
+  }
+  if (detail === 'Internal Server Error' && res.status >= 500) {
+    detail = "Server xatosi. Sahifani yangilab qayta urinib ko'ring."
+  }
+  return new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), res.status)
+}
+
+async function retryGet<T>(
+  path: string,
+  options: RequestInit,
+  attempt: number,
+  refreshAuth: boolean
+): Promise<T> {
+  return apiFetch<T>(path, options, attempt, refreshAuth)
+}
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  attempt = 0,
+  refreshAuth = false
 ): Promise<T> {
-  const authHeader = await getAuthHeader()
+  const authHeader = await getAuthHeader(refreshAuth)
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...authHeader,
@@ -92,6 +122,9 @@ export async function apiFetch<T>(
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  const method = (options.method ?? 'GET').toUpperCase()
+  const isGet = method === 'GET'
+  const canRetry = isGet && attempt < MAX_GET_ATTEMPTS - 1
 
   try {
     const res = await fetch(`${resolveApiUrl()}${path}`, {
@@ -101,30 +134,40 @@ export async function apiFetch<T>(
     })
 
     if (!res.ok) {
-      let detail = res.statusText
-      try {
-        const body = await res.json()
-        detail = body.detail ?? body.message ?? detail
-      } catch {
-        // ignore
+      const err = await parseApiError(res)
+      if (canRetry) {
+        if (err.status === 401 && !refreshAuth) {
+          await refreshCachedSession()
+          await new Promise((r) => setTimeout(r, 200))
+          return retryGet<T>(path, options, attempt + 1, true)
+        }
+        if (RETRYABLE_GET_STATUSES.has(err.status)) {
+          await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
+          return retryGet<T>(path, options, attempt + 1, refreshAuth)
+        }
       }
-      if (detail === 'Internal Server Error' && res.status >= 500) {
-        detail = 'Server xatosi. Sahifani yangilab qayta urinib ko\'ring.'
-      }
-      throw new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), res.status)
+      throw err
     }
 
     if (res.status === 204) return undefined as T
     return res.json() as Promise<T>
   } catch (e) {
+    if (e instanceof ApiError) throw e
     if (e instanceof DOMException && e.name === 'AbortError') {
-      throw new ApiError('Server javob bermadi. Qayta urinib ko\'ring.', 408)
+      const err = new ApiError("Server javob bermadi. Qayta urinib ko'ring.", 408)
+      if (canRetry) {
+        await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
+        return retryGet<T>(path, options, attempt + 1, refreshAuth)
+      }
+      throw err
     }
     if (e instanceof TypeError && e.message.toLowerCase().includes('fetch')) {
-      throw new ApiError(
-        'Backend ishlamayapti. Terminalda: pnpm dev:api (port 8002)',
-        0
-      )
+      const err = new ApiError('Backend ishlamayapti. Terminalda: pnpm dev:api (port 8002)', 0)
+      if (canRetry) {
+        await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
+        return retryGet<T>(path, options, attempt + 1, refreshAuth)
+      }
+      throw err
     }
     throw e
   } finally {
@@ -267,6 +310,11 @@ export const api = {
     apiFetch<ApiCheckoutResponse>(`/api/v1/payments/orders/${orderId}/checkout`, {
       method: 'POST',
       body: JSON.stringify({ provider }),
+      headers: paymentIdempotencyHeaders(),
+    }),
+  payOrderFromWallet: (orderId: string) =>
+    apiFetch<ApiCheckoutResponse>(`/api/v1/payments/orders/${orderId}/pay-wallet`, {
+      method: 'POST',
       headers: paymentIdempotencyHeaders(),
     }),
   requestWithdrawal: (amount: number, note?: string) =>
@@ -551,11 +599,32 @@ export const api = {
     apiFetch<ApiEscrowTransaction[]>(`/api/v1/contracts/${id}/escrow`),
   listContractMilestones: (contractId: string) =>
     apiFetch<ApiMilestone[]>(`/api/v1/milestones/contract/${contractId}`),
-  createMilestone: (contractId: string, data: { title: string; amount: number; description?: string; due_date?: string }) =>
+  createMilestone: (
+    contractId: string,
+    data: { title: string; amount: number; description?: string; due_date?: string; sort_order?: number }
+  ) =>
     apiFetch<ApiMilestone>(`/api/v1/milestones/contract/${contractId}`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  updateMilestoneStatus: (milestoneId: string, status: string) =>
+    apiFetch<ApiMilestone>(`/api/v1/milestones/${milestoneId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+  walletTopup: (amount: number, provider: 'sandbox' | 'click' | 'payme' = 'sandbox') =>
+    apiFetch<{ id: string; amount: number; provider: string; status: string; redirect_url?: string | null }>(
+      '/api/v1/payments/wallet/topup',
+      {
+        method: 'POST',
+        body: JSON.stringify({ amount, provider }),
+        headers: paymentIdempotencyHeaders(),
+      }
+    ),
+  getWalletTopup: (intentId: string) =>
+    apiFetch<{ id: string; amount: number; provider: string; status: string; redirect_url?: string | null }>(
+      `/api/v1/payments/wallet/topup/${intentId}`
+    ),
   openDispute: (contractId: string, reason: string) =>
     apiFetch<ApiDispute>(`/api/v1/disputes/contract/${contractId}`, {
       method: 'POST',
@@ -706,6 +775,67 @@ export const api = {
   listFeatureFlags: () => apiFetch<import('./types').ApiFeatureFlag[]>('/api/v1/platform/feature-flags'),
   auditLogin: () => apiFetch<void>('/api/v1/platform/audit/login', { method: 'POST' }),
   auditRegister: () => apiFetch<void>('/api/v1/platform/audit/register', { method: 'POST' }),
+
+  getBuyerProtection: () => apiFetch<import('./types').ApiBuyerProtection>('/api/v1/trust/buyer-protection'),
+  getPublicDisputeStats: () =>
+    apiFetch<import('./types').ApiPublicDisputeStats>('/api/v1/trust/dispute-stats/public'),
+  getCurrentTerms: (docType: 'terms' | 'privacy' | 'buyer_protection') =>
+    apiFetch<{ version: string; title: string; content: string }>(
+      `/api/v1/trust/terms/current?doc_type=${docType}`,
+    ),
+  acceptTermsConsent: (doc_type: 'terms' | 'privacy' | 'buyer_protection', version: string) =>
+    apiFetch<void>('/api/v1/trust/terms/consent', {
+      method: 'POST',
+      body: JSON.stringify({ doc_type, version }),
+    }),
+  getTermsConsentStatus: () =>
+    apiFetch<{ accepted: Record<string, string>; pending: string[]; requires_consent: boolean }>(
+      '/api/v1/trust/terms/consent/status',
+    ),
+  getMyTrustBreakdown: () =>
+    apiFetch<import('./types').ApiUserReputation>('/api/v1/trust/reputation/me/breakdown'),
+  getTrustBreakdown: (userId: string) =>
+    apiFetch<import('./types').ApiUserReputation>(`/api/v1/trust/reputation/${userId}/breakdown`),
+  listLedgerEntries: (limit = 50) =>
+    apiFetch<{ items: import('./types').ApiLedgerEntry[] }>(`/api/v1/trust/ledger/me?limit=${limit}`),
+  listBankAccounts: () => apiFetch<import('./types').ApiBankAccount[]>('/api/v1/trust/bank-accounts/mine'),
+  createBankAccount: (data: {
+    bank_name: string
+    account_holder: string
+    account_number: string
+    mfo?: string
+  }) =>
+    apiFetch<import('./types').ApiBankAccount>('/api/v1/trust/bank-accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getOrderReceipt: (orderId: string) =>
+    apiFetch<import('./types').ApiPaymentReceipt>(`/api/v1/trust/receipts/order/${orderId}`),
+  downloadOrderReceiptPdf: async (orderId: string) => {
+    const authHeader = await getAuthHeader()
+    const res = await fetch(`${resolveApiUrl()}/api/v1/trust/receipts/order/${orderId}/pdf`, {
+      headers: { ...authHeader },
+    })
+    if (!res.ok) throw await parseApiError(res)
+    return res.blob()
+  },
+  adminServiceModerationQueue: () =>
+    apiFetch<import('./types').ApiServiceModerationItem[]>('/api/v1/admin/services/moderation-queue'),
+  adminModerateService: (serviceId: string, status: 'approved' | 'rejected', notes?: string) =>
+    apiFetch<ApiService>(`/api/v1/admin/services/${serviceId}/moderation`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
+    }),
+  adminComplianceFlags: (resolved = false) =>
+    apiFetch<import('./types').ApiComplianceFlag[]>(
+      `/api/v1/admin/compliance-flags?resolved=${resolved}`,
+    ),
+  adminVerifyBankAccount: (accountId: string) =>
+    apiFetch<import('./types').ApiBankAccount>(`/api/v1/admin/bank-accounts/${accountId}/verify`, {
+      method: 'PATCH',
+    }),
+  adminRunTrustJobs: () =>
+    apiFetch<Record<string, unknown>>('/api/v1/admin/trust-jobs/run', { method: 'POST' }),
 
   adminAuditLogs: (params?: { limit?: number; action?: string }) => {
     const q = new URLSearchParams()

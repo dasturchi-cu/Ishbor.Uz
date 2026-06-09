@@ -20,6 +20,8 @@ import { Button } from '@/presentation/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 import { Alert } from '@/presentation/components/ui/alert'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { TrustScoreBreakdown } from '@/presentation/components/features/trust-score-breakdown'
 
 const PERIODS = ['7d', '30d', '3m', '1y'] as const
 
@@ -66,7 +68,7 @@ export function DashboardAnalyticsPage() {
     loadAnalyticsRef.current = loadAnalytics
   }, [loadAnalytics])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     void loadAnalytics()
   }, [loadAnalytics])
 
@@ -146,6 +148,12 @@ export function DashboardAnalyticsPage() {
         statusTitle={t('orders_by_status')}
         geoTitle={t('buyer_geography')}
       />
+
+      {!isClient && (
+        <div className="mt-6">
+          <TrustScoreBreakdown />
+        </div>
+      )}
     </div>
   )
 }

@@ -207,6 +207,10 @@ function RegisterPageContent() {
           sessionStorage.setItem('ishbor-register-region', formData.city.trim())
         }
         api.auditRegister().catch(() => undefined)
+        Promise.all([
+          api.getCurrentTerms('terms').then((doc) => api.acceptTermsConsent('terms', doc.version)).catch(() => undefined),
+          api.getCurrentTerms('privacy').then((doc) => api.acceptTermsConsent('privacy', doc.version)).catch(() => undefined),
+        ])
         router.push(destination)
       } else {
         setSuccessMessage(t('auth_email_confirm_sent'))

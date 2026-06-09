@@ -4,6 +4,7 @@ import { profileI18nEn, profileI18nRu, profileI18nUz } from './profile-i18n'
 import { helpI18nEn, helpI18nRu, helpI18nUz } from './help-i18n'
 import { landingI18nEn, landingI18nRu, landingI18nUz } from './landing-i18n'
 import { adminI18nEn, adminI18nRu, adminI18nUz } from './admin-i18n'
+import { trustI18nEn, trustI18nRu, trustI18nUz } from './trust-i18n'
 
 export type Language = 'uz' | 'ru' | 'en'
 
@@ -1118,6 +1119,7 @@ export const translations = {
     ...helpI18nUz,
     ...landingI18nUz,
     ...adminI18nUz,
+    ...trustI18nUz,
   },
 
   ru: {
@@ -2095,6 +2097,7 @@ export const translations = {
     ...helpI18nRu,
     ...landingI18nRu,
     ...adminI18nRu,
+    ...trustI18nRu,
   },
 
   en: {
@@ -3072,6 +3075,7 @@ export const translations = {
     ...helpI18nEn,
     ...landingI18nEn,
     ...adminI18nEn,
+    ...trustI18nEn,
   }
 } as const satisfies Record<Language, Record<string, string>>
 

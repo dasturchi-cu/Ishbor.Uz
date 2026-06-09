@@ -44,6 +44,7 @@ export const PATHS = {
   adminFeatureFlags: '/admin/feature-flags',
   terms: '/terms',
   privacy: '/privacy',
+  buyerProtection: '/buyer-protection',
   freelancerProfile: '/freelancer',
   freelancers: '/freelancers',
   blog: '/blog',

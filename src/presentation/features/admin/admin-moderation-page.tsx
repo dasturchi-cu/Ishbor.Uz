@@ -1,12 +1,12 @@
 'use client'
 
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
-import { AdminSaasPanel } from '@/presentation/features/admin/admin-saas-panel'
+import { AdminModerationTabs } from '@/presentation/features/admin/admin-moderation-tabs'
 
 export function AdminModerationPage() {
   return (
     <AdminLayout>
-      <AdminSaasPanel />
+      <AdminModerationTabs />
     </AdminLayout>
   )
 }

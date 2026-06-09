@@ -44,12 +44,13 @@ const ACTION_LABEL: Record<string, Record<string, TranslationKey>> = {
 }
 
 export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
-  const { t, language } = useApp()
+  const { t, language, profile, refreshProfile } = useApp()
   const role = useDashboardRole()
   const router = useRouter()
   const [order, setOrder] = useState<ApiOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [walletPaying, setWalletPaying] = useState(false)
   const [error, setError] = useState('')
   const [showReview, setShowReview] = useState(false)
   const [notes, setNotes] = useState('')
@@ -165,6 +166,50 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
     }
   }
 
+  const handleRequestRevision = async () => {
+    if (!order) return
+    setUpdating(true)
+    setError('')
+    try {
+      const updated = await api.updateOrderStatus(order.id, 'active')
+      setOrder(updated)
+      toast.success(t('order_revision_toast'))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : t('error_required')
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handlePayFromWallet = async () => {
+    if (!order) return
+    setWalletPaying(true)
+    setError('')
+    try {
+      const result = await api.payOrderFromWallet(order.id)
+      setOrder(result.order)
+      void refreshProfile()
+      toast.success(t('payment_success'))
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : ''
+      const text = resolveCheckoutError(raw)
+      setError(text)
+      if (text) toast.error(text)
+    } finally {
+      setWalletPaying(false)
+    }
+  }
+
+  const walletBalance = profile?.wallet_balance ?? 0
+  const canPayFromWallet =
+    role === 'client' &&
+    order != null &&
+    order.status === 'pending' &&
+    order.payment_status !== 'held' &&
+    walletBalance >= order.amount
+
   if (loading) {
     return <div className="h-48 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
   }
@@ -241,9 +286,30 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
                 {t('commission_freelancer_net').replace('{amount}', formatPrice(calcFreelancerPayout(order.amount)))}
               </p>
               <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('commission_escrow_note')}</p>
-              {process.env.NEXT_PUBLIC_PAYMENTS_ENABLED !== 'true' && (
-                <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
+              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
+              {canPayFromWallet && (
+                <div className="space-y-2 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary-light)]/20 p-3">
+                  <p className="text-[12px] text-[var(--kwork-text-muted)]">
+                    {t('pay_from_wallet_hint')
+                      .replace('{balance}', formatPrice(walletBalance))
+                      .replace('{amount}', formatPrice(order.amount))}
+                  </p>
+                  <Button variant="primary" loading={walletPaying} onClick={() => void handlePayFromWallet()}>
+                    {t('pay_from_wallet')}
+                  </Button>
+                </div>
               )}
+              {role === 'client' &&
+                order.status === 'pending' &&
+                order.payment_status !== 'held' &&
+                walletBalance < order.amount && (
+                  <p className="text-[12px] text-[var(--kwork-text-muted)]">
+                    {t('payment_insufficient_balance')}{' '}
+                    <Link href={PATHS.dashboardWallet} className="font-medium text-primary hover:underline">
+                      {t('nav_wallet')}
+                    </Link>
+                  </p>
+                )}
               <PaymentCheckoutFlow
                 phase={checkoutPhase}
                 provider={checkoutProvider}
@@ -293,9 +359,14 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         )}
 
         {role === 'client' && order.status === 'delivered' && (
-          <Button variant="outline" onClick={() => setDisputeOpen(true)}>
-            {t('open_dispute')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" loading={updating} onClick={handleRequestRevision}>
+              {t('order_request_revision')}
+            </Button>
+            <Button variant="outline" onClick={() => setDisputeOpen(true)}>
+              {t('open_dispute')}
+            </Button>
+          </div>
         )}
 
         {role === 'client' && order.status === 'completed' && (
@@ -388,6 +459,9 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
             </p>
           </div>
         )}
+        {(order.payment_status === 'held' || order.payment_status === 'released') && role === 'client' && (
+          <ReceiptDownloadButton orderId={order.id} />
+        )}
         <Button variant="outline" fullWidth onClick={() => router.push(PATHS.dashboardOrders)}>
           {t('back')}
         </Button>
@@ -409,5 +483,33 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         />
       )}
     </div>
+  )
+}
+
+function ReceiptDownloadButton({ orderId }: { orderId: string }) {
+  const { t } = useApp()
+  const [loading, setLoading] = useState(false)
+
+  const download = async () => {
+    setLoading(true)
+    try {
+      const blob = await api.downloadOrderReceiptPdf(orderId)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `receipt-${orderId.slice(0, 8)}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error(t('data_load_failed'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Button variant="outline" fullWidth loading={loading} onClick={() => void download()}>
+      {t('receipt_download')}
+    </Button>
   )
 }

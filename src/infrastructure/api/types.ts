@@ -692,6 +692,23 @@ export interface ApiUserActivity {
   created_at: string
 }
 
+export interface ApiTrustBreakdown {
+  reviews_points?: number
+  completed_orders_points?: number
+  success_rate_points?: number
+  verification_points?: number
+  response_time_points?: number
+  dispute_penalty?: number
+  avg_rating?: number
+  review_count?: number
+  completed_orders?: number
+  success_rate?: number
+  response_time_hours?: number | null
+  dispute_count?: number
+  dispute_lost_count?: number
+  is_verified?: boolean
+}
+
 export interface ApiUserReputation {
   user_id: string
   avg_rating: number
@@ -702,7 +719,82 @@ export interface ApiUserReputation {
   response_time_hours?: number | null
   total_earnings: number
   trust_score: number
+  trust_breakdown?: ApiTrustBreakdown
+  dispute_count?: number
+  dispute_lost_count?: number
   updated_at?: string
+}
+
+export interface ApiPublicDisputeStats {
+  total_disputes: number
+  resolved_disputes: number
+  open_disputes: number
+  sla_breached_count: number
+  resolution_rate_percent: number
+}
+
+export interface ApiBuyerProtection {
+  document?: {
+    title: string
+    content: string
+    version: string
+    doc_type: string
+  } | null
+  dispute_stats?: ApiPublicDisputeStats
+}
+
+export interface ApiBankAccount {
+  id: string
+  user_id: string
+  bank_name: string
+  account_holder: string
+  account_number: string
+  mfo?: string | null
+  is_verified: boolean
+  verified_at?: string | null
+  created_at?: string
+}
+
+export interface ApiLedgerEntry {
+  id: string
+  transaction_group_id: string
+  account_code: string
+  entry_type: 'debit' | 'credit'
+  amount: number
+  description?: string | null
+  created_at: string
+}
+
+export interface ApiPaymentReceipt {
+  id: string
+  order_id: string
+  receipt_number: string
+  amount: number
+  provider: string
+  pdf_storage_path?: string | null
+  emailed_at?: string | null
+  created_at?: string
+}
+
+export interface ApiServiceModerationItem {
+  id: string
+  title: string
+  moderation_status: string
+  freelancer_id: string
+  profiles?: { full_name?: string; email?: string }
+  created_at?: string
+}
+
+export interface ApiComplianceFlag {
+  id: string
+  message_id: string
+  order_id?: string | null
+  sender_id: string
+  flag_type: string
+  matched_pattern?: string | null
+  content_snippet?: string | null
+  resolved: boolean
+  created_at?: string
 }
 
 export interface ApiVerification {

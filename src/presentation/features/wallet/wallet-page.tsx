@@ -21,6 +21,10 @@ import { withdrawalSchema } from '@/domain/validators/withdrawal'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
+import { WalletTopupModal } from '@/presentation/features/wallet/wallet-topup-modal'
+import { BankAccountsSection } from '@/presentation/features/wallet/bank-accounts-section'
+import { useSearchParams } from 'next/navigation'
+import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 
 export function WalletPage() {
   const { t, currentUserRole, language, profile, refreshProfile } = useApp()
@@ -36,6 +40,8 @@ export function WalletPage() {
   const [withdrawals, setWithdrawals] = useState<ApiWithdrawalRequest[]>([])
   const [clientWithdrawHint, setClientWithdrawHint] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [topupOpen, setTopupOpen] = useState(false)
+  const searchParams = useSearchParams()
 
   const loadWallet = useCallback(async () => {
     setLoading(true)
@@ -65,9 +71,16 @@ export function WalletPage() {
     }
   }, [currentUserRole, refreshProfile])
 
-  useEffect(() => {
+  useAuthedEffect(() => {
     void loadWallet()
   }, [loadWallet])
+
+  useEffect(() => {
+    if (searchParams.get('topup') === 'success') {
+      toast.success(t('wallet_topup_success'))
+      void loadWallet()
+    }
+  }, [searchParams, t, loadWallet])
 
   const { completed, active, pending, balance, activeCount } = useMemo(() => {
     let completed = 0
@@ -88,7 +101,13 @@ export function WalletPage() {
       currentUserRole === 'freelancer' ? completed : completed + active + pending
     const dbBalance = profile?.wallet_balance
     const balance =
-      currentUserRole === 'freelancer' && dbBalance != null ? dbBalance : computed
+      currentUserRole === 'freelancer'
+        ? dbBalance != null
+          ? dbBalance
+          : computed
+        : dbBalance != null && dbBalance > 0
+          ? dbBalance
+          : computed
     return { completed, active, pending, balance, activeCount }
   }, [orders, currentUserRole, profile?.wallet_balance])
 
@@ -176,13 +195,8 @@ export function WalletPage() {
             </div>
           </div>
           <div className="wallet-balance-actions">
-            {currentUserRole === 'freelancer' && (
-              <button
-                type="button"
-                className="wallet-balance-btn opacity-50"
-                disabled
-                title={t('top_up_coming_soon')}
-              >
+            {currentUserRole === 'client' && (
+              <button type="button" className="wallet-balance-btn" onClick={() => setTopupOpen(true)}>
                 {t('top_up')}
               </button>
             )}
@@ -243,6 +257,12 @@ export function WalletPage() {
           <p className="wallet-stat-label">{t('active_orders')}</p>
         </div>
       </div>
+
+      {currentUserRole === 'freelancer' && (
+        <div className="mb-5">
+          <BankAccountsSection />
+        </div>
+      )}
 
       {withdrawAmount !== '' && currentUserRole === 'freelancer' && (
         <section className="surface-panel mb-5 p-4">
@@ -384,6 +404,12 @@ export function WalletPage() {
           </div>
         )}
       </section>
+
+      <WalletTopupModal
+        open={topupOpen}
+        onClose={() => setTopupOpen(false)}
+        onSuccess={() => void loadWallet()}
+      />
     </div>
   )
 }
