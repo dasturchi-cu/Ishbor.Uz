@@ -36,6 +36,7 @@ export const metadata: Metadata = {
     description: "O'zbekistondagi freelance marketplace",
     images: [`${SITE_URL}/icon.svg`],
   },
+  manifest: '/manifest.json',
   icons: {
     icon: '/icon.svg',
   },

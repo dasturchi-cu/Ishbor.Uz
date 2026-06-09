@@ -1,11 +1,12 @@
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from postgrest.exceptions import APIError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.schemas import AdminUserUpdate
+from app.schemas import AdminBulkUserAction, AdminUserUpdate
 from app.schemas_pagination import PaginatedResponse
 
 from app.database import get_supabase_admin
@@ -17,17 +18,30 @@ from app.contract_escrow_service import refund_contract_escrow, release_contract
 from app.payment_service import refund_escrow, release_escrow
 from app.schemas_marketplace import DisputeResolve
 from app.supabase_errors import map_supabase_error
-from app.platform_services import build_admin_analytics, log_audit, log_moderation
+from app.platform_services import broadcast_notification, build_admin_analytics, log_audit, log_moderation
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+_ADMIN_CACHE_TTL_SEC = 45.0
+_admin_access_cache: dict[str, tuple[bool, float]] = {}
+
 
 def _require_admin(user_id: str):
+    now = time.monotonic()
+    cached = _admin_access_cache.get(user_id)
+    if cached and now - cached[1] < _ADMIN_CACHE_TTL_SEC:
+        if not cached[0]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin ruxsati kerak")
+        return
+
     supabase = get_supabase_admin()
     profile = run_query(
-        lambda: supabase.table("profiles").select("is_admin").eq("id", user_id).single().execute()
+        lambda: supabase.table("profiles").select("is_admin").eq("id", user_id).limit(1).execute()
     )
-    if not profile.data or not profile.data.get("is_admin"):
+    row = (profile.data or [None])[0]
+    is_admin = bool(row and row.get("is_admin"))
+    _admin_access_cache[user_id] = (is_admin, now)
+    if not is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin ruxsati kerak")
 
 
@@ -128,12 +142,9 @@ def _sum_escrow_held() -> int:
         return 0
 
 
-@router.get("/stats")
-def admin_stats(user_id: CurrentUserId):
-    _require_admin(user_id)
+def _compose_admin_stats(analytics: dict) -> dict:
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    analytics = build_admin_analytics(30)
     disputed_orders = _count_table_where("orders", status="disputed")
     open_disputes = _count_table_where("disputes", status="open")
     disputed_contracts = _count_table_where("contracts", status="disputed")
@@ -142,7 +153,7 @@ def admin_stats(user_id: CurrentUserId):
         "orders": _count_table("orders"),
         "services": _count_table("services"),
         "projects": _count_table("projects"),
-        "vacancies": 0,
+        "vacancies": _count_table("vacancies"),
         "disputed_orders": disputed_orders,
         "contracts": _count_table("contracts"),
         "disputed_contracts": disputed_contracts,
@@ -162,23 +173,54 @@ def admin_stats(user_id: CurrentUserId):
     }
 
 
+def _list_audit_logs(limit: int = 50, offset: int = 0, action: str | None = None) -> list:
+    supabase = get_supabase_admin()
+
+    def _run():
+        query = supabase.table("audit_logs").select("*").order("created_at", desc=True)
+        if action:
+            query = query.eq("action", action)
+        return query.range(offset, offset + limit - 1).execute()
+
+    result = run_query(_run)
+    return result.data or []
+
+
+@router.get("/stats")
+def admin_stats(user_id: CurrentUserId):
+    _require_admin(user_id)
+    analytics = build_admin_analytics(30)
+    return _compose_admin_stats(analytics)
+
+
 @router.get("/users", response_model=PaginatedResponse[dict])
 def admin_list_users(
     user_id: CurrentUserId,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    search: str | None = Query(default=None, max_length=120),
+    role: Literal["freelancer", "client"] | None = None,
+    is_banned: bool | None = None,
 ):
     _require_admin(user_id)
     supabase = get_supabase_admin()
-    select_cols = "id, full_name, email, role, region, created_at, is_admin, is_banned"
+    select_cols = "id, full_name, email, role, region, created_at, is_admin, is_banned, is_verified, username"
+
+    def _build_query():
+        query = supabase.table("profiles").select(select_cols, count="exact")
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
+            query = query.or_(
+                f"full_name.ilike.{pattern},email.ilike.{pattern},username.ilike.{pattern}"
+            )
+        if role:
+            query = query.eq("role", role)
+        if is_banned is not None:
+            query = query.eq("is_banned", is_banned)
+        return query.order("created_at", desc=True).range(offset, offset + limit - 1)
+
     try:
-        result = run_query(
-            lambda: supabase.table("profiles")
-            .select(select_cols, count="exact")
-            .order("created_at", desc=True)
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
+        result = run_query(lambda: _build_query().execute())
     except APIError as exc:
         if "is_admin" in str(exc).lower():
             result = run_query(
@@ -478,6 +520,56 @@ def admin_update_user(target_id: str, body: AdminUserUpdate, user_id: CurrentUse
     return result.data[0]
 
 
+@router.post("/users/bulk")
+def admin_bulk_users(body: AdminBulkUserAction, user_id: CurrentUserId):
+    _require_admin(user_id)
+    target_ids = [uid for uid in body.user_ids if uid != user_id]
+    if not target_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yaroqli foydalanuvchi tanlanmadi")
+
+    updates: dict[str, bool] = {}
+    if body.action == "ban":
+        updates["is_banned"] = True
+    elif body.action == "unban":
+        updates["is_banned"] = False
+    elif body.action == "verify":
+        updates["is_verified"] = True
+    elif body.action == "unverify":
+        updates["is_verified"] = False
+
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("profiles").update(updates).in_("id", target_ids).execute()
+    )
+    updated = result.data or []
+    for row in updated:
+        if "is_banned" in updates:
+            log_moderation(
+                admin_id=user_id,
+                target_user_id=row["id"],
+                action="ban" if updates["is_banned"] else "unban",
+            )
+            log_audit(
+                actor_id=user_id,
+                action="ban" if updates["is_banned"] else "unban",
+                entity_type="user",
+                entity_id=row["id"],
+            )
+        if "is_verified" in updates:
+            log_moderation(
+                admin_id=user_id,
+                target_user_id=row["id"],
+                action="verify" if updates["is_verified"] else "unverify",
+            )
+            log_audit(
+                actor_id=user_id,
+                action="verify" if updates["is_verified"] else "unverify",
+                entity_type="user",
+                entity_id=row["id"],
+            )
+    return {"updated": len(updated), "user_ids": [row["id"] for row in updated]}
+
+
 @router.get("/services")
 def admin_list_services(user_id: CurrentUserId, limit: int = 50, offset: int = 0):
     _require_admin(user_id)
@@ -698,13 +790,34 @@ def admin_list_contract_disputes(
             .execute()
         )
 
-    result = run_query(_query)
+    try:
+        result = run_query(_query)
+    except APIError:
+        return PaginatedResponse(items=[], total=0, limit=limit, offset=offset)
     return PaginatedResponse(
         items=result.data or [],
         total=int(result.count or 0),
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/disputes-overview")
+def admin_disputes_overview(
+    user_id: CurrentUserId,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    scope: Literal["open", "resolved", "all"] = "open",
+):
+    _require_admin(user_id)
+    orders_page = admin_list_disputes(user_id=user_id, limit=limit, offset=offset, scope=scope)
+    contracts_page = admin_list_contract_disputes(user_id=user_id, limit=limit, offset=offset, scope=scope)
+    return {
+        "order_disputes": orders_page.items,
+        "order_total": orders_page.total,
+        "contract_disputes": contracts_page.items,
+        "contract_total": contracts_page.total,
+    }
 
 
 @router.patch("/disputes/{dispute_id}/resolve")
@@ -759,9 +872,15 @@ def admin_resolve_dispute(dispute_id: str, body: DisputeResolve, user_id: Curren
 # ─── SaaS platform admin ─────────────────────────────────────────────────────
 from app.schemas_platform import (
     AdminAnalyticsResponse,
+    AdminOverviewResponse,
+    AdminBroadcastNotification,
     AdminSuspendUser,
+    FeatureFlagUpdate,
     AuditLogResponse,
     BackupMetadataResponse,
+    CompanyCreate,
+    CompanyResponse,
+    CompanyUpdate,
     FraudLogResponse,
     ModerationActionResponse,
     ReportMessageCreate,
@@ -772,6 +891,17 @@ from app.schemas_platform import (
 )
 
 
+@router.get("/overview", response_model=AdminOverviewResponse)
+def admin_overview(user_id: CurrentUserId):
+    _require_admin(user_id)
+    analytics = build_admin_analytics(30)
+    return {
+        "stats": _compose_admin_stats(analytics),
+        "analytics": analytics,
+        "audit_logs": _list_audit_logs(limit=15),
+    }
+
+
 @router.get("/audit-logs", response_model=list[AuditLogResponse])
 def admin_audit_logs(
     user_id: CurrentUserId,
@@ -780,12 +910,7 @@ def admin_audit_logs(
     action: str | None = None,
 ):
     _require_admin(user_id)
-    supabase = get_supabase_admin()
-    query = supabase.table("audit_logs").select("*").order("created_at", desc=True)
-    if action:
-        query = query.eq("action", action)
-    result = run_query(lambda: query.range(offset, offset + limit - 1).execute())
-    return result.data or []
+    return _list_audit_logs(limit=limit, offset=offset, action=action)
 
 
 @router.get("/analytics", response_model=AdminAnalyticsResponse)
@@ -1041,3 +1166,126 @@ def admin_record_backup(
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Yozilmadi")
     return result.data[0]
+
+
+@router.get("/feature-flags", response_model=list[dict])
+def admin_list_feature_flags(user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    result = run_query(lambda: supabase.table("feature_flags").select("*").order("key").execute())
+    return result.data or []
+
+
+@router.patch("/feature-flags/{flag_key}")
+def admin_update_feature_flag(flag_key: str, body: FeatureFlagUpdate, user_id: CurrentUserId):
+    _require_admin(user_id)
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yangilash ma'lumoti yo'q")
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("feature_flags").update(updates).eq("key", flag_key).execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Flag topilmadi")
+    log_audit(actor_id=user_id, action="feature_flag_update", entity_type="feature_flag", entity_id=flag_key, metadata=updates)
+    return result.data[0]
+
+
+class AdminBulkOrderAction(BaseModel):
+    order_ids: list[str] = Field(min_length=1, max_length=50)
+    status: Literal["completed", "cancelled", "active"]
+
+
+@router.post("/orders/bulk")
+def admin_bulk_orders(body: AdminBulkOrderAction, user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("orders").update({"status": body.status}).in_("id", body.order_ids).execute()
+    )
+    updated = result.data or []
+    for row in updated:
+        log_audit(actor_id=user_id, action="order_bulk_update", entity_type="order", entity_id=row["id"], metadata={"status": body.status})
+    return {"updated": len(updated), "order_ids": [row["id"] for row in updated]}
+
+
+@router.post("/notifications/broadcast")
+def admin_broadcast_notification(body: AdminBroadcastNotification, user_id: CurrentUserId):
+    _require_admin(user_id)
+    sent = broadcast_notification(
+        title=body.title.strip(),
+        body=body.body.strip(),
+        href=body.href,
+        target=body.target,
+    )
+    log_audit(
+        actor_id=user_id,
+        action="broadcast_notification",
+        entity_type="notification",
+        metadata={"target": body.target, "sent": sent, "title": body.title[:80]},
+    )
+    return {"sent": sent}
+
+
+@router.get("/companies", response_model=PaginatedResponse[dict])
+def admin_list_companies(
+    user_id: CurrentUserId,
+    search: str | None = Query(default=None, max_length=120),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+
+    def _query():
+        query = supabase.table("companies").select("*", count="exact")
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
+            query = query.or_(f"name.ilike.{pattern},slug.ilike.{pattern},region.ilike.{pattern}")
+        return query.order("created_at", desc=True).range(offset, offset + limit - 1)
+
+    result = run_query(lambda: _query().execute())
+    return PaginatedResponse(
+        items=result.data or [],
+        total=int(result.count or 0),
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.post("/companies", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)
+def admin_create_company(body: CompanyCreate, user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    payload = body.model_dump(exclude_none=True)
+    result = run_query(lambda: supabase.table("companies").insert(payload).execute())
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Kompaniya yaratilmadi")
+    log_audit(actor_id=user_id, action="company_create", entity_type="company", entity_id=result.data[0]["id"])
+    return result.data[0]
+
+
+@router.patch("/companies/{company_id}", response_model=CompanyResponse)
+def admin_update_company(company_id: str, body: CompanyUpdate, user_id: CurrentUserId):
+    _require_admin(user_id)
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yangilash ma'lumoti yo'q")
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("companies").update(updates).eq("id", company_id).execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kompaniya topilmadi")
+    log_audit(actor_id=user_id, action="company_update", entity_type="company", entity_id=company_id)
+    return result.data[0]
+
+
+@router.delete("/companies/{company_id}")
+def admin_delete_company(company_id: str, user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    run_query(lambda: supabase.table("companies").delete().eq("id", company_id).execute())
+    log_audit(actor_id=user_id, action="company_delete", entity_type="company", entity_id=company_id)
+    return {"ok": True}

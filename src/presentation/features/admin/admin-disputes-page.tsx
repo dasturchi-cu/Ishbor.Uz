@@ -16,6 +16,7 @@ import { OrderStatusBadge } from '@/presentation/components/features/order-statu
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
 import { AdminTabs } from '@/presentation/features/admin/admin-tabs'
 import { dashboardContract } from '@/domain/constants/routes'
+import { useAdminSavedFilters } from '@/shared/lib/use-admin-saved-filters'
 
 type DisputeTab = 'all' | 'orders' | 'contracts' | 'resolved'
 type DisputeScope = 'open' | 'resolved' | 'all'
@@ -29,7 +30,9 @@ interface PendingAction {
 
 export function AdminDisputesPage() {
   const { t } = useApp()
-  const [tab, setTab] = useState<DisputeTab>('all')
+  const [filters, setFilters, resetFilters] = useAdminSavedFilters<{ tab: DisputeTab }>('disputes', { tab: 'all' })
+  const tab = filters.tab
+  const setTab = (value: DisputeTab) => setFilters({ tab: value })
   const [orderDisputes, setOrderDisputes] = useState<ApiOrder[]>([])
   const [contractDisputes, setContractDisputes] = useState<ApiDispute[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,12 +48,14 @@ export function AdminDisputesPage() {
     try {
       const loadOrders = tab === 'all' || tab === 'orders' || tab === 'resolved'
       const loadContracts = tab === 'all' || tab === 'contracts' || tab === 'resolved'
-      const [ordersRes, contractsRes] = await Promise.all([
-        loadOrders ? api.adminDisputes({ limit: 50, scope }) : Promise.resolve({ items: [], total: 0 }),
-        loadContracts ? api.adminContractDisputes({ limit: 50, scope }) : Promise.resolve({ items: [], total: 0 }),
-      ])
-      setOrderDisputes(ordersRes.items)
-      setContractDisputes(contractsRes.items)
+      if (!loadOrders && !loadContracts) {
+        setOrderDisputes([])
+        setContractDisputes([])
+        return
+      }
+      const overview = await api.adminDisputesOverview({ limit: 50, scope })
+      setOrderDisputes(loadOrders ? overview.order_disputes : [])
+      setContractDisputes(loadContracts ? overview.contract_disputes : [])
     } catch (e) {
       setError(e instanceof Error ? e.message : t('data_load_failed'))
     } finally {
@@ -102,7 +107,12 @@ export function AdminDisputesPage() {
     <AdminLayout onRefresh={load} refreshing={loading}>
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
-      <AdminTabs tabs={tabs} activeId={tab} onChange={(id) => setTab(id as DisputeTab)} className="mb-6" />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <AdminTabs tabs={tabs} activeId={tab} onChange={(id) => setTab(id as DisputeTab)} />
+        <Button variant="ghost" size="sm" onClick={resetFilters}>
+          {t('admin_reset_filters')}
+        </Button>
+      </div>
 
       {loading && orderDisputes.length === 0 && contractDisputes.length === 0 ? (
         <LoadingBlock className="py-12" />

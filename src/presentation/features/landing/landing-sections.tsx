@@ -75,16 +75,15 @@ export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
 
   return (
     <div>
-      <div className="landing-stats-row">
-        {items.map((item, i) => (
-          <div key={item.label} className="landing-stats-item">
-            {i > 0 && <span className="landing-stats-divider hide-mobile" aria-hidden />}
+      <div className="landing-stats-grid">
+        {items.map((item) => (
+          <div key={item.label} className="landing-stats-card">
             <p className="landing-stats-value">{item.value}</p>
             <p className="landing-stats-label">{item.label}</p>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-center text-[11px] text-[var(--kwork-text-muted)]">{t('landing_stat_commission_note')}</p>
+      <p className="mt-3 text-center text-[11px] text-[var(--kwork-text-muted)]">{t('landing_stat_commission_note')}</p>
     </div>
   )
 }

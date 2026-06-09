@@ -59,6 +59,7 @@ class ProfilePublicResponse(BaseModel):
     created_at: datetime | None = None
     avg_rating: float | None = None
     review_count: int = 0
+    trust_score: int = 0
     completed_orders: int = 0
     profile_views: int = 0
     is_verified: bool = False
@@ -205,6 +206,11 @@ class AdminUserUpdate(BaseModel):
     role: Literal["freelancer", "client"] | None = None
     is_banned: bool | None = None
     is_verified: bool | None = None
+
+
+class AdminBulkUserAction(BaseModel):
+    user_ids: list[str] = Field(min_length=1, max_length=50)
+    action: Literal["ban", "unban", "verify", "unverify"]
 
 
 class NotificationResponse(BaseModel):

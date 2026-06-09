@@ -12,8 +12,14 @@ import { cn } from '@/shared/lib/utils'
 import { toast } from '@/presentation/components/ui/toast'
 import { formatDateShort, formatTime } from '@/shared/lib/format-date'
 import { useOrderMessagesRealtime } from '@/shared/lib/use-order-messages-realtime'
+import { useConversationMessagesRealtime } from '@/shared/lib/use-conversation-messages-realtime'
 import { useInboxRealtime } from '@/shared/lib/use-inbox-realtime'
 import { useOrderTyping } from '@/shared/lib/use-order-typing'
+import {
+  mergeUnifiedChatThreads,
+  stableThreadKey,
+  type UnifiedChatThread,
+} from '@/shared/lib/unified-chat'
 import { uploadChatImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { Language } from '@/infrastructure/i18n'
@@ -22,10 +28,10 @@ import { OrderStatusBadge } from '@/presentation/components/features/order-statu
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Button } from '@/presentation/components/ui/button'
 import { Alert } from '@/presentation/components/ui/alert'
-import { dashboardOrderPath, PATHS } from '@/domain/constants/routes'
+import { dashboardContract, dashboardOrderPath, PATHS } from '@/domain/constants/routes'
 import { isAllowedExternalUrl } from '@/shared/lib/safe-url'
 
-function orderToConversation(order: ApiOrder, userId: string, orderTitleFallback: string): ApiConversation {
+function orderToLegacyConversation(order: ApiOrder, userId: string, orderTitleFallback: string): ApiConversation {
   const isClient = order.client_id === userId
   const otherProfile = isClient ? order.freelancer_profile : order.client_profile
   return {
@@ -40,24 +46,35 @@ function orderToConversation(order: ApiOrder, userId: string, orderTitleFallback
   }
 }
 
-function mergeConversations(
-  convs: ApiConversation[],
+function buildUnifiedInbox(
+  threads: Awaited<ReturnType<typeof api.listConversationThreads>>,
+  legacyConvs: ApiConversation[],
   orders: ApiOrder[],
   userId: string,
   orderTitleFallback: string
-): ApiConversation[] {
-  const byOrder = new Map<string, ApiConversation>()
-  for (const order of orders) {
-    byOrder.set(order.id, orderToConversation(order, userId, orderTitleFallback))
+): UnifiedChatThread[] {
+  const threadOrderIds = new Set(
+    threads.map((thread) => thread.order_id).filter((id): id is string => Boolean(id))
+  )
+  const legacyOrderIds = new Set(legacyConvs.map((conv) => conv.order_id))
+  const legacyFromOrders = orders
+    .filter((order) => !threadOrderIds.has(order.id) && !legacyOrderIds.has(order.id))
+    .map((order) => orderToLegacyConversation(order, userId, orderTitleFallback))
+  return mergeUnifiedChatThreads(threads, [...legacyConvs, ...legacyFromOrders], orderTitleFallback)
+}
+
+async function loadThreadMessages(thread: UnifiedChatThread): Promise<ApiMessage[]> {
+  if (thread.conversationId) {
+    try {
+      const rows = await api.listConversationMessages(thread.conversationId)
+      if (rows.length > 0 || !thread.orderId) return rows
+    } catch {
+      if (!thread.orderId) throw new Error('conversation_messages_failed')
+    }
+    return api.listMessages(thread.orderId)
   }
-  for (const conv of convs) {
-    byOrder.set(conv.order_id, conv)
-  }
-  return Array.from(byOrder.values()).sort((a, b) => {
-    const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
-    const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
-    return bTime - aTime
-  })
+  if (thread.orderId) return api.listMessages(thread.orderId)
+  return []
 }
 
 function messageAttachmentUrl(content: string): string | null {
@@ -119,10 +136,11 @@ export function MessagesPage() {
   const searchParams = useSearchParams()
   const orderFromUrl = searchParams.get('order')
   const contractFromUrl = searchParams.get('contract')
+  const conversationFromUrl = searchParams.get('conversation')
   const inDashboard = pathname.startsWith('/dashboard')
 
-  const [conversations, setConversations] = useState<ApiConversation[]>([])
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(orderFromUrl)
+  const [conversations, setConversations] = useState<UnifiedChatThread[]>([])
+  const [selectedKey, setSelectedKey] = useState<string | null>(conversationFromUrl ?? orderFromUrl)
   const [messages, setMessages] = useState<ApiMessage[]>([])
   const [messageText, setMessageText] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -141,20 +159,29 @@ export function MessagesPage() {
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (orderFromUrl) {
-      setSelectedOrderId(orderFromUrl)
+    if (conversationFromUrl) {
+      setSelectedKey(conversationFromUrl)
+      return
     }
-  }, [orderFromUrl])
+    if (orderFromUrl) {
+      setSelectedKey(`order:${orderFromUrl}`)
+    }
+  }, [conversationFromUrl, orderFromUrl])
 
   useEffect(() => {
-    if (!contractFromUrl || orderFromUrl) return
+    if (!contractFromUrl || conversationFromUrl || orderFromUrl) return
     api
       .getContract(contractFromUrl)
       .then((contract) => {
-        if (contract.order_id) setSelectedOrderId(contract.order_id)
+        const match = conversations.find((thread) => thread.contractId === contract.id)
+        if (match) {
+          setSelectedKey(match.key)
+        } else if (contract.order_id) {
+          setSelectedKey(`order:${contract.order_id}`)
+        }
       })
       .catch(() => undefined)
-  }, [contractFromUrl, orderFromUrl])
+  }, [contractFromUrl, conversationFromUrl, orderFromUrl, conversations])
 
   useEffect(() => {
     api
@@ -170,6 +197,10 @@ export function MessagesPage() {
     if (!userId) return
     setInboxLoadError(false)
     Promise.all([
+      api.listConversationThreads().catch(() => {
+        setInboxLoadError(true)
+        return []
+      }),
       api.listConversations().catch(() => {
         setInboxLoadError(true)
         return [] as ApiConversation[]
@@ -178,8 +209,10 @@ export function MessagesPage() {
         setInboxLoadError(true)
         return [] as ApiOrder[]
       }),
-    ]).then(([convs, orders]) => {
-      setConversations(mergeConversations(convs, orders, userId, t('order_title_fallback')))
+    ]).then(([threads, legacyConvs, orders]) => {
+      setConversations(
+        buildUnifiedInbox(threads, legacyConvs, orders, userId, t('order_title_fallback'))
+      )
     })
   }, [userId, t])
 
@@ -192,6 +225,10 @@ export function MessagesPage() {
     setLoading(true)
     setInboxLoadError(false)
     Promise.all([
+      api.listConversationThreads().catch(() => {
+        setInboxLoadError(true)
+        return []
+      }),
       api.listConversations().catch(() => {
         setInboxLoadError(true)
         return [] as ApiConversation[]
@@ -201,18 +238,23 @@ export function MessagesPage() {
         return [] as ApiOrder[]
       }),
     ])
-      .then(([convs, orders]) => {
-        const merged = mergeConversations(convs, orders, userId, t('order_title_fallback'))
+      .then(([threads, legacyConvs, orders]) => {
+        const merged = buildUnifiedInbox(threads, legacyConvs, orders, userId, t('order_title_fallback'))
         setConversations(merged)
 
-        if (orderFromUrl && merged.some((c) => c.order_id === orderFromUrl)) {
-          setSelectedOrderId(orderFromUrl)
-        } else if (!orderFromUrl && merged.length > 0) {
-          setSelectedOrderId((cur) => cur ?? merged[0].order_id)
+        if (conversationFromUrl && merged.some((thread) => thread.key === conversationFromUrl)) {
+          setSelectedKey(conversationFromUrl)
+        } else if (orderFromUrl) {
+          const orderThread = merged.find(
+            (thread) => thread.orderId === orderFromUrl || thread.key === `order:${orderFromUrl}`
+          )
+          if (orderThread) setSelectedKey(orderThread.key)
+        } else if (merged.length > 0) {
+          setSelectedKey((cur) => cur ?? merged[0].key)
         }
       })
       .finally(() => setLoading(false))
-  }, [userId, orderFromUrl, t])
+  }, [userId, conversationFromUrl, orderFromUrl, t])
 
   useInboxRealtime(userId, refreshConversations)
 
@@ -225,37 +267,63 @@ export function MessagesPage() {
     setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)))
   }, [])
 
-  useOrderMessagesRealtime(selectedOrderId, onRealtimeMessage, onRealtimeMessageUpdate)
+  const activeThread = useMemo(() => {
+    if (!selectedKey) return null
+    return (
+      conversations.find(
+        (thread) => thread.key === selectedKey || stableThreadKey(thread) === selectedKey
+      ) ?? null
+    )
+  }, [conversations, selectedKey])
 
-  const sendTyping = useOrderTyping(selectedOrderId, userId, setPeerTyping)
+  useConversationMessagesRealtime(
+    activeThread?.conversationId ?? null,
+    onRealtimeMessage,
+    onRealtimeMessageUpdate
+  )
+  useOrderMessagesRealtime(activeThread?.orderId ?? null, onRealtimeMessage, onRealtimeMessageUpdate)
+
+  const sendTyping = useOrderTyping(activeThread?.orderId ?? null, userId, setPeerTyping)
 
   useEffect(() => {
-    if (!selectedOrderId) return
+    if (!activeThread) return
     setMessagesLoading(true)
     setMessagesLoadError(false)
-    api
-      .listMessages(selectedOrderId)
-      .then(setMessages)
+    void loadThreadMessages(activeThread)
+      .then((rows) => {
+        setMessages(rows)
+        if (activeThread.conversationId) {
+          void api.markConversationRead(activeThread.conversationId).catch(() => undefined)
+        }
+      })
       .catch(() => {
         setMessages([])
         setMessagesLoadError(true)
       })
       .finally(() => setMessagesLoading(false))
-    refreshConversations()
-  }, [selectedOrderId, refreshConversations])
+  }, [activeThread])
 
   const handleAttach = async (file: File) => {
-    if (!selectedOrderId || !userId || !active) return
+    if (!activeThread || !userId) return
     if (!isSupabaseConfigured()) {
       toast.error(t('auth_supabase_not_configured'))
       return
     }
     setAttachLoading(true)
     try {
-      const url = await uploadChatImage(file, userId, selectedOrderId)
-      await api.sendMessage(selectedOrderId, `${t('chat_attachment_label')}: ${url}`)
-      const updated = await api.listMessages(selectedOrderId)
-      setMessages(updated)
+      const scopeId = activeThread.orderId ?? activeThread.conversationId ?? activeThread.key
+      const url = await uploadChatImage(file, userId, scopeId)
+      const content = `${t('chat_attachment_label')}: ${url}`
+      if (activeThread.conversationId) {
+        await api.sendConversationMessage(activeThread.conversationId, content, 'image')
+        const updated = await api.listConversationMessages(activeThread.conversationId)
+        setMessages(updated)
+      } else if (activeThread.orderId) {
+        await api.sendMessage(activeThread.orderId, content)
+        const updated = await api.listMessages(activeThread.orderId)
+        setMessages(updated)
+      }
+      refreshConversations()
       toast.success(t('save_success'))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('error_required'))
@@ -265,14 +333,15 @@ export function MessagesPage() {
   }
 
   const send = async () => {
-    if (!selectedOrderId || !messageText.trim() || !userId || !active || sendLoading) return
+    if (!activeThread || !messageText.trim() || !userId || sendLoading) return
     const text = messageText.trim()
     const tempId = `temp-${Date.now()}`
     const optimistic: ApiMessage = {
       id: tempId,
-      order_id: selectedOrderId,
+      order_id: activeThread.orderId ?? undefined,
+      conversation_id: activeThread.conversationId ?? undefined,
       sender_id: userId,
-      receiver_id: active.other_user_id,
+      receiver_id: activeThread.otherUserId,
       content: text,
       read_at: null,
       created_at: new Date().toISOString(),
@@ -281,12 +350,16 @@ export function MessagesPage() {
     setMessageText('')
     setSendLoading(true)
     try {
-      await api.sendMessage(selectedOrderId, text)
-      const updated = await api.listMessages(selectedOrderId)
-      setMessages(updated)
-      const convs = await api.listConversations()
-      const orders = await api.listOrders().catch(() => [] as ApiOrder[])
-      setConversations(mergeConversations(convs, orders, userId, t('order_title_fallback')))
+      if (activeThread.conversationId) {
+        await api.sendConversationMessage(activeThread.conversationId, text)
+        const updated = await api.listConversationMessages(activeThread.conversationId)
+        setMessages(updated)
+      } else if (activeThread.orderId) {
+        await api.sendMessage(activeThread.orderId, text)
+        const updated = await api.listMessages(activeThread.orderId)
+        setMessages(updated)
+      }
+      refreshConversations()
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
       setMessageText(text)
@@ -297,7 +370,7 @@ export function MessagesPage() {
   }
 
   useEffect(() => {
-    if (!selectedOrderId || !messageText.trim()) {
+    if (!activeThread?.orderId || !messageText.trim()) {
       sendTyping(false)
       return
     }
@@ -307,28 +380,23 @@ export function MessagesPage() {
     return () => {
       if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current)
     }
-  }, [messageText, selectedOrderId, sendTyping])
+  }, [messageText, activeThread?.orderId, sendTyping])
 
   const filtered = useMemo(() => {
     const activeStatuses = new Set(['pending', 'active', 'delivered'])
-    return conversations.filter((c) => {
-      if (unreadOnly && (c.unread_count ?? 0) === 0) return false
-      if (activeOnly && c.order_status && !activeStatuses.has(c.order_status)) return false
+    return conversations.filter((thread) => {
+      if (unreadOnly && (thread.unreadCount ?? 0) === 0) return false
+      if (activeOnly && thread.status && !activeStatuses.has(thread.status)) return false
       const q = searchQuery.toLowerCase()
       return (
-        c.other_user_name.toLowerCase().includes(q) ||
-        c.order_title.toLowerCase().includes(q) ||
-        (c.last_message?.toLowerCase().includes(q) ?? false)
+        thread.otherUserName.toLowerCase().includes(q) ||
+        thread.title.toLowerCase().includes(q) ||
+        (thread.lastMessage?.toLowerCase().includes(q) ?? false)
       )
     })
   }, [conversations, searchQuery, unreadOnly, activeOnly])
 
-  const active = useMemo(
-    () => conversations.find((c) => c.order_id === selectedOrderId) ?? null,
-    [conversations, selectedOrderId]
-  )
-
-  const showChat = Boolean(selectedOrderId && active)
+  const showChat = Boolean(selectedKey && activeThread)
 
   return (
     <div className={cn('chat-layout', inDashboard && 'chat-layout--dashboard', showChat && 'chat-layout--thread')}>
@@ -417,68 +485,83 @@ export function MessagesPage() {
               </div>
             </div>
           )}
-          {filtered.map((conv) => (
+          {!loading &&
+            filtered.map((thread) => {
+            const listKey = stableThreadKey(thread)
+            return (
             <button
-              key={conv.order_id}
+              key={listKey}
               type="button"
-              onClick={() => setSelectedOrderId(conv.order_id)}
+              onClick={() => setSelectedKey(thread.key)}
               className={cn(
                 'chat-list-item',
-                selectedOrderId === conv.order_id && 'chat-list-item--active'
+                (selectedKey === thread.key || selectedKey === listKey) && 'chat-list-item--active'
               )}
             >
-              <Avatar name={conv.other_user_name} size={40} />
+              <Avatar name={thread.otherUserName} size={40} />
               <div className="chat-list-item-body">
                 <div className="chat-list-item-top">
-                  <p className="chat-list-item-name">{conv.other_user_name}</p>
-                  {conv.last_message_at && (
+                  <p className="chat-list-item-name">{thread.otherUserName}</p>
+                  {thread.lastMessageAt && (
                     <span className="chat-list-item-time">
-                      {formatMessageTime(conv.last_message_at, language)}
+                      {formatMessageTime(thread.lastMessageAt, language)}
                     </span>
                   )}
                 </div>
                 <p className="chat-list-item-preview">
-                  {conv.last_message ?? conv.order_title}
+                  <span className="mr-1 text-[10px] font-semibold uppercase text-[var(--color-primary)]">
+                    {thread.type === 'contract' ? t('chat_thread_contract') : t('chat_thread_order')}
+                  </span>
+                  {thread.lastMessage ?? thread.title}
                 </p>
               </div>
-              {conv.unread_count > 0 && (
-                <span className="chat-list-unread">{conv.unread_count}</span>
+              {thread.unreadCount > 0 && (
+                <span className="chat-list-unread">{thread.unreadCount}</span>
               )}
             </button>
-          ))}
+            )
+          })}
         </div>
       </aside>
 
       <section className="chat-main">
-        {showChat && active ? (
+        {showChat && activeThread ? (
           <>
             <header className="chat-header">
               <button
                 type="button"
                 className="chat-back-btn show-mobile"
-                onClick={() => setSelectedOrderId(null)}
+                onClick={() => setSelectedKey(null)}
                 aria-label={t('chat_back')}
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <Avatar name={active.other_user_name} size={40} />
+              <Avatar name={activeThread.otherUserName} size={40} />
               <div className="min-w-0 flex-1">
-                <p className="chat-header-name">{active.other_user_name}</p>
+                <p className="chat-header-name">{activeThread.otherUserName}</p>
                 <p className="chat-header-sub">
-                  {peerTyping ? t('chat_typing') : active.order_title}
+                  {peerTyping ? t('chat_typing') : activeThread.title}
                 </p>
-                {active.order_status && (
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <OrderStatusBadge status={active.order_status} />
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  {activeThread.status && <OrderStatusBadge status={activeThread.status} />}
+                  {activeThread.contractId ? (
                     <Link
-                      href={dashboardOrderPath(active.order_id)}
+                      href={dashboardContract(activeThread.contractId)}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-primary)] hover:underline"
+                    >
+                      {t('chat_thread_contract')}
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  ) : activeThread.orderId ? (
+                    <Link
+                      href={dashboardOrderPath(activeThread.orderId)}
                       className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-primary)] hover:underline"
                     >
                       {t('nav_orders')}
                       <ExternalLink className="h-3 w-3" />
                     </Link>
-                  </div>
-                )}
+                  ) : null}
+                </div>
               </div>
             </header>
 
@@ -502,11 +585,10 @@ export function MessagesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          if (!selectedOrderId) return
+                          if (!activeThread) return
                           setMessagesLoading(true)
                           setMessagesLoadError(false)
-                          api
-                            .listMessages(selectedOrderId)
+                          loadThreadMessages(activeThread)
                             .then(setMessages)
                             .catch(() => {
                               setMessages([])
@@ -543,7 +625,7 @@ export function MessagesPage() {
                       </p>
                     )}
                     <div className={cn('chat-bubble-row', isMine && 'chat-bubble-row--mine')}>
-                      {!isMine && <Avatar name={active.other_user_name} size={36} />}
+                      {!isMine && <Avatar name={activeThread.otherUserName} size={36} />}
                       <div
                         className={cn(
                           'chat-bubble',

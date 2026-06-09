@@ -7,6 +7,7 @@ from supabase import Client
 
 from app.auth.jwt_verify import verify_supabase_token
 from app.database import create_supabase_user_client, get_supabase_admin
+from app.db_utils import run_query
 
 security = HTTPBearer(auto_error=False)
 
@@ -30,8 +31,8 @@ def require_user_auth(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
 
     supabase = create_supabase_user_client(token)
-    row = (
-        supabase.table("profiles")
+    row = run_query(
+        lambda: supabase.table("profiles")
         .select("is_banned, is_suspended, suspended_until")
         .eq("id", user_id)
         .limit(1)

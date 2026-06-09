@@ -11,6 +11,7 @@ import type { ApiAdminEscrowSummary, ApiAdminMilestone, ApiEscrowTransaction } f
 import { formatPrice } from '@/shared/lib/format'
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
 import { AdminTabs } from '@/presentation/features/admin/admin-tabs'
+import { useAdminSavedFilters } from '@/shared/lib/use-admin-saved-filters'
 
 const PAGE_SIZE = 50
 
@@ -18,11 +19,25 @@ type MainTab = 'transactions' | 'milestones'
 type ActionTab = 'all' | 'fund' | 'hold' | 'release' | 'refund'
 type SourceTab = 'all' | 'order' | 'contract' | 'milestone'
 
+type EscrowFilters = {
+  mainTab: MainTab
+  actionTab: ActionTab
+  sourceTab: SourceTab
+}
+
+const DEFAULT_ESCROW_FILTERS: EscrowFilters = {
+  mainTab: 'transactions',
+  actionTab: 'all',
+  sourceTab: 'all',
+}
+
 export function AdminEscrowPage() {
   const { t } = useApp()
-  const [mainTab, setMainTab] = useState<MainTab>('transactions')
-  const [actionTab, setActionTab] = useState<ActionTab>('all')
-  const [sourceTab, setSourceTab] = useState<SourceTab>('all')
+  const [filters, setFilters, resetFilters] = useAdminSavedFilters('escrow', DEFAULT_ESCROW_FILTERS)
+  const { mainTab, actionTab, sourceTab } = filters
+  const setMainTab = (value: MainTab) => setFilters({ ...filters, mainTab: value })
+  const setActionTab = (value: ActionTab) => setFilters({ ...filters, actionTab: value })
+  const setSourceTab = (value: SourceTab) => setFilters({ ...filters, sourceTab: value })
   const [summary, setSummary] = useState<ApiAdminEscrowSummary | null>(null)
   const [items, setItems] = useState<ApiEscrowTransaction[]>([])
   const [milestones, setMilestones] = useState<ApiAdminMilestone[]>([])
@@ -147,12 +162,16 @@ export function AdminEscrowPage() {
         </div>
       )}
 
-      <AdminTabs
-        tabs={mainTabs}
-        activeId={mainTab}
-        onChange={(id) => setMainTab(id as MainTab)}
-        className="mb-4"
-      />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <AdminTabs
+          tabs={mainTabs}
+          activeId={mainTab}
+          onChange={(id) => setMainTab(id as MainTab)}
+        />
+        <Button variant="ghost" size="sm" onClick={resetFilters}>
+          {t('admin_reset_filters')}
+        </Button>
+      </div>
 
       {mainTab === 'transactions' && (
         <>

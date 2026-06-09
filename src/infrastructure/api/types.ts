@@ -76,6 +76,8 @@ export interface ApiProfilePublic {
 
   review_count?: number
 
+  trust_score?: number
+
   completed_orders?: number
 
   profile_views?: number
@@ -283,7 +285,9 @@ export interface ApiMessage {
 
   id: string
 
-  order_id: string
+  order_id?: string | null
+
+  conversation_id?: string | null
 
   sender_id: string
 
@@ -761,6 +765,11 @@ export interface ApiAdminMilestone {
   } | null
 }
 
+export interface ApiAdminAnalyticsSeriesPoint {
+  date: string
+  value: number
+}
+
 export interface ApiAdminAnalytics {
   period_days: number
   new_users: number
@@ -770,6 +779,51 @@ export interface ApiAdminAnalytics {
   search_events: number
   register_events: number
   conversion_rate: number
+  users_series?: ApiAdminAnalyticsSeriesPoint[]
+  revenue_series?: ApiAdminAnalyticsSeriesPoint[]
+}
+
+export interface ApiAdminOverview {
+  stats: ApiAdminStats
+  analytics: ApiAdminAnalytics
+  audit_logs: ApiAuditLog[]
+}
+
+export interface ApiAdminDisputesOverview {
+  order_disputes: ApiOrder[]
+  order_total: number
+  contract_disputes: ApiDispute[]
+  contract_total: number
+}
+
+export interface ApiVacancy {
+  id: string
+  client_id: string
+  title: string
+  description?: string | null
+  region?: string | null
+  employment_type: string
+  salary_min?: number | null
+  salary_max?: number | null
+  is_published: boolean
+  created_at?: string
+}
+
+export interface ApiCompany {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+  logo_url?: string | null
+  website?: string | null
+  region?: string | null
+  owner_id?: string | null
+  employee_count?: number | null
+  is_verified: boolean
+  is_featured: boolean
+  is_published: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 export interface ApiFraudLog {

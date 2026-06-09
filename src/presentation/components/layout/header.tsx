@@ -7,7 +7,6 @@ import { Search, Menu, X } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { CategoryNav } from '@/presentation/components/layout/category-nav'
-import { AuthenticatedNav } from '@/presentation/components/layout/authenticated-nav'
 import { LanguagePill } from '@/presentation/components/layout/language-pill'
 import { AvatarDropdown } from '@/presentation/components/dashboard/avatar-dropdown'
 import { HeaderWalletPill } from '@/presentation/components/layout/header-wallet-pill'
@@ -154,14 +153,6 @@ export function Header() {
         </div>
 
       </div>
-
-      {showAuthNav && (
-        <div className="kwork-site-header__nav hide-mobile">
-          <div className="layout-container max-w-[1280px]">
-            <AuthenticatedNav />
-          </div>
-        </div>
-      )}
 
       {!showAuthNav && (
         <Suspense fallback={null}>

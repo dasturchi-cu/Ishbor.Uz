@@ -1,6 +1,7 @@
 'use client'
 
 import { BadgeCheck, ChevronRight, MapPin, Star } from 'lucide-react'
+import { ReputationBadge } from '@/presentation/components/features/reputation-badge'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { useApp } from '@/application/providers/app-provider'
 import { formatPrice } from '@/shared/lib/format'
@@ -14,6 +15,7 @@ export interface FreelancerCardProps {
   reviewCount?: number
   minPrice?: number
   isVerified?: boolean
+  trustScore?: number | null
   variant?: 'grid' | 'row'
   onClick?: () => void
   className?: string
@@ -27,6 +29,7 @@ export function FreelancerCard({
   reviewCount = 0,
   minPrice,
   isVerified,
+  trustScore,
   variant = 'grid',
   onClick,
   className,
@@ -66,6 +69,7 @@ export function FreelancerCard({
           <p className="mt-0.5 line-clamp-1 text-[13px] text-[var(--kwork-text-muted)]">{subtitle}</p>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             <RatingLine hasRating={hasRating} rating={rating} reviewCount={reviewCount} noReviewsLabel={t('badge_new_seller')} />
+            <ReputationBadge trustScore={trustScore} />
             {region && <RegionPill region={region} />}
           </div>
         </div>
@@ -99,13 +103,16 @@ export function FreelancerCard({
 
       <div className="border-t border-[var(--kwork-border)] bg-[var(--neutral-50)] px-4 py-3">
         <div className="flex flex-col gap-2">
-          <RatingLine
-            hasRating={hasRating}
-            rating={rating}
-            reviewCount={reviewCount}
-            noReviewsLabel={t('badge_new_seller')}
-            centered
-          />
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <RatingLine
+              hasRating={hasRating}
+              rating={rating}
+              reviewCount={reviewCount}
+              noReviewsLabel={t('badge_new_seller')}
+              centered
+            />
+            <ReputationBadge trustScore={trustScore} />
+          </div>
           {region && <RegionPill region={region} centered />}
         </div>
         {minPrice != null && minPrice > 0 && (

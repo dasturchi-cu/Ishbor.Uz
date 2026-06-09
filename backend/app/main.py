@@ -15,6 +15,7 @@ from app.routers import (
     ai,
     applications,
     calls,
+    companies,
     contracts,
     conversations,
     disputes,
@@ -31,6 +32,7 @@ from app.routers import (
     saved_items,
     services,
     stats,
+    vacancies,
     waitlist,
     platform,
 )
@@ -78,6 +80,7 @@ app.include_router(payments.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(applications.router, prefix="/api/v1")
 app.include_router(proposals.router, prefix="/api/v1")
+app.include_router(companies.router, prefix="/api/v1")
 app.include_router(contracts.router, prefix="/api/v1")
 app.include_router(milestones.router, prefix="/api/v1")
 app.include_router(disputes.router, prefix="/api/v1")
@@ -89,6 +92,7 @@ app.include_router(saved_items.router, prefix="/api/v1")
 app.include_router(reviews.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
+app.include_router(vacancies.router, prefix="/api/v1")
 app.include_router(waitlist.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
 app.include_router(platform.router, prefix="/api/v1")

@@ -51,3 +51,20 @@ def batch_min_service_prices(supabase: Client, freelancer_ids: list[str]) -> dic
         if fid not in prices or price < prices[fid]:
             prices[fid] = price
     return prices
+
+
+def batch_trust_scores(supabase: Client, user_ids: list[str]) -> dict[str, int]:
+    if not user_ids:
+        return {}
+
+    result = run_query(
+        lambda: supabase.table("user_reputation")
+        .select("user_id, trust_score")
+        .in_("user_id", user_ids)
+        .execute()
+    )
+
+    scores: dict[str, int] = {}
+    for row in result.data or []:
+        scores[row["user_id"]] = int(row.get("trust_score") or 0)
+    return scores

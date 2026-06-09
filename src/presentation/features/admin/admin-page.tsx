@@ -16,6 +16,14 @@ import { PaymentStatusBadge } from '@/presentation/components/features/payment-s
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { downloadCsv } from '@/shared/lib/csv-export'
 import { AdminSaasPanel } from '@/presentation/features/admin/admin-saas-panel'
+import { ConfirmModal } from '@/presentation/components/dashboard/confirm-modal'
+
+type PendingConfirm = {
+  title: string
+  description?: string
+  danger?: boolean
+  onConfirm: () => Promise<void>
+}
 
 const ADMIN_PAGE_SIZE = 50
 const ADMIN_EXPORT_PAGE_SIZE = 200
@@ -38,6 +46,11 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
   const [error, setError] = useState('')
   const [profileLoading, setProfileLoading] = useState(false)
   const [userSearch, setUserSearch] = useState('')
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set())
+  const [bulkActionLoading, setBulkActionLoading] = useState(false)
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
   const [orderSearch, setOrderSearch] = useState('')
   const [withdrawals, setWithdrawals] = useState<ApiWithdrawalRequest[]>([])
   const [withdrawalActionId, setWithdrawalActionId] = useState<string | null>(null)
@@ -185,7 +198,28 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
     }
   }, [profile, t])
 
+  const isUsersSection = section === 'users'
+  const isOrdersSection = section === 'orders'
+
+  useEffect(() => {
+    if (!profile?.is_admin || !isUsersSection) return
+    const timer = window.setTimeout(() => {
+      api
+        .adminUsers({ limit: ADMIN_PAGE_SIZE, offset: 0, search: userSearch || undefined })
+        .then((res) => {
+          setUsers(res.items)
+          setUsersTotal(res.total)
+          setSelectedUserIds(new Set())
+        })
+        .catch((e) => {
+          setError(e instanceof Error ? e.message : t('admin_load_users_failed'))
+        })
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [profile?.is_admin, isUsersSection, userSearch, t])
+
   const filteredUsers = useMemo(() => {
+    if (isUsersSection) return users
     const q = userSearch.trim().toLowerCase()
     if (!q) return users
     return users.filter(
@@ -193,7 +227,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
         (u.full_name?.toLowerCase().includes(q) ?? false) ||
         (u.email?.toLowerCase().includes(q) ?? false)
     )
-  }, [users, userSearch])
+  }, [users, userSearch, isUsersSection])
 
   const filteredOrders = useMemo(() => {
     const q = orderSearch.trim().toLowerCase()
@@ -226,13 +260,151 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
   const loadMoreUsers = async () => {
     setUsersLoadingMore(true)
     try {
-      const res = await api.adminUsers({ limit: ADMIN_PAGE_SIZE, offset: users.length })
+      const res = await api.adminUsers({
+        limit: ADMIN_PAGE_SIZE,
+        offset: users.length,
+        search: isUsersSection && userSearch ? userSearch : undefined,
+      })
       setUsers((prev) => [...prev, ...res.items])
       setUsersTotal(res.total)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error_required'))
     } finally {
       setUsersLoadingMore(false)
+    }
+  }
+
+  const toggleUserSelected = (userId: string) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  const toggleAllVisibleUsers = () => {
+    const visibleIds = filteredUsers
+      .filter((u) => u.id !== profile?.id)
+      .map((u) => u.id)
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedUserIds.has(id))
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        visibleIds.forEach((id) => next.delete(id))
+      } else {
+        visibleIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const executeBulkUserAction = async (action: 'ban' | 'unban' | 'verify' | 'unverify') => {
+    const ids = Array.from(selectedUserIds).filter((id) => id !== profile?.id)
+    if (ids.length === 0) return
+    setBulkActionLoading(true)
+    try {
+      const result = await api.adminBulkUsers({ user_ids: ids, action })
+      const updatedIds = new Set(result.user_ids)
+      setUsers((prev) =>
+        prev.map((user) => {
+          if (!updatedIds.has(user.id)) return user
+          if (action === 'ban') return { ...user, is_banned: true }
+          if (action === 'unban') return { ...user, is_banned: false }
+          if (action === 'verify') return { ...user, is_verified: true }
+          return { ...user, is_verified: false }
+        })
+      )
+      setSelectedUserIds(new Set())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
+
+  const toggleOrderSelected = (orderId: string) => {
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(orderId)) next.delete(orderId)
+      else next.add(orderId)
+      return next
+    })
+  }
+
+  const toggleAllVisibleOrders = () => {
+    const visibleIds = filteredOrders.map((o) => o.id)
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedOrderIds.has(id))
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        visibleIds.forEach((id) => next.delete(id))
+      } else {
+        visibleIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const executeBulkOrderAction = async (status: 'completed' | 'cancelled' | 'active') => {
+    const ids = Array.from(selectedOrderIds)
+    if (ids.length === 0) return
+    setBulkActionLoading(true)
+    try {
+      const result = await api.adminBulkOrders({ order_ids: ids, status })
+      const updatedIds = new Set(result.order_ids)
+      setOrders((prev) =>
+        prev.map((order) => (updatedIds.has(order.id) ? { ...order, status } : order))
+      )
+      setSelectedOrderIds(new Set())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
+
+  const requestBulkOrderAction = (status: 'completed' | 'cancelled' | 'active') => {
+    const count = selectedOrderIds.size
+    if (count === 0) return
+    if (status === 'active') {
+      void executeBulkOrderAction(status)
+      return
+    }
+    setPendingConfirm({
+      title: status === 'completed' ? t('admin_bulk_orders_complete') : t('admin_bulk_orders_cancel'),
+      description: t('admin_confirm_bulk_orders_desc').replace('{count}', String(count)),
+      danger: status === 'cancelled',
+      onConfirm: async () => executeBulkOrderAction(status),
+    })
+  }
+
+  const requestBulkUserAction = (action: 'ban' | 'unban' | 'verify' | 'unverify') => {
+    const count = selectedUserIds.size
+    if (count === 0) return
+    const needsConfirm = action === 'ban' || action === 'unban'
+    if (!needsConfirm) {
+      void executeBulkUserAction(action)
+      return
+    }
+    setPendingConfirm({
+      title: action === 'ban' ? t('admin_confirm_ban') : t('admin_confirm_unban'),
+      description: t('admin_confirm_bulk_desc').replace('{count}', String(count)),
+      danger: action === 'ban',
+      onConfirm: async () => executeBulkUserAction(action),
+    })
+  }
+
+  const runPendingConfirm = async () => {
+    if (!pendingConfirm) return
+    setConfirmLoading(true)
+    try {
+      await pendingConfirm.onConfirm()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('error_required'))
+    } finally {
+      setConfirmLoading(false)
+      setPendingConfirm(null)
     }
   }
 
@@ -567,11 +739,45 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
             {t('admin_showing_count').replace('{shown}', String(users.length)).replace('{total}', String(usersTotal))}
           </p>
         )}
+        {isUsersSection && selectedUserIds.size > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-3 py-2">
+            <span className="text-[12px] font-medium text-[var(--kwork-text)]">
+              {t('admin_bulk_selected').replace('{count}', String(selectedUserIds.size))}
+            </span>
+            <Button variant="danger" size="sm" loading={bulkActionLoading} onClick={() => requestBulkUserAction('ban')}>
+              {t('admin_bulk_ban')}
+            </Button>
+            <Button variant="outline" size="sm" loading={bulkActionLoading} onClick={() => requestBulkUserAction('unban')}>
+              {t('admin_bulk_unban')}
+            </Button>
+            <Button variant="outline" size="sm" loading={bulkActionLoading} onClick={() => requestBulkUserAction('verify')}>
+              {t('admin_bulk_verify')}
+            </Button>
+            <Button variant="outline" size="sm" loading={bulkActionLoading} onClick={() => requestBulkUserAction('unverify')}>
+              {t('admin_bulk_unverify')}
+            </Button>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <caption className="sr-only">{t('admin_users')}</caption>
             <thead>
               <tr className="border-b border-[var(--kwork-border)] text-left">
+                {isUsersSection && (
+                  <th className="py-2 pr-2 text-[var(--kwork-text-muted)]">
+                    <input
+                      type="checkbox"
+                      aria-label={t('admin_select_all')}
+                      checked={
+                        filteredUsers.filter((u) => u.id !== profile?.id).length > 0 &&
+                        filteredUsers
+                          .filter((u) => u.id !== profile?.id)
+                          .every((u) => selectedUserIds.has(u.id))
+                      }
+                      onChange={toggleAllVisibleUsers}
+                    />
+                  </th>
+                )}
                 <th className="py-2 text-[var(--kwork-text-muted)]">{t('full_name')}</th>
                 <th className="text-[var(--kwork-text-muted)]">{t('email')}</th>
                 <th className="text-[var(--kwork-text-muted)]">{t('select_role')}</th>
@@ -582,13 +788,24 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
             <tbody>
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-[var(--kwork-text-muted)]">
+                  <td colSpan={isUsersSection ? 6 : 5} className="py-6 text-center text-[var(--kwork-text-muted)]">
                     {t('admin_users_empty')}
                   </td>
                 </tr>
               )}
               {filteredUsers.map((u) => (
                 <tr key={u.id} className="border-b border-[var(--kwork-border)]">
+                  {isUsersSection && (
+                    <td className="py-2 pr-2">
+                      <input
+                        type="checkbox"
+                        aria-label={u.full_name ?? u.email ?? u.id}
+                        checked={selectedUserIds.has(u.id)}
+                        disabled={u.id === profile?.id}
+                        onChange={() => toggleUserSelected(u.id)}
+                      />
+                    </td>
+                  )}
                   <td className="py-2 text-[var(--kwork-text)]">{u.full_name ?? '—'}</td>
                   <td className="text-[var(--kwork-text-sub)]">{u.email ?? '—'}</td>
                   <td className="text-[var(--kwork-text-sub)]">{u.role}</td>
@@ -636,16 +853,22 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                         variant={u.is_banned ? 'primary' : 'danger'}
                         size="sm"
                         disabled={userActionId === u.id || u.id === profile?.id}
-                        onClick={async () => {
-                          setUserActionId(u.id)
-                          try {
-                            const updated = await api.adminUpdateUser(u.id, { is_banned: !u.is_banned })
-                            setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)))
-                          } catch (e) {
-                            setError(e instanceof Error ? e.message : t('error_required'))
-                          } finally {
-                            setUserActionId(null)
-                          }
+                        onClick={() => {
+                          const nextBanned = !u.is_banned
+                          setPendingConfirm({
+                            title: nextBanned ? t('admin_confirm_ban') : t('admin_confirm_unban'),
+                            description: nextBanned ? t('admin_confirm_ban_desc') : undefined,
+                            danger: nextBanned,
+                            onConfirm: async () => {
+                              setUserActionId(u.id)
+                              try {
+                                const updated = await api.adminUpdateUser(u.id, { is_banned: nextBanned })
+                                setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)))
+                              } finally {
+                                setUserActionId(null)
+                              }
+                            },
+                          })
                         }}
                       >
                         {u.is_banned ? t('admin_unban') : t('admin_ban')}
@@ -795,16 +1018,21 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                     variant="danger"
                     size="sm"
                     disabled={serviceActionId === s.id}
-                    onClick={async () => {
-                      setServiceActionId(s.id)
-                      try {
-                        await api.adminDeleteService(s.id)
-                        setServices((prev) => prev.filter((x) => x.id !== s.id))
-                      } catch (e) {
-                        setError(e instanceof Error ? e.message : t('error_required'))
-                      } finally {
-                        setServiceActionId(null)
-                      }
+                    onClick={() => {
+                      setPendingConfirm({
+                        title: t('admin_confirm_delete_service'),
+                        description: s.title,
+                        danger: true,
+                        onConfirm: async () => {
+                          setServiceActionId(s.id)
+                          try {
+                            await api.adminDeleteService(s.id)
+                            setServices((prev) => prev.filter((x) => x.id !== s.id))
+                          } finally {
+                            setServiceActionId(null)
+                          }
+                        },
+                      })
                     }}
                   >
                     {t('admin_delete_service')}
@@ -843,7 +1071,13 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                       variant="primary"
                       size="sm"
                       loading={withdrawalActionId === w.id}
-                      onClick={() => handleWithdrawal(w.id, 'approved')}
+                      onClick={() => {
+                        setPendingConfirm({
+                          title: t('admin_confirm_withdrawal'),
+                          description: formatPrice(w.amount),
+                          onConfirm: async () => handleWithdrawal(w.id, 'approved'),
+                        })
+                      }}
                     >
                       {t('admin_approve')}
                     </Button>
@@ -851,7 +1085,14 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                       variant="outline"
                       size="sm"
                       disabled={withdrawalActionId === w.id}
-                      onClick={() => handleWithdrawal(w.id, 'rejected')}
+                      onClick={() => {
+                        setPendingConfirm({
+                          title: t('admin_reject'),
+                          description: formatPrice(w.amount),
+                          danger: true,
+                          onConfirm: async () => handleWithdrawal(w.id, 'rejected'),
+                        })
+                      }}
                     >
                       {t('admin_reject')}
                     </Button>
@@ -950,18 +1191,57 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
             {t('admin_showing_count').replace('{shown}', String(orders.length)).replace('{total}', String(ordersTotal))}
           </p>
         )}
+        {isOrdersSection && selectedOrderIds.size > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-3 py-2">
+            <span className="text-[12px] font-medium text-[var(--kwork-text)]">
+              {t('admin_bulk_selected').replace('{count}', String(selectedOrderIds.size))}
+            </span>
+            <Button variant="outline" size="sm" loading={bulkActionLoading} onClick={() => requestBulkOrderAction('completed')}>
+              {t('admin_bulk_orders_complete')}
+            </Button>
+            <Button variant="danger" size="sm" loading={bulkActionLoading} onClick={() => requestBulkOrderAction('cancelled')}>
+              {t('admin_bulk_orders_cancel')}
+            </Button>
+            <Button variant="outline" size="sm" loading={bulkActionLoading} onClick={() => requestBulkOrderAction('active')}>
+              {t('admin_bulk_orders_active')}
+            </Button>
+          </div>
+        )}
         {filteredOrders.length === 0 ? (
           <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_orders_empty')}</p>
         ) : (
           <div className="space-y-2">
+            {isOrdersSection && (
+              <div className="flex items-center gap-2 border-b border-[var(--kwork-border)] pb-2 text-[12px] text-[var(--kwork-text-muted)]">
+                <input
+                  type="checkbox"
+                  aria-label={t('admin_select_all')}
+                  checked={
+                    filteredOrders.length > 0 && filteredOrders.every((o) => selectedOrderIds.has(o.id))
+                  }
+                  onChange={toggleAllVisibleOrders}
+                />
+                <span>{t('admin_select_all')}</span>
+              </div>
+            )}
             {filteredOrders.map((o) => (
               <div
                 key={o.id}
                 className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm"
               >
-                <span className="min-w-0 truncate font-medium text-[var(--kwork-text)]">
-                  {o.services?.title ?? o.id.slice(0, 8)}
-                </span>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {isOrdersSection && (
+                    <input
+                      type="checkbox"
+                      aria-label={o.services?.title ?? o.id}
+                      checked={selectedOrderIds.has(o.id)}
+                      onChange={() => toggleOrderSelected(o.id)}
+                    />
+                  )}
+                  <span className="min-w-0 truncate font-medium text-[var(--kwork-text)]">
+                    {o.services?.title ?? o.id.slice(0, 8)}
+                  </span>
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <OrderStatusBadge status={o.status} />
                   {o.payment_status && <PaymentStatusBadge status={o.payment_status} />}
@@ -980,6 +1260,16 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
         )}
       </Card>
       )}
+
+      <ConfirmModal
+        open={Boolean(pendingConfirm)}
+        title={pendingConfirm?.title ?? ''}
+        description={pendingConfirm?.description}
+        danger={pendingConfirm?.danger}
+        confirmLabel={confirmLoading ? t('loading_data') : undefined}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => void runPendingConfirm()}
+      />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { cn } from '@/shared/lib/utils'
 import { avatarColorFromName, initialsFromName } from '@/shared/lib/avatar'
 
@@ -32,12 +33,17 @@ export interface AvatarProps {
 export function Avatar({ name, src, size = 40, status, pro, verified, className }: AvatarProps) {
   const initials = initialsFromName(name)
   const dotSize = size >= 64 ? 'h-2.5 w-2.5 border-2' : 'h-2 w-2 border'
+  const [displaySrc, setDisplaySrc] = useState(src ?? null)
+
+  useEffect(() => {
+    if (src) setDisplaySrc(src)
+  }, [src])
 
   return (
     <div className={cn('relative inline-flex shrink-0', className)}>
-      {src ? (
+      {displaySrc ? (
         <img
-          src={src}
+          src={displaySrc}
           alt={name}
           className={cn('rounded-full object-cover ring-2 ring-[var(--color-bg)]', SIZE_MAP[size])}
         />

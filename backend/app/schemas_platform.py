@@ -119,6 +119,35 @@ class FeatureFlagResponse(BaseModel):
     rollout_percent: int = 100
 
 
+class FeatureFlagUpdate(BaseModel):
+    enabled: bool | None = None
+    description: str | None = Field(default=None, max_length=500)
+    rollout_percent: int | None = Field(default=None, ge=0, le=100)
+
+
+class VacancyCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=160)
+    description: str | None = Field(default=None, max_length=5000)
+    region: str | None = Field(default=None, max_length=80)
+    employment_type: Literal["full_time", "part_time", "contract", "internship"] = "full_time"
+    salary_min: int | None = Field(default=None, ge=0)
+    salary_max: int | None = Field(default=None, ge=0)
+    is_published: bool = False
+
+
+class VacancyResponse(BaseModel):
+    id: str
+    client_id: str
+    title: str
+    description: str | None = None
+    region: str | None = None
+    employment_type: str
+    salary_min: int | None = None
+    salary_max: int | None = None
+    is_published: bool
+    created_at: datetime | None = None
+
+
 class ModerationActionResponse(BaseModel):
     id: str
     admin_id: str
@@ -154,6 +183,11 @@ class AdminSuspendUser(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class AdminAnalyticsSeriesPoint(BaseModel):
+    date: str
+    value: int
+
+
 class AdminAnalyticsResponse(BaseModel):
     period_days: int
     new_users: int
@@ -163,3 +197,63 @@ class AdminAnalyticsResponse(BaseModel):
     search_events: int
     register_events: int
     conversion_rate: float
+    users_series: list[AdminAnalyticsSeriesPoint] = Field(default_factory=list)
+    revenue_series: list[AdminAnalyticsSeriesPoint] = Field(default_factory=list)
+
+
+class AdminOverviewResponse(BaseModel):
+    stats: dict[str, Any]
+    analytics: AdminAnalyticsResponse
+    audit_logs: list[AuditLogResponse] = Field(default_factory=list)
+
+
+class AdminBroadcastNotification(BaseModel):
+    title: str = Field(min_length=2, max_length=120)
+    body: str = Field(min_length=2, max_length=500)
+    href: str | None = Field(default=None, max_length=500)
+    target: Literal["all", "freelancers", "clients"] = "all"
+
+
+class CompanyCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    slug: str = Field(min_length=2, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    description: str | None = Field(default=None, max_length=2000)
+    logo_url: str | None = None
+    website: str | None = Field(default=None, max_length=500)
+    region: str | None = Field(default=None, max_length=80)
+    owner_id: str | None = None
+    employee_count: int | None = Field(default=None, ge=0, le=100_000)
+    is_verified: bool = False
+    is_featured: bool = False
+    is_published: bool = False
+
+
+class CompanyUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    slug: str | None = Field(default=None, min_length=2, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    description: str | None = Field(default=None, max_length=2000)
+    logo_url: str | None = None
+    website: str | None = Field(default=None, max_length=500)
+    region: str | None = Field(default=None, max_length=80)
+    owner_id: str | None = None
+    employee_count: int | None = Field(default=None, ge=0, le=100_000)
+    is_verified: bool | None = None
+    is_featured: bool | None = None
+    is_published: bool | None = None
+
+
+class CompanyResponse(BaseModel):
+    id: str
+    name: str
+    slug: str
+    description: str | None = None
+    logo_url: str | None = None
+    website: str | None = None
+    region: str | None = None
+    owner_id: str | None = None
+    employee_count: int | None = None
+    is_verified: bool = False
+    is_featured: bool = False
+    is_published: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

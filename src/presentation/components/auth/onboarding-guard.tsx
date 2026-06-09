@@ -11,7 +11,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const needsOnboarding = Boolean(profile && !profile.onboarding_completed)
+  const needsOnboarding = Boolean(profile && !profile.is_admin && !profile.onboarding_completed)
 
   useEffect(() => {
     if (!isAuthLoading && needsOnboarding && pathname !== PATHS.onboarding) {

@@ -59,10 +59,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
-  const [serviceIds, freelancerIds, projectIds] = await Promise.all([
+  async function fetchCompanySlugs(): Promise<string[]> {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/companies?limit=100`, { next: { revalidate: 3600 } })
+      if (!res.ok) return []
+      const data = (await res.json()) as Array<{ slug?: string }>
+      return data.map((c) => c.slug).filter((slug): slug is string => Boolean(slug))
+    } catch {
+      return []
+    }
+  }
+
+  const [serviceIds, freelancerIds, projectIds, companySlugs] = await Promise.all([
     fetchPaginatedIds('/api/v1/services'),
     fetchPaginatedIds('/api/v1/profiles/freelancers'),
     fetchPaginatedIds('/api/v1/projects?status=open'),
+    fetchCompanySlugs(),
   ])
 
   const serviceEntries = serviceIds.map((id) => ({
@@ -86,5 +98,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }))
 
-  return [...staticEntries, ...blogEntries, ...serviceEntries, ...freelancerEntries, ...projectEntries]
+  const companyEntries = companySlugs.map((slug) => ({
+    url: `${BASE}/companies/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.65,
+  }))
+
+  return [...staticEntries, ...blogEntries, ...serviceEntries, ...freelancerEntries, ...projectEntries, ...companyEntries]
 }

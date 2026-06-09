@@ -242,19 +242,21 @@ Stripe/Linear uslubi — marketplace'dan ajralgan admin surface:
 - [x] Backend: `/admin/escrow/summary`, `/admin/milestones`, filter params
 - [x] Migration: `fund_milestone_escrow_rpc`, `release_milestone_escrow_rpc`
 
-### Faza 1 — Tables & Actions
-- DataTable component
-- Confirm modals
-- Server-side user search
+### Faza 1 — Tables & Actions ✅
+- [x] Confirm modals (ban, bulk, withdrawal, delete service)
+- [x] Server-side user search (`/admin/users?search=`)
+- [x] Bulk actions (`POST /admin/users/bulk`)
 
-### Faza 2 — Charts & Real-time
-- Recharts sparklines
-- 30s dashboard poll
-- Command palette
+### Faza 2 — Charts & Real-time ✅
+- [x] Recharts (users + revenue series on dashboard)
+- [x] 30s dashboard poll (mavjud)
+- [x] ⌘K command palette (`admin-command-palette.tsx`)
+- [x] Saved filters (escrow + disputes, localStorage)
 
-### Faza 3 — Broadcast & Companies
-- Notification broadcast API
-- Companies module
+### Faza 3 — Broadcast & Companies ✅
+- [x] `POST /admin/notifications/broadcast`
+- [x] Companies table + `/admin/companies` + public `/api/v1/companies`
+- [x] Migration: `20240629400000_companies_broadcast.sql`
 
 ---
 

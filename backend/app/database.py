@@ -1,8 +1,12 @@
 from functools import lru_cache
 
+from httpx import Timeout
 from supabase import Client, create_client
+from supabase.lib.client_options import SyncClientOptions
 
 from app.config import settings
+
+_SUPABASE_TIMEOUT = Timeout(60.0, connect=15.0)
 
 
 def _is_jwt_supabase_key(key: str) -> bool:
@@ -14,7 +18,8 @@ def _is_jwt_supabase_key(key: str) -> bool:
 def get_supabase_admin() -> Client:
     if not settings.supabase_url or not settings.supabase_service_role_key:
         raise RuntimeError("SUPABASE_URL va SUPABASE_SERVICE_ROLE_KEY .env da kerak")
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+    options = SyncClientOptions(postgrest_client_timeout=_SUPABASE_TIMEOUT)
+    return create_client(settings.supabase_url, settings.supabase_service_role_key, options=options)
 
 
 def create_supabase_user_client(access_token: str) -> Client:
@@ -29,7 +34,8 @@ def create_supabase_user_client(access_token: str) -> Client:
 
     anon = settings.supabase_anon_key.strip()
     if _is_jwt_supabase_key(anon):
-        client = create_client(settings.supabase_url, anon)
+        options = SyncClientOptions(postgrest_client_timeout=_SUPABASE_TIMEOUT)
+        client = create_client(settings.supabase_url, anon, options=options)
         client.postgrest.auth(access_token)
         return client
 

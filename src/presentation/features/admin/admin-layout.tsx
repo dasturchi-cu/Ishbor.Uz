@@ -8,6 +8,8 @@ import {
   Users,
   Scale,
   Landmark,
+  Building2,
+  Megaphone,
   Wallet,
   Shield,
   Package,
@@ -16,17 +18,22 @@ import {
   X,
   ArrowLeft,
   RefreshCw,
+  Flag,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { Button } from '@/presentation/components/ui/button'
-import { PATHS } from '@/domain/constants/routes'
+import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { cn } from '@/shared/lib/utils'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 import type { TranslationKey } from '@/infrastructure/i18n'
+import {
+  AdminCommandPalette,
+  useAdminCommandPalette,
+} from '@/presentation/features/admin/admin-command-palette'
 
 interface AdminNavItem {
   href: string
@@ -42,6 +49,9 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: PATHS.adminEscrow, labelKey: 'admin_nav_escrow', icon: Landmark },
   { href: PATHS.adminFinance, labelKey: 'admin_nav_finance', icon: Wallet },
   { href: PATHS.adminModeration, labelKey: 'admin_nav_moderation', icon: Shield },
+  { href: PATHS.adminFeatureFlags, labelKey: 'admin_nav_feature_flags', icon: Flag },
+  { href: PATHS.adminBroadcast, labelKey: 'admin_nav_broadcast', icon: Megaphone },
+  { href: PATHS.adminCompanies, labelKey: 'admin_nav_companies', icon: Building2 },
   { href: PATHS.adminServices, labelKey: 'admin_nav_services', icon: Package },
   { href: PATHS.adminOrders, labelKey: 'admin_nav_orders', icon: ShoppingBag },
 ]
@@ -57,8 +67,11 @@ function pageTitleKey(pathname: string): TranslationKey {
   if (pathname.startsWith(PATHS.adminEscrow)) return 'admin_page_escrow'
   if (pathname.startsWith(PATHS.adminFinance)) return 'admin_page_finance'
   if (pathname.startsWith(PATHS.adminModeration)) return 'admin_page_moderation'
+  if (pathname.startsWith(PATHS.adminFeatureFlags)) return 'admin_nav_feature_flags'
   if (pathname.startsWith(PATHS.adminServices)) return 'admin_page_services'
   if (pathname.startsWith(PATHS.adminOrders)) return 'admin_page_orders'
+  if (pathname.startsWith(PATHS.adminBroadcast)) return 'admin_nav_broadcast'
+  if (pathname.startsWith(PATHS.adminCompanies)) return 'admin_nav_companies'
   return 'admin_nav_dashboard'
 }
 
@@ -72,9 +85,10 @@ export function AdminLayout({
   refreshing?: boolean
 }) {
   const pathname = usePathname()
-  const { t, profile } = useApp()
+  const { t, profile, currentUserRole } = useApp()
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
+  const commandPalette = useAdminCommandPalette()
 
   useEscapeClose(mobileOpen, () => setMobileOpen(false))
   useFocusTrap(mobileOpen, mobileRef)
@@ -112,7 +126,14 @@ export function AdminLayout({
           )
         })}
       </nav>
-      <div className="border-t border-white/10 p-3">
+      <div className="space-y-0.5 border-t border-white/10 p-3">
+        <Link
+          href={dashboardPathForRole(currentUserRole)}
+          className="admin-nav-item flex min-h-10 items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-[var(--admin-sidebar-text)] transition-colors hover:bg-white/8 hover:text-white"
+        >
+          <LayoutDashboard className="size-4 shrink-0" aria-hidden />
+          {t('nav_dashboard')}
+        </Link>
         <Link
           href={PATHS.home}
           className="admin-nav-item flex min-h-10 items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-[var(--admin-sidebar-text)] transition-colors hover:bg-white/8 hover:text-white"
@@ -126,10 +147,10 @@ export function AdminLayout({
 
   return (
     <div className="admin-shell flex min-h-screen bg-[var(--admin-bg)]">
-      <aside className="hidden w-[240px] shrink-0 bg-[var(--admin-sidebar)] lg:block">{sidebar}</aside>
+      <aside className="hidden w-[240px] shrink-0 bg-[var(--admin-sidebar)] md:block">{sidebar}</aside>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-black/50"
@@ -153,7 +174,7 @@ export function AdminLayout({
             <Button
               variant="ghost"
               size="sm"
-              className="lg:hidden"
+              className="md:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label={t('open_menu')}
             >
@@ -162,6 +183,14 @@ export function AdminLayout({
             <h1 className="truncate text-[15px] font-semibold text-[var(--admin-text)]">{t(titleKey)}</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden md:inline-flex"
+              onClick={() => commandPalette.setOpen(true)}
+            >
+              {t('admin_search_cmd')}
+            </Button>
             {onRefresh && (
               <Button variant="outline" size="sm" loading={refreshing} onClick={onRefresh} className="hidden sm:inline-flex">
                 <RefreshCw className="mr-1.5 size-3.5" />
@@ -179,6 +208,12 @@ export function AdminLayout({
 
         <main className="flex-1 overflow-x-hidden p-4 lg:p-6">{children}</main>
       </div>
+
+      <AdminCommandPalette
+        open={commandPalette.open}
+        onClose={() => commandPalette.setOpen(false)}
+        onRefresh={onRefresh}
+      />
     </div>
   )
 }

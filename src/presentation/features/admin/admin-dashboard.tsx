@@ -25,6 +25,7 @@ import { PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
+import { AdminCharts } from '@/presentation/features/admin/admin-charts'
 import type { TranslationKey } from '@/infrastructure/i18n'
 
 const POLL_MS = 30_000
@@ -52,14 +53,10 @@ export function AdminDashboard() {
     else setRefreshing(true)
     setError('')
     try {
-      const [statsRes, analyticsRes, logsRes] = await Promise.all([
-        api.adminStats(),
-        api.adminAnalytics(30),
-        api.adminAuditLogs({ limit: 15 }),
-      ])
-      setStats(statsRes)
-      setAnalytics(analyticsRes)
-      setAuditLogs(logsRes)
+      const overview = await api.adminOverview()
+      setStats(overview.stats)
+      setAnalytics(overview.analytics)
+      setAuditLogs(overview.audit_logs)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('admin_load_stats_failed'))
     } finally {
@@ -237,6 +234,16 @@ export function AdminDashboard() {
                 </div>
               ) : (
                 <p className="text-sm text-[var(--admin-muted)]">—</p>
+              )}
+              {analytics && (
+                <div className="mt-5">
+                  <AdminCharts
+                    analytics={analytics}
+                    usersLabel={t('admin_chart_users')}
+                    revenueLabel={t('admin_chart_revenue')}
+                    emptyLabel={t('admin_chart_empty')}
+                  />
+                </div>
               )}
             </Card>
           </div>

@@ -39,6 +39,9 @@ export const PATHS = {
   adminModeration: '/admin/moderation',
   adminServices: '/admin/services',
   adminOrders: '/admin/orders',
+  adminBroadcast: '/admin/broadcast',
+  adminCompanies: '/admin/companies',
+  adminFeatureFlags: '/admin/feature-flags',
   terms: '/terms',
   privacy: '/privacy',
   freelancerProfile: '/freelancer',
@@ -121,12 +124,11 @@ export function dashboardPathForRole(role: 'freelancer' | 'client'): string {
   return role === 'freelancer' ? PATHS.dashboardFreelancer : PATHS.dashboardClient
 }
 
-/** Kirishdan keyin default yo'nalish — admin ustuvor */
+/** Kirishdan keyin default yo'nalish — freelancer/client dashboard */
 export function defaultAuthDestination(
-  profile: { is_admin?: boolean; role?: string } | null | undefined,
+  _profile: { is_admin?: boolean; role?: string } | null | undefined,
   role: 'freelancer' | 'client' = 'freelancer',
 ): string {
-  if (profile?.is_admin) return PATHS.admin
   return dashboardPathForRole(role)
 }
 

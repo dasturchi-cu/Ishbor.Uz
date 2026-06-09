@@ -170,6 +170,7 @@ export function DashboardSavedPage() {
                 rating={f.avg_rating ?? 0}
                 reviewCount={f.review_count ?? 0}
                 isVerified={f.is_verified}
+                trustScore={f.trust_score}
                 variant="grid"
                 onClick={() => router.push(freelancerPath(f.id))}
               />

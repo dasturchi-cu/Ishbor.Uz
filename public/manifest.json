@@ -1,0 +1,18 @@
+{
+  "name": "IshBor.uz",
+  "short_name": "IshBor",
+  "description": "O'zbekistondagi freelance marketplace",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563EB",
+  "lang": "uz",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

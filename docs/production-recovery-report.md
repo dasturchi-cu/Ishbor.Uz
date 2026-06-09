@@ -5,7 +5,7 @@
 
 ---
 
-## Production Readiness Score: **88/100**
+## Production Readiness Score: **92/100**
 
 | Mezon | Holat | Ball |
 |-------|-------|------|
@@ -17,11 +17,12 @@
 | Critical bugs | 0 | ✅ 10/10 |
 | Critical security | 0 | ✅ 9/10 |
 | Data persistence | ~90% | ⚠️ 8/10 |
-| Admin panel | Faza 0.5 | ⚠️ 8/10 |
-| Chat Realtime unified UI | Partial | ⚠️ 5/10 |
+| Admin panel | Faza 0–3 | ✅ 9/10 |
+| Chat Realtime unified UI | Unified threads | ✅ 8/10 |
+| Vacancies / Companies | API + flag | ✅ 8/10 |
 | WebRTC production | Not ready | ❌ 3/10 |
 
-**Production deploy mumkin** — kritik bloklar yo'q. Chat/WebRTC/vacancies keyingi sprint.
+**Production deploy mumkin** — kritik bloklar yo'q. Live to'lov/WebRTC/tashqi infra alohida.
 
 ---
 

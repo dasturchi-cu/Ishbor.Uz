@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 
 import Link from 'next/link'
 
-import { ChevronRight, Search, Star, X } from 'lucide-react'
+import { Briefcase, ChevronRight, Search, Star, Users, X } from 'lucide-react'
 
 import { useApp } from '@/application/providers/app-provider'
 
@@ -267,7 +267,7 @@ export function LandingPage() {
 
   return (
 
-    <div className="min-h-screen bg-[var(--body-bg)]">
+    <div className="landing-page min-h-screen bg-[var(--body-bg)]">
 
       {promoVisible && <PromoBanner onDismiss={dismissPromo} />}
 
@@ -275,9 +275,9 @@ export function LandingPage() {
 
       <section className="kwork-landing-hero">
 
-        <div className="layout-container max-w-[1280px] py-10 md:py-14 lg:py-16">
+        <div className="layout-container landing-hero-content max-w-[1280px] py-[var(--landing-hero-pad)]">
 
-          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,380px)] lg:gap-14">
 
             <div className="min-w-0">
 
@@ -285,13 +285,13 @@ export function LandingPage() {
 
 
 
-              <h1 className="mt-4 max-w-[560px] text-[length:var(--text-h2)] font-bold leading-[1.12] tracking-tight text-[var(--kwork-text)] sm:text-[length:var(--text-h1)] lg:text-[length:var(--text-display)] lg:leading-[1.08]">
+              <h1 className="landing-hero-title mt-5 text-[length:var(--text-h2)] font-bold leading-[1.1] tracking-tight sm:text-[length:var(--text-h1)] lg:text-[length:var(--text-display)] lg:leading-[1.06]">
 
                 {t('kwork_hero_headline')}
 
               </h1>
 
-              <p className="mt-4 max-w-[520px] text-[14px] leading-relaxed text-[var(--kwork-text-muted)] sm:text-[16px]">
+              <p className="mt-5 max-w-[540px] text-[15px] leading-relaxed text-[var(--kwork-text-muted)] sm:text-[17px]">
 
                 {t('kwork_hero_sub')}
 
@@ -304,15 +304,15 @@ export function LandingPage() {
                 onChange={setSearchQuery}
                 onSubmit={handleSearch}
                 placeholder={t('hero_search_placeholder')}
-                className="mt-6 max-w-[560px]"
+                className="mt-7 max-w-[580px]"
                 variant="hero"
               />
 
-              <div className="mt-5 flex flex-wrap items-center gap-3">
+              <div className="landing-hero-actions mt-6">
                 <Button
                   variant="primary"
                   size="lg"
-                  className="rounded-full px-6 font-bold"
+                  className="rounded-full px-7 font-bold shadow-[0_8px_24px_color-mix(in_srgb,var(--color-primary)_28%,transparent)]"
                   onClick={handleSearch}
                 >
                   {t('browse_services')}
@@ -320,20 +320,35 @@ export function LandingPage() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="rounded-full px-6 font-bold"
+                  className="rounded-full border-[var(--kwork-border)] bg-[color-mix(in_srgb,var(--neutral-0)_85%,transparent)] px-7 font-bold backdrop-blur-sm"
                   onClick={() => router.push(PATHS.register)}
                 >
                   {t('start_now')}
                 </Button>
               </div>
 
+              <div className="landing-hero-shortcuts">
+                <Link href={PATHS.services} className="landing-hero-shortcut">
+                  <Search className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
+                  {t('nav_services')}
+                </Link>
+                <Link href={PATHS.freelancers} className="landing-hero-shortcut">
+                  <Users className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
+                  {t('nav_freelancers')}
+                </Link>
+                <Link href={PATHS.projects} className="landing-hero-shortcut">
+                  <Briefcase className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
+                  {t('nav_projects')}
+                </Link>
+              </div>
 
 
-              <TrustStrip className="mt-6" />
+
+              <TrustStrip className="mt-7" />
 
 
 
-              <div className="mt-5 flex flex-wrap items-center gap-2">
+              <div className="mt-6 flex flex-wrap items-center gap-2">
 
                 <span className="text-[13px] font-medium text-[var(--kwork-text-muted)]">
 
@@ -370,9 +385,11 @@ export function LandingPage() {
 
 
             {showFeaturedCard && (
-              <div className="relative mx-auto w-full max-w-[380px] lg:mx-0">
-                <div className="kwork-hero-visual flex items-center justify-center bg-[var(--brand-50)]">
-                  <Avatar name={featuredName ?? t('freelancer')} size={120} />
+              <div className="landing-hero-spotlight relative mx-auto w-full max-w-[380px] lg:mx-0">
+                <div className="landing-hero-spotlight-inner">
+                  <div className="kwork-hero-visual">
+                    <Avatar name={featuredName ?? t('freelancer')} size={120} />
+                  </div>
                 </div>
                 <div className="kwork-hero-badge">
                   {featuredRating != null && featuredRating > 0 && (
@@ -427,11 +444,11 @@ export function LandingPage() {
 
 
 
-      <section className="page-section surface-section-muted">
+      <section className="landing-featured-section page-section">
 
         <div className="layout-container max-w-[1280px]">
 
-          <div className="surface-panel p-5 sm:p-6">
+          <div className="surface-panel rounded-2xl border border-[var(--kwork-border)] p-5 shadow-[var(--shadow-card)] sm:p-7">
 
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 

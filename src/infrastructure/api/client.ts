@@ -416,6 +416,7 @@ export const api = {
     apiFetch<void>(`/api/v1/reviews/${reviewId}`, { method: 'DELETE' }),
 
   adminStats: () => apiFetch<ApiAdminStats>('/api/v1/admin/stats'),
+  adminOverview: () => apiFetch<import('./types').ApiAdminOverview>('/api/v1/admin/overview'),
   adminDisputes: (params?: {
     limit?: number
     offset?: number
@@ -436,13 +437,30 @@ export const api = {
     const qs = q.toString()
     return apiFetch<ApiPaginated<ApiWaitlistEntry>>(`/api/v1/admin/waitlist${qs ? `?${qs}` : ''}`)
   },
-  adminUsers: (params?: { limit?: number; offset?: number }) => {
+  adminUsers: (params?: {
+    limit?: number
+    offset?: number
+    search?: string
+    role?: 'freelancer' | 'client'
+    is_banned?: boolean
+  }) => {
     const q = new URLSearchParams()
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
+    if (params?.search?.trim()) q.set('search', params.search.trim())
+    if (params?.role) q.set('role', params.role)
+    if (params?.is_banned != null) q.set('is_banned', String(params.is_banned))
     const qs = q.toString()
     return apiFetch<ApiPaginated<ApiProfile>>(`/api/v1/admin/users${qs ? `?${qs}` : ''}`)
   },
+  adminBulkUsers: (data: {
+    user_ids: string[]
+    action: 'ban' | 'unban' | 'verify' | 'unverify'
+  }) =>
+    apiFetch<{ updated: number; user_ids: string[] }>('/api/v1/admin/users/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   adminOrders: (params?: { limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
     if (params?.limit != null) q.set('limit', String(params.limit))
@@ -613,6 +631,20 @@ export const api = {
       `/api/v1/admin/milestones${qs ? `?${qs}` : ''}`,
     )
   },
+  adminDisputesOverview: (params?: {
+    limit?: number
+    offset?: number
+    scope?: 'open' | 'resolved' | 'all'
+  }) => {
+    const q = new URLSearchParams()
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    if (params?.scope) q.set('scope', params.scope)
+    const qs = q.toString()
+    return apiFetch<import('./types').ApiAdminDisputesOverview>(
+      `/api/v1/admin/disputes-overview${qs ? `?${qs}` : ''}`,
+    )
+  },
   adminContractDisputes: (params?: {
     limit?: number
     offset?: number
@@ -714,4 +746,90 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ suspended, reason }),
     }),
+  adminBroadcastNotification: (data: {
+    title: string
+    body: string
+    href?: string
+    target?: 'all' | 'freelancers' | 'clients'
+  }) =>
+    apiFetch<{ sent: number }>('/api/v1/admin/notifications/broadcast', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  adminCompanies: (params?: { search?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.search?.trim()) q.set('search', params.search.trim())
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    if (params?.offset != null) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return apiFetch<ApiPaginated<import('./types').ApiCompany>>(`/api/v1/admin/companies${qs ? `?${qs}` : ''}`)
+  },
+  listCompanies: (params?: { region?: string; featured?: boolean; limit?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.region) q.set('region', params.region)
+    if (params?.featured) q.set('featured', 'true')
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return apiFetch<import('./types').ApiCompany[]>(`/api/v1/companies${qs ? `?${qs}` : ''}`)
+  },
+  adminCreateCompany: (data: {
+    name: string
+    slug: string
+    description?: string
+    logo_url?: string
+    website?: string
+    region?: string
+    owner_id?: string
+    employee_count?: number
+    is_verified?: boolean
+    is_featured?: boolean
+    is_published?: boolean
+  }) =>
+    apiFetch<import('./types').ApiCompany>('/api/v1/admin/companies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  adminUpdateCompany: (
+    companyId: string,
+    data: Partial<{
+      name: string
+      slug: string
+      description: string
+      logo_url: string
+      website: string
+      region: string
+      owner_id: string
+      employee_count: number
+      is_verified: boolean
+      is_featured: boolean
+      is_published: boolean
+    }>
+  ) =>
+    apiFetch<import('./types').ApiCompany>(`/api/v1/admin/companies/${companyId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  adminDeleteCompany: (companyId: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/admin/companies/${companyId}`, { method: 'DELETE' }),
+  adminFeatureFlags: () => apiFetch<import('./types').ApiFeatureFlag[]>('/api/v1/admin/feature-flags'),
+  adminUpdateFeatureFlag: (
+    key: string,
+    data: { enabled?: boolean; rollout_percent?: number; description?: string }
+  ) =>
+    apiFetch<import('./types').ApiFeatureFlag>(`/api/v1/admin/feature-flags/${encodeURIComponent(key)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  adminBulkOrders: (data: { order_ids: string[]; status: 'completed' | 'cancelled' | 'active' }) =>
+    apiFetch<{ updated: number; order_ids: string[] }>('/api/v1/admin/orders/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  listVacancies: (params?: { region?: string; limit?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.region) q.set('region', params.region)
+    if (params?.limit != null) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return apiFetch<import('./types').ApiVacancy[]>(`/api/v1/vacancies${qs ? `?${qs}` : ''}`)
+  },
 }

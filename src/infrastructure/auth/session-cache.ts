@@ -63,3 +63,8 @@ export function clearAuthCache(): void {
   cached = null
   inflight = null
 }
+
+/** TOKEN_REFRESHED — keshni tozalamasdan yangi token bilan yangilash */
+export function updateCachedSessionToken(accessToken: string, expiresAt: number, userId: string): void {
+  cached = { accessToken, userId, expiresAt }
+}

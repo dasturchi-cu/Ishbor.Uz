@@ -4599,13 +4599,144 @@
   }
 
   .kwork-promo-banner {
-    background: var(--color-primary);
-    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 80%, #000);
+    background: linear-gradient(
+      90deg,
+      var(--color-primary) 0%,
+      color-mix(in srgb, var(--color-primary) 75%, #1d4ed8) 100%
+    );
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 70%, #000);
+  }
+
+  .landing-page {
+    --landing-hero-pad: clamp(2.5rem, 5vw, 4.5rem);
   }
 
   .kwork-landing-hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--color-primary-light) 90%, var(--neutral-0)) 0%,
+      var(--neutral-0) 42%,
+      var(--body-bg) 100%
+    );
+    border-bottom: 1px solid color-mix(in srgb, var(--kwork-border) 80%, transparent);
+  }
+
+  .kwork-landing-hero::before,
+  .kwork-landing-hero::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .kwork-landing-hero::before {
+    top: -28%;
+    right: -8%;
+    width: min(52vw, 520px);
+    height: min(52vw, 520px);
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--color-primary) 14%, transparent) 0%,
+      transparent 68%
+    );
+  }
+
+  .kwork-landing-hero::after {
+    bottom: -35%;
+    left: -12%;
+    width: min(44vw, 400px);
+    height: min(44vw, 400px);
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--brand-300) 18%, transparent) 0%,
+      transparent 70%
+    );
+  }
+
+  .landing-hero-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .landing-hero-title {
+    max-width: 14ch;
+    background: linear-gradient(
+      120deg,
+      var(--kwork-text) 0%,
+      color-mix(in srgb, var(--kwork-text) 88%, var(--color-primary)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  @supports not (background-clip: text) {
+    .landing-hero-title {
+      color: var(--kwork-text);
+    }
+  }
+
+  .landing-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .landing-hero-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .landing-hero-shortcut {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--kwork-border));
+    background: color-mix(in srgb, var(--neutral-0) 88%, transparent);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--kwork-text);
+    backdrop-filter: blur(6px);
+    transition: var(--transition);
+  }
+
+  .landing-hero-shortcut:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, var(--kwork-border));
+    color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .landing-hero-spotlight {
+    position: relative;
+    padding: 12px;
+    border-radius: 24px;
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--color-primary) 22%, var(--neutral-0)),
+      color-mix(in srgb, var(--brand-100) 60%, var(--neutral-0))
+    );
+    box-shadow:
+      0 24px 48px color-mix(in srgb, var(--color-primary) 12%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--neutral-0) 80%, transparent);
+  }
+
+  .landing-hero-spotlight-inner {
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid color-mix(in srgb, var(--neutral-0) 70%, var(--kwork-border));
     background: var(--neutral-0);
-    border-bottom: 1px solid var(--kwork-border);
+  }
+
+  .landing-featured-section {
+    background: linear-gradient(180deg, var(--body-bg) 0%, var(--neutral-0) 12%);
   }
 
   .kwork-hero-search {
@@ -4692,27 +4823,33 @@
     align-items: center;
     gap: 6px;
     border-radius: var(--r-full);
-    border: 1px solid var(--kwork-border);
-    background: var(--neutral-0);
-    padding: 6px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--kwork-border));
+    background: color-mix(in srgb, var(--neutral-0) 92%, transparent);
+    padding: 7px 14px;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--kwork-text-muted);
+    backdrop-filter: blur(4px);
     transition: var(--transition);
   }
   .kwork-landing-tag:hover {
-    border-color: color-mix(in srgb, var(--color-primary) 25%, var(--kwork-border));
+    border-color: color-mix(in srgb, var(--color-primary) 35%, var(--kwork-border));
     color: var(--color-primary);
     background: var(--color-primary-light);
+    transform: translateY(-1px);
   }
 
   .kwork-hero-visual {
+    display: flex;
     aspect-ratio: 4 / 5;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
-    border-radius: var(--r-lg);
-    border: 1px solid var(--kwork-border);
-    background: var(--neutral-0);
-    box-shadow: var(--shadow-card);
+    background: linear-gradient(
+      160deg,
+      var(--brand-50) 0%,
+      color-mix(in srgb, var(--color-primary-light) 50%, var(--neutral-0)) 100%
+    );
   }
 
   .kwork-hero-badge {
@@ -5060,47 +5197,59 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
+    padding: 7px 14px;
     border-radius: 999px;
-    border: 1px solid var(--brand-200);
-    background: var(--brand-50);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--brand-200));
+    background: color-mix(in srgb, var(--neutral-0) 75%, var(--brand-50));
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--color-primary);
+    box-shadow: var(--shadow-xs);
+    backdrop-filter: blur(6px);
   }
-  .landing-stats-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 24px 40px;
-    margin-top: 40px;
-    padding-top: 32px;
-    border-top: 1px solid var(--kwork-border);
+
+  .landing-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: clamp(2rem, 4vw, 3rem);
   }
-  .landing-stats-item {
-    position: relative;
+
+  @media (max-width: 639px) {
+    .landing-stats-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .landing-stats-card {
+    padding: 18px 16px;
     text-align: center;
-    min-width: 100px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--kwork-border));
+    background: color-mix(in srgb, var(--neutral-0) 88%, transparent);
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(8px);
+    transition: var(--transition);
   }
-  .landing-stats-divider {
-    position: absolute;
-    left: -20px;
-    top: 50%;
-    width: 1px;
-    height: 32px;
-    transform: translateY(-50%);
-    background: var(--kwork-border);
+
+  .landing-stats-card:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--kwork-border));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
   }
+
   .landing-stats-value {
-    font-size: 26px;
+    font-size: clamp(1.5rem, 3vw, 1.75rem);
     font-weight: 800;
     color: var(--color-primary);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
   }
+
   .landing-stats-label {
     margin-top: 4px;
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 500;
     color: var(--kwork-text-muted);
   }
   .landing-section-heading {
@@ -5214,7 +5363,7 @@
     background: var(--neutral-0);
     border-top: 1px solid var(--kwork-border);
     border-bottom: 1px solid var(--kwork-border);
-    padding: 48px 0 56px;
+    padding: 56px 0 64px;
   }
   .landing-how-grid {
     display: grid;
@@ -5237,8 +5386,8 @@
     height: 64px;
     margin: 0 auto 16px;
     border-radius: 50%;
-    background: var(--neutral-0);
-    border: 2px solid var(--brand-200);
+    background: linear-gradient(145deg, var(--brand-50), var(--neutral-0));
+    border: 2px solid color-mix(in srgb, var(--color-primary) 20%, var(--brand-200));
     box-shadow: var(--shadow-sm);
   }
   .landing-how-step-num {
@@ -5295,9 +5444,9 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
-    padding: 16px;
-    border-radius: var(--r-card);
+    gap: 10px;
+    padding: 18px;
+    border-radius: 18px;
     border: 1px solid var(--kwork-border);
     background: var(--neutral-0);
     text-align: left;
@@ -5306,17 +5455,19 @@
   }
   .landing-category-card:hover {
     border-color: color-mix(in srgb, var(--color-primary) 35%, var(--kwork-border));
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
   }
   .landing-category-card-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: var(--brand-50);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, var(--brand-50), color-mix(in srgb, var(--color-primary-light) 40%, var(--neutral-0)));
     color: var(--color-primary);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--neutral-0) 80%, transparent);
   }
   .landing-category-card-label {
     font-size: 14px;
@@ -5328,31 +5479,32 @@
     color: var(--kwork-text-muted);
   }
   .landing-featured-tabs {
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
-    gap: 0;
-    border-bottom: 1px solid var(--kwork-border);
+    gap: 6px;
+    padding: 5px;
+    border-radius: 999px;
+    border: 1px solid var(--kwork-border);
+    background: var(--neutral-100);
   }
   .landing-featured-tab {
-    padding: 10px 16px;
+    padding: 8px 16px;
     border: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
+    border-radius: 999px;
     background: transparent;
     font-size: 13px;
-    font-weight: 500;
-    color: var(--kwork-text);
+    font-weight: 600;
+    color: var(--kwork-text-muted);
     transition: var(--transition);
     cursor: pointer;
   }
   .landing-featured-tab:hover {
     color: var(--color-primary);
-    border-bottom-color: var(--color-primary);
   }
   .landing-featured-tab--active {
     color: var(--color-primary);
-    font-weight: 600;
-    border-bottom-color: var(--color-primary);
+    background: var(--neutral-0);
+    box-shadow: var(--shadow-xs);
   }
   .landing-testimonials-section {
     padding: 48px 0 56px;
@@ -5365,10 +5517,15 @@
   @media (min-width: 768px) { .landing-testimonials-grid { grid-template-columns: repeat(3, 1fr); } }
   .landing-testimonial-card {
     padding: 24px;
-    border-radius: var(--r-card);
+    border-radius: 18px;
     border: 1px solid var(--kwork-border);
-    background: var(--neutral-0);
+    background: linear-gradient(165deg, var(--neutral-0), color-mix(in srgb, var(--brand-50) 35%, var(--neutral-0)));
     box-shadow: var(--shadow-card);
+    transition: var(--transition);
+  }
+  .landing-testimonial-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
   }
   .landing-testimonial-quote {
     margin-top: 12px;
@@ -5444,8 +5601,14 @@
     gap: 24px;
     padding: 40px 32px;
     border-radius: 24px;
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+    background: linear-gradient(
+      125deg,
+      var(--color-primary) 0%,
+      color-mix(in srgb, var(--color-primary) 70%, #1e40af) 55%,
+      var(--color-primary-hover) 100%
+    );
     color: var(--color-on-primary);
+    box-shadow: 0 20px 50px color-mix(in srgb, var(--color-primary) 28%, transparent);
   }
   @media (min-width: 768px) {
     .landing-cta-banner-inner {

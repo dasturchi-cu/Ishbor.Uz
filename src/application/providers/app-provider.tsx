@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { t, type Language, type TranslationKey } from '@/infrastructure/i18n'
 import { isSupabaseConfigured, getSupabase } from '@/infrastructure/supabase/client'
-import { clearAuthCache, getCachedSession } from '@/infrastructure/auth/session-cache'
+import { clearAuthCache, getCachedSession, updateCachedSessionToken } from '@/infrastructure/auth/session-cache'
+import { clearCachedProfile, readCachedProfile, writeCachedProfile } from '@/infrastructure/auth/profile-cache'
 import { api } from '@/infrastructure/api/client'
 import type { ApiProfile } from '@/infrastructure/api/types'
 
@@ -49,8 +50,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured())
   const [userId, setUserId] = useState<string | null>(null)
-  const [profile, setProfile] = useState<ApiProfile | null>(null)
+  const [profile, setProfile] = useState<ApiProfile | null>(() => readCachedProfile())
   const [mounted, setMounted] = useState(false)
+  const profileRef = useRef<ApiProfile | null>(profile)
+  const refreshInflight = useRef<Promise<void> | null>(null)
+
+  profileRef.current = profile
 
   const persistRole = useCallback((role: UserRole) => {
     activeRoleRef.current = role
@@ -60,37 +65,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (!isSupabaseConfigured()) return
-    try {
-      const session = await getCachedSession()
-      if (!session) return
+    if (refreshInflight.current) return refreshInflight.current
 
-      setUserId(session.userId)
-      setIsLoggedIn(true)
+    refreshInflight.current = (async () => {
+      try {
+        const session = await getCachedSession()
+        if (!session) return
 
-      const loaded = await api.getProfile()
-      const role = roleFromProfile(loaded)
-      activeRoleRef.current = role
-      setCurrentUserRoleState(role)
-      localStorage.setItem('userRole', role)
-      setProfile({ ...loaded, role })
+        setUserId(session.userId)
+        setIsLoggedIn(true)
 
-      const ui = loaded.ui_preferences
-      if (ui?.theme === 'light' || ui?.theme === 'dark') {
-        setThemeState(ui.theme)
-        localStorage.setItem('theme', ui.theme)
-        document.documentElement.classList.toggle('dark', ui.theme === 'dark')
+        const loaded = await api.getProfile()
+        const role = roleFromProfile(loaded)
+        activeRoleRef.current = role
+        setCurrentUserRoleState(role)
+        localStorage.setItem('userRole', role)
+        const next = { ...loaded, role }
+        setProfile(next)
+        writeCachedProfile(next)
+
+        const ui = loaded.ui_preferences
+        if (ui?.theme === 'light' || ui?.theme === 'dark') {
+          setThemeState(ui.theme)
+          localStorage.setItem('theme', ui.theme)
+          document.documentElement.classList.toggle('dark', ui.theme === 'dark')
+        }
+        if (ui?.language === 'uz' || ui?.language === 'ru' || ui?.language === 'en') {
+          setLanguage(ui.language)
+          localStorage.setItem('language', ui.language)
+        }
+      } catch {
+        // Vaqtinchalik API xatosi — eski profil va avatar saqlanadi
       }
-      if (ui?.language === 'uz' || ui?.language === 'ru' || ui?.language === 'en') {
-        setLanguage(ui.language)
-        localStorage.setItem('language', ui.language)
-      }
-    } catch {
-      setProfile(null)
-    }
+    })().finally(() => {
+      refreshInflight.current = null
+    })
+
+    return refreshInflight.current
   }, [])
 
   const mergeProfile = useCallback((patch: Partial<ApiProfile>) => {
-    setProfile((prev) => (prev ? { ...prev, ...patch } : prev))
+    setProfile((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, ...patch }
+      writeCachedProfile(next)
+      return next
+    })
   }, [])
 
   const signOut = useCallback(async () => {
@@ -101,6 +121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ])
     clearDashboardHomeCache(userId ?? undefined)
     clearMergedActivityFeedCache()
+    clearCachedProfile()
     if (isSupabaseConfigured()) {
       const supabase = getSupabase()
       await supabase.auth.signOut()
@@ -167,14 +188,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'TOKEN_REFRESHED') {
-        clearAuthCache()
+        if (session?.access_token && session.user) {
+          updateCachedSessionToken(
+            session.access_token,
+            session.expires_at ?? 0,
+            session.user.id,
+          )
+        }
         return
       }
 
       setIsLoggedIn(Boolean(session))
       setUserId(session?.user.id ?? null)
 
-      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED')) {
+      const shouldRefresh =
+        session &&
+        (event === 'SIGNED_IN' ||
+          event === 'USER_UPDATED' ||
+          (event === 'INITIAL_SESSION' && !profileRef.current))
+
+      if (shouldRefresh) {
         if (event === 'SIGNED_IN') {
           clearAuthCache()
           import('@/infrastructure/api/client').then(({ api }) => {
@@ -186,6 +219,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }, 0)
       } else if (!session) {
         clearAuthCache()
+        clearCachedProfile()
         setProfile(null)
       }
     })

@@ -134,7 +134,7 @@
   --body-bg: #f4f4f4;
   --kwork-header-h: 60px;
   --kwork-nav-h: 42px;
-  --kwork-header-total: calc(var(--kwork-header-h) + var(--kwork-nav-h));
+  --kwork-header-total: var(--kwork-header-h);
   --layout-max-w: 1280px;
 
   /* Transition */

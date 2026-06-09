@@ -240,6 +240,7 @@ export function FreelancersCatalog({
               reviewCount={f.review_count}
               variant="row"
               isVerified={f.is_verified}
+              trustScore={f.trust_score}
               onClick={() => router.push(freelancerPath(f.id))}
             />
           ))}

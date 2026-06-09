@@ -168,28 +168,66 @@ def get_user_reputation(user_id: str) -> dict[str, Any] | None:
     return (result2.data or [None])[0]
 
 
-def build_admin_analytics(days: int = 30) -> dict[str, Any]:
-    admin = get_supabase_admin()
+def _empty_admin_analytics(days: int = 30) -> dict[str, Any]:
     from datetime import datetime, timedelta, timezone
 
-    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    users_series: list[dict[str, Any]] = []
+    revenue_series: list[dict[str, Any]] = []
+    for offset in range(days - 1, -1, -1):
+        day = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
+        label = day[5:]
+        users_series.append({"date": label, "value": 0})
+        revenue_series.append({"date": label, "value": 0})
+    return {
+        "period_days": days,
+        "new_users": 0,
+        "orders_total": 0,
+        "orders_completed": 0,
+        "revenue_completed": 0,
+        "search_events": 0,
+        "register_events": 0,
+        "conversion_rate": 0.0,
+        "users_series": users_series,
+        "revenue_series": revenue_series,
+    }
+
+
+def build_admin_analytics(days: int = 30) -> dict[str, Any]:
+    try:
+        return _build_admin_analytics(days)
+    except Exception:
+        return _empty_admin_analytics(days)
+
+
+def _build_admin_analytics(days: int = 30) -> dict[str, Any]:
+    admin = get_supabase_admin()
+    from collections import defaultdict
+    from datetime import datetime, timedelta, timezone
+
+    from postgrest.exceptions import APIError
+
+    since_dt = datetime.now(timezone.utc) - timedelta(days=days)
+    since = since_dt.isoformat()
 
     def _count_events(name: str) -> int:
-        r = run_query(
-            lambda: admin.table("analytics_events")
-            .select("id", count="exact")
-            .eq("event_name", name)
-            .gte("created_at", since)
-            .limit(1)
-            .execute()
-        )
-        return int(r.count or 0)
+        try:
+            r = run_query(
+                lambda: admin.table("analytics_events")
+                .select("id", count="exact")
+                .eq("event_name", name)
+                .gte("created_at", since)
+                .limit(1)
+                .execute()
+            )
+            return int(r.count or 0)
+        except APIError:
+            return 0
 
     users = run_query(
-        lambda: admin.table("profiles").select("id", count="exact").gte("created_at", since).limit(1).execute()
+        lambda: admin.table("profiles").select("created_at").gte("created_at", since).execute()
     )
     orders = run_query(
-        lambda: admin.table("orders").select("id, amount, status", count="exact").gte("created_at", since).execute()
+        lambda: admin.table("orders").select("id, amount, status, created_at").gte("created_at", since).execute()
     )
     order_rows = orders.data or []
     completed = [o for o in order_rows if o.get("status") == "completed"]
@@ -198,13 +236,72 @@ def build_admin_analytics(days: int = 30) -> dict[str, Any]:
     searches = _count_events("search")
     signups = _count_events("register")
 
+    users_by_day: dict[str, int] = defaultdict(int)
+    revenue_by_day: dict[str, int] = defaultdict(int)
+    for row in users.data or []:
+        created = row.get("created_at")
+        if created:
+            users_by_day[str(created)[:10]] += 1
+    for row in completed:
+        created = row.get("created_at")
+        if created:
+            revenue_by_day[str(created)[:10]] += int(row.get("amount") or 0)
+
+    users_series: list[dict[str, Any]] = []
+    revenue_series: list[dict[str, Any]] = []
+    for offset in range(days - 1, -1, -1):
+        day = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
+        users_series.append({"date": day[5:], "value": users_by_day.get(day, 0)})
+        revenue_series.append({"date": day[5:], "value": revenue_by_day.get(day, 0)})
+
     return {
         "period_days": days,
-        "new_users": int(users.count or 0),
+        "new_users": len(users.data or []),
         "orders_total": len(order_rows),
         "orders_completed": len(completed),
         "revenue_completed": revenue,
         "search_events": searches,
         "register_events": signups,
         "conversion_rate": round(len(completed) / max(len(order_rows), 1) * 100, 1),
+        "users_series": users_series,
+        "revenue_series": revenue_series,
     }
+
+
+def broadcast_notification(
+    *,
+    title: str,
+    body: str,
+    href: str | None = None,
+    target: str = "all",
+) -> int:
+    admin = get_supabase_admin()
+    query = admin.table("profiles").select("id")
+    if target == "freelancers":
+        query = query.eq("role", "freelancer")
+    elif target == "clients":
+        query = query.eq("role", "client")
+    result = run_query(lambda: query.execute())
+    rows = result.data or []
+    if not rows:
+        return 0
+
+    payload = [
+        {
+            "user_id": row["id"],
+            "type": "broadcast",
+            "title": title,
+            "body": body,
+            "href": href,
+            "category": "general",
+            "priority": 0,
+        }
+        for row in rows
+    ]
+    batch_size = 200
+    sent = 0
+    for i in range(0, len(payload), batch_size):
+        chunk = payload[i : i + batch_size]
+        run_query(lambda c=chunk: admin.table("notifications").insert(c).execute())
+        sent += len(chunk)
+    return sent

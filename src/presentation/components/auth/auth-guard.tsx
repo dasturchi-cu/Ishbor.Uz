@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
-import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
+import { defaultAuthDestination, isAdminPath, PATHS } from '@/domain/constants/routes'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { toast } from '@/presentation/components/ui/toast'
 
@@ -21,13 +21,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       void signOut().finally(() => router.replace(PATHS.login))
       return
     }
+    const path = typeof window !== 'undefined' ? window.location.pathname : ''
     if (
       !isAuthLoading &&
       isLoggedIn &&
       profile &&
+      !profile.is_admin &&
       profile.onboarding_completed === false &&
-      typeof window !== 'undefined' &&
-      !window.location.pathname.startsWith(PATHS.onboarding)
+      path &&
+      !path.startsWith(PATHS.onboarding) &&
+      !isAdminPath(path)
     ) {
       router.replace(PATHS.onboarding)
     }
@@ -35,10 +38,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       !isAuthLoading &&
       isLoggedIn &&
       profile?.onboarding_completed === true &&
-      typeof window !== 'undefined' &&
-      window.location.pathname.startsWith(PATHS.onboarding)
+      path.startsWith(PATHS.onboarding)
     ) {
-      router.replace(dashboardPathForRole(currentUserRole))
+      router.replace(defaultAuthDestination(profile, currentUserRole))
     }
   }, [isAuthLoading, isLoggedIn, profile, router, t, signOut, currentUserRole])
 

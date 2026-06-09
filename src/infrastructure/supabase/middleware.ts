@@ -66,13 +66,23 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && AUTH_PATHS.has(pathname)) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin, onboarding_completed')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const dest =
+      profile?.onboarding_completed === false && !profile?.is_admin
+        ? '/onboarding'
+        : '/dashboard'
+    return NextResponse.redirect(new URL(dest, request.url))
   }
 
   if (user && isProtected(pathname)) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_banned, onboarding_completed')
+      .select('is_banned, onboarding_completed, is_admin')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -88,7 +98,7 @@ export async function updateSession(request: NextRequest) {
       pathname === '/dashboard' || pathname.startsWith('/dashboard/')
     const onOnboarding = pathname === '/onboarding' || pathname.startsWith('/onboarding/')
 
-    if (onDashboard && profile && profile.onboarding_completed === false) {
+    if (onDashboard && profile && profile.onboarding_completed === false && !profile.is_admin) {
       const onboardingUrl = request.nextUrl.clone()
       onboardingUrl.pathname = '/onboarding'
       return NextResponse.redirect(onboardingUrl)
@@ -99,20 +109,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (user && (pathname === '/admin' || pathname.startsWith('/admin/'))) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (!profile?.is_admin) {
-      const denied = request.nextUrl.clone()
-      denied.pathname = '/dashboard'
-      denied.searchParams.set('admin_denied', '1')
-      return NextResponse.redirect(denied)
-    }
-  }
+  // Admin huquqi clientda AdminGuard orqali tekshiriladi (dashboard ga yashirin redirect yo'q)
 
   return response
 }

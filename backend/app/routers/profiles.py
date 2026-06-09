@@ -12,7 +12,7 @@ from app.db_utils import run_query
 from app.deps import OptionalUserId, UserAuthDep
 
 from app.analytics_service import build_user_analytics
-from app.review_stats import batch_review_stats
+from app.review_stats import batch_review_stats, batch_trust_scores
 
 from app.schemas import (
     NotificationPrefsResponse,
@@ -367,8 +367,7 @@ def list_freelancers(
     ids = [row["id"] for row in rows]
 
     stats_map = batch_review_stats(supabase, ids)
-
-
+    trust_map = batch_trust_scores(supabase, ids)
 
     profiles = []
 
@@ -376,7 +375,12 @@ def list_freelancers(
 
         avg, count = stats_map.get(row["id"], (0.0, 0))
 
-        profiles.append({**row, "avg_rating": avg, "review_count": count})
+        profiles.append({
+            **row,
+            "avg_rating": avg,
+            "review_count": count,
+            "trust_score": trust_map.get(row["id"], 0),
+        })
 
     if sort == "rating":
         profiles.sort(key=lambda p: (p.get("avg_rating") or 0, p.get("review_count") or 0), reverse=True)
