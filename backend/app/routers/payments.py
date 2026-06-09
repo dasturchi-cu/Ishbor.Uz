@@ -17,7 +17,8 @@ from app.payment_intent_service import (
     get_latest_intent_for_order,
     update_intent,
 )
-from app.payment_service import hold_escrow
+from app.payment_service import hold_escrow, pay_order_from_wallet
+from app.wallet_topup_service import create_topup_intent, credit_topup_intent, get_topup_intent
 from app.payments.click import (
     build_pay_url,
     click_error_response,
@@ -46,6 +47,20 @@ class CheckoutBody(BaseModel):
 class WithdrawalCreate(BaseModel):
     amount: int = Field(gt=0)
     note: str | None = None
+    bank_account_id: str | None = None
+
+
+class WalletTopupCreate(BaseModel):
+    amount: int = Field(gt=0, le=50_000_000)
+    provider: Literal["sandbox", "click", "payme"] = "sandbox"
+
+
+class WalletTopupResponse(BaseModel):
+    id: str
+    amount: int
+    provider: str
+    status: str
+    redirect_url: str | None = None
 
 
 class ClickShopPayload(BaseModel):
@@ -93,14 +108,10 @@ def _amount_matches(expected: int, received: float) -> bool:
 
 
 def _payments_providers() -> list[str]:
-    providers: list[str] = []
-    if not settings.is_production:
-        providers.append("sandbox")
-    if settings.click_enabled:
-        providers.append("click")
-    if settings.payme_enabled:
-        providers.append("payme")
-    return providers
+    """Hozircha faqat sandbox — Click/Payme keyinroq yoqiladi."""
+    if settings.is_production:
+        return []
+    return ["sandbox"]
 
 
 @router.get("/config")
@@ -129,13 +140,13 @@ def checkout_order(order_id: str, body: CheckoutBody, auth: UserAuthDep):
     if user_id != order["client_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz to'lov qiladi")
 
-    if body.provider not in _payments_providers():
+    if body.provider != "sandbox":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="To'lov usuli hozircha mavjud emas",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Hozircha faqat test (sandbox) to'lov mavjud",
         )
 
-    if body.provider == "sandbox" and settings.is_production:
+    if settings.is_production:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sandbox to'lovi production muhitida taqiqlangan",
@@ -262,6 +273,39 @@ def request_withdrawal(body: WithdrawalCreate, auth: UserAuthDep):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat freelancer pul yechishi mumkin")
 
     admin = get_supabase_admin()
+    bank_account_id = body.bank_account_id
+    if bank_account_id:
+        bank = run_query(
+            lambda: admin.table("bank_accounts")
+            .select("id, is_verified, user_id")
+            .eq("id", bank_account_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not bank.data:
+            raise HTTPException(status_code=400, detail="Bank hisobi topilmadi")
+        if not bank.data[0].get("is_verified"):
+            raise HTTPException(
+                status_code=400,
+                detail="Pul yechish uchun tasdiqlangan bank hisobi kerak",
+            )
+    else:
+        verified = run_query(
+            lambda: admin.table("bank_accounts")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("is_verified", True)
+            .limit(1)
+            .execute()
+        )
+        if not verified.data:
+            raise HTTPException(
+                status_code=400,
+                detail="Avval bank hisobini qo'shing va admin tasdiqlashini kuting",
+            )
+        bank_account_id = verified.data[0]["id"]
+
     try:
         result = run_query(
             lambda: admin.rpc(
@@ -278,6 +322,10 @@ def request_withdrawal(body: WithdrawalCreate, auth: UserAuthDep):
     row = rpc_row(result)
     if not row:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="So'rov yaratilmadi")
+    if bank_account_id:
+        admin.table("withdrawal_requests").update({"bank_account_id": bank_account_id}).eq(
+            "id", row["id"]
+        ).execute()
     return row
 
 
@@ -300,6 +348,78 @@ def list_my_withdrawals(auth: UserAuthDep):
         .execute()
     )
     return result.data or []
+
+
+def _wallet_return_url() -> str:
+    base = settings.click_return_url.strip() or settings.cors_origin_list[0]
+    return f"{base.rstrip('/')}/dashboard/wallet?topup=success"
+
+
+@router.post("/wallet/topup", response_model=WalletTopupResponse, status_code=status.HTTP_201_CREATED)
+def wallet_topup(body: WalletTopupCreate, auth: UserAuthDep):
+    user_id = auth.user_id
+    if body.provider != "sandbox":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Hozircha faqat test (sandbox) to'ldirish mavjud",
+        )
+
+    if settings.is_production:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sandbox productionda taqiqlangan")
+
+    intent = create_topup_intent(user_id, body.amount, "sandbox")
+    credited = credit_topup_intent(intent["id"], provider_ref=f"sandbox-{intent['id']}")
+    return WalletTopupResponse(
+        id=credited["id"],
+        amount=credited["amount"],
+        provider=credited["provider"],
+        status=credited["status"],
+    )
+
+
+@router.post("/orders/{order_id}/pay-wallet", response_model=CheckoutResponse)
+def pay_order_with_wallet(order_id: str, auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    existing = run_query(
+        lambda: supabase.table("orders").select("*").eq("id", order_id).single().execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
+
+    order = existing.data
+    if user_id != order["client_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz to'laydi")
+
+    profile = run_query(
+        lambda: supabase.table("profiles")
+        .select("wallet_balance")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    balance = int((profile.data or {}).get("wallet_balance") or 0)
+    if balance < int(order["amount"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="payment_insufficient_balance",
+        )
+
+    held = pay_order_from_wallet(supabase, order, user_id)
+    return CheckoutResponse(order=_order_response(held))
+
+
+@router.get("/wallet/topup/{intent_id}", response_model=WalletTopupResponse)
+def get_wallet_topup(intent_id: str, auth: UserAuthDep):
+    row = get_topup_intent(intent_id, auth.user_id)
+    meta = row.get("metadata") or {}
+    return WalletTopupResponse(
+        id=row["id"],
+        amount=row["amount"],
+        provider=row["provider"],
+        status=row["status"],
+        redirect_url=meta.get("redirect_url"),
+    )
 
 
 @router.get("/transactions")

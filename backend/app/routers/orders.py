@@ -9,6 +9,7 @@ from app.notification_service import notify_order_status
 from app.payment_service import refund_escrow, release_escrow
 from app.schemas import OrderCreate, OrderResponse, OrderStatusUpdate
 from app.conversation_service import ensure_order_conversation
+from app.platform_services import refresh_reputation
 from app.service_packages import resolve_package_amount
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -199,6 +200,7 @@ def update_order_status(order_id: str, payload: OrderStatusUpdate, auth: UserAut
         updated_order = release_escrow(admin, merged)
         try_credit_referral_bonus(admin, order["client_id"])
         try_credit_referral_bonus(admin, order["freelancer_id"])
+        refresh_reputation(order["freelancer_id"])
     elif payload.status == "cancelled" and merged.get("payment_status") == "held":
         updated_order = refund_escrow(admin, merged)
 

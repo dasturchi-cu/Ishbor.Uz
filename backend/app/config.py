@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     telegram_bot_username: str = "IshBorUzBot"
     telegram_webhook_secret: str = ""
 
+    cron_secret: str = ""
+    escrow_auto_release_days: int = 3
+
     @property
     def telegram_enabled(self) -> bool:
         return bool(self.telegram_bot_token.strip())

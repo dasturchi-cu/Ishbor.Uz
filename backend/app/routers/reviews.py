@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from app.database import get_supabase_admin
 from app.notification_service import create_notification
 from app.deps import UserAuthDep
+from app.platform_services import refresh_reputation
 
 from app.schemas import PublicReviewResponse, ReviewCreate, ReviewReplyUpdate, ReviewResponse, ReviewUpdate
 
@@ -53,7 +54,11 @@ def recent_public_reviews(limit: int = Query(default=6, le=12)):
         .execute()
     )
 
-    reviews = [r for r in (result.data or []) if r.get("comment") and str(r["comment"]).strip()]
+    reviews = [
+        r
+        for r in (result.data or [])
+        if r.get("comment") and str(r["comment"]).strip() and r.get("is_verified", True)
+    ]
     reviews = reviews[:limit]
     if not reviews:
         return []
@@ -100,6 +105,7 @@ def list_service_reviews(service_id: str):
         supabase.table("reviews")
         .select("*")
         .in_("order_id", order_ids)
+        .eq("is_verified", True)
         .order("created_at", desc=True)
         .execute()
     )
@@ -141,6 +147,7 @@ def list_freelancer_reviews(freelancer_id: str):
         supabase.table("reviews")
         .select("*")
         .eq("freelancer_id", freelancer_id)
+        .eq("is_verified", True)
         .order("created_at", desc=True)
         .execute()
     )
@@ -289,6 +296,7 @@ def create_review(payload: ReviewCreate, auth: UserAuthDep):
         "freelancer_id": order_row["freelancer_id"],
         "rating": payload.rating,
         "comment": payload.comment,
+        "is_verified": True,
     }
     result = supabase.table("reviews").insert(data).execute()
     if not result.data:
@@ -314,4 +322,5 @@ def create_review(payload: ReviewCreate, auth: UserAuthDep):
         body=f"{payload.rating}/5",
         href="/dashboard/reviews",
     )
+    refresh_reputation(order_row["freelancer_id"])
     return result.data[0]

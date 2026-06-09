@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.deps import UserAuthDep
+from app.fraud_service import flag_message_if_risky
 from app.notification_service import create_notification
 from app.schemas import ConversationResponse, MessageCreate, MessageResponse
 
@@ -200,6 +201,30 @@ def send_message(payload: MessageCreate, auth: UserAuthDep):
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xabar yuborilmadi")
 
+    msg = result.data[0]
+    if user_id == order_row["freelancer_id"] and not order_row.get("freelancer_first_response_at"):
+        from app.database import get_supabase_admin
+
+        get_supabase_admin().table("orders").update(
+            {"freelancer_first_response_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", payload.order_id).execute()
+
+    flags = flag_message_if_risky(
+        message_id=msg["id"],
+        order_id=payload.order_id,
+        sender_id=user_id,
+        content=payload.content,
+    )
+    if flags:
+        create_notification(
+            supabase,
+            user_id=receiver_id,
+            type="order",
+            title="Xavfsizlik ogohlantirishi",
+            body="Chatda platformadan tashqari to'lov haqida xabar aniqlandi",
+            href=f"/dashboard/messages?order={payload.order_id}",
+        )
+
     create_notification(
         supabase,
         user_id=receiver_id,
@@ -210,4 +235,4 @@ def send_message(payload: MessageCreate, auth: UserAuthDep):
         urgent=True,
     )
 
-    return result.data[0]
+    return msg

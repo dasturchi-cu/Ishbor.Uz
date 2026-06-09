@@ -1040,6 +1040,17 @@ def admin_review_verification(verification_id: str, body: VerificationReview, us
     row = result.data[0]
     if body.status == "approved" and row["verification_type"] in ("freelancer", "identity"):
         supabase.table("profiles").update({"is_verified": True}).eq("id", row["user_id"]).execute()
+    if body.status == "approved" and row["verification_type"] == "company":
+        stir = (row.get("notes") or "").replace("STIR:", "").strip()
+        updates: dict = {
+            "stir_verified": True,
+            "stir_verified_at": datetime.now(timezone.utc).isoformat(),
+            "stir_verified_by": user_id,
+            "is_verified": True,
+        }
+        if stir:
+            updates["stir"] = stir
+        supabase.table("companies").update(updates).eq("owner_id", row["user_id"]).execute()
 
     log_moderation(
         admin_id=user_id,
@@ -1289,3 +1300,112 @@ def admin_delete_company(company_id: str, user_id: CurrentUserId):
     run_query(lambda: supabase.table("companies").delete().eq("id", company_id).execute())
     log_audit(actor_id=user_id, action="company_delete", entity_type="company", entity_id=company_id)
     return {"ok": True}
+
+
+class ServiceModerationUpdate(BaseModel):
+    status: Literal["approved", "rejected"]
+    notes: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/services/moderation-queue")
+def admin_service_moderation_queue(
+    user_id: CurrentUserId,
+    limit: int = Query(default=50, le=200),
+):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("services")
+        .select("*, profiles(full_name, email)")
+        .eq("moderation_status", "pending")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
+
+
+@router.patch("/services/{service_id}/moderation")
+def admin_moderate_service(service_id: str, body: ServiceModerationUpdate, user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    updates = {
+        "moderation_status": body.status,
+        "moderation_notes": body.notes,
+        "moderated_by": user_id,
+        "moderated_at": datetime.now(timezone.utc).isoformat(),
+        "is_hidden": body.status != "approved",
+    }
+    result = run_query(
+        lambda: supabase.table("services").update(updates).eq("id", service_id).execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Xizmat topilmadi")
+    log_moderation(
+        admin_id=user_id,
+        target_user_id=result.data[0].get("freelancer_id"),
+        action=f"service_{body.status}",
+        reason=body.notes,
+        metadata={"service_id": service_id},
+    )
+    return result.data[0]
+
+
+@router.get("/compliance-flags")
+def admin_compliance_flags(user_id: CurrentUserId, resolved: bool = False, limit: int = Query(default=50, le=200)):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("message_compliance_flags")
+        .select("*")
+        .eq("resolved", resolved)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
+
+
+@router.patch("/compliance-flags/{flag_id}/resolve")
+def admin_resolve_compliance_flag(flag_id: str, user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("message_compliance_flags")
+        .update({"resolved": True})
+        .eq("id", flag_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Flag topilmadi")
+    return result.data[0]
+
+
+@router.patch("/bank-accounts/{account_id}/verify")
+def admin_verify_bank_account(account_id: str, user_id: CurrentUserId):
+    _require_admin(user_id)
+    supabase = get_supabase_admin()
+    result = run_query(
+        lambda: supabase.table("bank_accounts")
+        .update(
+            {
+                "is_verified": True,
+                "verified_by": user_id,
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        .eq("id", account_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Bank hisobi topilmadi")
+    log_audit(actor_id=user_id, action="bank_verify", entity_type="bank_account", entity_id=account_id)
+    return result.data[0]
+
+
+@router.post("/trust-jobs/run")
+def admin_run_trust_jobs(user_id: CurrentUserId):
+    _require_admin(user_id)
+    from app.trust_jobs import run_all_trust_jobs
+
+    return run_all_trust_jobs()

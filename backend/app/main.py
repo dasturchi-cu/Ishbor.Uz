@@ -35,6 +35,7 @@ from app.routers import (
     vacancies,
     waitlist,
     platform,
+    trust,
 )
 from app.supabase_errors import supabase_api_error_handler
 
@@ -96,6 +97,7 @@ app.include_router(vacancies.router, prefix="/api/v1")
 app.include_router(waitlist.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
 app.include_router(platform.router, prefix="/api/v1")
+app.include_router(trust.router, prefix="/api/v1")
 
 app.add_exception_handler(APIError, supabase_api_error_handler)
 

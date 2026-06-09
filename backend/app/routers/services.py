@@ -33,6 +33,7 @@ def list_freelancer_services(freelancer_id: str):
         .select("*")
         .eq("freelancer_id", freelancer_id)
         .eq("is_hidden", False)
+        .eq("moderation_status", "approved")
         .order("created_at", desc=True)
         .execute()
     )
@@ -56,6 +57,7 @@ def list_services(
         supabase.table("services")
         .select("*, profiles(full_name, specialty, region, is_verified)", count="exact")
         .eq("is_hidden", False)
+        .eq("moderation_status", "approved")
     )
 
     if category:
@@ -83,17 +85,20 @@ def list_services(
     else:
         query = query.order("created_at", desc=True)
 
-    result = query.range(offset, offset + limit - 1).execute()
-    rows = result.data or []
-    freelancer_ids = list({r["freelancer_id"] for r in rows if r.get("freelancer_id")})
-    stats_map = batch_review_stats(supabase, freelancer_ids)
-    for row in rows:
-        fid = row.get("freelancer_id")
-        prof = row.get("profiles") or {}
-        if fid and fid in stats_map:
-            avg, count = stats_map[fid]
-            row["profiles"] = {**prof, "avg_rating": avg, "review_count": count}
-    return ServiceListResponse(items=rows, total=result.count or 0)
+    def fetch() -> ServiceListResponse:
+        result = query.range(offset, offset + limit - 1).execute()
+        rows = result.data or []
+        freelancer_ids = list({r["freelancer_id"] for r in rows if r.get("freelancer_id")})
+        stats_map = batch_review_stats(supabase, freelancer_ids)
+        for row in rows:
+            fid = row.get("freelancer_id")
+            prof = row.get("profiles") or {}
+            if fid and fid in stats_map:
+                avg, count = stats_map[fid]
+                row["profiles"] = {**prof, "avg_rating": avg, "review_count": count}
+        return ServiceListResponse(items=rows, total=result.count or 0)
+
+    return run_query(fetch)
 
 
 def _viewer_key(request: Request, user_id: str | None) -> str:
@@ -148,7 +153,7 @@ def get_service(service_id: str):
     )
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Xizmat topilmadi")
-    if result.data.get("is_hidden"):
+    if result.data.get("is_hidden") or result.data.get("moderation_status") != "approved":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Xizmat topilmadi")
     return result.data
 
@@ -167,7 +172,13 @@ def create_service(payload: ServiceCreate, auth: UserAuthDep):
 
     raw = payload.model_dump()
     packages = raw.pop("packages") or default_packages(raw["price"], raw.get("delivery_days", 5))
-    data = {**raw, "packages": packages, "freelancer_id": user_id}
+    data = {
+        **raw,
+        "packages": packages,
+        "freelancer_id": user_id,
+        "moderation_status": "pending",
+        "is_hidden": True,
+    }
     result = supabase.table("services").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xizmat yaratilmadi")

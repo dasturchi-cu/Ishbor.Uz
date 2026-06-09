@@ -36,6 +36,9 @@ class UserReputationResponse(BaseModel):
     response_time_hours: float | None = None
     total_earnings: int = 0
     trust_score: int = 0
+    trust_breakdown: dict[str, Any] = Field(default_factory=dict)
+    dispute_count: int = 0
+    dispute_lost_count: int = 0
     updated_at: datetime | None = None
 
 
