@@ -26,8 +26,8 @@ export function CompaniesCatalog() {
   return (
     <PageWrapper>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--kwork-text)]">{t('companies_catalog_title')}</h1>
-        <p className="mt-1 text-[14px] text-[var(--kwork-text-muted)]">{t('companies_catalog_subtitle')}</p>
+        <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('companies_catalog_title')}</h1>
+        <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">{t('companies_catalog_subtitle')}</p>
       </div>
       {loading ? (
         <LoadingBlock className="py-16" />
@@ -38,7 +38,7 @@ export function CompaniesCatalog() {
           {companies.map((company) => (
             <Card key={company.id} className="p-5">
               <div className="mb-2 flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-[var(--kwork-text)]">{company.name}</h3>
+                <h3 className="font-semibold text-[var(--ishbor-text)]">{company.name}</h3>
                 {company.is_verified && (
                   <span className="rounded-full bg-[var(--color-primary-light)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-primary)]">
                     {t('badge_verified')}
@@ -46,10 +46,10 @@ export function CompaniesCatalog() {
                 )}
               </div>
               {company.region && (
-                <p className="mb-2 text-[12px] text-[var(--kwork-text-muted)]">{company.region}</p>
+                <p className="mb-2 text-[12px] text-[var(--ishbor-text-muted)]">{company.region}</p>
               )}
               {company.description && (
-                <p className="line-clamp-3 text-[13px] text-[var(--kwork-text-sub)]">{company.description}</p>
+                <p className="line-clamp-3 text-[13px] text-[var(--ishbor-text-sub)]">{company.description}</p>
               )}
               {company.website && isSafeExternalWebsiteUrl(company.website) && (
                 <a

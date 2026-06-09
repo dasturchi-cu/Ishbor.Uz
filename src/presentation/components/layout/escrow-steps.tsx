@@ -2,6 +2,7 @@
 
 import { CheckCircle2, CreditCard, Shield } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
+import { cn } from '@/shared/lib/utils'
 
 export function EscrowSteps({ className }: { className?: string }) {
   const { t } = useApp()
@@ -13,7 +14,7 @@ export function EscrowSteps({ className }: { className?: string }) {
   ]
 
   return (
-    <div className={className}>
+    <div className={cn('ishbor-signature-escrow', className)}>
       <div className="escrow-steps">
         {steps.map(({ icon: Icon, titleKey, descKey }, i) => (
           <div key={titleKey} className="escrow-step">

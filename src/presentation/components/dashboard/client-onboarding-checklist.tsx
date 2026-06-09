@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronRight } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -9,6 +9,10 @@ import { profileCompletionPercent } from '@/shared/lib/profile-completion'
 import type { ApiProject } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 import { clientOnboardingProgress } from '@/shared/lib/onboarding-progress'
+import {
+  recordOnboardingChecklistSession,
+  shouldShowOnboardingChecklist,
+} from '@/shared/lib/onboarding-session-limit'
 
 interface Step {
   id: string
@@ -29,8 +33,14 @@ export function ClientOnboardingChecklist({
   className,
 }: ClientOnboardingChecklistProps) {
   const { t, profile } = useApp()
+  const [sessionVisible, setSessionVisible] = useState(true)
   const completion = profileCompletionPercent(profile, 'client')
   const progress = clientOnboardingProgress(profile, projects, hasOrders)
+
+  useEffect(() => {
+    setSessionVisible(shouldShowOnboardingChecklist())
+    recordOnboardingChecklistSession()
+  }, [])
 
   const steps = useMemo<Step[]>(
     () => [
@@ -56,19 +66,19 @@ export function ClientOnboardingChecklist({
     [completion, hasOrders, projects.length, t]
   )
 
-  if (progress.complete) return null
+  if (progress.complete || !sessionVisible) return null
 
   return (
     <section
       className={cn(
-        'rounded-[var(--r-lg)] border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4 shadow-[var(--shadow-xs)] sm:p-5',
+        'rounded-[var(--r-lg)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4 shadow-[var(--shadow-xs)] sm:p-5',
         className
       )}
       aria-label={t('onboarding_first_steps')}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-bold text-[var(--kwork-text)]">{t('onboarding_first_steps')}</h2>
-        <span className="text-[12px] font-medium text-[var(--kwork-text-muted)]">
+        <h2 className="text-[15px] font-bold text-[var(--ishbor-text)]">{t('onboarding_first_steps')}</h2>
+        <span className="text-[12px] font-medium text-[var(--ishbor-text-muted)]">
           {progress.done}/{progress.total}
         </span>
       </div>
@@ -80,8 +90,8 @@ export function ClientOnboardingChecklist({
               className={cn(
                 'flex items-center gap-3 rounded-[var(--r-md)] border px-3 py-2.5 text-[13px] transition',
                 step.done
-                  ? 'border-[var(--success)]/30 bg-[var(--success-bg)] text-[var(--kwork-text-muted)]'
-                  : 'border-[var(--kwork-border)] bg-[var(--neutral-50)] text-[var(--kwork-text)] hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--kwork-border))] hover:bg-[var(--neutral-0)]'
+                  ? 'border-[var(--success)]/30 bg-[var(--success-bg)] text-[var(--ishbor-text-muted)]'
+                  : 'border-[var(--ishbor-border)] bg-[var(--neutral-50)] text-[var(--ishbor-text)] hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--ishbor-border))] hover:bg-[var(--neutral-0)]'
               )}
             >
               <span
@@ -89,7 +99,7 @@ export function ClientOnboardingChecklist({
                   'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
                   step.done
                     ? 'bg-[var(--success)] text-white'
-                    : 'border border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text-muted)]'
+                    : 'border border-[var(--ishbor-border)] bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)]'
                 )}
                 aria-hidden
               >
@@ -100,7 +110,7 @@ export function ClientOnboardingChecklist({
                   ? `${step.label} (${t('profile_completion').replace('{n}', String(completion))})`
                   : step.label}
               </span>
-              {!step.done && <ChevronRight className="h-4 w-4 shrink-0 text-[var(--kwork-text-muted)]" />}
+              {!step.done && <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ishbor-text-muted)]" />}
             </Link>
           </li>
         ))}

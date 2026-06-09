@@ -15,7 +15,7 @@ const STATUS_CLASS: Record<string, string> = {
   unpaid: 'bg-[var(--warning-bg)] text-[var(--warning-dark)]',
   held: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
   released: 'bg-[var(--success-bg)] text-[var(--success-dark)]',
-  refunded: 'bg-[var(--neutral-100)] text-[var(--kwork-text-muted)]',
+  refunded: 'bg-[var(--neutral-100)] text-[var(--ishbor-text-muted)]',
 }
 
 export function PaymentStatusBadge({ status }: { status?: string | null }) {

@@ -101,7 +101,7 @@ function ToggleRow({
     <div className={cn('settings-toggle-row', disabled && 'opacity-60')}>
       <div className="min-w-0">
         <span className="settings-toggle-label">{label}</span>
-        {hint ? <p className="mt-0.5 text-[11px] text-[var(--kwork-text-muted)]">{hint}</p> : null}
+        {hint ? <p className="mt-0.5 text-[11px] text-[var(--ishbor-text-muted)]">{hint}</p> : null}
       </div>
       <button
         type="button"
@@ -471,7 +471,7 @@ export function ProfileSettings() {
           <div className="settings-panel">
             {activeTab === 'general' && (
               <>
-                <p className="text-[13px] leading-relaxed text-[var(--kwork-text)]">
+                <p className="text-[13px] leading-relaxed text-[var(--ishbor-text)]">
                   {t('settings_profile_link')}{' '}
                   <Link href={profileLink} className="font-medium text-[var(--color-primary)] hover:underline">
                     {profileLink}
@@ -489,7 +489,7 @@ export function ProfileSettings() {
                       className="catalog-control !h-[42px]"
                     />
                     {usernameStatus === 'checking' && (
-                      <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('username_checking')}</p>
+                      <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('username_checking')}</p>
                     )}
                     {usernameStatus === 'ok' && (
                       <p className="mt-1 text-[12px] text-[var(--success-dark)]">{t('username_available')}</p>
@@ -592,7 +592,7 @@ export function ProfileSettings() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-[13px] text-[var(--kwork-text-muted)]">
+                <p className="mt-4 text-[13px] text-[var(--ishbor-text-muted)]">
                   {t('settings_prefs_auto_save')}
                 </p>
               </>
@@ -645,7 +645,7 @@ export function ProfileSettings() {
                       onChange={(e) => setTitle(e.target.value)}
                       className="catalog-control !h-[42px]"
                     />
-                    <p className="mt-1 text-[11px] text-[var(--kwork-text-muted)]">
+                    <p className="mt-1 text-[11px] text-[var(--ishbor-text-muted)]">
                       {hintText(t, 'settings_chars_hint', title.length, 50, 5)}
                     </p>
                   </div>
@@ -670,7 +670,7 @@ export function ProfileSettings() {
                       rows={5}
                       className="max-w-[520px]"
                     />
-                    <p className="mt-1 text-[11px] text-[var(--kwork-text-muted)]">
+                    <p className="mt-1 text-[11px] text-[var(--ishbor-text-muted)]">
                       {hintText(t, 'settings_chars_hint', bio.length, 500, 200)}
                     </p>
                   </div>
@@ -685,7 +685,7 @@ export function ProfileSettings() {
                           key={skill}
                           type="button"
                           onClick={() => removeSkill(skill)}
-                          className="inline-flex items-center gap-1 rounded-full border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-2.5 py-1 text-[12px]"
+                          className="inline-flex items-center gap-1 rounded-full border border-[var(--ishbor-border)] bg-[var(--neutral-50)] px-2.5 py-1 text-[12px]"
                         >
                           {skill}
                           <X className="h-3 w-3" />
@@ -717,7 +717,7 @@ export function ProfileSettings() {
                           key={skill}
                           type="button"
                           onClick={() => addSkill(skill)}
-                          className="rounded-full border border-dashed border-[var(--kwork-border)] px-2 py-0.5 text-[11px] text-[var(--kwork-text-muted)] hover:border-[var(--color-primary)]"
+                          className="rounded-full border border-dashed border-[var(--ishbor-border)] px-2 py-0.5 text-[11px] text-[var(--ishbor-text-muted)] hover:border-[var(--color-primary)]"
                         >
                           + {skill}
                         </button>
@@ -764,7 +764,7 @@ export function ProfileSettings() {
                   {currentUserRole === 'freelancer' && (
                     <div>
                       <label className="settings-field-label">{t('portfolio_urls_label')}</label>
-                      <p className="mb-2 text-[12px] text-[var(--kwork-text-muted)]">{t('portfolio_upload_hint')}</p>
+                      <p className="mb-2 text-[12px] text-[var(--ishbor-text-muted)]">{t('portfolio_upload_hint')}</p>
                       <FileUploadZone
                         maxFiles={12}
                         maxSizeMb={5}
@@ -791,9 +791,9 @@ export function ProfileSettings() {
                   <div>
                     <label className="settings-field-label inline-flex items-center gap-1">
                       {t('settings_business_hours')}
-                      <HelpCircle className="h-3.5 w-3.5 text-[var(--kwork-text-muted)]" />
+                      <HelpCircle className="h-3.5 w-3.5 text-[var(--ishbor-text-muted)]" />
                     </label>
-                    <p className="text-[13px] text-[var(--kwork-text-muted)]">
+                    <p className="text-[13px] text-[var(--ishbor-text-muted)]">
                       {t('settings_business_hours_hint')
                         .replace('{from}', '09:00')
                         .replace('{to}', '18:00')}
@@ -812,7 +812,7 @@ export function ProfileSettings() {
 
                   <div>
                     <label className="settings-field-label">{t('settings_profile_banner')}</label>
-                    <div className="max-w-[520px] h-28 overflow-hidden rounded-lg border border-[var(--kwork-border)] bg-gradient-to-r from-[var(--brand-100)] to-[var(--brand-50)]" />
+                    <div className="max-w-[520px] h-28 overflow-hidden rounded-lg border border-[var(--ishbor-border)] bg-gradient-to-r from-[var(--brand-100)] to-[var(--brand-50)]" />
                     <button type="button" className="settings-link-action mt-2">
                       {t('settings_upload')}
                     </button>
@@ -909,7 +909,7 @@ export function ProfileSettings() {
                   </Button>
                   {(verificationsLoading || verifications.length > 0) && (
                     <div className="mt-5">
-                      <h3 className="text-[13px] font-semibold text-[var(--kwork-text)]">
+                      <h3 className="text-[13px] font-semibold text-[var(--ishbor-text)]">
                         {t('verification_history')}
                       </h3>
                       {verificationsLoading ? (
@@ -926,12 +926,12 @@ export function ProfileSettings() {
                             return (
                               <li
                                 key={v.id}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--kwork-border)] px-3 py-2 text-[13px]"
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--ishbor-border)] px-3 py-2 text-[13px]"
                               >
                                 <span className="font-medium">
                                   {t(VERIFICATION_TYPE_KEYS[v.verification_type] ?? 'verification_type_identity')}
                                 </span>
-                                <span className="text-[var(--kwork-text-muted)]">{t(statusKey)}</span>
+                                <span className="text-[var(--ishbor-text-muted)]">{t(statusKey)}</span>
                               </li>
                             )
                           })}
@@ -971,11 +971,11 @@ export function ProfileSettings() {
 
             {activeTab === 'withdrawal' && (
               <>
-                <div className="rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] p-5">
+                <div className="rounded-lg border border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-5">
                   <h2 className="settings-section-title">
                     {t('settings_verify_phone_title')}
                   </h2>
-                  <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">
+                  <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">
                     {t('settings_verify_phone_desc')}
                   </p>
                   <PhoneVerifySection
@@ -996,7 +996,7 @@ export function ProfileSettings() {
                   </div>
                   <div className="settings-field-narrow">
                     <label className="settings-field-label">{t('settings_card')}</label>
-                    <p className="mb-2 text-[12px] text-[var(--kwork-text-muted)]">{t('settings_card_desc')}</p>
+                    <p className="mb-2 text-[12px] text-[var(--ishbor-text-muted)]">{t('settings_card_desc')}</p>
                     <Input
                       disabled
                       placeholder={t('settings_verify_required')}
@@ -1039,11 +1039,11 @@ export function ProfileSettings() {
                       role="dialog"
                       aria-modal="true"
                       aria-labelledby="delete-account-title"
-                      className="w-full max-w-md rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5"
+                      className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <h3 id="delete-account-title" className="text-[16px] font-bold text-[var(--error-dark)]">{t('delete_account_confirm')}</h3>
-                      <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">{t('delete_account_confirm_hint')}</p>
+                      <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">{t('delete_account_confirm_hint')}</p>
                       <div className="mt-4 flex gap-2">
                         <Button
                           variant="danger"
@@ -1118,7 +1118,7 @@ export function ProfileSettings() {
                       />
                     ) : (
                       <div className="space-y-2">
-                        <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('notif_telegram_connect_desc')}</p>
+                        <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('notif_telegram_connect_desc')}</p>
                         {userId && notifChannels.telegram_bot_username && (
                           <div className="flex flex-wrap gap-2">
                             <a
@@ -1161,7 +1161,7 @@ export function ProfileSettings() {
                   />
                 </div>
 
-                <p className="mt-4 text-[12px] text-[var(--kwork-text-muted)]">{t('settings_prefs_auto_save')}</p>
+                <p className="mt-4 text-[12px] text-[var(--ishbor-text-muted)]">{t('settings_prefs_auto_save')}</p>
               </>
             )}
           </div>

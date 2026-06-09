@@ -55,10 +55,10 @@ export function ChatAttachmentContent({ content }: { content: string }) {
 
   if (bucket && path) {
     if (loading) {
-      return <span className="text-[12px] text-[var(--kwork-text-muted)]">…</span>
+      return <span className="text-[12px] text-[var(--ishbor-text-muted)]">…</span>
     }
     if (!resolvedUrl) {
-      return <span className="text-[12px] text-[var(--kwork-text-muted)]">{t('chat_attachment_file')}</span>
+      return <span className="text-[12px] text-[var(--ishbor-text-muted)]">{t('chat_attachment_file')}</span>
     }
     if (/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(path)) {
       return (

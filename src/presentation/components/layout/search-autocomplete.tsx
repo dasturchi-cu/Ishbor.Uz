@@ -102,12 +102,12 @@ export function SearchAutocomplete({
             />
           </div>
         ) : (
-          <div className={isHeader ? 'kwork-header-search' : 'kwork-hero-search'}>
-            <div className={isHeader ? 'kwork-header-search-field' : 'kwork-hero-search-field'}>
+          <div className={isHeader ? 'ishbor-header-search' : 'ishbor-hero-search'}>
+            <div className={isHeader ? 'ishbor-header-search-field' : 'ishbor-hero-search-field'}>
               <Search className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
               <input
                 type="text"
-                className={cn('kwork-search-input input-touch', inputClassName)}
+                className={cn('ishbor-search-input input-touch', inputClassName)}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 onFocus={() => setOpen(true)}
@@ -118,7 +118,7 @@ export function SearchAutocomplete({
             </div>
             <button
               type="submit"
-              className={isHeader ? 'kwork-header-search-btn' : 'kwork-hero-search-btn'}
+              className={isHeader ? 'ishbor-header-search-btn' : 'ishbor-hero-search-btn'}
               aria-label={placeholder}
             >
               {isHeader ? <Search className="h-[18px] w-[18px]" strokeWidth={2.25} /> : t('hero_search_btn')}

@@ -61,17 +61,17 @@ export function DashboardReviewsPage() {
         <LoadErrorAlert error={loadError} scope="reviews" onRetry={loadReviews} className="mb-4" />
       )}
       {isClient && (
-        <p className="mb-4 text-[14px] text-[var(--kwork-text-muted)]">{t('client_reviews_written_desc')}</p>
+        <p className="mb-4 text-[14px] text-[var(--ishbor-text-muted)]">{t('client_reviews_written_desc')}</p>
       )}
 
-      <div className="mb-5 rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 sm:p-6">
+      <div className="mb-5 rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 sm:p-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="text-center sm:text-left">
             <p className="text-[56px] font-bold leading-none text-[var(--color-primary)]">
               {stats.count > 0 ? stats.average.toFixed(1) : t('value_not_available')}
             </p>
             {stats.count > 0 && <RatingStars rating={stats.average} size="lg" className="mt-2 justify-center sm:justify-start" />}
-            <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">
+            <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">
               {isClient
                 ? t('client_reviews_written_count').replace('{n}', String(stats.count))
                 : t('reviews_count_label').replace('{n}', String(stats.count))}
@@ -84,10 +84,10 @@ export function DashboardReviewsPage() {
                   {b.star}
                   <Star className="h-3 w-3 fill-[var(--rating-filled)] text-[var(--rating-filled)]" aria-hidden />
                 </span>
-                <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--kwork-border)]">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--ishbor-border)]">
                   <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${b.pct}%` }} />
                 </div>
-                <span className="w-12 text-right text-[var(--kwork-text-muted)]">{b.count}</span>
+                <span className="w-12 text-right text-[var(--ishbor-text-muted)]">{b.count}</span>
               </div>
             ))}
           </div>
@@ -103,7 +103,7 @@ export function DashboardReviewsPage() {
               onClick={() => setFilter(f)}
               className={cn(
                 'rounded-lg px-3 py-1.5 text-[13px] font-medium',
-                filter === f ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--kwork-text-muted)]'
+                filter === f ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--ishbor-text-muted)]'
               )}
             >
               {f === 'all' ? t('filter_all_reviews') : f === '5' ? t('filter_five_star') : t('filter_low_reviews')}
@@ -134,17 +134,17 @@ export function DashboardReviewsPage() {
                 <div className="flex gap-3">
                   <Avatar name={r.profiles?.full_name ?? '—'} size={40} />
                   <div>
-                    <p className="font-bold text-[var(--kwork-text)]">{r.profiles?.full_name ?? '—'}</p>
+                    <p className="font-bold text-[var(--ishbor-text)]">{r.profiles?.full_name ?? '—'}</p>
                     <RatingStars rating={r.rating} size="sm" className="mt-1" />
                   </div>
                 </div>
                 {r.created_at && (
-                  <span className="text-[12px] text-[var(--kwork-text-muted)]">
+                  <span className="text-[12px] text-[var(--ishbor-text-muted)]">
                     {formatDate(r.created_at, language)}
                   </span>
                 )}
               </div>
-              {r.comment && <p className="mt-3 text-[14px] text-[var(--kwork-text-muted)]">{r.comment}</p>}
+              {r.comment && <p className="mt-3 text-[14px] text-[var(--ishbor-text-muted)]">{r.comment}</p>}
               {isClient && userId && r.reviewer_id === userId && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => setEditingReview(r)}>
@@ -173,7 +173,7 @@ export function DashboardReviewsPage() {
                 </div>
               )}
               {r.reply && (
-                <p className="mt-3 rounded-lg bg-[var(--color-primary-light)] px-3 py-2 text-[13px] text-[var(--kwork-text-sub)]">
+                <p className="mt-3 rounded-lg bg-[var(--color-primary-light)] px-3 py-2 text-[13px] text-[var(--ishbor-text-sub)]">
                   <span className="font-semibold text-[var(--color-primary)]">{t('review_reply')}: </span>
                   {r.reply}
                 </p>

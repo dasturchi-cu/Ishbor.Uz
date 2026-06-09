@@ -126,9 +126,9 @@ export function ContractMilestonesSection({
   }
 
   return (
-    <section className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4 md:p-5">
+    <section className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4 md:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[16px] font-bold text-[var(--kwork-text)]">
+        <h2 className="flex items-center gap-2 text-[16px] font-bold text-[var(--ishbor-text)]">
           <Layers className="h-4 w-4 text-[var(--color-primary)]" />
           {t('milestone_section_title')}
         </h2>
@@ -140,7 +140,7 @@ export function ContractMilestonesSection({
       </div>
 
       {showForm && (
-        <div className="mb-4 grid gap-3 rounded-lg border border-dashed border-[var(--kwork-border)] p-3 sm:grid-cols-[1fr_140px_auto]">
+        <div className="mb-4 grid gap-3 rounded-lg border border-dashed border-[var(--ishbor-border)] p-3 sm:grid-cols-[1fr_140px_auto]">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('milestone_title_ph')} />
           <Input
             value={amount}
@@ -155,7 +155,7 @@ export function ContractMilestonesSection({
       )}
 
       {milestones.length === 0 ? (
-        <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('milestone_empty')}</p>
+        <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('milestone_empty')}</p>
       ) : (
         <ul className="space-y-3">
           {milestones.map((m) => {
@@ -168,11 +168,11 @@ export function ContractMilestonesSection({
             return (
               <li
                 key={m.id}
-                className="flex flex-col gap-3 rounded-lg border border-[var(--kwork-border)] p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-lg border border-[var(--ishbor-border)] p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="font-semibold text-[var(--kwork-text)]">{m.title}</p>
-                  <p className="mt-0.5 text-[12px] text-[var(--kwork-text-muted)]">
+                  <p className="font-semibold text-[var(--ishbor-text)]">{m.title}</p>
+                  <p className="mt-0.5 text-[12px] text-[var(--ishbor-text-muted)]">
                     {formatPrice(m.amount)}
                     {m.due_date ? ` · ${formatDate(m.due_date, language)}` : ''}
                   </p>
@@ -184,7 +184,7 @@ export function ContractMilestonesSection({
                   </div>
                   {escrowTx && (
                     <Link
-                      href={PATHS.dashboardEscrow}
+                      href={`${PATHS.dashboardWallet}?tab=protected`}
                       className="mt-2 inline-flex text-[12px] font-medium text-[var(--color-primary)] hover:underline"
                     >
                       {t('milestone_escrow_link')} · {formatPrice(escrowTx.amount)}

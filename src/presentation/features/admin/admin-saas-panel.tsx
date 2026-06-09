@@ -94,22 +94,22 @@ export function AdminSaasPanel() {
     <div className="space-y-6">
       {analytics && (
         <Card className="p-6">
-          <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('admin_analytics_title')}</h2>
+          <h2 className="mb-4 font-bold text-[var(--ishbor-text)]">{t('admin_analytics_title')}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg bg-[var(--color-bg-muted)] p-4">
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_analytics_users')}</p>
+              <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_analytics_users')}</p>
               <p className="text-[24px] font-bold">{analytics.new_users}</p>
             </div>
             <div className="rounded-lg bg-[var(--color-bg-muted)] p-4">
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_analytics_revenue')}</p>
+              <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_analytics_revenue')}</p>
               <p className="text-[24px] font-bold">{formatPrice(analytics.revenue_completed)}</p>
             </div>
             <div className="rounded-lg bg-[var(--color-bg-muted)] p-4">
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_analytics_conversion')}</p>
+              <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_analytics_conversion')}</p>
               <p className="text-[24px] font-bold">{analytics.conversion_rate}%</p>
             </div>
             <div className="rounded-lg bg-[var(--color-bg-muted)] p-4">
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_analytics_searches')}</p>
+              <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_analytics_searches')}</p>
               <p className="text-[24px] font-bold">{analytics.search_events}</p>
             </div>
           </div>
@@ -119,16 +119,16 @@ export function AdminSaasPanel() {
       <Card className="p-6">
         <h2 className="mb-4 font-bold">{t('admin_audit_logs')}</h2>
         {auditLogs.length === 0 ? (
-          <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_audit_empty')}</p>
+          <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_audit_empty')}</p>
         ) : (
           <ul className="space-y-2 text-[13px]">
             {auditLogs.map((log) => (
-              <li key={log.id} className="flex justify-between gap-2 border-b border-[var(--kwork-border)] py-2">
+              <li key={log.id} className="flex justify-between gap-2 border-b border-[var(--ishbor-border)] py-2">
                 <span>
                   <strong>{log.action}</strong>
                   {log.entity_type && ` · ${log.entity_type}`}
                 </span>
-                <time className="shrink-0 text-[var(--kwork-text-muted)]">
+                <time className="shrink-0 text-[var(--ishbor-text-muted)]">
                   {log.created_at ? formatRelativeTime(log.created_at, language) : '—'}
                 </time>
               </li>
@@ -140,15 +140,15 @@ export function AdminSaasPanel() {
       <Card className="p-6">
         <h2 className="mb-4 font-bold">{t('admin_reports_title')}</h2>
         {reports.length === 0 ? (
-          <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_reports_empty')}</p>
+          <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_reports_empty')}</p>
         ) : (
           <div className="space-y-3">
             {reports.map((r) => (
-              <div key={r.id} className="rounded-lg border border-[var(--kwork-border)] p-3">
+              <div key={r.id} className="rounded-lg border border-[var(--ishbor-border)] p-3">
                 <p className="text-[13px] font-semibold">
                   {r.category} · {r.target_type}
                 </p>
-                <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)] line-clamp-2">{r.description}</p>
+                <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)] line-clamp-2">{r.description}</p>
                 <div className="mt-2 flex gap-2">
                   <Button
                     size="sm"
@@ -179,7 +179,7 @@ export function AdminSaasPanel() {
       <Card className="p-6">
         <h2 className="mb-4 font-bold">{t('admin_fraud_title')}</h2>
         {fraudLogs.length === 0 ? (
-          <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_fraud_empty')}</p>
+          <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_fraud_empty')}</p>
         ) : (
           <ul className="space-y-2 text-[13px]">
             {fraudLogs.map((f) => (

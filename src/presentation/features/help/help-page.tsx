@@ -86,7 +86,7 @@ function CategoryTile({
       <span className="help-category-icon">
         <Icon className={cn('h-14 w-14', iconClass)} strokeWidth={1.25} />
       </span>
-      <span className="text-[14px] font-medium text-[var(--kwork-text)] transition group-hover:text-[var(--color-primary)]">
+      <span className="text-[14px] font-medium text-[var(--ishbor-text)] transition group-hover:text-[var(--color-primary)]">
         {label}
       </span>
     </button>
@@ -97,22 +97,22 @@ function FaqAccordion({ question, answer }: { question: string; answer: string }
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="border-b border-[var(--kwork-border)] last:border-b-0">
+    <div className="border-b border-[var(--ishbor-border)] last:border-b-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between gap-4 py-4 text-left"
       >
-        <span className="text-[14px] font-semibold text-[var(--kwork-text)]">{question}</span>
+        <span className="text-[14px] font-semibold text-[var(--ishbor-text)]">{question}</span>
         <ChevronDown
           className={cn(
-            'h-4 w-4 shrink-0 text-[var(--kwork-text-muted)] transition-transform',
+            'h-4 w-4 shrink-0 text-[var(--ishbor-text-muted)] transition-transform',
             open && 'rotate-180'
           )}
         />
       </button>
       {open && (
-        <p className="pb-4 text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">{answer}</p>
+        <p className="pb-4 text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{answer}</p>
       )}
     </div>
   )
@@ -185,10 +185,10 @@ export function HelpPage() {
         <div className="layout-container max-w-[1280px]">
           <h1 className="text-[24px] font-bold text-white sm:text-[28px]">{t('help_hero_title')}</h1>
           <div className="help-search mx-auto mt-6 max-w-[640px]">
-            <Search className="h-5 w-5 shrink-0 text-[var(--kwork-text-muted)]" />
+            <Search className="h-5 w-5 shrink-0 text-[var(--ishbor-text-muted)]" />
             <input
               type="text"
-              className="kwork-search-input"
+              className="ishbor-search-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('help_search_placeholder')}
@@ -199,7 +199,7 @@ export function HelpPage() {
       </section>
 
       <section className="layout-container max-w-[1280px] py-12 md:py-16">
-        <h2 className="text-center text-[22px] font-bold text-[var(--kwork-text)]">
+        <h2 className="text-center text-[22px] font-bold text-[var(--ishbor-text)]">
           {t('help_faq_title')}
         </h2>
 
@@ -230,7 +230,7 @@ export function HelpPage() {
         {showSections && (
           <div className="mx-auto mt-14 max-w-[760px]">
             {normalizedQuery && filteredArticles.length === 0 && (
-              <p className="text-center text-[14px] text-[var(--kwork-text-muted)]">
+              <p className="text-center text-[14px] text-[var(--ishbor-text-muted)]">
                 {t('help_no_results')}
               </p>
             )}
@@ -246,7 +246,7 @@ export function HelpPage() {
                   <h3 className="settings-section-title mb-3">
                     {t(cat.labelKey)}
                   </h3>
-                  <div className="rounded-[var(--r-lg)] border border-[var(--kwork-border)] bg-[var(--neutral-0)] px-5">
+                  <div className="rounded-[var(--r-lg)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-5">
                     {articles.map((article) => (
                       <FaqAccordion
                         key={article.qKey}
@@ -263,7 +263,7 @@ export function HelpPage() {
 
         <form
           onSubmit={handleSupportSubmit}
-          className="mx-auto mt-12 max-w-lg rounded-[var(--r-lg)] border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 sm:p-6"
+          className="mx-auto mt-12 max-w-lg rounded-[var(--r-lg)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 sm:p-6"
         >
           <h3 className="settings-section-title text-center">
             {t('help_form_title')}
@@ -288,7 +288,7 @@ export function HelpPage() {
               placeholder={t('help_form_message')}
               required
               rows={4}
-              className="w-full rounded-[var(--r-md)] border border-[var(--kwork-border)] bg-[var(--neutral-0)] px-3 py-2.5 text-[14px] text-[var(--kwork-text)] outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-focus)]"
+              className="w-full rounded-[var(--r-md)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-3 py-2.5 text-[14px] text-[var(--ishbor-text)] outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-focus)]"
             />
           </div>
           <Button type="submit" variant="primary" fullWidth className="mt-4">
@@ -297,7 +297,7 @@ export function HelpPage() {
         </form>
 
         <div className="mt-8 flex flex-col items-center gap-2 text-center">
-          <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('help_contact_support')}</p>
+          <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('help_contact_support')}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <a
               href="mailto:hello@ishbor.uz"
@@ -315,10 +315,10 @@ export function HelpPage() {
             </a>
           </div>
           <div className="mt-4 flex flex-wrap justify-center gap-4 text-[12px]">
-            <Link href={PATHS.terms} className="text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]">
+            <Link href={PATHS.terms} className="text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)]">
               {t('footer_terms')}
             </Link>
-            <Link href={PATHS.privacy} className="text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]">
+            <Link href={PATHS.privacy} className="text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)]">
               {t('footer_privacy')}
             </Link>
           </div>

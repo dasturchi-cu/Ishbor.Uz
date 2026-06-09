@@ -67,19 +67,26 @@ export function LandingHeroBadge() {
 
 export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
   const { t } = useApp()
-  const emptyLabel = t('stat_unavailable')
   const items = [
-    { value: formatStat(stats.services, emptyLabel), label: t('landing_stat_services') },
-    { value: formatStat(stats.freelancers, emptyLabel), label: t('landing_stat_freelancers') },
-    {
-      value: stats.review_count > 0 ? formatStat(stats.review_count, emptyLabel) : emptyLabel,
+    stats.services > 0 && {
+      value: formatStat(stats.services, ''),
+      label: t('landing_stat_services'),
+    },
+    stats.freelancers > 0 && {
+      value: formatStat(stats.freelancers, ''),
+      label: t('landing_stat_freelancers'),
+    },
+    stats.review_count > 0 && {
+      value: formatStat(stats.review_count, ''),
       label: t('landing_stat_reviews'),
     },
-    {
-      value: stats.avg_rating > 0 ? stats.avg_rating.toFixed(1) : emptyLabel,
+    stats.avg_rating > 0 && {
+      value: stats.avg_rating.toFixed(1),
       label: t('landing_stat_rating'),
     },
-  ]
+  ].filter((item): item is { value: string; label: string } => Boolean(item))
+
+  if (items.length === 0) return null
 
   return (
     <div>
@@ -91,13 +98,6 @@ export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-center text-[11px] text-[var(--kwork-text-muted)]">
-        {t('landing_stat_commission_note')}
-        {' · '}
-        <Link href={PATHS.buyerProtection} className="font-medium text-[var(--color-primary)] hover:underline">
-          {t('landing_buyer_protection')}
-        </Link>
-      </p>
     </div>
   )
 }
@@ -174,7 +174,7 @@ export function LandingCategoryGrid({ stats }: { stats: ApiPublicStats }) {
               <span className="landing-category-card-count">
                 {count > 0
                   ? `${count} ${t('services_count_suffix')}`
-                  : t('services_count_zero')}
+                  : t('category_explore_cta')}
               </span>
             </button>
           )
@@ -297,7 +297,7 @@ export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="landing-section-heading mb-1 text-left">{t('featured_freelancers')}</h2>
-            <p className="text-[14px] text-[var(--kwork-text-muted)]">{t('landing_top_freelancers_sub')}</p>
+            <p className="text-[14px] text-[var(--ishbor-text-muted)]">{t('landing_top_freelancers_sub')}</p>
           </div>
           <Link
             href={PATHS.freelancers}
@@ -317,13 +317,44 @@ export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
               rating={f.avg_rating ?? 0}
               reviewCount={f.review_count ?? 0}
               minPrice={f.min_price}
-              isVerified
+              isVerified={Boolean(f.is_verified)}
+              trustScore={f.trust_score}
               className="hover-lift"
               onClick={() => router.push(freelancerPath(f.id))}
             />
           ))}
         </div>
       </div>
+    </section>
+  )
+}
+
+export function LandingRecentActivity({ stats }: { stats: ApiPublicStats }) {
+  const { t } = useApp()
+  const events = stats.recent_activity ?? []
+  if (events.length === 0) return null
+
+  return (
+    <section className="layout-container max-w-[1280px] py-6 md:py-8">
+      <h2 className="landing-section-heading mb-4 text-left">{t('landing_recent_activity_title')}</h2>
+      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {events.slice(0, 6).map((event) => {
+          const label =
+            event.kind === 'order_completed'
+              ? t('landing_activity_order_done').replace('{title}', event.title ?? '')
+              : event.kind === 'new_service'
+                ? t('landing_activity_new_service').replace('{title}', event.title ?? '')
+                : t('landing_activity_new_freelancer')
+          return (
+            <li
+              key={event.id}
+              className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-4 py-3 text-[13px] text-[var(--ishbor-text)]"
+            >
+              <span className="font-medium">{label}</span>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }

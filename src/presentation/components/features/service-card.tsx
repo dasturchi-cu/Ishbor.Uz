@@ -242,11 +242,11 @@ function RatingBlock({
 
   return (
 
-    <div className="flex shrink-0 items-center gap-1 text-[12px] text-[var(--kwork-text-muted)]">
+    <div className="flex shrink-0 items-center gap-1 text-[12px] text-[var(--ishbor-text-muted)]">
 
       <Star className="h-3.5 w-3.5 fill-[var(--rating-filled)] text-[var(--rating-filled)]" />
 
-      <span className="font-semibold text-[var(--kwork-text)]">{rating.toFixed(1)}</span>
+      <span className="font-semibold text-[var(--ishbor-text)]">{rating.toFixed(1)}</span>
 
       {!compact && <span>({reviewLabel})</span>}
 
@@ -297,7 +297,8 @@ export function ServiceCard({
   const reviewLabel = t('reviews_count_short').replace('{n}', String(reviewCount))
   const noReviewsLabel = t('badge_new_seller')
 
-  const showFastDelivery = deliveryDays != null && deliveryDays <= 2
+  const showDeliveryMeta = deliveryDays != null && deliveryDays > 0
+  const showFastDelivery = showDeliveryMeta && deliveryDays <= 2
 
 
 
@@ -327,7 +328,7 @@ export function ServiceCard({
 
         aria-label={`${title} — ${formatPrice(price)}`}
 
-        className="kwork-service-card group flex cursor-pointer gap-4 p-3"
+        className="ishbor-service-card group flex cursor-pointer gap-4 p-3"
 
       >
 
@@ -349,7 +350,7 @@ export function ServiceCard({
 
           <div>
 
-            <h3 className="line-clamp-2 text-[14px] font-semibold leading-snug text-[var(--kwork-text)] group-hover:text-[var(--color-primary)]">
+            <h3 className="line-clamp-2 text-[14px] font-semibold leading-snug text-[var(--ishbor-text)] group-hover:text-[var(--color-primary)]">
 
               {title}
 
@@ -357,7 +358,7 @@ export function ServiceCard({
 
             {description && (
 
-              <p className="mt-1 line-clamp-2 text-[12px] text-[var(--kwork-text-muted)]">{description}</p>
+              <p className="mt-1 line-clamp-2 text-[12px] text-[var(--ishbor-text-muted)]">{description}</p>
 
             )}
 
@@ -367,7 +368,7 @@ export function ServiceCard({
 
             <RatingBlock rating={rating} reviewCount={reviewCount} reviewLabel={reviewLabel} noReviewsLabel={noReviewsLabel} />
 
-            <span className="text-[14px] font-bold text-[var(--kwork-text)]">{formatPrice(price)}</span>
+            <span className="text-[14px] font-bold text-[var(--color-primary)]">{formatPrice(price)}</span>
 
           </div>
 
@@ -405,11 +406,11 @@ export function ServiceCard({
 
       aria-label={`${title} — ${formatPrice(price)}`}
 
-      className="kwork-service-card group relative flex h-full w-full cursor-pointer flex-col overflow-hidden"
+      className="ishbor-service-card group relative flex h-full w-full cursor-pointer flex-col overflow-hidden"
 
     >
 
-      <div className="kwork-service-card__media relative aspect-[16/10] w-full shrink-0 overflow-hidden">
+      <div className="ishbor-service-card__media relative aspect-[16/10] w-full shrink-0 overflow-hidden">
 
         <ServiceThumbnail
 
@@ -439,7 +440,7 @@ export function ServiceCard({
 
             }}
 
-            className="absolute right-2 top-2 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-[var(--kwork-border)] bg-[var(--neutral-0)] shadow-sm transition hover:border-[var(--color-primary)]"
+            className="absolute right-2 top-2 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-[var(--ishbor-border)] bg-[var(--neutral-0)] shadow-sm transition hover:border-[var(--color-primary)]"
 
             aria-label={isSaved ? t('unsave') : t('save')}
 
@@ -455,7 +456,7 @@ export function ServiceCard({
 
                   ? 'fill-[var(--color-primary)] text-[var(--color-primary)]'
 
-                  : 'text-[var(--kwork-text-muted)]'
+                  : 'text-[var(--ishbor-text-muted)]'
 
               )}
 
@@ -469,29 +470,29 @@ export function ServiceCard({
 
 
 
-      <div className="kwork-service-card__body flex flex-1 flex-col gap-2.5">
+      <div className="ishbor-service-card__body flex flex-1 flex-col gap-2.5">
 
-        <h3 className="kwork-service-card__title line-clamp-2 break-words text-[14px] font-semibold leading-snug text-[var(--kwork-text)] transition-colors">
+        <h3 className="ishbor-service-card__title line-clamp-2 break-words text-[14px] font-semibold leading-snug text-[var(--ishbor-text)] transition-colors">
 
           {title}
 
         </h3>
 
-        {showFastDelivery && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-medium text-[var(--kwork-text-muted)]">
-            <span className="text-[var(--success)]">{t('fast_delivery_badge')}</span>
-            <span className="service-card-badge service-card-badge--escrow">{t('service_escrow_badge')}</span>
-          </div>
-        )}
-        {!showFastDelivery && (
-          <span className="service-card-badge service-card-badge--escrow w-fit">{t('service_escrow_badge')}</span>
+        {showDeliveryMeta && (
+          <p className="text-[11px] font-semibold text-[var(--ishbor-text-muted)]">
+            {showFastDelivery ? (
+              <span className="text-[var(--success)]">{t('fast_delivery_badge')}</span>
+            ) : (
+              t('service_card_delivery_meta').replace('{n}', String(deliveryDays))
+            )}
+          </p>
         )}
 
         <div className="flex items-center gap-2">
 
           <Avatar name={sellerName} size={24} />
 
-          <span className="min-w-0 truncate text-[12px] text-[var(--kwork-text-muted)]">{sellerName}</span>
+          <span className="min-w-0 truncate text-[12px] text-[var(--ishbor-text-muted)]">{sellerName}</span>
 
           {isPro && (
             <span className="shrink-0 rounded bg-[var(--success-bg)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--success-dark)]">
@@ -503,9 +504,9 @@ export function ServiceCard({
 
 
 
-        <div className="kwork-service-card__footer mt-auto flex items-center justify-between gap-2">
+        <div className="ishbor-service-card__footer mt-auto flex items-center justify-between gap-2">
 
-          <p className="truncate text-[15px] font-bold leading-none tracking-tight text-[var(--kwork-text)]">
+          <p className="truncate text-[16px] font-bold leading-none tracking-tight text-[var(--color-primary)]">
 
             {formatPrice(price)}
 

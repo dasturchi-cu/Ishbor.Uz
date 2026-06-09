@@ -139,6 +139,10 @@ export interface ApiService {
 
   packages?: ApiServicePackage[]
 
+  includes?: string[]
+
+  faq?: ApiServiceFaqItem[]
+
   view_count?: number
 
   is_hidden?: boolean
@@ -656,20 +660,31 @@ export interface ApiPublicReview {
   freelancer_specialty?: string | null
 }
 
+export interface ApiPublicActivityEvent {
+  id: string
+  kind: 'new_service' | 'order_completed' | 'new_freelancer'
+  title?: string | null
+  created_at?: string | null
+}
+
 export interface ApiPublicStats {
   freelancers: number
   clients: number
   projects: number
   services: number
+  completed_orders?: number
   avg_rating: number
   review_count: number
   category_counts: Record<string, number>
   top_services: ApiService[]
+  recent_activity?: ApiPublicActivityEvent[]
   featured_freelancers: Array<{
     id: string
     full_name: string | null
     specialty: string | null
     region: string | null
+    is_verified?: boolean
+    trust_score?: number | null
     avg_rating?: number
     review_count?: number
     min_price?: number
@@ -696,6 +711,15 @@ export interface ServiceCreateInput {
 
   packages?: ApiServicePackage[]
 
+  includes: string[]
+
+  faq?: ApiServiceFaqItem[]
+
+}
+
+export interface ApiServiceFaqItem {
+  q: string
+  a: string
 }
 
 export interface ServiceUpdateInput {
@@ -707,6 +731,10 @@ export interface ServiceUpdateInput {
   image_urls?: string[]
   delivery_days?: number
   packages?: ApiServicePackage[]
+
+  includes?: string[]
+
+  faq?: ApiServiceFaqItem[]
 }
 
 export interface ApiTransaction {

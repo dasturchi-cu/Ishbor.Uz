@@ -1,56 +1,25 @@
 'use client'
 
-import { useState } from 'react'
-import { useOrdersQuery } from '@/shared/lib/use-orders-query'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
-import { Input } from '@/presentation/components/ui/input'
-import { Textarea } from '@/presentation/components/ui/textarea'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
+import { OrderProgressStepper } from '@/presentation/components/features/order-progress-stepper'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
-import { Alert } from '@/presentation/components/ui/alert'
 import { ShoppingBag } from 'lucide-react'
-import { api } from '@/infrastructure/api/client'
-import { formatPrice, orderProgress } from '@/shared/lib/format'
-import type { TranslationKey } from '@/infrastructure/i18n'
-import { PATHS } from '@/domain/constants/routes'
+import { useOrdersQuery } from '@/shared/lib/use-orders-query'
+import { formatPrice } from '@/shared/lib/format'
+import { dashboardOrderPath, PATHS } from '@/domain/constants/routes'
 
 type RoleView = 'freelancer' | 'client'
-
-const NEXT_STATUS: Record<string, Record<string, string>> = {
-  freelancer: {
-    pending: 'active',
-    active: 'delivered',
-  },
-  client: {
-    delivered: 'completed',
-    pending: 'cancelled',
-  },
-}
-
-const ACTION_LABEL: Record<string, Record<string, TranslationKey>> = {
-  freelancer: {
-    pending: 'accept_order',
-    active: 'mark_delivered',
-  },
-  client: {
-    delivered: 'accept_work',
-    pending: 'cancel_order',
-  },
-}
 
 export function OrdersList({ role }: { role: RoleView }) {
   const { t, userId } = useApp()
   const router = useRouter()
-  const [reviewOrderId, setReviewOrderId] = useState<string | null>(null)
-  const [rating, setRating] = useState(5)
-  const [comment, setComment] = useState('')
-  const [actionError, setActionError] = useState('')
 
   const {
     orders,
@@ -60,29 +29,6 @@ export function OrdersList({ role }: { role: RoleView }) {
     reload: load,
   } = useOrdersQuery(Boolean(userId))
   const showLoadError = ordersLoadError
-
-  const updateStatus = async (orderId: string, status: string) => {
-    setActionError('')
-    try {
-      await api.updateOrderStatus(orderId, status)
-      load()
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t('error_required'))
-    }
-  }
-
-  const submitReview = async () => {
-    if (!reviewOrderId) return
-    setActionError('')
-    try {
-      await api.createReview(reviewOrderId, rating, comment || undefined)
-      setReviewOrderId(null)
-      setComment('')
-      load()
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t('error_required'))
-    }
-  }
 
   if (loading) {
     return (
@@ -115,94 +61,45 @@ export function OrdersList({ role }: { role: RoleView }) {
 
   return (
     <div className="space-y-4">
-      {showLoadError && (
-        <LoadErrorAlert error={ordersError} scope="orders" onRetry={load} />
-      )}
-      {actionError && (
-        <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{actionError}</p>
-      )}
+      {showLoadError && <LoadErrorAlert error={ordersError} scope="orders" onRetry={load} />}
       {orders.map((order) => {
         const title = order.services?.title ?? order.projects?.title ?? t('order_label')
         const counterparty =
-          role === 'freelancer'
-            ? order.client_profile?.full_name
-            : order.freelancer_profile?.full_name
-        const next = NEXT_STATUS[role]?.[order.status]
-        const actionKey = ACTION_LABEL[role]?.[order.status]
-        const canAccept =
-          !(role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held')
+          role === 'freelancer' ? order.client_profile?.full_name : order.freelancer_profile?.full_name
 
         return (
-          <Card key={order.id} className="p-4 border border-border">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <Card key={order.id} className="border border-border p-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground">{title}</h3>
-                <p className="text-sm text-[var(--color-text-sub)]">
-                  {counterparty ?? '—'}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-sm text-[var(--color-text-sub)]">{counterparty ?? '—'}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <OrderStatusBadge status={order.status} />
                   <PaymentStatusBadge status={order.payment_status} />
                 </div>
-                {role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held' && (
-                  <Alert variant="info" className="mt-2 text-[12px]">
-                    {t('payment_waiting_freelancer')}
-                  </Alert>
-                )}
-                <div className="mt-2 h-2 w-full max-w-xs rounded-full bg-[var(--color-bg-muted)]">
-                  <div
-                    className="h-2 rounded-full bg-[var(--color-primary)]"
-                    style={{ width: `${orderProgress(order.status)}%` }}
-                  />
+                <div className="mt-3">
+                  <OrderProgressStepper status={order.status} paymentStatus={order.payment_status} />
                 </div>
               </div>
-              <div className="text-right space-y-2">
+              <div className="space-y-2 text-right">
                 <p className="font-bold text-foreground">{formatPrice(order.amount)}</p>
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <Button size="sm" variant="outline" onClick={() => router.push(`${PATHS.messages}?order=${order.id}`)}>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push(`${PATHS.dashboardMessages}?order=${order.id}`)}
+                  >
                     {t('nav_messages')}
                   </Button>
-                  {next && actionKey && canAccept && (
-                    <Button size="sm" onClick={() => updateStatus(order.id, next)}>
-                      {t(actionKey)}
-                    </Button>
-                  )}
-                  {role === 'client' && order.status === 'completed' && userId === order.client_id && (
-                    <Button size="sm" variant="secondary" onClick={() => setReviewOrderId(order.id)}>
-                      {t('leave_review')}
-                    </Button>
-                  )}
+                  <Button size="sm" onClick={() => router.push(dashboardOrderPath(order.id))}>
+                    {t('order_open_detail')}
+                  </Button>
                 </div>
               </div>
             </div>
           </Card>
         )
       })}
-
-      {reviewOrderId && (
-        <Card className="p-6 space-y-4 border-primary/30">
-          <h3 className="font-bold">{t('leave_review')}</h3>
-          <div>
-            <label className="text-sm font-medium block mb-1">{t('rating')}</label>
-            <Input
-              type="number"
-              min={1}
-              max={5}
-              value={rating}
-              onChange={(e) => setRating(Number(e.target.value))}
-            />
-          </div>
-          <Textarea
-            label={t('review_comment')}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <Button onClick={submitReview}>{t('submit_review')}</Button>
-            <Button variant="outline" onClick={() => setReviewOrderId(null)}>{t('back')}</Button>
-          </div>
-        </Card>
-      )}
     </div>
   )
 }

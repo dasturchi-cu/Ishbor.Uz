@@ -13,6 +13,7 @@ import { HeaderWalletPill } from '@/presentation/components/layout/header-wallet
 import { SearchAutocomplete } from '@/presentation/components/layout/search-autocomplete'
 import { NotificationDropdown } from '@/presentation/components/dashboard/notification-dropdown'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
+import { headerLogoHref, hideMarketplaceNav } from '@/shared/lib/marketplace-nav'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
@@ -53,7 +54,8 @@ export function Header() {
 
   const dashboardHref = dashboardPathForRole(currentUserRole)
   const showAuthNav = !isAuthLoading && isLoggedIn
-  const logoHref = showAuthNav ? dashboardHref : PATHS.home
+  const logoHref = headerLogoHref(pathname, dashboardHref, showAuthNav)
+  const showCategoryNav = !hideMarketplaceNav(pathname)
 
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -66,19 +68,19 @@ export function Header() {
   if (hideOnAuth) return null
 
   return (
-    <header className="kwork-site-header sticky top-0 z-50">
+    <header className="ishbor-site-header sticky top-0 z-50">
       <Suspense fallback={null}>
         <HeaderSearchSync onQuery={setSearchQuery} />
       </Suspense>
-      <div className="layout-container kwork-site-header__bar max-w-[1280px]">
-        <div className="kwork-site-header__top">
+      <div className="layout-container ishbor-site-header__bar max-w-[1280px]">
+        <div className="ishbor-site-header__top">
           <HeaderLogo
             href={logoHref}
             tagline={t('header_logo_tagline')}
             layout={showAuthNav ? 'inline' : 'stacked'}
           />
 
-          <div className="kwork-site-header__search-slot hide-mobile">
+          <div className="ishbor-site-header__search-slot hide-mobile">
             <SearchAutocomplete
               value={searchQuery}
               onChange={setSearchQuery}
@@ -89,7 +91,7 @@ export function Header() {
             />
           </div>
 
-          <div className="header-auth-cluster kwork-site-header__actions">
+          <div className="header-auth-cluster ishbor-site-header__actions">
             {!showAuthNav && (
               <LanguagePill language={language} setLanguage={setLanguage} className="hide-mobile" />
             )}
@@ -98,7 +100,7 @@ export function Header() {
               <>
                 <Link
                   href={PATHS.login}
-                  className="hide-mobile px-3 py-2 text-[14px] font-medium text-[var(--kwork-text)] transition hover:text-[var(--color-primary)]"
+                  className="hide-mobile px-3 py-2 text-[14px] font-medium text-[var(--ishbor-text)] transition hover:text-[var(--color-primary)]"
                 >
                   {t('login')}
                 </Link>
@@ -109,7 +111,7 @@ export function Header() {
                 </Link>
                 <Link
                   href={PATHS.login}
-                  className="show-mobile px-2 py-2 text-[13px] font-medium text-[var(--kwork-text)] transition hover:text-[var(--color-primary)]"
+                  className="show-mobile px-2 py-2 text-[13px] font-medium text-[var(--ishbor-text)] transition hover:text-[var(--color-primary)]"
                 >
                   {t('login')}
                 </Link>
@@ -154,7 +156,7 @@ export function Header() {
 
       </div>
 
-      {!showAuthNav && (
+      {showCategoryNav && (
         <Suspense fallback={null}>
           <CategoryNav />
         </Suspense>
@@ -168,7 +170,7 @@ export function Header() {
             role="dialog"
             aria-modal="true"
             aria-label={t('nav_main_menu')}
-            className="drawer-panel show-mobile fixed inset-y-0 right-0 z-50 border-l border-[var(--kwork-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
+            className="drawer-panel show-mobile fixed inset-y-0 right-0 z-50 border-l border-[var(--ishbor-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
           >
             <div className="mb-4 flex items-center justify-between">
               <HeaderLogo href={PATHS.home} compact className="pointer-events-none" />
@@ -193,21 +195,21 @@ export function Header() {
 
             {showAuthNav ? (
               <nav className="mb-4 flex flex-col gap-1">
+                <MobileLink href={dashboardHref} onNavigate={() => setMobileOpen(false)}>{t('nav_dashboard')}</MobileLink>
+                <MobileLink href={PATHS.dashboardOrders} onNavigate={() => setMobileOpen(false)}>{t('nav_orders')}</MobileLink>
+                <MobileLink href={PATHS.dashboardMessages} onNavigate={() => setMobileOpen(false)}>{t('nav_messages')}</MobileLink>
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <MobileLink href={PATHS.dashboardWallet} onNavigate={() => setMobileOpen(false)}>{t('nav_wallet')}</MobileLink>
+                  <HeaderWalletPill compact className="!inline-flex shrink-0" />
+                </div>
                 <MobileLink href={PATHS.services} onNavigate={() => setMobileOpen(false)}>{t('nav_services')}</MobileLink>
                 {currentUserRole !== 'client' && (
                   <MobileLink href={PATHS.dashboardServices} onNavigate={() => setMobileOpen(false)}>
                     {t('nav_my_services')}
                   </MobileLink>
                 )}
-                <MobileLink href={PATHS.dashboardOrders} onNavigate={() => setMobileOpen(false)}>{t('nav_orders')}</MobileLink>
-                <MobileLink href={PATHS.postProject} onNavigate={() => setMobileOpen(false)}>{t('nav_birja')}</MobileLink>
-                <MobileLink href={PATHS.dashboardMessages} onNavigate={() => setMobileOpen(false)}>{t('nav_messages')}</MobileLink>
+                <MobileLink href={PATHS.postProject} onNavigate={() => setMobileOpen(false)}>{t('nav_project_marketplace')}</MobileLink>
                 <MobileLink href={PATHS.notifications} onNavigate={() => setMobileOpen(false)}>{t('nav_notifications')}</MobileLink>
-                <div className="flex items-center justify-between gap-2 px-3 py-2">
-                  <MobileLink href={PATHS.dashboardWallet} onNavigate={() => setMobileOpen(false)}>{t('nav_wallet')}</MobileLink>
-                  <HeaderWalletPill compact className="!inline-flex shrink-0" />
-                </div>
-                <MobileLink href={dashboardHref} onNavigate={() => setMobileOpen(false)}>{t('nav_dashboard')}</MobileLink>
                 {profile?.is_admin && (
                   <MobileLink href={PATHS.admin} onNavigate={() => setMobileOpen(false)}>
                     {t('admin_panel')}
@@ -218,13 +220,12 @@ export function Header() {
               <nav className="flex flex-col gap-1" aria-label={t('nav_main_menu')}>
                 <MobileLink href={PATHS.services} onNavigate={() => setMobileOpen(false)}>{t('nav_services')}</MobileLink>
                 <MobileLink href={PATHS.freelancers} onNavigate={() => setMobileOpen(false)}>{t('nav_freelancers')}</MobileLink>
-                <MobileLink href={PATHS.pricing} onNavigate={() => setMobileOpen(false)}>{t('nav_pricing')}</MobileLink>
+                <MobileLink href={PATHS.projects} onNavigate={() => setMobileOpen(false)}>{t('nav_project_marketplace')}</MobileLink>
                 <MobileLink href={PATHS.help} onNavigate={() => setMobileOpen(false)}>{t('nav_help_center')}</MobileLink>
-                <MobileLink href={PATHS.blog} onNavigate={() => setMobileOpen(false)}>{t('nav_blog')}</MobileLink>
               </nav>
             )}
 
-            <div className="mt-6 border-t border-[var(--kwork-border)] pt-4">
+            <div className="mt-6 border-t border-[var(--ishbor-border)] pt-4">
               {!isAuthLoading && !isLoggedIn ? (
                 <div className="flex flex-col gap-2">
                   <Link href={PATHS.login} onClick={() => setMobileOpen(false)}>
@@ -260,7 +261,7 @@ function MobileLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--kwork-text)] hover:bg-[var(--kwork-bg)]"
+      className="rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--ishbor-text)] hover:bg-[var(--ishbor-bg)]"
     >
       {children}
     </Link>

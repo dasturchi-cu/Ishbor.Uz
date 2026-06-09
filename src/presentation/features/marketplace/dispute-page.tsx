@@ -59,15 +59,15 @@ export function DisputePage({ disputeId }: { disputeId: string }) {
     }
   }
 
-  if (loading) return <p className="p-6 text-muted-foreground">{t('loading_data')}</p>
+  if (loading) return <p className="p-6 text-[var(--ishbor-text-muted)]">{t('loading_data')}</p>
   if (!dispute) return <Alert variant="error">{t('dispute_not_found')}</Alert>
 
   return (
-    <div className="mx-auto max-w-3xl p-4 md:p-6 space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
       <div className="flex items-center gap-2">
-        <Scale className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">{t('dispute')}</h1>
-        <span className="ml-auto rounded-full bg-muted px-3 py-1 text-sm">
+        <Scale className="h-6 w-6 text-[var(--color-primary)]" />
+        <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">{t('dispute')}</h1>
+        <span className="ml-auto rounded-full bg-[var(--neutral-100)] px-3 py-1 text-[13px] font-medium text-[var(--ishbor-text)]">
           {DISPUTE_STATUS_KEYS[dispute.status] ? t(DISPUTE_STATUS_KEYS[dispute.status]) : dispute.status}
         </span>
       </div>

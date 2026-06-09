@@ -130,7 +130,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (onOnboarding && profile?.onboarding_completed === true) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 

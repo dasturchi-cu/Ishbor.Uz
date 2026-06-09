@@ -34,31 +34,31 @@ export function BuyerProtectionPage() {
   const doc = data?.document
 
   return (
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-6 md:pt-10">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-10">
       <div className="mx-auto max-w-[800px]">
         <div className="mb-8 text-center">
           <Shield className="mx-auto mb-3 h-12 w-12 text-[var(--color-primary)]" aria-hidden />
-          <h1 className="text-2xl font-bold text-[var(--kwork-text)]">{t('buyer_protection_title')}</h1>
-          <p className="mt-2 text-[14px] text-[var(--kwork-text-muted)]">{t('buyer_protection_subtitle')}</p>
+          <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('buyer_protection_title')}</h1>
+          <p className="mt-2 text-[14px] text-[var(--ishbor-text-muted)]">{t('buyer_protection_subtitle')}</p>
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <article className="surface-panel p-4 text-center">
             <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-[var(--success)]" />
-            <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('buyer_protection_escrow')}</p>
-            <p className="mt-1 text-[13px] text-[var(--kwork-text)]">{t('buyer_protection_escrow_desc')}</p>
+            <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('buyer_protection_escrow')}</p>
+            <p className="mt-1 text-[13px] text-[var(--ishbor-text)]">{t('buyer_protection_escrow_desc')}</p>
           </article>
           {stats && (
             <>
               <article className="surface-panel p-4 text-center">
                 <Scale className="mx-auto mb-2 h-8 w-8 text-[var(--color-primary)]" />
-                <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('buyer_protection_resolution_rate')}</p>
-                <p className="text-[22px] font-bold text-[var(--kwork-text)]">{stats.resolution_rate_percent}%</p>
+                <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('buyer_protection_resolution_rate')}</p>
+                <p className="text-[22px] font-bold text-[var(--ishbor-text)]">{stats.resolution_rate_percent}%</p>
               </article>
               <article className="surface-panel p-4 text-center">
-                <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('buyer_protection_dispute_resolved')}</p>
-                <p className="text-[22px] font-bold text-[var(--kwork-text)]">{stats.resolved_disputes}</p>
-                <p className="text-[11px] text-[var(--kwork-text-muted)]">
+                <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('buyer_protection_dispute_resolved')}</p>
+                <p className="text-[22px] font-bold text-[var(--ishbor-text)]">{stats.resolved_disputes}</p>
+                <p className="text-[11px] text-[var(--ishbor-text-muted)]">
                   {t('buyer_protection_dispute_open')}: {stats.open_disputes}
                 </p>
               </article>
@@ -68,11 +68,11 @@ export function BuyerProtectionPage() {
 
         {doc && (
           <article className="surface-panel prose-sm max-w-none p-6">
-            <h2 className="text-lg font-bold text-[var(--kwork-text)]">{doc.title}</h2>
-            <p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--kwork-text-sub)]">
+            <h2 className="text-lg font-bold text-[var(--ishbor-text)]">{doc.title}</h2>
+            <p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--ishbor-text-sub)]">
               {doc.content}
             </p>
-            <p className="mt-4 text-[11px] text-[var(--kwork-text-muted)]">v{doc.version}</p>
+            <p className="mt-4 text-[11px] text-[var(--ishbor-text-muted)]">v{doc.version}</p>
           </article>
         )}
 

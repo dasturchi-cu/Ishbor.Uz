@@ -38,7 +38,7 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
 
   if (isAuthLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-[var(--kwork-text-muted)]">
+      <div className="flex min-h-[40vh] items-center justify-center text-[var(--ishbor-text-muted)]">
         ...
       </div>
     )

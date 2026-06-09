@@ -31,6 +31,7 @@ import { loginPath, registerPath } from '@/shared/lib/auth-redirect'
 import { toast } from '@/presentation/components/ui/toast'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { PortfolioLightbox } from '@/presentation/components/ui/portfolio-lightbox'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
@@ -40,11 +41,11 @@ import {
   parseSpecialtyTitle,
 } from '@/shared/lib/onboarding-profile'
 import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
-import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { SkeletonProfileHero } from '@/presentation/components/ui/skeleton'
 import { UserX } from 'lucide-react'
 import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
 import { ReportModal } from '@/presentation/components/features/report-modal'
+import { ReputationBadge } from '@/presentation/components/features/reputation-badge'
 
 type ProfileTab = 'about' | 'services' | 'portfolio' | 'reviews'
 
@@ -61,8 +62,8 @@ const LEVEL_LABELS: Record<string, TranslationKey> = {
   native: 'lang_level_native',
 }
 
-function yearsOnPlatform(iso: string | undefined): number {
-  if (!iso) return 1
+function yearsOnPlatform(iso: string | undefined): number | null {
+  if (!iso) return null
   const years = Math.floor((Date.now() - new Date(iso).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
   return Math.max(1, years)
 }
@@ -77,7 +78,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   const [fetchError, setFetchError] = useState<unknown>(null)
   const [favorite, setFavorite] = useState(false)
   const [contactHint, setContactHint] = useState(false)
-  const [activeTab, setActiveTab] = useState<ProfileTab>('about')
+  const [activeTab, setActiveTab] = useState<ProfileTab>('services')
   const [shareHint, setShareHint] = useState('')
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
@@ -220,10 +221,10 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
     Boolean(expLevelKey)
 
   const tabs: { id: ProfileTab; label: string }[] = [
-    { id: 'about', label: t('tab_about') },
     { id: 'services', label: `${t('nav_services')} (${services.length})` },
-    { id: 'portfolio', label: `${t('tab_portfolio')} (${portfolioImages.length})` },
     { id: 'reviews', label: `${t('tab_reviews')} (${stats.reviewCount})` },
+    { id: 'portfolio', label: `${t('tab_portfolio')} (${portfolioImages.length})` },
+    ...(hasAboutContent ? [{ id: 'about' as const, label: t('tab_about') }] : []),
   ]
 
   return (
@@ -266,6 +267,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                         {t('badge_verified')}
                       </span>
                     )}
+                    <ReputationBadge trustScore={profile.trust_score} className="text-[11px] px-2.5 py-1" />
                   </div>
                   <h1 className="freelancer-profile-name">{name}</h1>
                   {specialtyLabel && (
@@ -288,10 +290,12 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                         {formatPrice(profile.hourly_rate)} / {t('hourly_rate_suffix')}
                       </li>
                     )}
-                    <li className="freelancer-profile-meta-item">
-                      <Calendar className="h-4 w-4 shrink-0" />
-                      {t('member_since').replace('{n}', String(memberYears))}
-                    </li>
+                    {memberYears != null && (
+                      <li className="freelancer-profile-meta-item">
+                        <Calendar className="h-4 w-4 shrink-0" />
+                        {t('member_since').replace('{n}', String(memberYears))}
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -455,7 +459,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                     {bioText && <p className="freelancer-profile-about-text">{bioText}</p>}
                     {(profile.skills?.length ?? 0) > 0 && (
                       <div>
-                        <h3 className="text-[14px] font-bold text-[var(--kwork-text)]">{t('skills')}</h3>
+                        <h3 className="text-[14px] font-bold text-[var(--ishbor-text)]">{t('skills')}</h3>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {profile.skills!.map((skill) => (
                             <span
@@ -492,7 +496,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                         reviewCount={stats.reviewCount}
                         price={s.price}
                         category={s.category}
-                        isPro={profile.is_verified}
+                        isPro={false}
                         onClick={() => router.push(servicePath(s.id))}
                       />
                     ))}
@@ -513,7 +517,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                           key={`${item.serviceId || 'portfolio'}-${i}`}
                           type="button"
                           onClick={() => setLightboxIndex(i)}
-                          className="group relative overflow-hidden rounded-lg border border-[var(--kwork-border)] text-left"
+                          className="group relative overflow-hidden rounded-lg border border-[var(--ishbor-border)] text-left"
                         >
                           <img
                             src={item.url}
@@ -547,8 +551,24 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                       />
                     )}
                   </>
+                ) : isOwnProfile ? (
+                  <EmptyState
+                    compact
+                    icon={<FileText className="h-10 w-10" />}
+                    title={t('portfolio_empty')}
+                    description={t('portfolio_empty_own_desc')}
+                    action={{
+                      label: t('portfolio_empty_own_cta'),
+                      onClick: () => router.push(PATHS.dashboardProfile),
+                    }}
+                  />
                 ) : (
-                  <p className="freelancer-profile-empty">{t('portfolio_empty')}</p>
+                  <EmptyState
+                    compact
+                    icon={<FileText className="h-10 w-10" />}
+                    title={t('portfolio_empty')}
+                    description={t('portfolio_empty_visitor_desc')}
+                  />
                 )
               )}
 
@@ -559,16 +579,16 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                       <div key={r.id} className="freelancer-profile-review">
                         <div className="mb-2 flex items-center justify-between gap-4">
                           <RatingStars rating={r.rating} size="sm" />
-                          <span className="flex items-center gap-1 text-xs text-[var(--kwork-text-muted)]">
+                          <span className="flex items-center gap-1 text-xs text-[var(--ishbor-text-muted)]">
                             <Clock className="h-3.5 w-3.5" />
                             {r.profiles?.full_name ?? t('role_client_label')}
                           </span>
                         </div>
                         {r.comment && (
-                          <p className="text-sm leading-relaxed text-[var(--kwork-text-muted)]">{r.comment}</p>
+                          <p className="text-sm leading-relaxed text-[var(--ishbor-text-muted)]">{r.comment}</p>
                         )}
                         {r.reply && (
-                          <p className="mt-2 rounded-lg bg-[var(--color-primary-light)] px-3 py-2 text-sm text-[var(--kwork-text-sub)]">
+                          <p className="mt-2 rounded-lg bg-[var(--color-primary-light)] px-3 py-2 text-sm text-[var(--ishbor-text-sub)]">
                             <span className="font-semibold text-[var(--color-primary)]">{t('review_reply')}: </span>
                             {r.reply}
                           </p>
@@ -638,7 +658,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
               </div>
             ) : (
               <div className="freelancer-profile-side-card">
-                <span className="freelancer-profile-side-title">{t('last_30_days')}</span>
+                <span className="freelancer-profile-side-title">{t('profile_stats_overview')}</span>
                 <div className="freelancer-profile-side-stat">
                   <span className="freelancer-profile-side-stat-label">{t('stat_completed')}</span>
                   <span className="freelancer-profile-side-stat-value">
@@ -677,7 +697,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
             {(profile.languages?.length ?? 0) > 0 && (
               <div className="freelancer-profile-side-card">
-                <h3 className="text-[14px] font-bold text-[var(--kwork-text)]">{t('languages_label')}</h3>
+                <h3 className="text-[14px] font-bold text-[var(--ishbor-text)]">{t('languages_label')}</h3>
                 <div className="mt-3">
                   {profile.languages!.map((row, i) => (
                     <div key={`${row.lang}-${i}`} className="freelancer-profile-lang-row">
@@ -699,8 +719,8 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
       {!isOwnProfile && (
         <div className="mobile-sticky-cta show-mobile">
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[13px] font-semibold text-[var(--kwork-text)]">{name}</span>
-            <span className="text-[11px] text-[var(--kwork-text-muted)]">
+            <span className="truncate text-[13px] font-semibold text-[var(--ishbor-text)]">{name}</span>
+            <span className="text-[11px] text-[var(--ishbor-text-muted)]">
               {stats.reviewCount > 0
                 ? `${stats.rating.toFixed(1)} · ${stats.reviewCount} ${t('stat_reviews').toLowerCase()}`
                 : services.length > 0

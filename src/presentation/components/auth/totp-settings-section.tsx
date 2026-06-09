@@ -160,21 +160,21 @@ export function TotpSettingsSection() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="mfa-enroll-title"
-            className="w-full max-w-md rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5"
+            className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="mfa-enroll-title" className="text-[16px] font-bold text-[var(--kwork-text)]">
+            <h3 id="mfa-enroll-title" className="text-[16px] font-bold text-[var(--ishbor-text)]">
               {t('mfa_enroll_title')}
             </h3>
-            <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">{t('mfa_enroll_desc')}</p>
+            <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">{t('mfa_enroll_desc')}</p>
 
             <div
-              className="mx-auto mt-4 flex max-w-[200px] justify-center rounded-lg border border-[var(--kwork-border)] bg-white p-3 [&_svg]:h-auto [&_svg]:w-full"
+              className="mx-auto mt-4 flex max-w-[200px] justify-center rounded-lg border border-[var(--ishbor-border)] bg-white p-3 [&_svg]:h-auto [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: enrollData.qrCode }}
               aria-label={t('mfa_scan_qr')}
             />
 
-            <p className="mt-3 text-[12px] text-[var(--kwork-text-muted)]">{t('mfa_manual_secret')}</p>
+            <p className="mt-3 text-[12px] text-[var(--ishbor-text-muted)]">{t('mfa_manual_secret')}</p>
             <code className="mt-1 block break-all rounded-md bg-[var(--neutral-50)] px-2 py-1.5 text-[12px] font-mono">
               {enrollData.secret}
             </code>

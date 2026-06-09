@@ -25,8 +25,8 @@ export default function DashboardError({
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--error-bg)] text-[var(--error)]">
         <AlertCircle className="h-7 w-7" aria-hidden />
       </div>
-      <h1 className="text-xl font-bold text-[var(--kwork-text)]">{t('page_error_title')}</h1>
-      <p className="mt-2 max-w-md text-[14px] text-[var(--kwork-text-muted)]">{t('page_error_desc')}</p>
+      <h1 className="text-xl font-bold text-[var(--ishbor-text)]">{t('page_error_title')}</h1>
+      <p className="mt-2 max-w-md text-[14px] text-[var(--ishbor-text-muted)]">{t('page_error_desc')}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Button variant="primary" onClick={reset}>
           {t('retry')}

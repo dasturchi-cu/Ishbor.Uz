@@ -17,11 +17,12 @@ const paddingStyles = {
 }
 
 const variantStyles: Record<NonNullable<CardProps['variant']>, string> = {
-  default: 'border-[var(--color-border)] shadow-[var(--shadow-xs)]',
+  default: 'border border-[var(--color-border)] shadow-[var(--shadow-card)]',
   interactive:
-    'border-[var(--color-border)] shadow-[var(--shadow-xs)] cursor-pointer hover:border-[var(--color-border-strong)] hover:shadow-[var(--shadow-md)]',
-  featured: 'border-2 border-[var(--color-primary)] shadow-[var(--shadow-md)]',
-  danger: 'border border-[var(--error-bg)] shadow-[var(--shadow-xs)]',
+    'border border-[var(--color-border)] shadow-[var(--shadow-card)] cursor-pointer hover:border-[var(--color-border-strong)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px',
+  featured:
+    'border border-[var(--color-primary)] shadow-[var(--shadow-md)] ring-1 ring-[color-mix(in_srgb,var(--color-primary)_12%,transparent)]',
+  danger: 'border border-[var(--error-bg)] shadow-[var(--shadow-card)]',
 }
 
 export function Card({
@@ -52,7 +53,7 @@ export function Card({
           : undefined
       }
       className={cn(
-        'rounded-[var(--r-card)] bg-[var(--neutral-0)] text-left transition-[var(--transition)]',
+        'rounded-[var(--r-card)] bg-[var(--neutral-0)] text-left transition-[var(--transition)] duration-200',
         variantStyles[resolvedVariant],
         paddingStyles[padding],
         isClickable && 'focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]',

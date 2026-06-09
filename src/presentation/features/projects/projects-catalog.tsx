@@ -304,13 +304,13 @@ export function ProjectsCatalog({
 
   return (
 
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
 
       <div className="surface-panel mb-4 px-4 py-3.5 sm:px-5 sm:py-4">
 
-        <h1 className="text-xl font-bold text-[var(--kwork-text)] sm:text-[22px]">{t(titleKey)}</h1>
+        <h1 className="text-xl font-bold text-[var(--ishbor-text)] sm:text-[22px]">{t(titleKey)}</h1>
 
-        <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)] sm:text-[14px]">{t(subtitleKey)}</p>
+        <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)] sm:text-[14px]">{t(subtitleKey)}</p>
 
       </div>
 
@@ -412,7 +412,7 @@ export function ProjectsCatalog({
 
       {!initialLoading && !catalogFetchError && projects.length > 0 && (
 
-        <p className="mb-3 text-[13px] text-[var(--kwork-text-muted)]">
+        <p className="mb-3 text-[13px] text-[var(--ishbor-text-muted)]">
 
           {t('projects_results_count').replace('{n}', String(projects.length))}
 
@@ -486,7 +486,7 @@ export function ProjectsCatalog({
 
                   <div className="flex flex-wrap items-center gap-2">
 
-                    <h2 className="text-[16px] font-bold text-[var(--kwork-text)]">{p.title}</h2>
+                    <h2 className="text-[16px] font-bold text-[var(--ishbor-text)]">{p.title}</h2>
 
                     <Badge variant={projectStatusBadgeVariant(p.status)} size="xs">
 
@@ -496,9 +496,9 @@ export function ProjectsCatalog({
 
                   </div>
 
-                  <p className="mt-1 line-clamp-2 text-[13px] text-[var(--kwork-text-muted)]">{p.description}</p>
+                  <p className="mt-1 line-clamp-2 text-[13px] text-[var(--ishbor-text-muted)]">{p.description}</p>
 
-                  <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">
+                  <p className="mt-2 text-[12px] text-[var(--ishbor-text-muted)]">
 
                     {p.region} · {categoryLabel(p.category)}
 
@@ -524,7 +524,7 @@ export function ProjectsCatalog({
 
                 {(p.application_count ?? 0) > 0 && (
 
-                  <span className="self-center text-[12px] text-[var(--kwork-text-muted)]">
+                  <span className="self-center text-[12px] text-[var(--ishbor-text-muted)]">
 
                     {t('project_applications_count').replace('{n}', String(p.application_count))}
 

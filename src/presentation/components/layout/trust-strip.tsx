@@ -22,7 +22,7 @@ export function TrustStrip({ className }: { className?: string }) {
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[11px] text-[var(--kwork-text-muted)]">{t('escrow_after_payment')}</p>
+      <p className="mt-2 text-[11px] text-[var(--ishbor-text-muted)]">{t('escrow_after_payment')}</p>
     </div>
   )
 }

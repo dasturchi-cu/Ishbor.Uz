@@ -84,10 +84,10 @@ export function NotificationsPage() {
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-[24px] font-bold text-[var(--kwork-text)] md:text-[28px]">
+          <h1 className="text-[24px] font-bold text-[var(--ishbor-text)] md:text-[28px]">
             {t('notifications_title')}
           </h1>
-          <p className="mt-1 text-[14px] text-[var(--kwork-text-muted)]">{t('notifications_desc')}</p>
+          <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">{t('notifications_desc')}</p>
         </div>
         {unreadCount > 0 && (
           <Button variant="outline" size="sm" onClick={markAllRead} className="gap-2 self-start">
@@ -107,7 +107,7 @@ export function NotificationsPage() {
               'rounded-full px-4 py-1.5 text-[13px] font-medium transition',
               filter === f
                 ? 'bg-[var(--color-primary)] text-white'
-                : 'bg-[var(--color-bg-muted)] text-[var(--kwork-text-muted)] hover:text-[var(--kwork-text)]'
+                : 'bg-[var(--color-bg-muted)] text-[var(--ishbor-text-muted)] hover:text-[var(--ishbor-text)]'
             )}
           >
             {f === 'all' ? t('messages_filter_all') : t('messages_filter_unread')}
@@ -134,8 +134,8 @@ export function NotificationsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-16 text-center">
-            <Bell className="h-10 w-10 text-[var(--kwork-text-muted)]" />
-            <p className="text-[14px] text-[var(--kwork-text-muted)]">
+            <Bell className="h-10 w-10 text-[var(--ishbor-text-muted)]" />
+            <p className="text-[14px] text-[var(--ishbor-text-muted)]">
               {filter === 'unread' && items.length > 0
                 ? t('notifications_empty_unread')
                 : t('notifications_empty')}
@@ -147,7 +147,7 @@ export function NotificationsPage() {
             )}
           </div>
         ) : (
-          <ul className="divide-y divide-[var(--kwork-border)]">
+          <ul className="divide-y divide-[var(--ishbor-border)]">
             {filtered.map((item) => {
               const Icon = TYPE_ICON[item.type]
               return (
@@ -175,14 +175,14 @@ export function NotificationsPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-[14px] font-semibold text-[var(--kwork-text)]">
+                          <p className="text-[14px] font-semibold text-[var(--ishbor-text)]">
                             {resolveNotifText(item.title, t)}
                           </p>
-                          <span className="shrink-0 text-[11px] text-[var(--kwork-text-muted)]">
+                          <span className="shrink-0 text-[11px] text-[var(--ishbor-text-muted)]">
                             {formatRelativeTime(item.created_at, language)}
                           </span>
                         </div>
-                        <p className="mt-0.5 text-[13px] text-[var(--kwork-text-muted)]">
+                        <p className="mt-0.5 text-[13px] text-[var(--ishbor-text-muted)]">
                           {resolveNotifText(item.body, t)}
                         </p>
                       </div>
@@ -195,7 +195,7 @@ export function NotificationsPage() {
                       aria-label={t('notification_dismiss')}
                       disabled={dismissingId === item.id}
                       onClick={(e) => handleDismiss(item, e)}
-                      className="shrink-0 px-4 text-[var(--kwork-text-muted)] hover:text-[var(--error)] disabled:opacity-50"
+                      className="shrink-0 px-4 text-[var(--ishbor-text-muted)] hover:text-[var(--error)] disabled:opacity-50"
                     >
                       <X className="h-4 w-4" />
                     </button>

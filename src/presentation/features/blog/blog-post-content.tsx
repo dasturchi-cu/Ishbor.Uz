@@ -17,7 +17,7 @@ export function BlogPostContent({ titleKey, bodyKey, date }: BlogPostContentProp
   const { t } = useApp()
 
   return (
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
       <article className="surface-panel mx-auto max-w-[720px] p-5 sm:p-8">
         <Link
           href={PATHS.blog}
@@ -25,9 +25,9 @@ export function BlogPostContent({ titleKey, bodyKey, date }: BlogPostContentProp
         >
           ← {t('nav_blog')}
         </Link>
-        <time className="mt-4 block text-[12px] font-medium text-[var(--kwork-text-muted)]">{date}</time>
-        <h1 className="mt-2 text-2xl font-bold text-[var(--kwork-text)] sm:text-[28px]">{t(titleKey)}</h1>
-        <div className="prose-ishbor mt-6 space-y-4 text-[14px] leading-relaxed text-[var(--kwork-text-sub)]">
+        <time className="mt-4 block text-[12px] font-medium text-[var(--ishbor-text-muted)]">{date}</time>
+        <h1 className="mt-2 text-2xl font-bold text-[var(--ishbor-text)] sm:text-[28px]">{t(titleKey)}</h1>
+        <div className="prose-ishbor mt-6 space-y-4 text-[14px] leading-relaxed text-[var(--ishbor-text-sub)]">
           <p>{t(bodyKey)}</p>
         </div>
       </article>

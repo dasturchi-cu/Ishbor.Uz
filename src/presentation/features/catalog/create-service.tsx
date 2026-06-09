@@ -13,6 +13,7 @@ import { UZ_REGIONS, type UzRegion } from '@/domain/constants/regions'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { useServerDraft } from '@/shared/lib/use-server-draft'
 import { buildDefaultPackages } from '@/shared/lib/service-packages'
+import { parseServiceIncludesText } from '@/shared/lib/service-includes'
 import { toast } from '@/presentation/components/ui/toast'
 import { serviceCreateSchema } from '@/domain/validators/service'
 import { cn } from '@/shared/lib/utils'
@@ -23,6 +24,7 @@ const DELIVERY_PRESETS = [3, 5, 7, 14, 30] as const
 type ServiceForm = {
   title: string
   description: string
+  includesText: string
   price: string
   deliveryDays: string
   category: string
@@ -32,6 +34,7 @@ type ServiceForm = {
 const CREATE_SERVICE_INITIAL_FORM: ServiceForm = {
   title: '',
   description: '',
+  includesText: '',
   price: '',
   deliveryDays: '5',
   category: 'web',
@@ -140,6 +143,7 @@ export function CreateServicePage() {
       region: form.region,
       price,
       delivery_days: days,
+      includes: parseServiceIncludesText(form.includesText),
     })
     if (!parsed.success) {
       const next: Record<string, string> = {}
@@ -147,6 +151,7 @@ export function CreateServicePage() {
         const key = String(issue.path[0] ?? '')
         if (key === 'title') next.title = t('error_required')
         else if (key === 'description') next.description = t('error_required')
+        else if (key === 'includes') next.includes = t('error_required')
         else if (key === 'category') next.category = t('error_required')
         else if (key === 'region') next.region = t('error_required')
         else if (key === 'price') next.price = t('error_required')
@@ -170,6 +175,7 @@ export function CreateServicePage() {
         region: form.region,
         delivery_days: safeDays,
         packages: buildDefaultPackages(price, safeDays),
+        includes: parseServiceIncludesText(form.includesText),
       })
       draft.clear()
       await refreshProfile()
@@ -253,6 +259,23 @@ export function CreateServicePage() {
           </div>
 
           <div>
+            <label htmlFor="service-includes" className="text-sm font-semibold block mb-2">
+              {t('service_includes_title')}
+            </label>
+            <textarea
+              id="service-includes"
+              name="service-includes"
+              value={form.includesText}
+              onChange={(e) => updateField('includesText', e.target.value)}
+              placeholder={t('service_includes_ph')}
+              className="w-full min-h-24 rounded-md border border-input bg-background px-3 py-2"
+              aria-invalid={Boolean(errors.includes)}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">{t('service_includes_hint')}</p>
+            {errors.includes && <p className="mt-1 text-sm text-destructive">{errors.includes}</p>}
+          </div>
+
+          <div>
             <label htmlFor="service-delivery" className="text-sm font-semibold block mb-2">
               {t('delivery_time')}
             </label>
@@ -266,7 +289,7 @@ export function CreateServicePage() {
                     'rounded-full border px-3 py-1.5 text-[13px] font-medium transition',
                     form.deliveryDays === String(days)
                       ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-                      : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text-muted)] hover:border-[var(--color-primary)]'
+                      : 'border-[var(--ishbor-border)] bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)] hover:border-[var(--color-primary)]'
                   )}
                 >
                   {t('service_delivery_days').replace('{n}', String(days))}
@@ -284,7 +307,7 @@ export function CreateServicePage() {
               onChange={(e) => updateField('deliveryDays', e.target.value.replace(/\D/g, '').slice(0, 3))}
               hint={t('delivery_days_hint')}
               rightIcon={
-                <span className="text-[12px] font-semibold text-[var(--kwork-text-muted)]">
+                <span className="text-[12px] font-semibold text-[var(--ishbor-text-muted)]">
                   {t('delivery_days_unit')}
                 </span>
               }

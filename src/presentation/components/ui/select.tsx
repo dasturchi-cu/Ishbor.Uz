@@ -58,7 +58,7 @@ export function Select({
       )}
       <div className="relative">
         {leftIcon && (
-          <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[var(--kwork-text-muted)]">
+          <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[var(--ishbor-text-muted)]">
             {leftIcon}
           </span>
         )}
@@ -67,15 +67,15 @@ export function Select({
           disabled={disabled}
           aria-invalid={error ? true : undefined}
           className={cn(
-            'w-full min-w-0 cursor-pointer appearance-none rounded-[var(--r-md)] border font-medium text-[var(--kwork-text)] ishbor-select',
+            'w-full min-w-0 cursor-pointer appearance-none rounded-[var(--r-md)] border font-medium text-[var(--ishbor-text)] ishbor-select',
             leftIcon && 'ishbor-select--icon-left',
             'transition-[var(--transition)] outline-none',
-            'hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--kwork-border))]',
+            'hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--ishbor-border))]',
             'focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-focus)]',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error
               ? 'border-[var(--error)] shadow-[0_0_0_3px_rgba(220,38,38,0.14)]'
-              : 'border-[var(--kwork-border)] shadow-[var(--shadow-xs)]',
+              : 'border-[var(--ishbor-border)] shadow-[var(--shadow-xs)]',
             sizeStyles[inputSize],
             className
           )}

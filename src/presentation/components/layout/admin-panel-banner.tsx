@@ -20,8 +20,8 @@ export function AdminPanelBanner({ className }: { className?: string }) {
           <Shield className="h-4 w-4" strokeWidth={2.25} />
         </span>
         <div>
-          <p className="text-[14px] font-semibold text-[var(--kwork-text)]">{t('admin_panel')}</p>
-          <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_panel_banner_hint')}</p>
+          <p className="text-[14px] font-semibold text-[var(--ishbor-text)]">{t('admin_panel')}</p>
+          <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_panel_banner_hint')}</p>
         </div>
       </div>
       <Link href={PATHS.admin}>

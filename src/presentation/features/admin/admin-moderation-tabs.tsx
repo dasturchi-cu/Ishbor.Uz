@@ -130,7 +130,7 @@ export function AdminModerationTabs() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-2 border-b border-[var(--kwork-border)] pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-[var(--ishbor-border)] pb-3">
         {tabs.map(({ id, label, badge }) => (
           <button
             key={id}
@@ -140,7 +140,7 @@ export function AdminModerationTabs() {
               'relative rounded-full px-4 py-2 text-[13px] font-semibold transition',
               tab === id
                 ? 'bg-[var(--color-primary)] text-white'
-                : 'bg-[var(--neutral-50)] text-[var(--kwork-text-muted)] hover:text-[var(--kwork-text)]'
+                : 'bg-[var(--neutral-50)] text-[var(--ishbor-text-muted)] hover:text-[var(--ishbor-text)]'
             )}
           >
             {label}
@@ -187,38 +187,38 @@ export function AdminModerationTabs() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="p-4">
-            <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_analytics_users')}</p>
+            <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_analytics_users')}</p>
             <p className="text-[28px] font-bold">{analytics.new_users}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_analytics_revenue')}</p>
+            <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_analytics_revenue')}</p>
             <p className="text-[28px] font-bold">{formatPrice(analytics.revenue_completed)}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_verifications_title')}</p>
+            <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_verifications_title')}</p>
             <p className="text-[28px] font-bold">{verifications.length}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('admin_reports_title')}</p>
+            <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('admin_reports_title')}</p>
             <p className="text-[28px] font-bold">{reports.length}</p>
           </Card>
         </div>
         <Card className="p-4">
-          <h3 className="text-[14px] font-bold text-[var(--kwork-text)]">{t('admin_escrow_auto_release_title')}</h3>
+          <h3 className="text-[14px] font-bold text-[var(--ishbor-text)]">{t('admin_escrow_auto_release_title')}</h3>
           {autoReleases.length === 0 ? (
-            <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">{t('admin_escrow_auto_release_empty')}</p>
+            <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_escrow_auto_release_empty')}</p>
           ) : (
             <ul className="mt-3 space-y-2 text-[13px]">
               {autoReleases.map((row) => {
                 const title = row.services?.title ?? row.projects?.title ?? row.id.slice(0, 8)
                 return (
-                  <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] pb-2 last:border-0">
+                  <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ishbor-border)] pb-2 last:border-0">
                     <div>
                       <Link href={dashboardOrderPath(row.id)} className="font-semibold text-[var(--color-primary)] hover:underline">
                         {title}
                       </Link>
                       {row.updated_at && (
-                        <p className="text-[12px] text-[var(--kwork-text-muted)]">
+                        <p className="text-[12px] text-[var(--ishbor-text-muted)]">
                           {formatRelativeTime(row.updated_at, language)}
                         </p>
                       )}
@@ -236,15 +236,15 @@ export function AdminModerationTabs() {
       {tab === 'reports' && (
         <Card className="p-6">
           {reports.length === 0 ? (
-            <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_reports_empty')}</p>
+            <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_reports_empty')}</p>
           ) : (
             <div className="space-y-3">
               {reports.map((r) => (
-                <div key={r.id} className="rounded-lg border border-[var(--kwork-border)] p-3">
+                <div key={r.id} className="rounded-lg border border-[var(--ishbor-border)] p-3">
                   <p className="text-[13px] font-semibold">
                     {r.category} · {r.target_type}
                   </p>
-                  <p className="mt-1 line-clamp-2 text-[12px] text-[var(--kwork-text-muted)]">{r.description}</p>
+                  <p className="mt-1 line-clamp-2 text-[12px] text-[var(--ishbor-text-muted)]">{r.description}</p>
                   <div className="mt-2 flex gap-2">
                     <Button size="sm" variant="outline" loading={actionId === r.id} onClick={() => resolveReport(r.id, 'resolved')}>
                       {t('admin_report_resolve')}
@@ -272,7 +272,7 @@ export function AdminModerationTabs() {
       {tab === 'fraud' && (
         <Card className="p-6">
           {fraudLogs.length === 0 ? (
-            <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_fraud_empty')}</p>
+            <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_fraud_empty')}</p>
           ) : (
             <ul className="space-y-2 text-[13px]">
               {fraudLogs.map((f) => (
@@ -304,7 +304,7 @@ export function AdminModerationTabs() {
             </Button>
           </div>
           {auditLogs.length === 0 ? (
-            <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_audit_empty')}</p>
+            <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_audit_empty')}</p>
           ) : (
             <ul className="space-y-2 text-[13px]">
               {auditLogs.map((log) => (
@@ -313,7 +313,7 @@ export function AdminModerationTabs() {
                     <strong>{log.action}</strong>
                     {log.entity_type && ` · ${log.entity_type}`}
                   </span>
-                  <time className="shrink-0 text-[var(--kwork-text-muted)]">
+                  <time className="shrink-0 text-[var(--ishbor-text-muted)]">
                     {log.created_at ? formatRelativeTime(log.created_at, language) : '—'}
                   </time>
                 </li>
@@ -366,17 +366,17 @@ function ComplianceFlagsPanel() {
   return (
     <Card className="p-6">
       {flags.length === 0 ? (
-        <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_audit_empty')}</p>
+        <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_audit_empty')}</p>
       ) : (
         <ul className="space-y-3">
           {flags.map((f) => (
             <li
               key={f.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3 text-[13px]"
+              className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--r-md)] border border-[var(--ishbor-border)] p-3 text-[13px]"
             >
               <div>
                 <p className="font-semibold text-[var(--error)]">{f.flag_type}</p>
-                <p className="mt-1 text-[var(--kwork-text-muted)]">{f.matched_pattern}</p>
+                <p className="mt-1 text-[var(--ishbor-text-muted)]">{f.matched_pattern}</p>
                 <p className="mt-1 line-clamp-2">{f.content_snippet}</p>
               </div>
               <Button size="sm" variant="outline" loading={actionId === f.id} onClick={() => resolve(f.id)}>

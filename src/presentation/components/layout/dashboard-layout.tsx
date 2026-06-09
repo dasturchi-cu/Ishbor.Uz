@@ -9,22 +9,17 @@ import {
   Briefcase,
   ShoppingBag,
   Wallet,
-  Settings,
   LogOut,
   LayoutDashboard,
   MessageCircle,
   Star,
   BarChart3,
   Bookmark,
-  CreditCard,
-  Search,
   HelpCircle,
   Menu,
   X,
   User,
   Shield,
-  Bell,
-  Landmark,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -68,9 +63,26 @@ const FREELANCER_SECTIONS: NavSection[] = [
     items: [
       { id: 'home', href: PATHS.dashboardFreelancer, labelKey: 'nav_dashboard', icon: LayoutDashboard },
       { id: 'orders', href: PATHS.dashboardOrders, labelKey: 'nav_orders', icon: ShoppingBag },
-      { id: 'messages', href: PATHS.dashboardMessages, labelKey: 'nav_messages', icon: MessageCircle },
-      { id: 'wallet', href: PATHS.dashboardWallet, labelKey: 'nav_wallet', icon: Wallet },
-      { id: 'profile', href: PATHS.dashboardProfile, labelKey: 'nav_profile', icon: User },
+    ],
+  },
+  {
+    titleKey: 'nav_section_communication',
+    items: [{ id: 'messages', href: PATHS.dashboardMessages, labelKey: 'nav_messages', icon: MessageCircle }],
+  },
+  {
+    titleKey: 'nav_section_finance',
+    items: [{ id: 'wallet', href: PATHS.dashboardWallet, labelKey: 'nav_wallet', icon: Wallet }],
+  },
+  {
+    titleKey: 'nav_section_account',
+    items: [{ id: 'profile', href: PATHS.dashboardProfile, labelKey: 'nav_profile', icon: User }],
+  },
+  {
+    titleKey: 'nav_section_work',
+    items: [
+      { id: 'services', href: PATHS.dashboardServices, labelKey: 'nav_my_services', icon: Package },
+      { id: 'reviews', href: PATHS.dashboardReviews, labelKey: 'nav_reviews', icon: Star },
+      { id: 'analytics', href: PATHS.dashboardAnalytics, labelKey: 'nav_analytics', icon: BarChart3 },
     ],
   },
 ]
@@ -81,9 +93,26 @@ const CLIENT_SECTIONS: NavSection[] = [
     items: [
       { id: 'home', href: PATHS.dashboardClient, labelKey: 'nav_dashboard', icon: LayoutDashboard },
       { id: 'orders', href: PATHS.dashboardOrders, labelKey: 'nav_orders', icon: ShoppingBag },
-      { id: 'messages', href: PATHS.dashboardMessages, labelKey: 'nav_messages', icon: MessageCircle },
-      { id: 'wallet', href: PATHS.dashboardWallet, labelKey: 'nav_wallet', icon: Wallet },
-      { id: 'profile', href: PATHS.dashboardProfile, labelKey: 'nav_profile', icon: User },
+    ],
+  },
+  {
+    titleKey: 'nav_section_communication',
+    items: [{ id: 'messages', href: PATHS.dashboardMessages, labelKey: 'nav_messages', icon: MessageCircle }],
+  },
+  {
+    titleKey: 'nav_section_finance',
+    items: [{ id: 'wallet', href: PATHS.dashboardWallet, labelKey: 'nav_wallet', icon: Wallet }],
+  },
+  {
+    titleKey: 'nav_section_account',
+    items: [{ id: 'profile', href: PATHS.dashboardProfile, labelKey: 'nav_profile', icon: User }],
+  },
+  {
+    titleKey: 'nav_section_work',
+    items: [
+      { id: 'projects', href: PATHS.dashboardProjects, labelKey: 'nav_my_projects', icon: Briefcase },
+      { id: 'saved', href: PATHS.dashboardSaved, labelKey: 'nav_saved', icon: Bookmark, clientOnly: true },
+      { id: 'applications', href: PATHS.dashboardApplications, labelKey: 'nav_applications', icon: FileText },
     ],
   },
 ]
@@ -185,11 +214,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-[var(--kwork-border)] px-4 py-5">
+      <div className="border-b border-[var(--ishbor-border)] px-4 py-5">
         <div className="flex items-center gap-3">
           <Avatar name={name} src={profile?.avatar_url} size={48} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-bold text-[var(--kwork-text)]">{name}</p>
+            <p className="truncate text-[14px] font-bold text-[var(--ishbor-text)]">{name}</p>
             <span
               className={cn(
                 'mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold',
@@ -204,13 +233,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         {completion < 100 && (
           <div className="mt-4">
-            <div className="flex items-center justify-between text-[11px] text-[var(--kwork-text-muted)]">
+            <div className="flex items-center justify-between text-[11px] text-[var(--ishbor-text-muted)]">
               <span>{t('profile_completion').replace('{n}', String(completion))}</span>
               <Link href={PATHS.dashboardProfile} onClick={onNavigate} className="font-medium text-[var(--color-primary)]">
                 {t('profile_complete_link')}
               </Link>
             </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--kwork-border)]">
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--ishbor-border)]">
               <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${completion}%` }} />
             </div>
           </div>
@@ -233,7 +262,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                       'relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition',
                       active
                         ? 'border-l-[3px] border-l-[var(--color-primary)] bg-[var(--brand-50)] pl-[9px] font-semibold text-[var(--color-primary)]'
-                        : 'border-l-[3px] border-l-transparent text-[var(--kwork-text-muted)] hover:bg-[var(--neutral-50)] hover:text-[var(--kwork-text)]'
+                        : 'border-l-[3px] border-l-transparent text-[var(--ishbor-text-muted)] hover:bg-[var(--neutral-50)] hover:text-[var(--ishbor-text)]'
                     )}
                   >
                     <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.25 : 2} />
@@ -251,10 +280,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-[var(--kwork-border)] p-3">
+      <div className="mt-auto border-t border-[var(--ishbor-border)] p-3">
         <Link
           href={PATHS.help}
-          className="mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-[var(--kwork-text-muted)] hover:bg-[var(--neutral-50)]"
+          className="mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-[var(--ishbor-text-muted)] hover:bg-[var(--neutral-50)]"
         >
           <HelpCircle className="h-4 w-4" /> {t('nav_help_center')}
         </Link>
@@ -304,14 +333,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   return (
-    <div className="min-h-[calc(100vh-var(--kwork-header-total))] bg-[var(--body-bg)]">
+    <div className="min-h-[calc(100vh-var(--ishbor-header-total))] bg-[var(--body-bg)]">
       <div className="flex">
-        <aside className="dashboard-sidebar hide-mobile sticky top-[var(--kwork-header-total)] hidden h-[calc(100vh-var(--kwork-header-total))] w-[260px] shrink-0 md:flex md:flex-col">
+        <aside className="dashboard-sidebar hide-mobile sticky top-[var(--ishbor-header-total)] hidden h-[calc(100vh-var(--ishbor-header-total))] w-[260px] shrink-0 md:flex md:flex-col">
           <SidebarContent />
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="dashboard-subheader sticky top-[var(--kwork-header-total)] z-40 flex min-h-14 items-center justify-between gap-3 border-b border-[var(--kwork-border)] bg-[var(--neutral-0)] px-4 md:px-6">
+          <header className="dashboard-subheader sticky top-[var(--ishbor-header-total)] z-40 flex min-h-14 items-center justify-between gap-3 border-b border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <Button
                 variant="ghost"
@@ -372,9 +401,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             role="dialog"
             aria-modal="true"
             aria-label={t('nav_dashboard')}
-            className="drawer-panel show-mobile fixed inset-y-0 left-0 z-50 flex w-[min(300px,88vw)] flex-col border-r border-[var(--kwork-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-lg)] md:hidden"
+            className="drawer-panel show-mobile fixed inset-y-0 left-0 z-50 flex w-[min(300px,88vw)] flex-col border-r border-[var(--ishbor-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-lg)] md:hidden"
           >
-            <div className="flex items-center justify-between border-b border-[var(--kwork-border)] px-4 py-3">
+            <div className="flex items-center justify-between border-b border-[var(--ishbor-border)] px-4 py-3">
               <span className="font-bold text-[var(--color-primary)]">IshBor.uz</span>
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} aria-label={t('close')}>
                 <X className="h-5 w-5" />
@@ -392,7 +421,7 @@ function DashboardBottomNav() {
   const pathname = usePathname()
   const { t } = useApp()
   const role = useDashboardRole()
-  const { messageUnread, notificationUnread } = useBadgeCounts()
+  const { messageUnread } = useBadgeCounts()
   const isClient = role === 'client'
   const homeHref = isClient ? PATHS.dashboardClient : PATHS.dashboardFreelancer
 
@@ -405,22 +434,13 @@ function DashboardBottomNav() {
       icon: MessageCircle,
       badge: messageUnread,
     },
-    {
-      href: PATHS.notifications,
-      labelKey: 'nav_notifications' as TranslationKey,
-      icon: Bell,
-      badge: notificationUnread,
-    },
-    {
-      href: isClient ? PATHS.dashboardProjects : PATHS.dashboardServices,
-      labelKey: (isClient ? 'nav_my_projects' : 'nav_my_services') as TranslationKey,
-      icon: isClient ? Briefcase : Package,
-    },
+    { href: PATHS.dashboardWallet, labelKey: 'nav_wallet' as TranslationKey, icon: Wallet },
+    { href: PATHS.dashboardProfile, labelKey: 'nav_profile' as TranslationKey, icon: User },
   ]
 
   return (
     <nav
-      className="dashboard-bottom-nav show-mobile fixed inset-x-0 bottom-0 z-40 border-t border-[var(--kwork-border)] bg-[var(--neutral-0)] pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="dashboard-bottom-nav show-mobile fixed inset-x-0 bottom-0 z-40 border-t border-[var(--ishbor-border)] bg-[var(--neutral-0)] pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label={t('nav_dashboard')}
     >
       <div className="grid grid-cols-5">
@@ -432,7 +452,7 @@ function DashboardBottomNav() {
               href={href}
               className={cn(
                 'relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] font-medium',
-                active ? 'text-[var(--color-primary)]' : 'text-[var(--kwork-text-muted)]'
+                active ? 'text-[var(--color-primary)]' : 'text-[var(--ishbor-text-muted)]'
               )}
             >
               <Icon className="h-[20px] w-[20px]" strokeWidth={active ? 2.25 : 2} />

@@ -43,8 +43,8 @@ export function ServicePackagesEditor({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[14px] font-semibold text-[var(--kwork-text)]">{t('packages_section_title')}</p>
-          <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('packages_editor_hint')}</p>
+          <p className="text-[14px] font-semibold text-[var(--ishbor-text)]">{t('packages_section_title')}</p>
+          <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('packages_editor_hint')}</p>
         </div>
         {onResetSuggested && (
           <Button variant="outline" size="sm" type="button" disabled={disabled} onClick={onResetSuggested}>
@@ -52,16 +52,16 @@ export function ServicePackagesEditor({
           </Button>
         )}
       </div>
-      <div className="space-y-3 rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-50)] p-3">
+      <div className="space-y-3 rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-3">
         {PACKAGE_DEFS.map((def) => {
           const row = packages.find((p) => p.id === def.id)
           if (!row) return null
           return (
             <div
               key={def.id}
-              className="grid gap-3 border-b border-[var(--kwork-border)] pb-3 last:border-0 last:pb-0 sm:grid-cols-[120px_1fr_1fr]"
+              className="grid gap-3 border-b border-[var(--ishbor-border)] pb-3 last:border-0 last:pb-0 sm:grid-cols-[120px_1fr_1fr]"
             >
-              <p className="self-center text-[13px] font-semibold text-[var(--kwork-text)]">
+              <p className="self-center text-[13px] font-semibold text-[var(--ishbor-text)]">
                 {t(def.label_key as TranslationKey)}
               </p>
               <Input

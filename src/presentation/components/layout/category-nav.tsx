@@ -19,11 +19,9 @@ const MAIN_LINKS = [
   },
   {
     href: PATHS.projects,
-    labelKey: 'nav_projects' as const,
+    labelKey: 'nav_project_marketplace' as const,
     match: (p: string) => p.startsWith(PATHS.projects) || p === PATHS.postProject,
   },
-  { href: PATHS.blog, labelKey: 'nav_blog' as const, match: (p: string) => p.startsWith(PATHS.blog) },
-  { href: PATHS.pricing, labelKey: 'nav_pricing' as const, match: (p: string) => p === PATHS.pricing },
 ] as const
 
 const INTERIOR_PREFIXES = ['/dashboard', '/onboarding', '/wallet', '/settings', '/notifications', '/messages', '/admin']
@@ -45,7 +43,7 @@ export function CategoryNav() {
   return (
     <>
     <nav
-      className="show-mobile border-b border-[var(--kwork-border)] bg-[var(--neutral-0)]"
+      className="show-mobile border-b border-[var(--ishbor-border)] bg-[var(--neutral-0)]"
       aria-label={t('categories_title')}
     >
       <div className="layout-container max-w-[1280px]">
@@ -58,7 +56,7 @@ export function CategoryNav() {
                 'shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-medium transition',
                 activeCat === item.cat
                   ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-                  : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text-muted)]'
+                  : 'border-[var(--ishbor-border)] bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)]'
               )}
             >
               {t(item.labelKey)}
@@ -68,13 +66,13 @@ export function CategoryNav() {
       </div>
     </nav>
     <nav
-      className="hide-mobile relative border-b border-[var(--kwork-border)] bg-[var(--neutral-0)]"
+      className="hide-mobile relative border-b border-[var(--ishbor-border)] bg-[var(--neutral-0)]"
       aria-label={t('categories_title')}
     >
       <div className="layout-container max-w-[1280px]">
-        <div className="flex min-h-[var(--kwork-nav-h)] items-stretch">
+        <div className="flex min-h-[var(--ishbor-nav-h)] items-stretch">
           <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
-            <div className="group static shrink-0 border-r border-[var(--kwork-border)]">
+            <div className="group static shrink-0 border-r border-[var(--ishbor-border)]">
               <Link
                 href={PATHS.services}
                 className="block h-full"

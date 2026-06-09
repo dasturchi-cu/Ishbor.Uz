@@ -114,7 +114,7 @@ export function FileUploadZone({
         <img
           src={displayPreview}
           alt=""
-          className="h-24 w-24 rounded-full border-2 border-[var(--kwork-border)] object-cover"
+          className="h-24 w-24 rounded-full border-2 border-[var(--ishbor-border)] object-cover"
         />
         {uploading && (
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
@@ -146,7 +146,7 @@ export function FileUploadZone({
           if (!disabled) handleFiles(e.dataTransfer.files)
         }}
         className={cn(
-          'flex w-full flex-col items-center justify-center border-2 border-dashed border-[var(--kwork-border)] bg-[var(--neutral-50)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]',
+          'flex w-full flex-col items-center justify-center border-2 border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-50)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]',
           circular ? 'mx-auto h-24 w-24 rounded-full p-2' : 'rounded-[var(--r-card)] px-6 py-10',
           (disabled || uploading) && 'cursor-not-allowed opacity-60'
         )}
@@ -158,12 +158,12 @@ export function FileUploadZone({
         )}
         {!circular && (
           <>
-            <p className="mt-3 text-[14px] font-medium text-[var(--kwork-text)]">{t('drag_or_click')}</p>
-            <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">PNG, JPG (max {maxSizeMb}MB)</p>
+            <p className="mt-3 text-[14px] font-medium text-[var(--ishbor-text)]">{t('drag_or_click')}</p>
+            <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">PNG, JPG (max {maxSizeMb}MB)</p>
           </>
         )}
         {circular && (
-          <span className="mt-1 text-[10px] font-medium text-[var(--kwork-text-muted)]">{t('upload_photo')}</span>
+          <span className="mt-1 text-[10px] font-medium text-[var(--ishbor-text-muted)]">{t('upload_photo')}</span>
         )}
       </button>
       <input
@@ -181,7 +181,7 @@ export function FileUploadZone({
           {previews.map((src, i) => (
             <div
               key={`${src}-${i}`}
-              className="relative aspect-square overflow-hidden rounded-[var(--r-card)] border border-[var(--kwork-border)]"
+              className="relative aspect-square overflow-hidden rounded-[var(--r-card)] border border-[var(--ishbor-border)]"
             >
               <img src={src} alt="" className="h-full w-full object-cover" />
               {!disabled && !uploading && (

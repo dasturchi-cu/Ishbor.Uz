@@ -73,7 +73,7 @@ function Sync-SupabaseMigrations {
     if ($pushOut -match 'schema_migrations_pkey|duplicate key value violates unique constraint') {
       Write-Host "Supabase: migration version already on remote (schema_migrations duplicate)." -ForegroundColor Yellow
       Write-Host "  Fix: supabase migration list --linked  then  supabase migration repair --status applied <VERSION>" -ForegroundColor Yellow
-      Write-Host "  Dev davom etadi — qo'lda repair qiling agar migration list noto'g'ri bo'lsa." -ForegroundColor Yellow
+      Write-Host '  Dev davom etadi - qolda repair qiling agar migration list notogri bolsa.' -ForegroundColor Yellow
       return
     }
     Write-Host "Supabase db push failed - stopping dev" -ForegroundColor Red
@@ -127,7 +127,7 @@ if ($LASTEXITCODE -eq 2) {
 
 Write-Host ""
 Write-Host "Frontend http://localhost:3000 (HMR)" -ForegroundColor Green
-Write-Host "Backend  http://127.0.0.1:8002 (reload, separate process)" -ForegroundColor Green
+Write-Host 'Backend  http://127.0.0.1:8002 (reload - separate process)' -ForegroundColor Green
 Write-Host ""
 
 # Windows: concurrently kills frontend when backend --reload fires SIGINT.

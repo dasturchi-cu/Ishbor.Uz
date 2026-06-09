@@ -65,22 +65,22 @@ export function AdminBankAccounts() {
 
   return (
     <Card className="p-6">
-      <h2 className="mb-4 text-[15px] font-bold text-[var(--kwork-text)]">{t('admin_bank_accounts_title')}</h2>
+      <h2 className="mb-4 text-[15px] font-bold text-[var(--ishbor-text)]">{t('admin_bank_accounts_title')}</h2>
       {items.length === 0 ? (
-        <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_bank_accounts_empty')}</p>
+        <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_bank_accounts_empty')}</p>
       ) : (
         <ul className="space-y-3">
           {items.map((a) => (
             <li
               key={a.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--kwork-border)] p-4 text-[13px]"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--ishbor-border)] p-4 text-[13px]"
             >
               <div>
-                <p className="font-semibold text-[var(--kwork-text)]">{a.bank_name}</p>
-                <p className="text-[var(--kwork-text-muted)]">
+                <p className="font-semibold text-[var(--ishbor-text)]">{a.bank_name}</p>
+                <p className="text-[var(--ishbor-text-muted)]">
                   {a.profiles?.full_name ?? a.account_holder} · {a.profiles?.email ?? '—'}
                 </p>
-                <p className="mt-1 text-[var(--kwork-text-sub)]">
+                <p className="mt-1 text-[var(--ishbor-text-sub)]">
                   {a.account_holder} · •••• {a.account_number.slice(-4)}
                   {a.mfo ? ` · MFO ${a.mfo}` : ''}
                 </p>

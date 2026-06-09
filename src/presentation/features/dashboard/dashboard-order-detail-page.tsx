@@ -13,6 +13,7 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { OrderProgressStepper } from '@/presentation/components/features/order-progress-stepper'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { api } from '@/infrastructure/api/client'
@@ -20,11 +21,6 @@ import type { ApiDispute, ApiOrder, ApiReview, ApiTransaction } from '@/infrastr
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { dashboardDispute, PATHS } from '@/domain/constants/routes'
-import {
-  calcFreelancerPayout,
-  calcPlatformFee,
-  PLATFORM_COMMISSION_PERCENT,
-} from '@/domain/constants/commission'
 import { formatPrice } from '@/shared/lib/format'
 import { PaymentCheckoutFlow } from '@/presentation/components/features/payment-checkout-flow'
 import { usePaymentCheckout } from '@/shared/lib/use-payment-checkout'
@@ -32,7 +28,8 @@ import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatDate } from '@/shared/lib/format-date'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 import { toast } from '@/presentation/components/ui/toast'
-import { ShoppingBag } from 'lucide-react'
+import { MessageCircle, ShoppingBag } from 'lucide-react'
+import { orderNextStepHintKey } from '@/shared/lib/order-next-step'
 import { OrderReceiptCard } from '@/presentation/components/features/order-receipt-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 
@@ -257,7 +254,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
 
   if (!order) {
     return (
-      <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
+      <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)]">
         <EmptyState
           icon={<ShoppingBag />}
           title={t('order_not_found_title')}
@@ -276,12 +273,12 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         : t('package_basic')
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-5 pb-20 md:pb-0 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="dashboard-page-title">{t('order_number').replace('{n}', order.id.slice(0, 8))}</h2>
-            <p className="text-[13px] text-[var(--kwork-text-muted)]">
+            <p className="text-[13px] text-[var(--ishbor-text-muted)]">
               {order.created_at && formatDate(order.created_at, language)}
             </p>
           </div>
@@ -291,46 +288,52 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </div>
         </div>
 
-        <OrderProgressStepper status={order.status} paymentStatus={order.payment_status} />
+        <div className="space-y-3">
+          <OrderProgressStepper status={order.status} paymentStatus={order.payment_status} />
+          <IshborProtectionStrip compact />
+        </div>
 
-        {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
-          <Alert variant="info">{t('first_order_promo')}</Alert>
-        )}
+        {(() => {
+          const hintKey = orderNextStepHintKey(role, order.status, order.payment_status)
+          if (!hintKey) return null
+          return (
+            <div className="rounded-xl border border-[var(--color-primary)]/25 bg-[var(--color-primary-light)]/30 px-4 py-3">
+              <p className="text-[13px] font-medium text-[var(--ishbor-text)]">{t(hintKey)}</p>
+            </div>
+          )
+        })()}
 
         {error && <Alert variant="error">{error}</Alert>}
 
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
-          <p className="font-bold text-[var(--kwork-text)]">{order.services?.title ?? t('nav_orders')}</p>
+        <div className="surface-panel p-4">
+          <p className="font-bold text-[var(--ishbor-text)]">{order.services?.title ?? t('nav_orders')}</p>
           <p className="mt-2 text-[14px] font-semibold">{formatPrice(order.amount)}</p>
-          <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{packageLabel}</p>
+          <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{packageLabel}</p>
           {order.notes && (
-            <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">
-              <span className="font-semibold text-[var(--kwork-text)]">{t('order_notes_label')}: </span>
+            <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
+              <span className="font-semibold text-[var(--ishbor-text)]">{t('order_notes_label')}: </span>
               {order.notes}
             </p>
           )}
           {order.delivery_notes && (
-            <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">
-              <span className="font-semibold text-[var(--kwork-text)]">{t('deliver_work')}: </span>
+            <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
+              <span className="font-semibold text-[var(--ishbor-text)]">{t('deliver_work')}: </span>
               {order.delivery_notes}
             </p>
           )}
           {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
-            <div className="mt-4 space-y-2 border-t border-[var(--kwork-border)] pt-4">
-              <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('payment_required_hint')}</p>
-              <p className="text-[12px] font-medium text-[var(--kwork-text)]">
-                {t('commission_rate').replace('{rate}', String(PLATFORM_COMMISSION_PERCENT))}
-              </p>
-              <p className="text-[11px] text-[var(--kwork-text-muted)]">
-                {t('commission_fee_amount').replace('{amount}', formatPrice(calcPlatformFee(order.amount)))}
-                {' · '}
-                {t('commission_freelancer_net').replace('{amount}', formatPrice(calcFreelancerPayout(order.amount)))}
-              </p>
-              <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('commission_escrow_note')}</p>
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
+            <div className="mt-4 space-y-2 border-t border-[var(--ishbor-border)] pt-4">
+              <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('payment_required_hint')}</p>
+              <p className="text-[13px] font-medium text-[var(--ishbor-text)]">{t('payment_checkout_summary')}</p>
+              <Link
+                href={PATHS.buyerProtection}
+                className="inline-block text-[12px] font-semibold text-[var(--color-primary)] hover:underline"
+              >
+                {t('landing_buyer_protection')} →
+              </Link>
               {canPayFromWallet && (
                 <div className="space-y-2 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary-light)]/20 p-3">
-                  <p className="text-[12px] text-[var(--kwork-text-muted)]">
+                  <p className="text-[12px] text-[var(--ishbor-text-muted)]">
                     {t('pay_from_wallet_hint')
                       .replace('{balance}', formatPrice(walletBalance))
                       .replace('{amount}', formatPrice(order.amount))}
@@ -344,7 +347,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
                 order.status === 'pending' &&
                 order.payment_status !== 'held' &&
                 walletBalance < order.amount && (
-                  <p className="text-[12px] text-[var(--kwork-text-muted)]">
+                  <p className="text-[12px] text-[var(--ishbor-text-muted)]">
                     {t('payment_insufficient_balance')}{' '}
                     <Link href={PATHS.dashboardWallet} className="font-medium text-primary hover:underline">
                       {t('nav_wallet')}
@@ -364,9 +367,9 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
         </div>
 
         {role === 'freelancer' && order.status === 'active' && (
-          <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
+          <div className="surface-panel p-4">
             <h3 className="text-[14px] font-bold">{t('deliver_work')}</h3>
-            <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('deliver_work_hint')}</p>
+            <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('deliver_work_hint')}</p>
             <Textarea
               className="mt-3"
               rows={4}
@@ -397,11 +400,11 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
             <p className="text-[13px] font-semibold">{t('disputed')}</p>
             {order.dispute_reason && <p className="mt-1 text-[13px]">{order.dispute_reason}</p>}
             {orderDispute && (
-              <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">
-                {t('admin_dispute_status')}: {disputeStatusLabel(orderDispute.status, t)}
+              <p className="mt-2 text-[13px] font-medium text-[var(--ishbor-text)]">
+                {t('dispute_progress_label')}: {disputeStatusLabel(orderDispute.status, t)}
               </p>
             )}
-            <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('dispute_under_review')}</p>
+            <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('dispute_under_review')}</p>
             {orderDispute && (
               <Link
                 href={dashboardDispute(orderDispute.id)}
@@ -450,11 +453,11 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="dispute-modal-title"
-              className="w-full max-w-md rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5"
+              className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 id="dispute-modal-title" className="text-[16px] font-bold">{t('open_dispute')}</h3>
-              <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('dispute_reason_hint')}</p>
+              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('dispute_reason_hint')}</p>
               <Textarea
                 className="mt-3"
                 rows={4}
@@ -476,7 +479,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
       </div>
 
       <aside className="space-y-4">
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
+        <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4">
           <div className="flex items-center gap-3">
             <Avatar name={otherName} size={40} />
             <div>
@@ -490,12 +493,12 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </Link>
         </div>
         {transactions.length > 0 && (
-          <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
-            <p className="text-[13px] font-bold text-[var(--kwork-text)]">{t('payment_timeline')}</p>
+          <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4">
+            <p className="text-[13px] font-bold text-[var(--ishbor-text)]">{t('payment_timeline')}</p>
             <ul className="mt-3 space-y-2">
               {transactions.map((tx) => (
                 <li key={tx.id} className="flex items-center justify-between gap-2 text-[12px]">
-                  <span className="text-[var(--kwork-text-muted)]">
+                  <span className="text-[var(--ishbor-text-muted)]">
                     {transactionTypeLabel(tx.type, t)}
                   </span>
                   <span className="font-semibold">{formatPrice(tx.amount)}</span>
@@ -505,12 +508,12 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           </div>
         )}
         {order.payment_status === 'held' && (
-          <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--color-primary-light)]/30 p-4">
-            <p className="text-[13px] font-bold text-[var(--kwork-text)]">{t('why_escrow')}</p>
-            <p className="mt-2 text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">
+          <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--color-primary-light)]/30 p-4">
+            <p className="text-[13px] font-bold text-[var(--ishbor-text)]">{t('why_escrow')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-[var(--ishbor-text-muted)]">
               {process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true'
                 ? t('commission_escrow_note')
-                : t('payment_sandbox_note')}
+                : t('payment_protected_note')}
             </p>
           </div>
         )}
@@ -521,6 +524,23 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           {t('back')}
         </Button>
       </aside>
+
+      <div className="order-detail-mobile-bar show-mobile fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-[var(--ishbor-border)] bg-[var(--neutral-0)]/95 p-3 backdrop-blur-md md:hidden">
+        <div className="mx-auto flex max-w-[1280px] gap-2">
+          <Link href={`${PATHS.dashboardMessages}?order=${order.id}`} className="flex-1">
+            <Button variant="outline" fullWidth size="md" leftIcon={<MessageCircle className="h-4 w-4" />}>
+              {t('send_message')}
+            </Button>
+          </Link>
+          {actionKey &&
+            !(role === 'freelancer' && order.status === 'active') &&
+            !(role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held') && (
+              <Button variant="primary" className="flex-1" size="md" loading={updating} onClick={handleStatus}>
+                {t(actionKey)}
+              </Button>
+            )}
+        </div>
+      </div>
 
       {showReview && (
         <ReviewModal

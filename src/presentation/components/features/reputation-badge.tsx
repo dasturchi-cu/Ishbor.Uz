@@ -15,7 +15,7 @@ export function ReputationBadge({
   if (trustScore == null || trustScore <= 0) return null
 
   const tone =
-    trustScore >= 80 ? 'text-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'text-[var(--kwork-text-muted)] bg-[var(--neutral-100)]'
+    trustScore >= 80 ? 'text-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'text-[var(--ishbor-text-muted)] bg-[var(--neutral-100)]'
 
   return (
     <span

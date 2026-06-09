@@ -10,7 +10,7 @@ const STATUS_CLASS: Record<string, string> = {
   submitted: 'bg-[var(--warning-bg)] text-[var(--warning-dark)]',
   revision_requested: 'bg-[var(--warning-bg)] text-[var(--warning-dark)]',
   completed: 'bg-[var(--success-bg)] text-[var(--success-dark)]',
-  cancelled: 'bg-[var(--neutral-100)] text-[var(--kwork-text-muted)]',
+  cancelled: 'bg-[var(--neutral-100)] text-[var(--ishbor-text-muted)]',
   disputed: 'bg-[var(--danger-bg)] text-[var(--danger-dark)]',
 }
 

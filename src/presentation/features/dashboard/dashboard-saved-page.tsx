@@ -85,7 +85,7 @@ export function DashboardSavedPage() {
               'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium',
               tab === key
                 ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-                : 'text-[var(--kwork-text-muted)]'
+                : 'text-[var(--ishbor-text-muted)]'
             )}
           >
             {tabLabel[key]}
@@ -114,7 +114,7 @@ export function DashboardSavedPage() {
           ))}
         </div>
       ) : !hasItems && !savedFetchError ? (
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
+        <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)]">
           <EmptyState
             icon={<Bookmark />}
             title={t('no_saved_yet')}
@@ -197,8 +197,8 @@ export function DashboardSavedPage() {
             <article key={p.id} className="dashboard-order-card sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-[15px] font-bold text-[var(--kwork-text)]">{p.title}</h2>
-                  <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{p.region}</p>
+                  <h2 className="text-[15px] font-bold text-[var(--ishbor-text)]">{p.title}</h2>
+                  <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{p.region}</p>
                 </div>
                 <p className="text-[15px] font-bold text-[var(--color-primary)]">{formatPrice(p.budget)}</p>
               </div>

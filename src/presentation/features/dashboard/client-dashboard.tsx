@@ -7,7 +7,6 @@ import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
-import { StatCard } from '@/presentation/components/ui/stat-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { SkeletonFreelancerCard } from '@/presentation/components/ui/skeleton'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
@@ -15,16 +14,11 @@ import { OrderStatusBadge } from '@/presentation/components/features/order-statu
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import {
   ShoppingBag,
-  CheckCircle2,
-  Clock,
-  Wallet,
   ChevronRight,
   FolderKanban,
   Search,
   MapPin,
-  MessageCircle,
   Plus,
-  User,
 } from 'lucide-react'
 import { PATHS, freelancerPath, dashboardOrderPath, projectPath } from '@/domain/constants/routes'
 import { api } from '@/infrastructure/api/client'
@@ -34,12 +28,13 @@ import { ActivityTimeline } from '@/presentation/components/dashboard/activity-t
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
 import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
-import { DashboardQuickActions } from '@/presentation/components/dashboard/dashboard-quick-actions'
 import { useDashboardSummary } from '@/shared/lib/use-dashboard-summary'
 import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
 import { ClientOnboardingChecklist } from '@/presentation/components/dashboard/client-onboarding-checklist'
 import { clientOnboardingProgress } from '@/shared/lib/onboarding-progress'
+import { useOnboardingChecklistVisible } from '@/shared/lib/onboarding-session-limit'
 import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { cn } from '@/shared/lib/utils'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'delivered'])
 
@@ -55,7 +50,7 @@ function DashboardPanel({
   className?: string
 }) {
   return (
-    <section className={className ?? 'dashboard-panel'}>
+    <section className={cn('dashboard-panel', className)}>
       <div className="dashboard-panel-header">
         <h2 className="dashboard-panel-title">{title}</h2>
         {action}
@@ -67,7 +62,7 @@ function DashboardPanel({
 
 function OrderRowSkeleton() {
   return (
-    <div className="rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3.5">
+    <div className="rounded-[var(--r-md)] border border-[var(--ishbor-border)] p-3.5">
       <div className="mb-2 flex justify-between gap-3">
         <div className="space-y-2">
           <div className="h-4 w-36 animate-pulse rounded bg-[var(--color-bg-muted)]" />
@@ -83,7 +78,7 @@ function OrderRowSkeleton() {
 export function ClientDashboard() {
   const { t, profile, userId, isAuthLoading, isLoggedIn } = useApp()
   const router = useRouter()
-  const { messageUnread, notificationUnread } = useBadgeCounts()
+  const { messageUnread } = useBadgeCounts()
   const authReady = !isAuthLoading && isLoggedIn && Boolean(userId)
 
   const { orders, projects, loading, error, loadError, reload } = useDashboardSummary(userId, 'client', authReady)
@@ -119,18 +114,6 @@ export function ClientDashboard() {
     [orders]
   )
 
-  const metrics = useMemo(() => {
-    const completed = orders.filter((o) => o.status === 'completed')
-    const inProgress = orders.filter((o) => ACTIVE_STATUSES.has(o.status))
-    const totalSpent = completed.reduce((sum, o) => sum + o.amount, 0)
-    return {
-      totalOrders: String(orders.length),
-      completed: String(completed.length),
-      inProgress: String(inProgress.length),
-      totalSpent: totalSpent > 0 ? formatPrice(totalSpent) : '0 so\'m',
-    }
-  }, [orders])
-
   const recentOrders = useMemo(
     () =>
       [...orders]
@@ -151,6 +134,7 @@ export function ClientDashboard() {
     () => clientOnboardingProgress(profile, projects, orders.length > 0),
     [profile, projects, orders.length]
   )
+  const onboardingChecklistVisible = useOnboardingChecklistVisible(onboardingProgress.complete)
 
   const primaryCta =
     projects.length === 0
@@ -189,9 +173,9 @@ export function ClientDashboard() {
         </Alert>
       )}
 
-      {!loading && deliveredForReview.length > 0 && (
+      {!loading && deliveredForReview.length > 0 && unpaidOrders.length === 0 && (
         <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-primary-light)]/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[14px] font-medium text-[var(--kwork-text)]">{t('review_pending_banner')}</p>
+          <p className="text-[14px] font-medium text-[var(--ishbor-text)]">{t('review_pending_banner')}</p>
           <Button variant="primary" size="sm" onClick={() => setReviewOrder(deliveredForReview[0])}>
             {t('leave_review')}
           </Button>
@@ -203,43 +187,26 @@ export function ClientDashboard() {
         activeOrders={activeOrders.length}
         pendingPayments={unpaidOrders.length}
         messageUnread={messageUnread}
-        notificationUnread={notificationUnread}
         walletBalance={profile?.wallet_balance ?? null}
         primaryCta={primaryCta}
         orders={orders}
         onboardingProgress={onboardingProgress}
       />
 
-      <ClientOnboardingChecklist projects={projects} hasOrders={orders.length > 0} />
-
-      <DashboardRecommendedActions
-        role="client"
-        services={[]}
-        projects={projects}
-        orders={orders}
-        messageUnread={messageUnread}
-      />
-
-      <DashboardQuickActions
-        items={[
-          { href: PATHS.postProject, icon: Plus, labelKey: 'dash_action_post_project' },
-          { href: PATHS.services, icon: Search, labelKey: 'dash_action_browse_services' },
-          { href: PATHS.dashboardWallet, icon: Wallet, labelKey: 'dash_kpi_wallet' },
-          { href: PATHS.dashboardMessages, icon: MessageCircle, labelKey: 'dash_action_open_chat' },
-          { href: PATHS.dashboardProfile, icon: User, labelKey: 'dash_action_complete_profile' },
-        ]}
-      />
-
-      <div className="dash-stats-grid dash-stats-grid--4">
-        <StatCard icon={ShoppingBag} label={t('client_stat_total_orders')} value={metrics.totalOrders} loading={loading} />
-        <StatCard icon={CheckCircle2} label={t('client_stat_completed')} value={metrics.completed} loading={loading} iconTone="success" />
-        <StatCard icon={Clock} label={t('client_stat_in_progress')} value={metrics.inProgress} loading={loading} iconTone="warning" />
-        <StatCard icon={Wallet} label={t('client_stat_total_spent')} value={metrics.totalSpent} loading={loading} iconTone="purple" />
-      </div>
-      <p className="-mt-2 text-[11px] text-[var(--kwork-text-muted)]">{t('client_stat_spent_note')}</p>
+      {onboardingChecklistVisible ? (
+        <ClientOnboardingChecklist projects={projects} hasOrders={orders.length > 0} />
+      ) : (
+        <DashboardRecommendedActions
+          role="client"
+          services={[]}
+          projects={projects}
+          orders={orders}
+          messageUnread={messageUnread}
+        />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <DashboardPanel title={t('nav_orders')} action={postProjectBtn}>
+        <DashboardPanel title={t('nav_orders')}>
           {panelLoading ? (
             <div className="space-y-2.5">
               {[0, 1].map((i) => (
@@ -263,14 +230,14 @@ export function ClientDashboard() {
                     key={order.id}
                     type="button"
                     onClick={() => router.push(dashboardOrderPath(order.id))}
-                    className="w-full rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3.5 text-left transition hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--kwork-border))] hover:bg-[var(--neutral-50)]"
+                    className="w-full rounded-[var(--r-md)] border border-[var(--ishbor-border)] p-3.5 text-left transition hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--ishbor-border))] hover:bg-[var(--neutral-50)]"
                   >
                     <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <h3 className="truncate text-[14px] font-semibold text-[var(--kwork-text)]">
+                        <h3 className="truncate text-[14px] font-semibold text-[var(--ishbor-text)]">
                           {order.services?.title ?? t('nav_orders')}
                         </h3>
-                        <p className="mt-0.5 text-[12px] text-[var(--kwork-text-muted)]">
+                        <p className="mt-0.5 text-[12px] text-[var(--ishbor-text-muted)]">
                           {order.freelancer_profile?.full_name ?? t('value_not_available')} · {formatPrice(order.amount)}
                         </p>
                       </div>
@@ -315,9 +282,9 @@ export function ClientDashboard() {
               {projects.slice(0, 4).map((p) => (
                 <Link key={p.id} href={projectPath(p.id)} className="dashboard-project-row block hover:bg-[var(--neutral-50)]">
                   <div className="min-w-0">
-                    <h3 className="truncate text-[14px] font-semibold text-[var(--kwork-text)]">{p.title}</h3>
+                    <h3 className="truncate text-[14px] font-semibold text-[var(--ishbor-text)]">{p.title}</h3>
                     {p.region && (
-                      <p className="mt-0.5 flex items-center gap-1 text-[12px] text-[var(--kwork-text-muted)]">
+                      <p className="mt-0.5 flex items-center gap-1 text-[12px] text-[var(--ishbor-text-muted)]">
                         <MapPin className="h-3 w-3 shrink-0" />
                         <span className="truncate">{p.region}</span>
                       </p>
@@ -333,12 +300,12 @@ export function ClientDashboard() {
         </DashboardPanel>
       </div>
 
-      <DashboardPanel title={t('recent_activity')}>
+      <DashboardPanel title={t('recent_activity')} className="dashboard-panel--secondary">
         <ActivityTimeline />
       </DashboardPanel>
 
-      <DashboardPanel title={t('recommended_freelancers')}>
-        <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">{t('recommended_by_rating')}</p>
+      <DashboardPanel title={t('recommended_freelancers')} className="dashboard-panel--secondary">
+        <p className="mb-3 text-[12px] text-[var(--ishbor-text-muted)]">{t('recommended_by_rating')}</p>
         {freelancersLoading ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {[0, 1, 2].map((i) => (

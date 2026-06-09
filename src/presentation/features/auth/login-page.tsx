@@ -223,8 +223,8 @@ function LoginPageContent() {
           {mfaStep ? (
             <form id="login-mfa-form" className="auth-form-fields" onSubmit={handleMfaVerify} noValidate>
               <header className="mb-2">
-                <h2 className="text-[18px] font-bold text-[var(--kwork-text)]">{t('mfa_login_title')}</h2>
-                <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('mfa_login_desc')}</p>
+                <h2 className="text-[18px] font-bold text-[var(--ishbor-text)]">{t('mfa_login_title')}</h2>
+                <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('mfa_login_desc')}</p>
               </header>
               <Input
                 label={t('mfa_code_label')}

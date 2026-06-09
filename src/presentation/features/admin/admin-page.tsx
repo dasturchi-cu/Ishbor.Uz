@@ -627,11 +627,11 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
   if (!profile?.is_admin) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-[var(--kwork-text)]">{t('admin_panel')}</h1>
-        <p className="text-[var(--kwork-text-muted)]">{t('admin_access_denied')}</p>
-        <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_name_not_role')}</p>
+        <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('admin_panel')}</h1>
+        <p className="text-[var(--ishbor-text-muted)]">{t('admin_access_denied')}</p>
+        <p className="text-sm text-[var(--ishbor-text-muted)]">{t('admin_name_not_role')}</p>
         {profile?.email && (
-          <p className="rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-3 py-2 text-xs text-[var(--kwork-text-muted)]">
+          <p className="rounded-lg border border-[var(--ishbor-border)] bg-[var(--neutral-50)] px-3 py-2 text-xs text-[var(--ishbor-text-muted)]">
             {t('admin_setup_sql_hint').replace('{email}', profile.email)}
           </p>
         )}
@@ -650,7 +650,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
   return (
     <div className={embedded ? 'space-y-6' : 'layout-container mx-auto max-w-6xl space-y-8 py-10'}>
       {!embedded && (
-        <h1 className="text-[24px] font-bold text-[var(--kwork-text)] sm:text-[28px]">{t('admin_panel')}</h1>
+        <h1 className="text-[24px] font-bold text-[var(--ishbor-text)] sm:text-[28px]">{t('admin_panel')}</h1>
       )}
       {error && <Alert variant="error">{error}</Alert>}
 
@@ -666,8 +666,8 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
             { label: t('admin_stat_banned'), value: stats.banned_users ?? 0 },
           ].map((item) => (
             <Card key={item.label} className="p-4">
-              <p className="text-sm text-[var(--kwork-text-muted)]">{item.label}</p>
-              <p className="text-2xl font-bold text-[var(--kwork-text)]">{item.value}</p>
+              <p className="text-sm text-[var(--ishbor-text-muted)]">{item.label}</p>
+              <p className="text-2xl font-bold text-[var(--ishbor-text)]">{item.value}</p>
             </Card>
           ))}
         </div>
@@ -675,7 +675,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
 
       {show('integrations') && integrations && (
         <Card className="p-6">
-          <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('admin_integrations')}</h2>
+          <h2 className="mb-4 font-bold text-[var(--ishbor-text)]">{t('admin_integrations')}</h2>
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -693,7 +693,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                 className={`rounded-full px-3 py-1 text-[12px] font-medium ${
                   item.on
                     ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-                    : 'bg-[var(--neutral-100)] text-[var(--kwork-text-muted)]'
+                    : 'bg-[var(--neutral-100)] text-[var(--ishbor-text-muted)]'
                 }`}
               >
                 {item.label}: {item.on ? t('notif_channel_active') : t('notif_channel_inactive')}
@@ -706,7 +706,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
       {show('users') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-bold text-[var(--kwork-text)]">{t('admin_users')}</h2>
+          <h2 className="font-bold text-[var(--ishbor-text)]">{t('admin_users')}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -725,13 +725,13 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
           </div>
         </div>
         {usersTotal > 0 && (
-          <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
+          <p className="mb-3 text-[12px] text-[var(--ishbor-text-muted)]">
             {t('admin_showing_count').replace('{shown}', String(users.length)).replace('{total}', String(usersTotal))}
           </p>
         )}
         {isUsersSection && selectedUserIds.size > 0 && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-3 py-2">
-            <span className="text-[12px] font-medium text-[var(--kwork-text)]">
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--ishbor-border)] bg-[var(--neutral-50)] px-3 py-2">
+            <span className="text-[12px] font-medium text-[var(--ishbor-text)]">
               {t('admin_bulk_selected').replace('{count}', String(selectedUserIds.size))}
             </span>
             <Button variant="danger" size="sm" loading={bulkActionLoading} onClick={() => requestBulkUserAction('ban')}>
@@ -752,9 +752,9 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
           <table className="w-full text-sm">
             <caption className="sr-only">{t('admin_users')}</caption>
             <thead>
-              <tr className="border-b border-[var(--kwork-border)] text-left">
+              <tr className="border-b border-[var(--ishbor-border)] text-left">
                 {isUsersSection && (
-                  <th className="py-2 pr-2 text-[var(--kwork-text-muted)]">
+                  <th className="py-2 pr-2 text-[var(--ishbor-text-muted)]">
                     <input
                       type="checkbox"
                       aria-label={t('admin_select_all')}
@@ -768,23 +768,23 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                     />
                   </th>
                 )}
-                <th className="py-2 text-[var(--kwork-text-muted)]">{t('full_name')}</th>
-                <th className="text-[var(--kwork-text-muted)]">{t('email')}</th>
-                <th className="text-[var(--kwork-text-muted)]">{t('select_role')}</th>
-                <th className="text-[var(--kwork-text-muted)]">{t('region')}</th>
-                <th className="text-[var(--kwork-text-muted)]">{t('col_actions')}</th>
+                <th className="py-2 text-[var(--ishbor-text-muted)]">{t('full_name')}</th>
+                <th className="text-[var(--ishbor-text-muted)]">{t('email')}</th>
+                <th className="text-[var(--ishbor-text-muted)]">{t('select_role')}</th>
+                <th className="text-[var(--ishbor-text-muted)]">{t('region')}</th>
+                <th className="text-[var(--ishbor-text-muted)]">{t('col_actions')}</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={isUsersSection ? 6 : 5} className="py-6 text-center text-[var(--kwork-text-muted)]">
+                  <td colSpan={isUsersSection ? 6 : 5} className="py-6 text-center text-[var(--ishbor-text-muted)]">
                     {t('admin_users_empty')}
                   </td>
                 </tr>
               )}
               {filteredUsers.map((u) => (
-                <tr key={u.id} className="border-b border-[var(--kwork-border)]">
+                <tr key={u.id} className="border-b border-[var(--ishbor-border)]">
                   {isUsersSection && (
                     <td className="py-2 pr-2">
                       <input
@@ -796,10 +796,10 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                       />
                     </td>
                   )}
-                  <td className="py-2 text-[var(--kwork-text)]">{u.full_name ?? '—'}</td>
-                  <td className="text-[var(--kwork-text-sub)]">{u.email ?? '—'}</td>
-                  <td className="text-[var(--kwork-text-sub)]">{u.role}</td>
-                  <td className="text-[var(--kwork-text-sub)]">{u.region ?? '—'}</td>
+                  <td className="py-2 text-[var(--ishbor-text)]">{u.full_name ?? '—'}</td>
+                  <td className="text-[var(--ishbor-text-sub)]">{u.email ?? '—'}</td>
+                  <td className="text-[var(--ishbor-text-sub)]">{u.role}</td>
+                  <td className="text-[var(--ishbor-text-sub)]">{u.region ?? '—'}</td>
                   <td className="py-2">
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -906,10 +906,10 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
       {show('disputes') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-bold text-[var(--kwork-text)]">
+          <h2 className="font-bold text-[var(--ishbor-text)]">
             {t('admin_disputes')}
             {disputesTotal > 0 && (
-              <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
+              <span className="ml-2 text-[13px] font-normal text-[var(--ishbor-text-muted)]">
                 ({disputesTotal})
               </span>
             )}
@@ -925,20 +925,20 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
           </Button>
         </div>
         {disputedOrders.length === 0 ? (
-          <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_empty_disputes')}</p>
+          <p className="text-sm text-[var(--ishbor-text-muted)]">{t('admin_empty_disputes')}</p>
         ) : (
           <div className="space-y-2">
             {disputedOrders.map((o) => (
               <div
                 key={o.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ishbor-border)] py-2 text-sm"
               >
                 <div className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-[var(--kwork-text)]">
+                  <span className="block truncate font-medium text-[var(--ishbor-text)]">
                     {o.services?.title ?? o.id.slice(0, 8)}
                   </span>
                   {o.dispute_reason && (
-                    <p className="mt-1 line-clamp-2 text-[12px] text-[var(--kwork-text-muted)]">{o.dispute_reason}</p>
+                    <p className="mt-1 line-clamp-2 text-[12px] text-[var(--ishbor-text-muted)]">{o.dispute_reason}</p>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -981,7 +981,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
       {show('services') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-bold text-[var(--kwork-text)]">{t('nav_services')}</h2>
+          <h2 className="font-bold text-[var(--ishbor-text)]">{t('nav_services')}</h2>
           <Button
             variant="outline"
             size="sm"
@@ -993,21 +993,21 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
           </Button>
         </div>
         {services.length === 0 ? (
-          <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_empty_services')}</p>
+          <p className="text-sm text-[var(--ishbor-text-muted)]">{t('admin_empty_services')}</p>
         ) : (
           <div className="space-y-2">
             {services.map((s) => (
               <div
                 key={s.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ishbor-border)] py-2 text-sm"
               >
                 <span className="min-w-0 truncate font-medium">
                   {s.title}
                   {s.is_hidden && (
-                    <span className="ml-2 text-[11px] text-[var(--kwork-text-muted)]">({t('admin_hide_service')})</span>
+                    <span className="ml-2 text-[11px] text-[var(--ishbor-text-muted)]">({t('admin_hide_service')})</span>
                   )}
                 </span>
-                <span className="text-[var(--kwork-text-muted)]">{s.profiles?.full_name ?? '—'}</span>
+                <span className="text-[var(--ishbor-text-muted)]">{s.profiles?.full_name ?? '—'}</span>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
@@ -1060,21 +1060,21 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
 
       {show('finance') && (
       <Card className="p-6">
-        <h2 className="mb-4 font-bold text-[var(--kwork-text)]">{t('admin_withdrawals')}</h2>
+        <h2 className="mb-4 font-bold text-[var(--ishbor-text)]">{t('admin_withdrawals')}</h2>
         {withdrawals.length === 0 ? (
-          <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_empty_withdrawals')}</p>
+          <p className="text-sm text-[var(--ishbor-text-muted)]">{t('admin_empty_withdrawals')}</p>
         ) : (
           <div className="space-y-2">
             {withdrawals.map((w) => (
               <div
                 key={w.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ishbor-border)] py-2 text-sm"
               >
                 <div>
-                  <p className="font-medium text-[var(--kwork-text)]">
+                  <p className="font-medium text-[var(--ishbor-text)]">
                     {w.profiles?.full_name ?? w.freelancer_id.slice(0, 8)}
                   </p>
-                  <p className="text-[12px] text-[var(--kwork-text-muted)]">{w.profiles?.email ?? '—'}</p>
+                  <p className="text-[12px] text-[var(--ishbor-text-muted)]">{w.profiles?.email ?? '—'}</p>
                 </div>
                 <span className="font-semibold">{formatPrice(w.amount)}</span>
                 <Badge
@@ -1135,10 +1135,10 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
       {show('waitlist') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-bold text-[var(--kwork-text)]">
+          <h2 className="font-bold text-[var(--ishbor-text)]">
             {t('admin_waitlist')}
             {waitlistTotal > 0 && (
-              <span className="ml-2 text-[13px] font-normal text-[var(--kwork-text-muted)]">
+              <span className="ml-2 text-[13px] font-normal text-[var(--ishbor-text-muted)]">
                 ({waitlistTotal})
               </span>
             )}
@@ -1154,24 +1154,24 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
           </Button>
         </div>
         {waitlist.length === 0 ? (
-          <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_waitlist_empty')}</p>
+          <p className="text-sm text-[var(--ishbor-text-muted)]">{t('admin_waitlist_empty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <caption className="sr-only">{t('admin_waitlist')}</caption>
               <thead>
-                <tr className="border-b border-[var(--kwork-border)] text-left">
-                  <th className="py-2 text-[var(--kwork-text-muted)]">{t('email')}</th>
-                  <th className="text-[var(--kwork-text-muted)]">{t('admin_waitlist_source')}</th>
-                  <th className="text-[var(--kwork-text-muted)]">{t('date')}</th>
+                <tr className="border-b border-[var(--ishbor-border)] text-left">
+                  <th className="py-2 text-[var(--ishbor-text-muted)]">{t('email')}</th>
+                  <th className="text-[var(--ishbor-text-muted)]">{t('admin_waitlist_source')}</th>
+                  <th className="text-[var(--ishbor-text-muted)]">{t('date')}</th>
                 </tr>
               </thead>
               <tbody>
                 {waitlist.map((row) => (
-                  <tr key={row.id} className="border-b border-[var(--kwork-border)]">
-                    <td className="py-2 text-[var(--kwork-text)]">{row.email}</td>
-                    <td className="text-[var(--kwork-text-sub)]">{row.source}</td>
-                    <td className="text-[var(--kwork-text-muted)]">
+                  <tr key={row.id} className="border-b border-[var(--ishbor-border)]">
+                    <td className="py-2 text-[var(--ishbor-text)]">{row.email}</td>
+                    <td className="text-[var(--ishbor-text-sub)]">{row.source}</td>
+                    <td className="text-[var(--ishbor-text-muted)]">
                       {row.created_at ? row.created_at.slice(0, 10) : '—'}
                     </td>
                   </tr>
@@ -1188,7 +1188,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
       {show('orders') && (
       <Card className="p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-bold text-[var(--kwork-text)]">{t('admin_orders')}</h2>
+          <h2 className="font-bold text-[var(--ishbor-text)]">{t('admin_orders')}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -1207,13 +1207,13 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
           </div>
         </div>
         {ordersTotal > 0 && (
-          <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
+          <p className="mb-3 text-[12px] text-[var(--ishbor-text-muted)]">
             {t('admin_showing_count').replace('{shown}', String(orders.length)).replace('{total}', String(ordersTotal))}
           </p>
         )}
         {isOrdersSection && selectedOrderIds.size > 0 && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-50)] px-3 py-2">
-            <span className="text-[12px] font-medium text-[var(--kwork-text)]">
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--ishbor-border)] bg-[var(--neutral-50)] px-3 py-2">
+            <span className="text-[12px] font-medium text-[var(--ishbor-text)]">
               {t('admin_bulk_selected').replace('{count}', String(selectedOrderIds.size))}
             </span>
             <Button variant="outline" size="sm" loading={bulkActionLoading} onClick={() => requestBulkOrderAction('completed')}>
@@ -1228,11 +1228,11 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
           </div>
         )}
         {filteredOrders.length === 0 ? (
-          <p className="text-sm text-[var(--kwork-text-muted)]">{t('admin_orders_empty')}</p>
+          <p className="text-sm text-[var(--ishbor-text-muted)]">{t('admin_orders_empty')}</p>
         ) : (
           <div className="space-y-2">
             {isOrdersSection && (
-              <div className="flex items-center gap-2 border-b border-[var(--kwork-border)] pb-2 text-[12px] text-[var(--kwork-text-muted)]">
+              <div className="flex items-center gap-2 border-b border-[var(--ishbor-border)] pb-2 text-[12px] text-[var(--ishbor-text-muted)]">
                 <input
                   type="checkbox"
                   aria-label={t('admin_select_all')}
@@ -1247,7 +1247,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
             {filteredOrders.map((o) => (
               <div
                 key={o.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ishbor-border)] py-2 text-sm"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   {isOrdersSection && (
@@ -1258,7 +1258,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                       onChange={() => toggleOrderSelected(o.id)}
                     />
                   )}
-                  <span className="min-w-0 truncate font-medium text-[var(--kwork-text)]">
+                  <span className="min-w-0 truncate font-medium text-[var(--ishbor-text)]">
                     {o.services?.title ?? o.id.slice(0, 8)}
                   </span>
                 </div>
@@ -1266,7 +1266,7 @@ export function AdminPage({ section = 'all' }: { section?: AdminPageSection }) {
                   <OrderStatusBadge status={o.status} />
                   {o.payment_status && <PaymentStatusBadge status={o.payment_status} />}
                 </div>
-                <span className="font-semibold text-[var(--kwork-text)]">{formatPrice(o.amount)}</span>
+                <span className="font-semibold text-[var(--ishbor-text)]">{formatPrice(o.amount)}</span>
               </div>
             ))}
           </div>

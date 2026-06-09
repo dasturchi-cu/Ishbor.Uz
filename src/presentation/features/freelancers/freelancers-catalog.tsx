@@ -95,12 +95,12 @@ export function FreelancersCatalog({
     : `${filtered.length} ${t('stats_freelancers').toLowerCase()}`
 
   return (
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
       <div className="surface-panel mb-4 px-4 py-3.5 sm:px-5 sm:py-4">
-        <h1 className="text-xl font-bold tracking-tight text-[var(--kwork-text)] sm:text-[22px]">
+        <h1 className="text-xl font-bold tracking-tight text-[var(--ishbor-text)] sm:text-[22px]">
           {t(titleKey)}
         </h1>
-        <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)] sm:text-[14px]">
+        <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)] sm:text-[14px]">
           {t(subtitleKey)}
         </p>
       </div>
@@ -112,7 +112,7 @@ export function FreelancersCatalog({
               <Search className="h-4 w-4" />
               <input
                 type="text"
-                className="kwork-search-input"
+                className="ishbor-search-input"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value)
@@ -125,7 +125,7 @@ export function FreelancersCatalog({
               />
             </div>
             {suggestOpen && suggestions.length > 0 && (
-              <ul className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-md)]">
+              <ul className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-[var(--ishbor-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-md)]">
                 {suggestions.map((f) => (
                   <li key={f.id}>
                     <button
@@ -139,7 +139,7 @@ export function FreelancersCatalog({
                     >
                       {f.full_name ?? t('freelancer')}
                       {f.specialty ? (
-                        <span className="ml-2 text-[11px] text-[var(--kwork-text-muted)]">{f.specialty}</span>
+                        <span className="ml-2 text-[11px] text-[var(--ishbor-text-muted)]">{f.specialty}</span>
                       ) : null}
                     </button>
                   </li>
@@ -206,7 +206,7 @@ export function FreelancersCatalog({
         </div>
       </div>
 
-      <p id="freelancer-results" className="mb-4 px-0.5 text-[13px] text-[var(--kwork-text-muted)]">{countLabel}</p>
+      <p id="freelancer-results" className="mb-4 px-0.5 text-[13px] text-[var(--ishbor-text-muted)]">{countLabel}</p>
 
       {loadError && offset === 0 ? (
         <EmptyState
@@ -217,7 +217,7 @@ export function FreelancersCatalog({
       ) : loading && offset === 0 ? (
         <div className="freelancer-grid">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="kwork-card h-36 animate-pulse bg-[var(--color-bg-muted)]" />
+            <div key={i} className="ishbor-card h-36 animate-pulse bg-[var(--color-bg-muted)]" />
           ))}
         </div>
       ) : filtered.length === 0 ? (

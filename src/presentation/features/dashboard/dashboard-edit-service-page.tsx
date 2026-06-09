@@ -20,6 +20,8 @@ import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { useServerDraft } from '@/shared/lib/use-server-draft'
 import { ServicePackagesEditor } from '@/presentation/components/dashboard/service-packages-editor'
 import { buildDefaultPackages, normalizePackages } from '@/shared/lib/service-packages'
+import { formatServiceIncludesText, parseServiceIncludesText } from '@/shared/lib/service-includes'
+import { formatServiceFaqText, parseServiceFaqText } from '@/shared/lib/service-faq'
 import type { ApiServicePackage } from '@/infrastructure/api/types'
 
 export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
@@ -28,6 +30,8 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
+  const [includesText, setIncludesText] = useState('')
+  const [faqText, setFaqText] = useState('')
   const [price, setPrice] = useState('')
   const [deliveryDays, setDeliveryDays] = useState('5')
   const [region, setRegion] = useState(profile?.region ?? UZ_REGIONS[0])
@@ -45,13 +49,15 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
       title,
       category,
       description,
+      includesText,
+      faqText,
       price,
       deliveryDays,
       region,
       imageUrls,
       packages,
     }),
-    [title, category, description, price, deliveryDays, region, imageUrls, packages]
+    [title, category, description, includesText, faqText, price, deliveryDays, region, imageUrls, packages]
   )
 
   const draft = useServerDraft(`edit-service-${serviceId}`, draftPayload, serviceLoaded, (remote) => {
@@ -61,6 +67,8 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
     if (typeof remote.title === 'string') setTitle(remote.title)
     if (typeof remote.category === 'string') setCategory(remote.category)
     if (typeof remote.description === 'string') setDescription(remote.description)
+    if (typeof remote.includesText === 'string') setIncludesText(remote.includesText)
+    if (typeof remote.faqText === 'string') setFaqText(remote.faqText)
     if (typeof remote.price === 'string') setPrice(remote.price)
     if (typeof remote.deliveryDays === 'string') setDeliveryDays(remote.deliveryDays)
     if (typeof remote.region === 'string') setRegion(remote.region)
@@ -77,6 +85,8 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
         setTitle(s.title)
         setCategory(s.category)
         setDescription(s.description)
+        setIncludesText(formatServiceIncludesText(s.includes))
+        setFaqText(formatServiceFaqText(s.faq))
         setPrice(String(s.price))
         setDeliveryDays(String(s.delivery_days ?? 5))
         setRegion(s.region)
@@ -91,6 +101,8 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
             title: s.title,
             category: s.category,
             description: s.description,
+            includesText: formatServiceIncludesText(s.includes),
+            faqText: formatServiceFaqText(s.faq),
             price: String(s.price),
             deliveryDays: String(s.delivery_days ?? 5),
             region: s.region,
@@ -100,11 +112,15 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
           if (
             restored.title !== s.title ||
             restored.description !== s.description ||
+            restored.includesText !== formatServiceIncludesText(s.includes) ||
+            restored.faqText !== formatServiceFaqText(s.faq) ||
             restored.price !== String(s.price)
           ) {
             setTitle(restored.title)
             setCategory(restored.category)
             setDescription(restored.description)
+            if (typeof restored.includesText === 'string') setIncludesText(restored.includesText)
+            if (typeof restored.faqText === 'string') setFaqText(restored.faqText)
             setPrice(restored.price)
             setDeliveryDays(restored.deliveryDays)
             setRegion(restored.region)
@@ -136,6 +152,7 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
       region,
       price: priceNum,
       delivery_days: safeDays,
+      includes: parseServiceIncludesText(includesText),
     })
     if (!parsed.success) {
       const next: Record<string, string> = {}
@@ -164,6 +181,8 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
         image_urls: urls,
         delivery_days: safeDays,
         packages,
+        includes: parseServiceIncludesText(includesText),
+        faq: parseServiceFaqText(faqText),
       })
       draft.clear()
       toast.success(t('service_updated'))
@@ -182,7 +201,7 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
   return (
     <div className="mx-auto max-w-[640px]">
       <h2 className="dashboard-page-title mb-4">{t('edit_service')}</h2>
-      <div className="space-y-4 rounded-[var(--r-card)] border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5">
+      <div className="space-y-4 rounded-[var(--r-card)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5">
         <Input label={t('service_title')} value={title} onChange={(e) => setTitle(e.target.value)} error={errors.title} />
         <Select
           label={t('category')}
@@ -192,6 +211,23 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
           error={errors.category}
         />
         <Textarea label={t('description')} value={description} onChange={(e) => setDescription(e.target.value)} rows={6} error={errors.description} />
+        <Textarea
+          label={t('service_includes_title')}
+          value={includesText}
+          onChange={(e) => setIncludesText(e.target.value)}
+          rows={5}
+          error={errors.includes}
+          hint={t('service_includes_hint')}
+          placeholder={t('service_includes_ph')}
+        />
+        <Textarea
+          label={t('service_faq')}
+          value={faqText}
+          onChange={(e) => setFaqText(e.target.value)}
+          rows={6}
+          hint={t('service_faq_hint')}
+          placeholder={t('service_faq_ph')}
+        />
         <ServicePackagesEditor
           packages={packages}
           onChange={(next) => {

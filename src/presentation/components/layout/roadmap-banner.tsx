@@ -43,8 +43,8 @@ export function RoadmapBanner({
         <div className="flex gap-3">
           <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]" aria-hidden />
           <div>
-            <p className="text-[13px] font-semibold text-[var(--kwork-text)]">{t(titleKey)}</p>
-            <p className="mt-1 text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">{t(descKey)}</p>
+            <p className="text-[13px] font-semibold text-[var(--ishbor-text)]">{t(titleKey)}</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-[var(--ishbor-text-muted)]">{t(descKey)}</p>
           </div>
         </div>
         <form onSubmit={handleWaitlist} className="flex w-full shrink-0 flex-col gap-2 sm:max-w-xs sm:flex-row">

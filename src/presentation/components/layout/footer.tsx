@@ -56,7 +56,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="site-footer mt-auto border-t border-[var(--kwork-border)] bg-[var(--kwork-bg)]">
+    <footer className="site-footer mt-auto border-t border-[var(--ishbor-border)] bg-[var(--ishbor-bg)]">
       <div className="layout-container max-w-[1280px] py-10 md:py-12">
         <div className="footer-grid">
           <div className="footer-brand">
@@ -94,32 +94,32 @@ export function Footer() {
             </h4>
             <ul className="footer-link-list">
               <li>
-                <Link href={PATHS.services} className="text-[var(--kwork-text-muted)] transition hover:text-[var(--color-primary)]">
+                <Link href={PATHS.services} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
                   {t('nav_services')}
                 </Link>
               </li>
               <li>
-                <Link href={PATHS.freelancers} className="text-[var(--kwork-text-muted)] transition hover:text-[var(--color-primary)]">
+                <Link href={PATHS.freelancers} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
                   {t('nav_freelancers')}
                 </Link>
               </li>
               <li>
-                <Link href={PATHS.projects} className="text-[var(--kwork-text-muted)] transition hover:text-[var(--color-primary)]">
+                <Link href={PATHS.projects} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
                   {t('nav_projects')}
                 </Link>
               </li>
               <li>
-                <Link href={PATHS.blog} className="text-[var(--kwork-text-muted)] transition hover:text-[var(--color-primary)]">
+                <Link href={PATHS.blog} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
                   {t('nav_blog')}
                 </Link>
               </li>
               <li>
-                <Link href={PATHS.pricing} className="text-[var(--kwork-text-muted)] transition hover:text-[var(--color-primary)]">
+                <Link href={PATHS.pricing} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
                   {t('nav_pricing')}
                 </Link>
               </li>
               <li>
-                <Link href={PATHS.help} className="text-[var(--kwork-text-muted)] transition hover:text-[var(--color-primary)]">
+                <Link href={PATHS.help} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
                   {t('nav_help_center')}
                 </Link>
               </li>
@@ -143,7 +143,7 @@ export function Footer() {
                 {t('footer_newsletter_btn')}
               </Button>
             </form>
-            <p className="footer-payments-note">{t('footer_payments_soon')}</p>
+            <p className="footer-payments-note">{t('footer_payments_note')}</p>
           </div>
         </div>
 

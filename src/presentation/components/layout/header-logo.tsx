@@ -16,7 +16,7 @@ function LogoMark({ compact }: { compact?: boolean }) {
   return (
     <span
       className={cn(
-        'relative font-bold tracking-[-0.03em] text-[var(--kwork-text)]',
+        'relative font-bold tracking-[-0.03em] text-[var(--ishbor-text)]',
         compact ? 'text-[18px]' : 'text-[20px] sm:text-[22px]'
       )}
     >
@@ -47,7 +47,7 @@ export function HeaderLogo({ href, tagline, className, compact, layout = 'stacke
     <Link href={href} className={cn('flex shrink-0 flex-col leading-none', className)}>
       <LogoMark compact={compact} />
       {tagline && !compact && (
-        <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--kwork-text-muted)] sm:text-[11px]">
+        <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ishbor-text-muted)] sm:text-[11px]">
           {tagline}
         </span>
       )}

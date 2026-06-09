@@ -91,7 +91,7 @@ export function PaymentCheckoutFlow({
                       done && !failed && 'bg-[var(--color-primary)] text-white',
                       active && !failed && 'border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]',
                       failed && active && 'border-2 border-[var(--error)] bg-[var(--error-bg)] text-[var(--error-dark)]',
-                      !done && !active && 'bg-[var(--color-bg-muted)] text-[var(--kwork-text-muted)]',
+                      !done && !active && 'bg-[var(--color-bg-muted)] text-[var(--ishbor-text-muted)]',
                     )}
                   >
                     {active && isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : i + 1}
@@ -99,7 +99,7 @@ export function PaymentCheckoutFlow({
                   <span
                     className={cn(
                       'text-[12px] font-medium sm:text-[13px]',
-                      (done || active) ? 'text-[var(--kwork-text)]' : 'text-[var(--kwork-text-muted)]',
+                      (done || active) ? 'text-[var(--ishbor-text)]' : 'text-[var(--ishbor-text-muted)]',
                       failed && active && 'text-[var(--error-dark)]',
                     )}
                   >
@@ -110,7 +110,7 @@ export function PaymentCheckoutFlow({
                   <span
                     className={cn(
                       'mx-2 hidden h-px w-6 sm:block md:w-10',
-                      done && !failed ? 'bg-[var(--color-primary)]' : 'bg-[var(--kwork-border)]',
+                      done && !failed ? 'bg-[var(--color-primary)]' : 'bg-[var(--ishbor-border)]',
                     )}
                     aria-hidden
                   />
@@ -132,7 +132,7 @@ export function PaymentCheckoutFlow({
       )}
 
       {phase === 'processing' && (
-        <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('payment_checkout_processing_hint')}</p>
+        <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('payment_checkout_processing_hint')}</p>
       )}
 
       {showButtons && (
@@ -167,8 +167,8 @@ export function PaymentCheckoutFlow({
       )}
 
       {showButtons && (
-        <p className="text-[11px] text-[var(--kwork-text-muted)]">
-          {paymentsLive ? t('payment_live_mode_note') : t('payment_provider_sandbox')} · {amountLabel}
+        <p className="text-[11px] text-[var(--ishbor-text-muted)]">
+          {paymentsLive ? t('payment_live_mode_note') : t('payment_protected_note')} · {amountLabel}
         </p>
       )}
     </div>

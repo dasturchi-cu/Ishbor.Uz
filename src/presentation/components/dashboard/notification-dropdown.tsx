@@ -97,7 +97,7 @@ export function NotificationDropdown() {
           ensureLoaded()
           setOpen((v) => !v)
         }}
-        className="relative flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text-muted)] transition hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--kwork-border))] hover:text-[var(--color-primary)]"
+        className="relative flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--ishbor-border)] bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)] transition hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--ishbor-border))] hover:text-[var(--color-primary)]"
         aria-label={t('notifications_title')}
         aria-expanded={open}
       >
@@ -124,7 +124,7 @@ export function NotificationDropdown() {
           <ul className="notification-dropdown-list">
             {items.length === 0 ? (
               <li className="px-4 py-8 text-center">
-                <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('notifications_empty')}</p>
+                <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('notifications_empty')}</p>
                 <Link
                   href={PATHS.services}
                   onClick={() => setOpen(false)}

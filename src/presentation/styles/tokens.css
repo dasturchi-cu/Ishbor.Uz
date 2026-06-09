@@ -1,5 +1,5 @@
 :root {
-  /* Brand — sync with .cursor/design/figma-tokens.json */
+  /* Brand — sync with design/figma-tokens.json */
   --brand-50: #EFF6FF;
   --brand-100: #DBEAFE;
   --brand-200: #BFDBFE;
@@ -11,7 +11,7 @@
   --brand-800: #1E40AF;
   --brand-900: #1E3A5F;
 
-  /* Neutral */
+  /* Neutral — Slate palette */
   --neutral-0: #FFFFFF;
   --neutral-50: #F8FAFC;
   --neutral-100: #F1F5F9;
@@ -25,16 +25,16 @@
   --neutral-900: #0F172A;
 
   /* Semantic */
-  --success-bg: #DCFCE7;
-  --success: #16A34A;
-  --success-dark: #14532D;
-  --warning-bg: #FEF3C7;
+  --success-bg: #ECFDF5;
+  --success: #059669;
+  --success-dark: #065F46;
+  --warning-bg: #FFFBEB;
   --warning: #D97706;
   --warning-dark: #92400E;
-  --error-bg: #FEE2E2;
+  --error-bg: #FEF2F2;
   --error: #DC2626;
-  --error-dark: #7F1D1D;
-  --info-bg: #DBEAFE;
+  --error-dark: #991B1B;
+  --info-bg: #EFF6FF;
   --info: #2563EB;
   --info-dark: #1E3A5F;
 
@@ -47,6 +47,8 @@
   --color-text: var(--neutral-900);
   --color-text-sub: var(--neutral-600);
   --color-text-muted: var(--neutral-400);
+
+  /* Primary */
   --color-primary: var(--brand-600);
   --color-primary-hover: var(--brand-700);
   --color-primary-active: var(--brand-800);
@@ -56,7 +58,17 @@
   --color-primary-disabled-text: var(--brand-300);
   --color-on-primary: var(--neutral-0);
 
-  /* Spacing scale (4px grid) */
+  /* Secondary — neutral actions, chips */
+  --color-secondary: var(--neutral-100);
+  --color-secondary-hover: var(--neutral-200);
+  --color-secondary-text: var(--neutral-700);
+
+  /* Accent — highlights, badges, CTAs */
+  --color-accent: #7C3AED;
+  --color-accent-light: #F5F3FF;
+  --color-accent-text: #5B21B6;
+
+  /* Spacing scale (8px grid) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -70,26 +82,28 @@
   --space-20: 80px;
   --space-24: 96px;
 
-  /* Radius — Kwork: card 8px, input 8px */
+  /* Radius — premium SaaS (Linear/Stripe) */
   --r-xs: 4px;
   --r-sm: 6px;
-  --r-md: 8px;
-  --r-card: 8px;
-  --r-lg: 10px;
-  --r-dropdown: 8px;
+  --r-md: 10px;
+  --r-card: 12px;
+  --r-lg: 14px;
+  --r-dropdown: 10px;
   --r-xl: 20px;
   --r-2xl: 28px;
   --r-full: 9999px;
 
-  /* Shadow — Kwork: flat cards, subtle lift on hover */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.03);
-  --shadow-sm: 0 1px 4px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.07);
-  --shadow-lg: 0 8px 28px rgba(15, 23, 42, 0.09);
-  --shadow-card: 0 1px 0 rgba(15, 23, 42, 0.04);
-  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.16);
+  /* Shadow — subtle elevation, no heavy drop shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.08), 0 4px 8px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 0 0 1px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-card-hover: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
-  /* Typography scale — Figma Design System Page 1 */
+  /* Typography scale */
   --text-display: 48px;
   --text-h1: 36px;
   --text-h2: 28px;
@@ -105,7 +119,7 @@
   --rating-filled: #F59E0B;
   --rating-empty: #E2E8F0;
 
-  /* Avatar palette — figma-tokens.json */
+  /* Avatar palette */
   --avatar-purple: #7C3AED;
   --avatar-green: #059669;
   --avatar-red: #DC2626;
@@ -118,35 +132,45 @@
   --overlay-light: color-mix(in srgb, var(--neutral-0) 88%, transparent);
   --overlay-primary: color-mix(in srgb, var(--color-primary) 20%, transparent);
 
-  /* Component heights — components-spec.md */
+  /* Component heights */
   --btn-h-sm: 32px;
   --btn-h-md: 40px;
   --btn-h-lg: 48px;
   --input-h: 40px;
 
-  /* Marketplace surface — Kwork uslubi (kulrang fon, oq kartalar) */
-  --kwork-border: var(--color-border);
-  --kwork-bg: var(--color-bg-subtle);
-  --kwork-text: var(--color-text);
-  --kwork-text-sub: var(--color-text-sub);
-  --kwork-text-muted: var(--color-text-muted);
-  --kwork-search-bg: #ffffff;
-  --body-bg: #f4f4f4;
-  --kwork-header-h: 60px;
-  --kwork-nav-h: 42px;
-  --kwork-header-total: var(--kwork-header-h);
+  /* Marketplace surface */
+  --ishbor-border: var(--color-border);
+  --ishbor-bg: var(--color-bg-subtle);
+  --ishbor-text: var(--color-text);
+  --ishbor-text-sub: var(--color-text-sub);
+  --ishbor-text-muted: var(--color-text-muted);
+  --ishbor-search-bg: var(--neutral-100);
+  --body-bg: var(--neutral-50);
+  --ishbor-header-h: 60px;
+  --ishbor-nav-h: 42px;
+  --ishbor-header-total: var(--ishbor-header-h);
   --layout-max-w: 1280px;
 
-  /* Transition */
-  --transition: all 0.2s ease;
+  /* Motion — premium easing */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --transition: color var(--duration-normal) var(--ease-out),
+    background-color var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    opacity var(--duration-normal) var(--ease-out);
 }
 
 .dark {
-  --kwork-border: var(--neutral-700);
-  --kwork-bg: var(--neutral-800);
-  --kwork-text: var(--neutral-100);
-  --kwork-text-muted: var(--neutral-400);
-  --kwork-search-bg: var(--neutral-800);
+  --ishbor-border: var(--neutral-700);
+  --ishbor-bg: var(--neutral-900);
+  --ishbor-text: var(--neutral-100);
+  --ishbor-text-muted: var(--neutral-400);
+  --ishbor-search-bg: var(--neutral-800);
   --body-bg: var(--neutral-900);
   --color-bg: var(--neutral-900);
   --color-bg-subtle: var(--neutral-800);
@@ -157,7 +181,13 @@
   --color-text-sub: var(--neutral-400);
   --color-text-muted: var(--neutral-500);
   --color-primary: var(--brand-500);
-  --color-primary-hover: var(--brand-600);
-  --color-primary-light: var(--brand-900);
+  --color-primary-hover: var(--brand-400);
+  --color-primary-light: color-mix(in srgb, var(--brand-900) 60%, var(--neutral-900));
   --color-primary-text: var(--brand-200);
+  --color-secondary: var(--neutral-800);
+  --color-secondary-hover: var(--neutral-700);
+  --color-secondary-text: var(--neutral-300);
+  --color-accent-light: color-mix(in srgb, var(--color-accent) 15%, var(--neutral-900));
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.25);
 }

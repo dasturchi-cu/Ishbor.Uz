@@ -205,7 +205,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
 
   if (loading) {
     return (
-      <PageWrapper className="bg-[var(--kwork-bg)] pt-5">
+      <PageWrapper className="bg-[var(--ishbor-bg)] pt-5">
         <div className="h-48 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
       </PageWrapper>
     )
@@ -213,7 +213,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
 
   if (!project) {
     return (
-      <PageWrapper className="bg-[var(--kwork-bg)] pt-5">
+      <PageWrapper className="bg-[var(--ishbor-bg)] pt-5">
         {fetchError ? (
           <LoadErrorAlert error={fetchError} scope="projects" onRetry={loadProject} />
         ) : (
@@ -236,7 +236,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const projectStatusLabel = marketplaceStatusLabel(PROJECT_STATUS_KEYS, project.status, t)
 
   return (
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-6">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
       <Breadcrumb
         items={[
           { label: t('home'), href: PATHS.home },
@@ -249,8 +249,8 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
         <article className="surface-panel p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-[22px] font-bold text-[var(--kwork-text)] sm:text-[24px]">{project.title}</h1>
-              <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">
+              <h1 className="text-[22px] font-bold text-[var(--ishbor-text)] sm:text-[24px]">{project.title}</h1>
+              <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
                 {project.region} · {project.category} · {project.level}
               </p>
               <Badge variant={projectStatusBadgeVariant(project.status)} size="xs" className="mt-2">
@@ -280,13 +280,13 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--kwork-border)] text-[var(--kwork-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--ishbor-border)] text-[var(--ishbor-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
                   aria-label={saved ? t('unsave') : t('save')}
                 >
                   <Bookmark className="h-4 w-4" fill={saved ? 'currentColor' : 'none'} />
                 </button>
               )}
-              <p className="text-[20px] font-bold tabular-nums text-[var(--kwork-text)]">{formatPrice(project.budget)}</p>
+              <p className="text-[20px] font-bold tabular-nums text-[var(--ishbor-text)]">{formatPrice(project.budget)}</p>
             </div>
           </div>
 
@@ -314,7 +314,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
               </div>
             </div>
           ) : (
-            <p className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--kwork-text-sub)]">
+            <p className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--ishbor-text-sub)]">
               {project.description}
             </p>
           )}
@@ -329,7 +329,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
             </div>
           )}
 
-          <div className="mt-4 flex flex-wrap gap-4 text-[13px] text-[var(--kwork-text-muted)]">
+          <div className="mt-4 flex flex-wrap gap-4 text-[13px] text-[var(--ishbor-text-muted)]">
             {project.deadline && (
               <span>
                 {t('project_deadline')}: {formatDate(project.deadline, language)}
@@ -361,13 +361,13 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
                 />
               )}
               {applications.length === 0 ? (
-                <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('project_no_applications')}</p>
+                <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('project_no_applications')}</p>
               ) : (
                 <div className="space-y-3">
                   {applications.map((app) => (
                     <div key={app.id} className="dashboard-order-card">
                       <p className="text-[14px] font-bold">{app.freelancer_profile?.full_name ?? '—'}</p>
-                      <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{statusLabel(app.status)}</p>
+                      <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{statusLabel(app.status)}</p>
                       <p className="mt-2 line-clamp-3 text-[13px]">{app.cover_letter}</p>
                       <p className="mt-2 text-[13px] font-semibold">{formatPrice(app.proposed_budget)}</p>
                       {canManageApplications && app.status === 'submitted' && (
@@ -402,7 +402,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
                 </Alert>
               )}
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[13px] font-medium text-[var(--kwork-text-sub)]">
+                <span className="text-[13px] font-medium text-[var(--ishbor-text-sub)]">
                   {t('project_cover_letter')}
                 </span>
                 <AiSuggestButton
@@ -449,7 +449,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
       {!isOwner && project.status === 'open' && (
         <div className="mobile-sticky-cta show-mobile">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-[var(--kwork-text)]">{project.title}</p>
+            <p className="truncate text-[13px] font-semibold text-[var(--ishbor-text)]">{project.title}</p>
             <p className="text-[16px] font-bold tabular-nums text-[var(--color-primary)]">
               {formatPrice(project.budget)}
             </p>

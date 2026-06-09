@@ -80,7 +80,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             'focus-within:border-[var(--color-primary)] focus-within:shadow-[var(--shadow-focus)]',
             error
               ? 'border-[var(--error)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--error)_14%,transparent)]'
-              : 'border-[var(--kwork-border)]',
+              : 'border-[var(--ishbor-border)]',
             disabled && 'cursor-not-allowed bg-[var(--color-bg-subtle)] opacity-70'
           )}
         >

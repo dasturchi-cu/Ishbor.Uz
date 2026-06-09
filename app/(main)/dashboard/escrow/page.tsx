@@ -1,11 +1,6 @@
-import type { Metadata } from 'next'
-import { EscrowDashboardPage } from '@/presentation/features/marketplace/escrow-dashboard-page'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'Escrow',
-  robots: { index: false, follow: false },
-}
-
+/** Himoyalangan to'lovlar — hamyon markazida */
 export default function DashboardEscrowRoute() {
-  return <EscrowDashboardPage />
+  redirect('/dashboard/wallet?tab=protected')
 }

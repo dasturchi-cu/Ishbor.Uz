@@ -12,8 +12,8 @@ export default function NotFound() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-16 text-center">
       <p className="text-[72px] font-black leading-none text-[var(--color-primary)]/20">404</p>
-      <h1 className="mt-4 text-[24px] font-bold text-[var(--kwork-text)]">{t('not_found_title')}</h1>
-      <p className="mt-2 max-w-md text-[14px] text-[var(--kwork-text-muted)]">{t('not_found_desc')}</p>
+      <h1 className="mt-4 text-[24px] font-bold text-[var(--ishbor-text)]">{t('not_found_title')}</h1>
+      <p className="mt-2 max-w-md text-[14px] text-[var(--ishbor-text-muted)]">{t('not_found_desc')}</p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Link href={PATHS.home}>
           <Button variant="primary">{t('nav_home')}</Button>

@@ -24,10 +24,10 @@ export function PricingPage() {
   const { t } = useApp()
 
   return (
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-8">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-8">
       <div className="mb-8 text-center">
-        <h1 className="text-[24px] font-bold text-[var(--kwork-text)] sm:text-[28px]">{t('nav_pricing')}</h1>
-        <p className="mt-2 text-[14px] text-[var(--kwork-text-muted)]">{t('pricing_subtitle')}</p>
+        <h1 className="text-[24px] font-bold text-[var(--ishbor-text)] sm:text-[28px]">{t('nav_pricing')}</h1>
+        <p className="mt-2 text-[14px] text-[var(--ishbor-text-muted)]">{t('pricing_subtitle')}</p>
       </div>
 
       <div className="mx-auto grid max-w-[480px] gap-5">
@@ -41,12 +41,12 @@ export function PricingPage() {
                 {t('pricing_popular')}
               </span>
             )}
-            <h2 className="text-xl font-bold text-[var(--kwork-text)]">{t(plan.nameKey)}</h2>
+            <h2 className="text-xl font-bold text-[var(--ishbor-text)]">{t(plan.nameKey)}</h2>
             <p className="mt-1 text-[28px] font-bold text-[var(--color-primary)]">{t(plan.priceKey)}</p>
-            <p className="mt-2 text-[14px] text-[var(--kwork-text-muted)]">{t(plan.descKey)}</p>
+            <p className="mt-2 text-[14px] text-[var(--ishbor-text-muted)]">{t(plan.descKey)}</p>
             <ul className="mt-6 flex-1 space-y-3">
               {plan.features.map((key) => (
-                <li key={key} className="flex items-start gap-2 text-[14px] text-[var(--kwork-text-sub)]">
+                <li key={key} className="flex items-start gap-2 text-[14px] text-[var(--ishbor-text-sub)]">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]" />
                   {t(key)}
                 </li>

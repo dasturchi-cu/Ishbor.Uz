@@ -346,7 +346,7 @@ export function MessagesPage() {
             <Search aria-hidden />
             <input
               type="text"
-              className="kwork-search-input"
+              className="ishbor-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('messages_search_chats')}
@@ -412,7 +412,7 @@ export function MessagesPage() {
           {!loading && !inboxLoadError && filtered.length === 0 && (
             <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
               <p className="chat-list-empty">{t('messages_no_conversations')}</p>
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('messages_empty_hint')}</p>
+              <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('messages_empty_hint')}</p>
               <div className="flex flex-wrap justify-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => router.push(PATHS.services)}>
                   {t('messages_browse_cta')}
@@ -501,7 +501,7 @@ export function MessagesPage() {
                   ) : null}
                 </div>
               </div>
-              {activeThread.otherUserId ? (
+              {activeThread.otherUserId && activeThread.contractId ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -644,7 +644,7 @@ export function MessagesPage() {
                   <Paperclip className="h-4 w-4" />
                 </button>
                 <input
-                  className="chat-composer-input kwork-search-input"
+                  className="chat-composer-input ishbor-search-input"
                   placeholder={t('type_message_ph')}
                   value={messageText}
                   disabled={chatSendBlocked}

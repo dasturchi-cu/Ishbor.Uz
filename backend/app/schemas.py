@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 MAX_MONEY = 2_147_483_647
 
@@ -117,6 +117,55 @@ class ServicePackage(BaseModel):
     delivery_days: int
 
 
+class ServiceFaqItem(BaseModel):
+    q: str = Field(min_length=3, max_length=200)
+    a: str = Field(min_length=3, max_length=500)
+
+
+def _normalize_service_faq(items: list[ServiceFaqItem] | list[dict] | None) -> list[dict]:
+    if not items:
+        return []
+    cleaned: list[dict] = []
+    seen: set[str] = set()
+    for raw in items:
+        if isinstance(raw, ServiceFaqItem):
+            q, a = raw.q.strip(), raw.a.strip()
+        elif isinstance(raw, dict):
+            q = str(raw.get("q", "")).strip()
+            a = str(raw.get("a", "")).strip()
+        else:
+            continue
+        if len(q) < 3 or len(a) < 3:
+            continue
+        key = q.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append({"q": q, "a": a})
+        if len(cleaned) >= 5:
+            break
+    return cleaned
+
+
+def _normalize_service_includes(items: list[str], *, required: bool) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in items:
+        item = raw.strip()
+        if len(item) < 3 or len(item) > 200:
+            continue
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(item)
+        if len(cleaned) >= 10:
+            break
+    if required and len(cleaned) < 1:
+        raise ValueError("Kamida bitta 'nima kiradi' bandi kerak")
+    return cleaned
+
+
 class ServiceCreate(BaseModel):
     title: str = Field(min_length=3, max_length=200)
     description: str = Field(min_length=10)
@@ -126,6 +175,18 @@ class ServiceCreate(BaseModel):
     image_urls: list[str] = Field(default_factory=list)
     delivery_days: int = Field(default=5, gt=0, le=365)
     packages: list[ServicePackage] = Field(default_factory=list)
+    includes: list[str] = Field(min_length=1, max_length=10)
+    faq: list[ServiceFaqItem] = Field(default_factory=list, max_length=5)
+
+    @field_validator("includes")
+    @classmethod
+    def validate_includes(cls, value: list[str]) -> list[str]:
+        return _normalize_service_includes(value, required=True)
+
+    @field_validator("faq")
+    @classmethod
+    def validate_faq(cls, value: list[ServiceFaqItem]) -> list[dict]:
+        return _normalize_service_faq(value)
 
 
 class ServiceUpdate(BaseModel):
@@ -137,6 +198,22 @@ class ServiceUpdate(BaseModel):
     image_urls: list[str] | None = None
     delivery_days: int | None = Field(default=None, gt=0, le=365)
     packages: list[ServicePackage] | None = None
+    includes: list[str] | None = None
+    faq: list[ServiceFaqItem] | None = None
+
+    @field_validator("includes")
+    @classmethod
+    def validate_includes_update(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return _normalize_service_includes(value, required=True)
+
+    @field_validator("faq")
+    @classmethod
+    def validate_faq_update(cls, value: list[ServiceFaqItem] | None) -> list[dict] | None:
+        if value is None:
+            return None
+        return _normalize_service_faq(value)
 
 
 class ServiceResponse(BaseModel):
@@ -150,6 +227,8 @@ class ServiceResponse(BaseModel):
     image_urls: list[str] = Field(default_factory=list)
     delivery_days: int = 5
     packages: list[dict] = Field(default_factory=list)
+    includes: list[str] = Field(default_factory=list)
+    faq: list[dict] = Field(default_factory=list)
     view_count: int = 0
     created_at: datetime | None = None
     profiles: dict | None = None
@@ -162,6 +241,10 @@ class ServiceResponse(BaseModel):
                 data["image_urls"] = []
             if data.get("packages") is None:
                 data["packages"] = []
+            if data.get("includes") is None:
+                data["includes"] = []
+            if data.get("faq") is None:
+                data["faq"] = []
             if data.get("view_count") is None:
                 data["view_count"] = 0
         return data

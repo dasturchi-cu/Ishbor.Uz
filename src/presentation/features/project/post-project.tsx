@@ -376,21 +376,24 @@ export function PostProject() {
 
   if (isAuthLoading || !isLoggedIn) {
     return (
-      <div className="post-project-page min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12">
+      <div className="post-project-page min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12">
         <SkeletonFormPanel />
       </div>
     )
   }
 
   return (
-    <div className="post-project-page min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12 lg:px-8">
+    <div className="post-project-page min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12 lg:px-8">
       <div className="post-project-shell form-shell">
         <div className="surface-panel overflow-hidden">
-          <div className="border-b border-[var(--kwork-border)] bg-gradient-to-r from-[var(--brand-50)] to-[var(--neutral-0)] px-6 py-6 sm:px-8">
-            <h1 className="text-[22px] font-bold text-[var(--kwork-text)] sm:text-[24px]">
+          <div className="border-b border-[var(--ishbor-border)] bg-gradient-to-r from-[var(--brand-50)] to-[var(--neutral-0)] px-6 py-6 sm:px-8">
+            <h1 className="text-[22px] font-bold text-[var(--ishbor-text)] sm:text-[24px]">
               {t('post_your_project')}
             </h1>
-            <p className="mt-1 text-[14px] text-[var(--kwork-text-muted)]">
+            <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">
+              {t('post_project_marketplace_hint')}
+            </p>
+            <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">
               {t('register_step_label').replace('{n}', String(step)).replace('{total}', '3')}
             </p>
 
@@ -406,7 +409,7 @@ export function PostProject() {
                   <span
                     className={cn(
                       'hidden text-[11px] font-medium sm:block',
-                      num === step ? 'text-[var(--color-primary)]' : 'text-[var(--kwork-text-muted)]'
+                      num === step ? 'text-[var(--color-primary)]' : 'text-[var(--ishbor-text-muted)]'
                     )}
                   >
                     {stepTitles[num - 1]}
@@ -420,7 +423,7 @@ export function PostProject() {
             {step === 1 && (
               <div className="space-y-5">
                 <div className="flex flex-col gap-2 rounded-xl border border-[var(--color-primary)]/20 bg-[var(--color-primary-light)]/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2 text-[13px] text-[var(--kwork-text-muted)]">
+                  <div className="flex items-center gap-2 text-[13px] text-[var(--ishbor-text-muted)]">
                     <Zap className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
                     <span>{t('ai_assistant_hint')}</span>
                   </div>
@@ -473,7 +476,7 @@ export function PostProject() {
                 <Input
                   label={t('skills')}
                   placeholder={t('skills_placeholder')}
-                  className="catalog-control !h-[42px] border-[var(--kwork-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-xs)]"
+                  className="catalog-control !h-[42px] border-[var(--ishbor-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-xs)]"
                   onChange={(e) =>
                     handleInputChange('skills', e.target.value.split(',').map((s) => s.trim()))
                   }
@@ -484,7 +487,7 @@ export function PostProject() {
             {step === 2 && (
               <div className="space-y-5">
                 <div>
-                  <p className="mb-3 text-[13px] font-medium text-[var(--kwork-text-sub)]">
+                  <p className="mb-3 text-[13px] font-medium text-[var(--ishbor-text-sub)]">
                     {t('budget_type')}
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -500,11 +503,11 @@ export function PostProject() {
                           'rounded-xl border-2 p-4 text-left transition-[var(--transition)]',
                           formData.budgetType === option.id
                             ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] shadow-[var(--shadow-xs)]'
-                            : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--kwork-border))]'
+                            : 'border-[var(--ishbor-border)] bg-[var(--neutral-0)] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--ishbor-border))]'
                         )}
                       >
-                        <div className="text-[14px] font-bold text-[var(--kwork-text)]">{option.label}</div>
-                        <div className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{option.desc}</div>
+                        <div className="text-[14px] font-bold text-[var(--ishbor-text)]">{option.label}</div>
+                        <div className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{option.desc}</div>
                       </button>
                     ))}
                   </div>
@@ -526,7 +529,7 @@ export function PostProject() {
                   <p className="mb-1.5 text-[13px] font-medium text-[var(--color-text-sub)]">
                     {t('project_deadline')}
                   </p>
-                  <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">
+                  <p className="mb-3 text-[12px] text-[var(--ishbor-text-muted)]">
                     {t('project_deadline_hint')}
                   </p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -544,7 +547,7 @@ export function PostProject() {
                           'rounded-xl border-2 px-3 py-3 text-center text-[13px] font-semibold transition-[var(--transition)]',
                           formData.deadlineDays === String(preset.days)
                             ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)] shadow-[var(--shadow-xs)]'
-                            : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text)] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--kwork-border))]',
+                            : 'border-[var(--ishbor-border)] bg-[var(--neutral-0)] text-[var(--ishbor-text)] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--ishbor-border))]',
                         )}
                       >
                         {t(preset.labelKey)}
@@ -571,7 +574,7 @@ export function PostProject() {
             {step === 3 && (
               <div className="space-y-5">
                 <div>
-                  <p className="mb-2 text-[13px] font-medium text-[var(--kwork-text-sub)]">
+                  <p className="mb-2 text-[13px] font-medium text-[var(--ishbor-text-sub)]">
                     {t('attachments')}
                   </p>
                   <input
@@ -596,14 +599,14 @@ export function PostProject() {
                       e.stopPropagation()
                       handleFiles(e.dataTransfer.files)
                     }}
-                    className="cursor-pointer rounded-xl border-2 border-dashed border-[var(--kwork-border)] bg-[var(--neutral-50)] p-8 text-center transition hover:border-[var(--color-primary)] hover:bg-[var(--brand-50)]"
+                    className="cursor-pointer rounded-xl border-2 border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-8 text-center transition hover:border-[var(--color-primary)] hover:bg-[var(--brand-50)]"
                   >
-                    <Upload className="mx-auto mb-3 h-8 w-8 text-[var(--kwork-text-muted)]" />
-                    <p className="font-semibold text-[var(--kwork-text)]">
+                    <Upload className="mx-auto mb-3 h-8 w-8 text-[var(--ishbor-text-muted)]" />
+                    <p className="font-semibold text-[var(--ishbor-text)]">
                       {uploading ? '...' : t('upload_files')}
                     </p>
-                    <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('drag_drop')}</p>
-                    <p className="mt-2 text-[11px] text-[var(--kwork-text-muted)]">{t('upload_formats_hint')}</p>
+                    <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('drag_drop')}</p>
+                    <p className="mt-2 text-[11px] text-[var(--ishbor-text-muted)]">{t('upload_formats_hint')}</p>
                   </div>
                   {uploadError && <p className="mt-2 text-[13px] text-[var(--error)]">{uploadError}</p>}
                   {attachments.length > 0 && (
@@ -611,7 +614,7 @@ export function PostProject() {
                       {attachments.map((file) => (
                         <div
                           key={file.url}
-                          className="group relative overflow-hidden rounded-lg border border-[var(--kwork-border)]"
+                          className="group relative overflow-hidden rounded-lg border border-[var(--ishbor-border)]"
                         >
                           <img src={file.url} alt={file.name} className="h-24 w-full object-cover" />
                           <button
@@ -622,7 +625,7 @@ export function PostProject() {
                           >
                             <X className="h-3 w-3" />
                           </button>
-                          <p className="truncate p-1 text-[11px] text-[var(--kwork-text-muted)]">{file.name}</p>
+                          <p className="truncate p-1 text-[11px] text-[var(--ishbor-text-muted)]">{file.name}</p>
                         </div>
                       ))}
                     </div>
@@ -631,23 +634,23 @@ export function PostProject() {
 
                 <div>
                   <h3 className="settings-section-title mb-3">{t('preview')}</h3>
-                  <Card className="border border-[var(--kwork-border)] bg-[var(--neutral-50)] p-5">
-                    <h4 className="mb-2 font-bold text-[var(--kwork-text)]">
+                  <Card className="border border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-5">
+                    <h4 className="mb-2 font-bold text-[var(--ishbor-text)]">
                       {formData.title || t('project_title_default')}
                     </h4>
-                    <p className="mb-4 text-[13px] leading-relaxed text-[var(--kwork-text-muted)]">
+                    <p className="mb-4 text-[13px] leading-relaxed text-[var(--ishbor-text-muted)]">
                       {formData.description || t('project_desc_default')}
                     </p>
-                    <div className="flex items-center justify-between gap-4 border-t border-[var(--kwork-border)] pt-4">
+                    <div className="flex items-center justify-between gap-4 border-t border-[var(--ishbor-border)] pt-4">
                       <div>
-                        <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('project_budget')}</p>
+                        <p className="text-[11px] text-[var(--ishbor-text-muted)]">{t('project_budget')}</p>
                         <p className="font-bold text-[var(--color-primary)]">
                           {formatPrice(parseInt(formData.budget.replace(/\D/g, ''), 10) || 0)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[11px] text-[var(--kwork-text-muted)]">{t('project_deadline')}</p>
-                        <p className="font-bold text-[var(--kwork-text)]">
+                        <p className="text-[11px] text-[var(--ishbor-text-muted)]">{t('project_deadline')}</p>
+                        <p className="font-bold text-[var(--ishbor-text)]">
                           {deadlinePreview || t('not_set')}
                         </p>
                       </div>
@@ -659,7 +662,7 @@ export function PostProject() {
 
             {error && <Alert variant="error">{error}</Alert>}
 
-            <div className="flex flex-wrap gap-3 border-t border-[var(--kwork-border)] pt-6">
+            <div className="flex flex-wrap gap-3 border-t border-[var(--ishbor-border)] pt-6">
               {step > 1 && (
                 <Button variant="outline" onClick={handlePrevStep} className="flex-1 gap-2 sm:flex-none">
                   <ChevronLeft className="h-4 w-4" /> {t('back')}

@@ -41,7 +41,7 @@ export function AnalyticsCharts({
         <h3 className="settings-section-title mb-4">{revenueTitle}</h3>
         <div className="h-[280px]">
           {chartData.every((d) => d.amount === 0) ? (
-            <div className="flex h-full items-center justify-center text-[13px] text-[var(--kwork-text-muted)]">
+            <div className="flex h-full items-center justify-center text-[13px] text-[var(--ishbor-text-muted)]">
               {emptyLabel}
             </div>
           ) : (
@@ -53,7 +53,7 @@ export function AnalyticsCharts({
                     <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--kwork-border)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ishbor-border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}K`} />
                 <Tooltip formatter={(v) => formatPrice(Number(v ?? 0))} />
@@ -75,7 +75,7 @@ export function AnalyticsCharts({
           <h3 className="settings-section-title mb-4">{statusTitle}</h3>
           <div className="h-[200px]">
             {pieData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-[13px] text-[var(--kwork-text-muted)]">
+              <div className="flex h-full items-center justify-center text-[13px] text-[var(--ishbor-text-muted)]">
                 {emptyLabel}
               </div>
             ) : (
@@ -94,7 +94,7 @@ export function AnalyticsCharts({
         <div className="surface-panel p-5">
           <h3 className="settings-section-title mb-4">{geoTitle}</h3>
           {regions.length === 0 ? (
-            <p className="text-[13px] text-[var(--kwork-text-muted)]">{emptyLabel}</p>
+            <p className="text-[13px] text-[var(--ishbor-text-muted)]">{emptyLabel}</p>
           ) : (
             <ul className="space-y-3 text-[13px]">
               {regions.map(({ region, pct }) => (

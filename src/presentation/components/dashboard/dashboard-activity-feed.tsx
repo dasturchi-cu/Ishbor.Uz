@@ -74,7 +74,7 @@ export function DashboardActivityFeed({ className, limit = 10 }: { className?: s
             <div className="activity-timeline-body">
               <p className="activity-timeline-text font-medium">{item.title}</p>
               {item.body && (
-                <p className="text-[12px] text-[var(--kwork-text-muted)] line-clamp-2">{item.body}</p>
+                <p className="text-[12px] text-[var(--ishbor-text-muted)] line-clamp-2">{item.body}</p>
               )}
               <time className="activity-timeline-time">
                 {formatRelativeTime(item.created_at, language)}

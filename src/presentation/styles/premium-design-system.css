@@ -1,0 +1,400 @@
+/**
+ * IshBor Premium Design System
+ * Linear / Stripe / Fiverr visual polish layer.
+ * Import after tokens.css — overrides component classes globally.
+ */
+
+/* ─── Skeleton shimmer ─── */
+@keyframes ishbor-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-muted) 0%,
+    color-mix(in srgb, var(--neutral-0) 60%, var(--color-bg-muted)) 50%,
+    var(--color-bg-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: ishbor-shimmer 1.8s ease-in-out infinite;
+}
+
+/* ─── Surfaces ─── */
+.ishbor-card,
+.ishbor-service-card,
+.ishbor-freelancer-card,
+.dashboard-stat-card,
+.dashboard-panel,
+.dashboard-welcome {
+  border-color: color-mix(in srgb, var(--ishbor-border) 85%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.ishbor-service-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.ishbor-freelancer-card:hover,
+.ishbor-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.dashboard-stat-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 20%, var(--ishbor-border));
+  box-shadow: var(--shadow-card-hover);
+}
+
+.dashboard-panel {
+  overflow: hidden;
+}
+
+.dashboard-panel-header {
+  background: color-mix(in srgb, var(--neutral-50) 50%, var(--neutral-0));
+  padding: var(--space-4) var(--space-5);
+}
+
+.dashboard-panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-panel-body {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.dashboard-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--ishbor-text);
+}
+
+.dashboard-stat-icon {
+  border-radius: var(--r-md);
+}
+
+.dashboard-welcome {
+  border-left-width: 3px;
+  border-left-color: var(--color-primary);
+}
+
+/* ─── Header — glass, clean ─── */
+.ishbor-site-header {
+  border-bottom-color: color-mix(in srgb, var(--ishbor-border) 70%, transparent) !important;
+  background: color-mix(in srgb, var(--neutral-0) 92%, transparent) !important;
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
+.ishbor-site-header__nav {
+  background: color-mix(in srgb, var(--neutral-50) 80%, var(--neutral-0));
+  border-top-color: color-mix(in srgb, var(--ishbor-border) 60%, transparent);
+  box-shadow: none;
+}
+
+.ishbor-header-search {
+  background: var(--ishbor-search-bg) !important;
+  border-color: transparent !important;
+  box-shadow: var(--shadow-xs);
+}
+
+.ishbor-header-search:focus-within {
+  background: var(--neutral-0) !important;
+  box-shadow: var(--shadow-focus);
+}
+
+/* ─── Landing hero — focused, premium ─── */
+.ishbor-landing-hero {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary-light) 40%, var(--neutral-0)) 0%,
+    var(--neutral-0) 55%,
+    var(--body-bg) 100%
+  );
+  border-bottom-color: color-mix(in srgb, var(--ishbor-border) 50%, transparent);
+}
+
+.ishbor-landing-hero::before,
+.ishbor-landing-hero::after {
+  opacity: 0.7;
+}
+
+.landing-hero-title {
+  max-width: 16ch;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  color: var(--ishbor-text);
+}
+
+.landing-hero-spotlight {
+  border-radius: var(--r-xl);
+  background: var(--neutral-0);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+}
+
+.landing-hero-spotlight-inner {
+  border-radius: var(--r-lg);
+  border-color: var(--ishbor-border);
+}
+
+.ishbor-hero-search {
+  border-color: color-mix(in srgb, var(--ishbor-border) 80%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+.landing-stats-card {
+  border-color: color-mix(in srgb, var(--ishbor-border) 70%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.landing-stats-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.landing-section-heading,
+.ishbor-section-title {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.landing-featured-section {
+  background: var(--body-bg);
+}
+
+/* ─── Empty states ─── */
+.empty-state__ring--outer {
+  border-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.empty-state__ring--inner {
+  border-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.empty-state__icon {
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-empty-inline {
+  background: color-mix(in srgb, var(--neutral-50) 80%, var(--neutral-0));
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--ishbor-border) 60%, transparent);
+}
+
+/* ─── Footer ─── */
+.site-footer {
+  background: var(--neutral-0);
+  border-top-color: color-mix(in srgb, var(--ishbor-border) 70%, transparent);
+}
+
+.footer-social-link {
+  transition: var(--transition);
+}
+
+.footer-social-link:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* ─── Dashboard sidebar — Linear style ─── */
+.dashboard-sidebar {
+  background: var(--neutral-0) !important;
+}
+
+.dashboard-sidebar nav a {
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.dashboard-sidebar nav a:hover {
+  background: var(--color-bg-subtle);
+}
+
+.dash-nav-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ishbor-text-muted);
+}
+
+/* ─── Cards & grids — 8px gap alignment ─── */
+.ishbor-grid,
+.freelancer-grid,
+.related-services-grid {
+  gap: var(--space-4);
+}
+
+@media (min-width: 900px) {
+  .ishbor-grid,
+  .freelancer-grid,
+  .related-services-grid {
+    gap: var(--space-5);
+  }
+}
+
+/* ─── Service card body spacing ─── */
+.ishbor-service-card__body {
+  padding: var(--space-4);
+}
+
+.ishbor-service-card__footer {
+  padding-top: var(--space-3);
+}
+
+/* ─── Promo banner ─── */
+.ishbor-promo-banner {
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    color-mix(in srgb, var(--color-primary) 85%, var(--brand-800)) 100%
+  );
+}
+
+/* ─── Category / testimonial hover ─── */
+.landing-category-card:hover,
+.landing-testimonial-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ─── Auth forms ─── */
+.form-shell {
+  box-shadow: var(--shadow-card);
+  border-color: color-mix(in srgb, var(--ishbor-border) 80%, transparent);
+}
+
+/* ─── Chat / messages bubbles polish ─── */
+.message-bubble--own {
+  box-shadow: var(--shadow-xs);
+}
+
+/* ─── Admin panel ─── */
+.admin-stat-card {
+  box-shadow: var(--shadow-card);
+}
+
+/* ─── Micro-interaction utility classes ─── */
+.interactive-lift {
+  transition: var(--transition);
+}
+
+.interactive-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.surface-premium {
+  background: var(--neutral-0);
+  border: 1px solid color-mix(in srgb, var(--ishbor-border) 80%, transparent);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+}
+
+.text-display {
+  font-size: var(--text-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.text-overline {
+  font-size: var(--text-overline);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ishbor-text-muted);
+}
+
+/* ─── Dashboard hero — Stripe-style focal widget ─── */
+.dash-hero {
+  border-color: color-mix(in srgb, var(--ishbor-border) 75%, transparent);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-primary-light) 50%, var(--neutral-0)) 0%,
+    var(--neutral-0) 60%
+  );
+}
+
+.dash-hero__title {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.dash-hero__kpis {
+  background: color-mix(in srgb, var(--neutral-50) 40%, var(--neutral-0));
+}
+
+.dash-kpi {
+  transition: var(--transition);
+}
+
+.dash-kpi:hover {
+  background: color-mix(in srgb, var(--color-primary-light) 30%, var(--neutral-0));
+}
+
+/* ─── Surface panels (landing, forms, checkout) ─── */
+.surface-panel {
+  border-color: color-mix(in srgb, var(--ishbor-border) 80%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.surface-section-tint {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--brand-50) 60%, var(--neutral-0)) 0%, var(--neutral-0) 80%);
+}
+
+/* ─── Order progress stepper ─── */
+.ishbor-order-progress__steps {
+  gap: var(--space-2);
+}
+
+/* ─── Loading spinner — consistent brand ring ─── */
+.loading-spinner {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ishbor-border) 80%, transparent);
+  border-top-color: var(--color-primary);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Chat templates & inbox ─── */
+.chat-thread-item {
+  transition: var(--transition);
+}
+
+.chat-thread-item:hover,
+.chat-thread-item--active {
+  background: var(--color-bg-subtle);
+}
+
+/* ─── Wallet / escrow cards ─── */
+.wallet-balance-card {
+  box-shadow: var(--shadow-card);
+  border-color: color-mix(in srgb, var(--ishbor-border) 75%, transparent);
+}
+
+/* ─── Notifications dropdown ─── */
+.notification-item {
+  transition: var(--transition);
+}
+
+.notification-item:hover {
+  background: var(--color-bg-subtle);
+}
+
+/* ─── Admin — reduce heavy shadows ─── */
+.admin-command-palette__panel {
+  box-shadow: var(--shadow-lg) !important;
+}

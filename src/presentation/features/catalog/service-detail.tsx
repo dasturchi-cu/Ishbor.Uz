@@ -7,9 +7,8 @@ import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
-import { Textarea } from '@/presentation/components/ui/textarea'
+import { ServiceOrderCheckout } from '@/presentation/components/features/service-order-checkout'
 import { Avatar } from '@/presentation/components/ui/avatar'
-import { Badge } from '@/presentation/components/ui/badge'
 import { RatingStars } from '@/presentation/components/ui/rating-stars'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
@@ -20,15 +19,10 @@ import {
   Shield,
   MessageCircle,
   Bookmark,
-  X,
 } from 'lucide-react'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiService, ApiReview } from '@/infrastructure/api/types'
-import {
-  calcFreelancerPayout,
-  calcPlatformFee,
-  PLATFORM_COMMISSION_PERCENT,
-} from '@/domain/constants/commission'
 import { formatPrice } from '@/shared/lib/format'
 import { dashboardOrderPath, freelancerPath, PATHS } from '@/domain/constants/routes'
 import { loginPath } from '@/shared/lib/auth-redirect'
@@ -273,7 +267,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
             <p>{t('own_service_hint')}</p>
           </div>
           <Link href={PATHS.dashboardServiceEdit(service.id)} className="block">
-            <Button variant="primary" size={size} className="kwork-order-cta w-full">
+            <Button variant="primary" size={size} className="ishbor-order-cta w-full">
               {t('edit_service')}
             </Button>
           </Link>
@@ -292,7 +286,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
           <Button
             variant="primary"
             size={size}
-            className="kwork-order-cta w-full"
+            className="ishbor-order-cta w-full"
             onClick={() => router.push(loginPath(`/services/${serviceId}`))}
           >
             {t('order_secure_cta')}
@@ -316,7 +310,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
           <Button
             variant="primary"
             size={size}
-            className="kwork-order-cta w-full"
+            className="ishbor-order-cta w-full"
             onClick={handleOrder}
             loading={ordering}
           >
@@ -331,7 +325,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         <Button
           variant="primary"
           size={size}
-          className="kwork-order-cta w-full"
+          className="ishbor-order-cta w-full"
           onClick={handleOrder}
           disabled={ordering}
           loading={ordering}
@@ -482,93 +476,67 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
             )}
 
             <section className="service-detail-section">
-              <h2 className="mb-3 text-[16px] font-semibold text-[var(--kwork-text)]">
+              <h2 className="mb-3 text-[16px] font-semibold text-[var(--ishbor-text)]">
                 {t('service_description')}
               </h2>
-              <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">
+              <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">
                 {service.description}
               </p>
             </section>
 
+            {(service.includes?.length ?? 0) > 0 && (
+              <section className="service-detail-section">
+                <h2 className="mb-3 text-[16px] font-semibold text-[var(--ishbor-text)]">
+                  {t('service_includes_title')}
+                </h2>
+                <ul className="space-y-2">
+                  {service.includes!.map((item) => (
+                    <li
+                      key={item}
+                      className="flex gap-2 text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]"
+                    >
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" aria-hidden />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {(service.faq?.length ?? 0) > 0 && (
+              <section className="service-detail-section">
+                <h2 className="mb-3 text-[16px] font-semibold text-[var(--ishbor-text)]">
+                  {t('service_faq')}
+                </h2>
+                <dl className="space-y-4">
+                  {service.faq!.map((item) => (
+                    <div key={item.q} className="border-b border-[var(--ishbor-border)] pb-4 last:border-0 last:pb-0">
+                      <dt className="text-[14px] font-semibold text-[var(--ishbor-text)]">{item.q}</dt>
+                      <dd className="mt-1.5 text-[13px] leading-relaxed text-[var(--ishbor-text-muted)]">{item.a}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+
             <section id="service-reviews" className="service-detail-section">
-              <h2 className="mb-4 text-[16px] font-semibold text-[var(--kwork-text)]">{t('service_reviews_title')}</h2>
+              <h2 className="mb-4 text-[16px] font-semibold text-[var(--ishbor-text)]">{t('service_reviews_title')}</h2>
               {reviews.length > 0 ? (
                 <div className="space-y-4">
                   {reviews.slice(0, 6).map((r) => (
-                    <div key={r.id} className="border-b border-[var(--kwork-border)] pb-4 last:border-0 last:pb-0">
+                    <div key={r.id} className="border-b border-[var(--ishbor-border)] pb-4 last:border-0 last:pb-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-[14px] font-semibold text-[var(--kwork-text)]">{r.profiles?.full_name ?? '—'}</p>
+                        <p className="text-[14px] font-semibold text-[var(--ishbor-text)]">{r.profiles?.full_name ?? '—'}</p>
                         <RatingStars rating={r.rating} size="sm" />
                       </div>
-                      {r.comment && <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">{r.comment}</p>}
+                      {r.comment && <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">{r.comment}</p>}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('service_reviews_empty_desc')}</p>
+                <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('service_reviews_empty_desc')}</p>
               )}
             </section>
-
-            <div className="show-mobile">
-              <div className="service-seller-card">
-                <p className="service-seller-label">{t('freelancer')}</p>
-                <button
-                  type="button"
-                  onClick={() => router.push(freelancerPath(service.freelancer_id))}
-                  className="service-seller-profile"
-                >
-                  <Avatar name={freelancerName} size={48} />
-                  <div className="service-seller-info">
-                    <div className="service-seller-name-row">
-                      <p className="service-seller-name">{freelancerName}</p>
-                    </div>
-                    <p className="service-seller-specialty">
-                      {service.profiles?.specialty ?? t('role_freelancer')}
-                    </p>
-                    {serviceReviews > 0 && (
-                      <RatingStars rating={serviceRating} size="sm" className="mt-2" />
-                    )}
-                  </div>
-                </button>
-                <div className="service-seller-divider" />
-                <Link href={freelancerPath(service.freelancer_id)} className="service-seller-link">
-                  {t('view_profile_link')} →
-                </Link>
-                {isLoggedIn && !isOwnService && (
-                  <div className="service-seller-contact space-y-3">
-                    <Button
-                      variant="outline"
-                      size="md"
-                      className="min-h-11 w-full"
-                      leftIcon={<MessageCircle className="h-4 w-4" />}
-                      onClick={handleContact}
-                    >
-                      {t('contact_freelancer')}
-                    </Button>
-                  </div>
-                )}
-                {!isLoggedIn && !isOwnService && (
-                  <div className="service-seller-contact space-y-2">
-                    <Button
-                      variant="primary"
-                      size="md"
-                      className="min-h-11 w-full"
-                      onClick={() => router.push(loginPath(`/services/${serviceId}`))}
-                    >
-                      {t('login')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="md"
-                      className="min-h-11 w-full"
-                      onClick={() => router.push(PATHS.register)}
-                    >
-                      {t('register')}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           <aside className="service-sidebar-sticky hide-mobile">
@@ -615,10 +583,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
                 {renderOrderCta('lg')}
 
-                <div className="service-escrow-banner">
-                  <Shield className="h-4 w-4 shrink-0" aria-hidden />
-                  <span>{t('escrow_after_payment')}</span>
-                </div>
+                <IshborProtectionStrip compact className="mt-4" />
               </div>
             </div>
 
@@ -652,7 +617,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
               {isLoggedIn && !isOwnService && (
                 <div className="service-seller-contact space-y-3">
-                  <p className="text-[11px] leading-relaxed text-[var(--kwork-text-muted)]">
+                  <p className="text-[11px] leading-relaxed text-[var(--ishbor-text-muted)]">
                     {t('contact_requires_order')}
                   </p>
                   <Button
@@ -716,115 +681,19 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         )}
       </PageWrapper>
 
-      {orderModalOpen && service && (
-        <div
-          className="kwork-order-modal-backdrop"
-          role="presentation"
-          onClick={() => setOrderModalOpen(false)}
-        >
-          <div
-            ref={orderModalRef}
-            className="kwork-order-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="order-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="kwork-order-modal__header">
-              <div className="min-w-0 flex-1">
-                <p className="kwork-order-modal__eyebrow">{t('order_notes_label')}</p>
-                <h3 id="order-modal-title" className="kwork-order-modal__title">
-                  {service.title}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="kwork-order-modal__close"
-                onClick={() => setOrderModalOpen(false)}
-                aria-label={t('close')}
-              >
-                <X className="h-5 w-5" strokeWidth={2} />
-              </button>
-            </div>
-
-            <div className="kwork-order-modal__summary">
-              <div className="kwork-order-modal__summary-top">
-                <Badge variant="default" size="xs">
-                  {selectedPackage ? t(selectedPackage.labelKey) : t('package_basic')}
-                </Badge>
-                {(selectedPackage?.days ?? deliveryDays) != null &&
-                  (selectedPackage?.days ?? deliveryDays)! > 0 && (
-                    <span className="kwork-order-modal__delivery">
-                      <Clock className="h-3.5 w-3.5" aria-hidden />
-                      {t('service_delivery_days').replace(
-                        '{n}',
-                        String(selectedPackage?.days ?? deliveryDays),
-                      )}
-                    </span>
-                  )}
-              </div>
-              <p className="kwork-order-modal__amount">
-                {formatPrice(selectedPackage?.price ?? service.price)}
-              </p>
-            </div>
-
-            <div className="kwork-order-modal__trust">
-              <Shield className="kwork-order-modal__trust-icon" strokeWidth={2} aria-hidden />
-              <div className="min-w-0">
-                <p className="kwork-order-modal__trust-title">{t('payment_required_hint')}</p>
-                <p className="kwork-order-modal__trust-desc">{t('commission_escrow_note')}</p>
-              </div>
-            </div>
-
-            <div className="kwork-order-modal__breakdown">
-              <div className="kwork-order-modal__breakdown-row">
-                <span>{t('commission_rate').replace('{rate}', String(PLATFORM_COMMISSION_PERCENT))}</span>
-                <span className="tabular-nums">
-                  {formatPrice(calcPlatformFee(selectedPackage?.price ?? service.price))}
-                </span>
-              </div>
-              <div className="kwork-order-modal__breakdown-row kwork-order-modal__breakdown-row--net">
-                <span>{t('commission_payout_label')}</span>
-                <span className="tabular-nums font-semibold text-[var(--success-dark)]">
-                  {formatPrice(calcFreelancerPayout(selectedPackage?.price ?? service.price))}
-                </span>
-              </div>
-            </div>
-
-            <div className="kwork-order-modal__body">
-              {error && (
-                <Alert variant="error" className="mb-3 py-2 text-[13px]">
-                  {error}
-                </Alert>
-              )}
-              <Textarea
-                label={t('order_notes_label')}
-                rows={4}
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                placeholder={t('order_notes_ph')}
-                className="min-h-[108px] resize-none"
-              />
-            </div>
-
-            <div className="kwork-order-modal__foot">
-              <Button variant="outline" fullWidth onClick={() => setOrderModalOpen(false)}>
-                {t('cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                fullWidth
-                loading={ordering}
-                onClick={submitOrder}
-                className="kwork-order-cta"
-                leftIcon={<Shield className="h-4 w-4" />}
-              >
-                {t('order_secure_cta')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ServiceOrderCheckout
+        open={orderModalOpen && Boolean(service)}
+        title={service?.title ?? ''}
+        selectedPackage={selectedPackage}
+        deliveryDays={deliveryDays}
+        orderNotes={orderNotes}
+        onNotesChange={setOrderNotes}
+        onSubmit={submitOrder}
+        onClose={() => setOrderModalOpen(false)}
+        ordering={ordering}
+        error={error}
+        modalRef={orderModalRef}
+      />
 
       <div className="mobile-sticky-cta show-mobile">
         <button
@@ -834,19 +703,19 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         >
           <Avatar name={freelancerName} size={36} verified={service.profiles?.is_verified} />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-semibold text-[var(--kwork-text)]">{freelancerName}</p>
+            <p className="truncate text-[12px] font-semibold text-[var(--ishbor-text)]">{freelancerName}</p>
             {serviceReviews > 0 && <RatingStars rating={serviceRating} size="sm" />}
           </div>
         </button>
         <div className="flex shrink-0 flex-col items-end">
-          <span className="text-[11px] text-[var(--kwork-text-muted)]">{t('starting_at')}</span>
-          <span className="text-[16px] font-bold tabular-nums text-[var(--kwork-text)]">
+          <span className="text-[11px] text-[var(--ishbor-text-muted)]">{t('starting_at')}</span>
+          <span className="text-[16px] font-bold tabular-nums text-[var(--ishbor-text)]">
             {formatPrice(selectedPackage?.price ?? service.price)}
           </span>
         </div>
         {isOwnService ? (
           <Link href={PATHS.dashboardServiceEdit(service.id)} className="shrink-0">
-            <Button variant="primary" size="md" className="kwork-order-cta !w-auto px-5">
+            <Button variant="primary" size="md" className="ishbor-order-cta !w-auto px-5">
               {t('edit_service')}
             </Button>
           </Link>
@@ -857,7 +726,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
             onClick={handleOrder}
             disabled={ordering}
             loading={ordering}
-            className="kwork-order-cta shrink-0 !w-auto px-5"
+            className="ishbor-order-cta shrink-0 !w-auto px-5"
           >
             {t('order_secure_cta')}
           </Button>

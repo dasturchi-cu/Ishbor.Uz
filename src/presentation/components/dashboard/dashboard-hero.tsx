@@ -2,10 +2,8 @@
 
 import Link from 'next/link'
 import {
-  Bell,
   MessageCircle,
   ShoppingBag,
-  CreditCard,
   Sparkles,
   ShieldCheck,
   TrendingUp,
@@ -13,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
-import { PATHS, dashboardOrderPath } from '@/domain/constants/routes'
+import { PATHS } from '@/domain/constants/routes'
 import { profileCompletionPercent } from '@/shared/lib/profile-completion'
 import { formatPrice } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/utils'
@@ -25,7 +23,6 @@ interface DashboardHeroProps {
   activeOrders: number
   pendingPayments: number
   messageUnread: number
-  notificationUnread?: number
   walletBalance?: number | null
   primaryCta: { label: string; href: string }
   orders: ApiOrder[]
@@ -37,16 +34,22 @@ export function DashboardHero({
   activeOrders,
   pendingPayments,
   messageUnread,
-  notificationUnread = 0,
   walletBalance,
   primaryCta,
-  orders,
+  orders: _orders,
   onboardingProgress,
 }: DashboardHeroProps) {
   const { t, profile } = useApp()
   const firstName = profile?.full_name?.split(/\s+/)[0]
   const completion = profileCompletionPercent(profile, role)
   const isVerified = profile?.is_verified
+
+  const focalMessage =
+    pendingPayments > 0
+      ? t('dash_focal_pay').replace('{n}', String(pendingPayments))
+      : activeOrders > 0
+        ? t('dash_focal_orders').replace('{n}', String(activeOrders))
+        : null
 
   const kpis = [
     {
@@ -56,21 +59,6 @@ export function DashboardHero({
       value: String(activeOrders),
       href: PATHS.dashboardOrders,
       tone: activeOrders > 0 ? 'primary' : 'muted',
-    },
-    {
-      id: 'payments',
-      icon: CreditCard,
-      label: t('dash_kpi_pending_payments'),
-      value: String(pendingPayments),
-      href:
-        pendingPayments > 0
-          ? dashboardOrderPath(
-              orders.find((o) => o.status === 'pending' && o.payment_status !== 'held')?.id ??
-                orders[0]?.id ??
-                ''
-            )
-          : PATHS.dashboardPayments,
-      tone: pendingPayments > 0 ? 'warning' : 'muted',
     },
     {
       id: 'messages',
@@ -88,14 +76,6 @@ export function DashboardHero({
       href: PATHS.dashboardWallet,
       tone: walletBalance != null && walletBalance > 0 ? 'primary' : 'muted',
     },
-    {
-      id: 'notifications',
-      icon: Bell,
-      label: t('dash_kpi_notifications'),
-      value: notificationUnread > 0 ? String(notificationUnread) : '0',
-      href: PATHS.notifications,
-      tone: notificationUnread > 0 ? 'warning' : 'muted',
-    },
   ] as const
 
   return (
@@ -107,6 +87,11 @@ export function DashboardHero({
             {firstName ? `${t('welcome_back_short')}, ${firstName}` : t('welcome_back_short')}
           </h2>
           <p className="dash-hero__sub">{role === 'client' ? t('client_dashboard') : t('freelancer_dashboard_sub')}</p>
+          {focalMessage && (
+            <p className="mt-2 rounded-full bg-[var(--color-primary-light)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-primary)]">
+              {focalMessage}
+            </p>
+          )}
           <div className="dash-hero__chips">
             <span className={cn('dash-chip', isVerified ? 'dash-chip--verified' : 'dash-chip--muted')}>
               <ShieldCheck className="h-3.5 w-3.5" />
@@ -149,7 +134,7 @@ export function DashboardHero({
         </div>
       </div>
 
-      <div className="dash-hero__kpis dash-hero__kpis--5">
+      <div className="dash-hero__kpis dash-hero__kpis--3">
         {kpis.map(({ id, icon: Icon, label, value, href, tone }) => (
           <Link key={id} href={href} className={cn('dash-kpi', `dash-kpi--${tone}`)}>
             <span className="dash-kpi__icon">

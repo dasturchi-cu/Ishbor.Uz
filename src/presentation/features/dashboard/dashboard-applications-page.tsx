@@ -85,10 +85,10 @@ export function DashboardApplicationsPage() {
             <div key={app.id} className="dashboard-order-card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <Link href={projectPath(app.project_id)} className="text-[15px] font-bold text-[var(--kwork-text)] hover:text-[var(--color-primary)]">
+                  <Link href={projectPath(app.project_id)} className="text-[15px] font-bold text-[var(--ishbor-text)] hover:text-[var(--color-primary)]">
                     {app.project?.title ?? t('nav_orders')}
                   </Link>
-                  <p className="mt-1 line-clamp-2 text-[13px] text-[var(--kwork-text-muted)]">{app.cover_letter}</p>
+                  <p className="mt-1 line-clamp-2 text-[13px] text-[var(--ishbor-text-muted)]">{app.cover_letter}</p>
                 </div>
                 <Badge variant={statusVariant(app.status)} size="xs">
                   {statusLabel[app.status]}

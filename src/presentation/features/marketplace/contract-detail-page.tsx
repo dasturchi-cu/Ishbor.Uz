@@ -217,7 +217,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
             )}
           </div>
           {myReview && (
-            <p className="text-[13px] text-[var(--kwork-text-muted)]">
+            <p className="text-[13px] text-[var(--ishbor-text-muted)]">
               {t('review_submitted')} · {myReview.rating}/5
             </p>
           )}
@@ -230,7 +230,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
               {t('escrow')}
             </h3>
             <p className="text-2xl font-bold">{formatPrice(contract.amount)}</p>
-            <Link href={PATHS.dashboardEscrow} className="text-sm text-primary hover:underline">
+            <Link href={`${PATHS.dashboardWallet}?tab=protected`} className="text-sm text-primary hover:underline">
               {t('view_escrow_dashboard')}
             </Link>
           </div>

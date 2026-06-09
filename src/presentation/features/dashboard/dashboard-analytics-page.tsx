@@ -100,7 +100,7 @@ export function DashboardAnalyticsPage() {
               'rounded-full px-3 py-1.5 text-[12px] font-medium',
               period === p
                 ? 'bg-[var(--color-primary)] text-white'
-                : 'bg-[var(--neutral-0)] text-[var(--kwork-text-muted)] border border-[var(--kwork-border)]'
+                : 'bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)] border border-[var(--ishbor-border)]'
             )}
           >
             {periodLabel[p]}

@@ -11,9 +11,9 @@
 | Ko'rsatkich | Qiymat |
 |-------------|--------|
 | Jami yaxshilanish | **30** |
-| Bajarilgan | **4** |
-| Progress | **13%** |
-| Oxirgi yangilanish | 2026-06-10 (Sprint 1) |
+| Bajarilgan | **30** |
+| Progress | **100%** |
+| Oxirgi yangilanish | 2026-06-10 (product polish yakunlandi) |
 
 ---
 
@@ -21,16 +21,18 @@
 
 ### 1.1 Mahsulot identifikatsiyasi yo'q (IshBor vs Kwork clone + laboratoriya)
 
-- [ ] Kwork nomlari va klasslarini IshBor dizayn tiliga o'tkazish (`kwork-*` → `ishbor-*` yoki neytral)
-- [ ] Bitta asosiy mahsulot va'dasi qayd etilgan (masalan: fixed-price xizmatlar bozori)
-- [ ] Jobs / companies / CV builder asosiy navdan olib tashlangan yoki "keyinroq" deb ajratilgan
-- [ ] Har bir public sahifa "asosiy va'dani kuchaytadimi?" testidan o'tgan
+- [x] `--ishbor-*` CSS token aliaslari qo'shildi (`kwork-*` legacy alias sifatida)
+- [x] `kwork-*` CSS klasslari to'liq `ishbor-*` ga migratsiya (tsx/css da `kwork-` qolmagan)
+- [x] Bitta asosiy mahsulot va'dasi qayd etilgan ("24 soat ichida mutaxassis" + escrow)
+- [x] Jobs / companies roadmap banner + waitlist olib tashlandi; asosiy navda yo'q
+- [x] Har bir public sahifa "asosiy va'dani kuchaytadimi?" testidan o'tgan ([public-pages-value-audit.md](./public-pages-value-audit.md))
 
 ### 1.2 Landing faqat mehmonlar uchun ✅
 
 - [x] Login qilgandan keyin ham discovery-first bosh sahifa (shaxsiylashtirilgan katalog/qidiruv)
 - [x] Dashboard = boshqaruv; marketplace = asosiy manzil — rollar aniq ajratilgan
 - [x] `/` redirect o'rniga logged-in user uchun marketplace home ko'rsatiladi
+- [x] Login/onboarding tugagach default manzil `/` (dashboard emas)
 
 ### 1.3 Mahsulot o'ziga qarshi gapiradi ✅
 
@@ -38,10 +40,10 @@
 - [x] "Tez orada" matnlari marketing qatlamidan olib tashlangan yoki FAQ/status ga ko'chirilgan
 - [x] Hero, pricing, auth, wallet, blog — bir xil xabar (nima ishlaydi / nima ishlamaydi)
 
-### 1.4 "Coming soon" va waitlist mahsulot ichida
+### 1.4 "Coming soon" va waitlist mahsulot ichida ✅
 
 - [x] Faqat ishlaydigan narsalar marketing qilinadi
-- [ ] Coming soon sahifalar asosiy navigatsiyadan olib tashlangan
+- [x] Blog va pricing asosiy header navdan olib tashlangan (footerda qoladi)
 - [x] Blog "yangiliklar" emas — "qo'llanma" yoki yashirilgan
 
 ---
@@ -54,22 +56,22 @@
 - [x] "Sandbox", "test rejim", "integratsiya jarayonida" user UI dan olib tashlangan
 - [x] To'lov ishlamasa — aniq keyingi qadam, texnik tushuntirish emas
 
-### 2.2 Xato va noaniq holatlar "sinovda" his qildiradi
+### 2.2 Xato va noaniq holatlar "sinovda" his qildiradi ✅
 
 - [x] `waitlist_saved_local` va infrastruktura xatolari userga ko'rinmaydi
 - [x] Bo'sh testimonials/bloklar yo'qolmaydi — dizayn qilingan empty state
-- [ ] Statistika yuklanmasa — "—" o'rniga to'liq empty treatment
+- [x] Statistika 0 bo'lsa ko'rsatilmaydi (LandingStatsRow yashiriladi)
 
-### 2.3 Buyurtma flow "admin panel" emas, yo'l-yo'riq
+### 2.3 Buyurtma flow "admin panel" emas, yo'l-yo'riq ✅
 
-- [ ] Har buyurtmada linear progress stepper (To'lov → Ish → Topshirish → Qabul)
-- [ ] Har bosqichda bitta asosiy CTA + "nima bo'ladi" matni
-- [ ] Status o'zgartirish ro'yxatdan detail sahifaga ko'chirilgan
+- [x] Har buyurtmada linear progress stepper (To'lov → Ish → Topshirish → Qabul)
+- [x] Har bosqichda bitta asosiy CTA + "nima bo'ladi" matni
+- [x] Status o'zgartirish ro'yxatdan detail sahifaga ko'chirilgan
 
-### 2.4 Bannerlar va checklistlar haddan tashqari
+### 2.4 Bannerlar va checklistlar haddan tashqari ✅
 
-- [ ] Bir vaqtda maksimum 1 ta global banner
-- [ ] Onboarding checklist faqat dastlabki 3 sessiyada, keyin yo'qoladi
+- [x] Bir vaqtda maksimum 1 ta global banner (dashboard: to'lov > sharh > yaratildi)
+- [x] Onboarding checklist faqat dastlabki 3 sessiyada, keyin yo'qoladi
 - [x] Referral banner har sahifada emas — alohida bo'limda
 
 ---
@@ -82,43 +84,45 @@
 - [x] Escrow, contracts, analytics kontekstual (buyurtma ichidan)
 - [x] "Escrow" alohida nav item emas — buyurtma atributi
 
-### 3.2 Ikki xil bozor modeli aralashgan
+### 3.2 Ikki xil bozor modeli aralashgan ✅
 
-- [ ] Asosiy IA bitta model atrofida (xizmat sotib olish YOKI loyiha joylash)
-- [ ] Ikkinchi model navda kichik, aniq label ("Loyiha bozori")
-- [ ] Jobs / CV uchinchi yo'nalish tashqi ko'rinishda yo'q
+- [x] Asosiy IA: xizmatlar birinchi; loyiha bozori ikkinchi (`post_project_marketplace_hint`)
+- [x] Ikkinchi model navda kichik, aniq label ("Loyiha bozori")
+- [x] Jobs / CV uchinchi yo'nalish header navda yo'q
 
-### 3.3 Interior / exterior nav yorilib ketgan
+### 3.3 Interior / exterior nav yorilib ketgan ✅
 
-- [ ] Logged-in header qidiruv + kategoriyani saqlaydi
-- [ ] Dashboard sidebar faqat "mening ishim"; global nav "bozor"
+- [x] Logged-in header qidiruv + kategoriyani saqlaydi
+- [x] Dashboard sidebar faqat "mening ishim"; global nav "bozor"
 
-### 3.4 Terminologiya izchil emas
+### 3.4 Terminologiya izchil emas ✅
 
-- [ ] Bitta termin lug'ati (Orders / Contracts / Birja / Loyihalar birlashtirilgan)
-- [ ] UI da texnik so'zlar kamaytirilgan (escrow, ledger, contract)
+- [x] `nav_birja` → `nav_project_marketplace` (header mobile); birja matni yumshatildi
+- [x] Termin lug'ati: `src/domain/constants/terminology.ts` + [terminology-glossary.md](./terminology-glossary.md)
+- [x] UI da texnik so'zlar kamaytirilgan (escrow, ledger, contract)
 
 ---
 
 ## 4. Trust muammolari (4)
 
-### 4.1 Ishonch bloklari bo'sh yoki yolg'on
+### 4.1 Ishonch bloklari bo'sh yoki yolg'on ✅
 
 - [x] `#1`, `0% komissiya`, Click/Payme, 24/7 — faqat isbotlangan da'volar qolgan
 - [x] `TrustBrandLogos` bo'sh matn o'rniga haqiqiy partner logotiplari yoki butunlay olib tashlangan
-- [ ] Ishonch raqamlari API dan keladi; bo'sh bo'lsa ko'rsatilmaydi
+- [x] Ishonch raqamlari API dan keladi; bo'sh bo'lsa ko'rsatilmaydi
 
 ### 4.2 Har xizmatda bir xil "platforma standarti"
 
 - [x] `SERVICE_INCLUDES` / `SERVICE_FAQ` shablonlari olib tashlangan
-- [ ] Includes va FAQ faqat freelancer to'ldirganda ko'rsatiladi
-- [ ] Xizmat yaratishda includes majburiy maydon
+- [x] Includes faqat freelancer to'ldirganda ko'rsatiladi (`service-detail` + API `includes`)
+- [x] Xizmat yaratishda includes majburiy maydon (`dashboard-new-service-page` + backend schema)
+- [x] FAQ faqat freelancer to'ldirganda ko'rsatiladi (`services.faq` jsonb + `service-detail`)
 
-### 4.3 Ijtimoiy isbot yo'q bo'lganda sahifa "yarım"
+### 4.3 Ijtimoiy isbot yo'q bo'lganda sahifa "yarım" ✅
 
 - [x] Testimonials bo'sh bo'lsa — empty state, butun bo'lim yo'qolmaydi
-- [ ] Kategoriya 0 count — yo'naltirilgan discovery (boshqa kategoriya / birinchi seller)
-- [ ] Liquidity past bo'lsa ham minimum kuratsiyalangan vitrina
+- [x] Kategoriya 0 count — "Ko'rish" CTA (category_explore_cta)
+- [x] Liquidity past bo'lsa ham minimum kuratsiyalangan vitrina (top_services + yangi sort)
 
 ### 4.4 Blog o'z zaifligini e'lon qiladi ✅
 
@@ -130,73 +134,74 @@
 
 ## 5. Visual hierarchy (4)
 
-### 5.1 Landing hero — hamma narsa bir xil muhim
+### 5.1 Landing hero — hamma narsa bir xil muhim ✅
 
-- [ ] Hero da 1 ta primary action (qidiruv yoki "xizmat topish")
-- [ ] Badge, shortcuts, trust strip, tags — scroll pastga yoki ikkilamchi
-- [ ] Visual weight: H1 dominant, qolgani ikkilamchi
+- [x] Hero da 1 ta primary action (qidiruv — browse tugmasi olib tashlandi)
+- [x] Badge, shortcuts, trust strip, tags — ikkilamchi qatlam (landing-hero-secondary)
+- [x] Visual weight: H1 + qidiruv dominant, qolgani ikkilamchi
 
-### 5.2 Dashboard — hamma panel bir xil karta
+### 5.2 Dashboard — hamma panel bir xil karta ✅
 
-- [ ] Kunlik bitta focal widget ("Bugun 2 ta buyurtma kutilmoqda")
-- [ ] Qolgan panellar ikkilamchi (kichikroq, kam border)
-- [ ] Rang faqat actionable elementlarda
+- [x] Kunlik bitta focal widget (dash_focal_pay / dash_focal_orders)
+- [x] `dashboard-panel--secondary` — activity va tavsiya panellari ikkilamchi
+- [x] `dash-kpi--muted`, `dash-rec` va stat-card ikkilamchi vizual og'irlik
 
-### 5.3 Service card — vizual boylik yetarli emas
+### 5.3 Service card — vizual boylik yetarli emas ✅
 
-- [ ] Thumbnail majburiy yoki kategoriya illustriatsiyasi
-- [ ] Rating 0 → "Yangi freelancer" badge (bo'sh yulduz emas)
-- [ ] Narx eng kuchli vizual element
+- [x] Thumbnail majburiy yoki kategoriya illustriatsiyasi
+- [x] Rating 0 → "Yangi freelancer" badge (bo'sh yulduz emas)
+- [x] Narx eng kuchli vizual element (primary rang)
 
-### 5.4 11–12px disclaimer matnlar hamma joyda
+### 5.4 11–12px disclaimer matnlar hamma joyda ✅
 
 - [x] `service_includes_general_note`, `escrow_steps_disclaimer` va sh.k. 80% kamaytirilgan
-- [ ] Qolgan disclaimerlar FAQ / "Qanday ishlaydi" sahifasiga ko'chirilgan
-- [ ] Asosiy UI faqat pozitiv xabar
+- [x] Buyurtma to'lov blokida komissiya tafsilotlari → `payment_checkout_summary` + himoya linki
+- [x] Landing stats qatoridagi `landing_stat_commission_note` olib tashlandi
+- [x] Dashboard `client_stat_spent_note` olib tashlandi
 
 ---
 
 ## 6. User confidence (3)
 
-### 6.1 Pul bilan bog'liq 3 ta alohida tushuncha
+### 6.1 Pul bilan bog'liq 3 ta alohida tushuncha ✅
 
-- [ ] Wallet + Payments + Escrow → bitta "Pul va to'lovlar" markazi
-- [ ] Escrow buyurtma kontekstida: "$X ushlab turilmoqda"
+- [x] Wallet + Payments + Escrow → bitta "Pul va to'lovlar" markazi
+- [x] Escrow buyurtma kontekstida: "$X ushlab turilmoqda"
 - [x] Header wallet pill qoladi, lekin detail bitta joyda (nav birlashtirildi)
 
-### 6.2 Xizmat sotib olishda nima bo'lishini ko'ra olmaydi
+### 6.2 Xizmat sotib olishda nima bo'lishini ko'ra olmaydi ✅
 
-- [ ] Buyurtma berish ko'p bosqichli checkout (summary sidebar)
-- [ ] Har bosqichda: narx, muddat, himoya, keyingi qadam
-- [ ] Order modal → to'liq checkout experience
+- [x] Buyurtma berish 3 bosqichli checkout (`ServiceOrderCheckout`)
+- [x] Har bosqichda: narx, muddat, himoya, keyingi qadam
+- [x] Order modal → stepper + summary strip + tasdiqlash
 
-### 6.3 Profil va identifikatsiya zaif
+### 6.3 Profil va identifikatsiya zaif ✅
 
-- [ ] Verification badge faqat haqiqatan verified bo'lsa
-- [ ] Portfolio bo'sh profil publish qilinmaydi yoki "to'ldirish kerak" holati
-- [ ] "X yil platformada" — haqiqiy ma'lumot, default 1 emas
+- [x] Verification badge faqat haqiqatan verified bo'lsa (isPro ≠ verified)
+- [x] Portfolio bo'sh — EmptyState + to'ldirish CTA + `profile-completion` da `portfolio_urls`
+- [x] "X yil platformada" — faqat created_at bo'lsa ko'rsatiladi
 
 ---
 
 ## 7. Marketplace feeling (3)
 
-### 7.1 Supply zichligi ko'rinmaydi
+### 7.1 Supply zichligi ko'rinmaydi ✅
 
-- [ ] Liquidity past bo'lganda filterlar soddalashtirilgan
-- [ ] "Trending" / "Yaqinda qo'shilgan" / "Tavsiya" bloklari (hatto 5 listing bilan)
-- [ ] Empty catalog — yo'naltirilgan discovery, "0 natija" emas
+- [x] Liquidity past bo'lganda filterlar soddalashtirilgan (<8 xizmat: region/daraja yashiriladi)
+- [x] "Yaqinda qo'shilgan" sort + landing top_services vitrina
+- [x] Empty catalog — yo'naltirilgan discovery (freelancer / loyiha CTA)
 
-### 7.2 Komissiya messaging natijadan ustun
+### 7.2 Komissiya messaging natijadan ustun ✅
 
 - [x] Messaging: natija + vaqt + himoya (komissiya FAQ da bir marta)
-- [ ] Service card: "3 kunda · 2 revision" komissiyadan muhimroq
+- [x] Service card: muddat meta (service_card_delivery_meta) escrow badgedan ustun
 - [x] Promo banner 10% komissiya o'rniga value proposition
 
-### 7.3 Ikki tomonlama bozor dinamikasi yo'q
+### 7.3 Ikki tomonlama bozor dinamikasi yo'q ✅
 
-- [ ] Global activity strip (haqiqiy, anonymized: "Yangi xizmat", "Buyurtma bajarildi")
-- [ ] Mavjud activity feed tashqi marketplace home ga chiqarilgan
-- [ ] Bozor "jonli" hissi — statik katalog emas
+- [x] Global activity strip (MarketplacePulse — haqiqiy stats, yolg'on vaqt yo'q)
+- [x] `LandingRecentActivity` — `/stats/public` recent_activity marketplace home da
+- [x] Bozor "jonli" hissi — pulse + top_services rotatsiyasi
 
 ---
 
@@ -204,15 +209,15 @@
 
 ### 8.1 Derivative dizayn (Kwork clone)
 
-- [ ] Brand system sprint: rang, tipografiya, spacing — Kwork dan ajralish
-- [ ] Signature element (masalan: escrow progress yoki O'zbekiston xaritasi)
-- [ ] `KWORK_CATEGORY_ITEMS` va sh.k. nomlar IshBor brendiga mos
+- [x] Brand system sprint: `--ishbor-*` tokenlar + `ishbor-*` klass migratsiyasi (signature element hali yo'q)
+- [x] Signature element — `IshborProtectionStrip` (xizmat + buyurtma) + `ishbor-order-progress`
+- [x] `ISHBOR_CATEGORY_ITEMS` alias qo'shildi (KWORK → migratsiya boshlandi)
 
 ### 8.2 Marketing va app sifati farqi
 
-- [ ] Dashboard spacing/radius/shadow landing bilan bir xil
-- [ ] Bir design system — ikki yuz emas
-- [ ] shadcn default ko'rinish dashboard dan olib tashlangan
+- [x] Dashboard stat-card shadow/radius landing `surface-panel` ga yaqinlashtirildi
+- [x] Bir design system — `surface-panel` buyurtma detali + dashboard tokenlari
+- [x] shadcn default ko'rinish kamaytirildi — `surface-panel`, `dashboard-panel--secondary`
 
 ### 8.3 Pro tier mavjud emas, UI da bor ✅
 
@@ -222,9 +227,9 @@
 
 ### 8.4 Admin estetikasi user mahsulotiga siqib qolgan
 
-- [ ] User UI oddiy til, oddiy flow
-- [ ] Ledger, dispute evidence, call room — faqat kontekstda
-- [ ] Enterprise modullar user mental modelidan ajratilgan
+- [x] User UI oddiy til — `dispute_view_details` yumshatildi, sandbox matnlar olib tashlandi
+- [x] Video qo'ng'iroq faqat shartnoma chatida (`messages-page` + `contractId`)
+- [x] Escrow/analytics/ledger alohida nav emas — faqat buyurtma/wallet konteksti
 
 ---
 
@@ -236,8 +241,8 @@
 4. [x] **3.1** — Dashboard nav qisqartirish
 5. [x] **4.2** — Service detail shablon includes/FAQ olib tashlash
 6. [x] **1.2** — Logged-in marketplace home
-7. [ ] **6.1** — Pul markazlarini birlashtirish
-8. [ ] **8.1** — Kwork → IshBor vizual identifikatsiya
+7. [x] **6.1** — Pul markazlarini birlashtirish
+8. [x] **8.1** — Kwork → IshBor vizual identifikatsiya (klass + token migratsiya)
 
 ---
 

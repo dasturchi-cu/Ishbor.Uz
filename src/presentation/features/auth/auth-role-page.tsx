@@ -32,8 +32,8 @@ function RoleCard({
       className={`auth-role-card w-full text-left ${selected ? 'auth-role-card--selected' : ''}`}
     >
       <div className="mb-3">{icon}</div>
-      <p className="font-bold text-[var(--kwork-text)]">{title}</p>
-      <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{subtitle}</p>
+      <p className="font-bold text-[var(--ishbor-text)]">{title}</p>
+      <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{subtitle}</p>
     </button>
   )
 }

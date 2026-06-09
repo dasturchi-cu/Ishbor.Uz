@@ -59,13 +59,13 @@ export function ReportModal({ targetType, targetId, onClose }: ReportModalProps)
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 shadow-[var(--shadow-lg)]"
+        className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 shadow-[var(--shadow-lg)]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <h2 className="text-[18px] font-bold text-[var(--kwork-text)]">{t('report_title')}</h2>
-        <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('report_desc_hint')}</p>
+        <h2 className="text-[18px] font-bold text-[var(--ishbor-text)]">{t('report_title')}</h2>
+        <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('report_desc_hint')}</p>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
@@ -76,7 +76,7 @@ export function ReportModal({ targetType, targetId, onClose }: ReportModalProps)
               className={
                 category === c
                   ? 'rounded-full border border-[var(--color-primary)] bg-[var(--color-primary-light)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-primary)]'
-                  : 'rounded-full border border-[var(--kwork-border)] px-3 py-1.5 text-[12px] text-[var(--kwork-text-muted)]'
+                  : 'rounded-full border border-[var(--ishbor-border)] px-3 py-1.5 text-[12px] text-[var(--ishbor-text-muted)]'
               }
             >
               {categoryLabel(c)}

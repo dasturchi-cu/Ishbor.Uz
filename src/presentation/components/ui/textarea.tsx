@@ -36,7 +36,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             'disabled:cursor-not-allowed disabled:opacity-50',
             error
               ? 'border-[var(--error)] shadow-[0_0_0_3px_rgba(220,38,38,0.14)]'
-              : 'border-[var(--kwork-border)]',
+              : 'border-[var(--ishbor-border)]',
             className
           )}
           {...props}

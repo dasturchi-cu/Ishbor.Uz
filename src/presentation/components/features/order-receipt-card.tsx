@@ -51,7 +51,7 @@ export function OrderReceiptCard({ orderId }: { orderId: string }) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
+      <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4">
         <div className="h-16 animate-pulse rounded bg-[var(--color-bg-muted)]" />
       </div>
     )
@@ -59,34 +59,34 @@ export function OrderReceiptCard({ orderId }: { orderId: string }) {
 
   if (missing || !receipt) {
     return (
-      <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
-        <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('receipt_not_found')}</p>
+      <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4">
+        <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('receipt_not_found')}</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-4">
+    <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4">
       <div className="mb-3 flex items-center gap-2">
         <Receipt className="h-4 w-4 text-[var(--color-primary)]" />
-        <p className="text-[13px] font-bold text-[var(--kwork-text)]">{t('receipt_title')}</p>
+        <p className="text-[13px] font-bold text-[var(--ishbor-text)]">{t('receipt_title')}</p>
       </div>
       <dl className="space-y-2 text-[12px]">
         <div className="flex justify-between gap-2">
-          <dt className="text-[var(--kwork-text-muted)]">{t('receipt_number_label')}</dt>
+          <dt className="text-[var(--ishbor-text-muted)]">{t('receipt_number_label')}</dt>
           <dd className="font-medium">{receipt.receipt_number}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt className="text-[var(--kwork-text-muted)]">{t('receipt_amount_label')}</dt>
+          <dt className="text-[var(--ishbor-text-muted)]">{t('receipt_amount_label')}</dt>
           <dd className="font-semibold">{formatPrice(receipt.amount)}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt className="text-[var(--kwork-text-muted)]">{t('receipt_provider_label')}</dt>
+          <dt className="text-[var(--ishbor-text-muted)]">{t('receipt_provider_label')}</dt>
           <dd>{providerLabel(receipt.provider)}</dd>
         </div>
         {receipt.created_at && (
           <div className="flex justify-between gap-2">
-            <dt className="text-[var(--kwork-text-muted)]">{t('receipt_date_label')}</dt>
+            <dt className="text-[var(--ishbor-text-muted)]">{t('receipt_date_label')}</dt>
             <dd>{formatDate(receipt.created_at, language)}</dd>
           </div>
         )}

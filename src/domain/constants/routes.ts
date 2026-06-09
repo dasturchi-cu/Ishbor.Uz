@@ -142,12 +142,12 @@ export function dashboardPathForRole(role: 'freelancer' | 'client'): string {
   return role === 'freelancer' ? PATHS.dashboardFreelancer : PATHS.dashboardClient
 }
 
-/** Kirishdan keyin default yo'nalish — freelancer/client dashboard */
+/** Kirishdan keyin default yo'nalish — marketplace bosh sahifa */
 export function defaultAuthDestination(
   _profile: { is_admin?: boolean; role?: string } | null | undefined,
-  role: 'freelancer' | 'client' = 'freelancer',
+  _role: 'freelancer' | 'client' = 'freelancer',
 ): string {
-  return dashboardPathForRole(role)
+  return PATHS.home
 }
 
 /** Dashboard ichki sahifalar (freelancer + client) */

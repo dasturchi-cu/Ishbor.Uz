@@ -7,6 +7,7 @@ import { useApp } from '@/application/providers/app-provider'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 import { Input } from '@/presentation/components/ui/input'
 import { Button } from '@/presentation/components/ui/button'
+import { Select } from '@/presentation/components/ui/select'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Alert } from '@/presentation/components/ui/alert'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
@@ -20,18 +21,19 @@ import { dashboardOrderPath, PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/utils'
 import { ShoppingBag } from 'lucide-react'
-import { toast } from '@/presentation/components/ui/toast'
 import { formatDate } from '@/shared/lib/format-date'
 import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 
-const TABS = ['all', 'pending', 'active', 'delivered', 'disputed', 'completed', 'cancelled'] as const
+const PRIMARY_TABS = ['all', 'active', 'pending'] as const
+const MORE_TABS = ['delivered', 'disputed', 'completed', 'cancelled'] as const
+type OrderTab = (typeof PRIMARY_TABS)[number] | (typeof MORE_TABS)[number]
 const PAYMENT_FILTERS = ['all', 'unpaid', 'escrow'] as const
 
 export function DashboardOrdersPage() {
   const { t, language } = useApp()
   const router = useRouter()
   const role = useDashboardRole()
-  const [tab, setTab] = useState<(typeof TABS)[number]>('all')
+  const [tab, setTab] = useState<OrderTab>('all')
   const [paymentFilter, setPaymentFilter] = useState<(typeof PAYMENT_FILTERS)[number]>('all')
   const [search, setSearch] = useState('')
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null)
@@ -61,7 +63,7 @@ export function DashboardOrdersPage() {
     return true
   })
 
-  const tabLabel: Record<(typeof TABS)[number], string> = {
+  const tabLabel: Record<OrderTab, string> = {
     all: t('tab_all'),
     pending: t('tab_new_orders'),
     active: t('tab_in_progress'),
@@ -71,35 +73,43 @@ export function DashboardOrdersPage() {
     cancelled: t('tab_cancelled_orders'),
   }
 
-  const updateStatus = async (order: ApiOrder, status: string, openReview = false) => {
-    try {
-      const updated = await api.updateOrderStatus(order.id, status)
-      void loadOrders()
-      if (openReview) setReviewOrder(updated)
-    } catch {
-      toast.error(t('error_order_update'))
-    }
-  }
+  const isMoreTab = (MORE_TABS as readonly string[]).includes(tab)
+  const tabButtonClass = (active: boolean) =>
+    cn(
+      'min-h-[44px] shrink-0 border-b-2 px-1 pb-2 pt-1 text-[13px] font-medium sm:min-h-0 sm:rounded-lg sm:border sm:px-3 sm:py-1.5',
+      active
+        ? 'border-[var(--color-primary)] text-[var(--color-primary)] sm:border-[var(--color-primary)] sm:bg-[var(--color-primary-light)]'
+        : 'border-transparent text-[var(--ishbor-text-muted)] sm:border-[var(--ishbor-border)]'
+    )
 
   return (
     <div>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-3 overflow-x-auto border-b border-[var(--kwork-border)] pb-1 sm:flex-wrap sm:border-b-0 sm:pb-0">
-          {TABS.map((key) => (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--ishbor-border)] pb-1 sm:border-b-0 sm:pb-0">
+          {PRIMARY_TABS.map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={cn(
-                'min-h-[44px] shrink-0 border-b-2 px-1 pb-2 pt-1 text-[13px] font-medium sm:min-h-0 sm:border-b-0 sm:rounded-lg sm:border sm:px-3 sm:py-1.5',
-                tab === key
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)] sm:border-[var(--color-primary)] sm:bg-[var(--color-primary-light)]'
-                  : 'border-transparent text-[var(--kwork-text-muted)] sm:border-[var(--kwork-border)]'
-              )}
+              className={tabButtonClass(tab === key)}
             >
               {tabLabel[key]}
             </button>
           ))}
+          <div className="min-w-[140px] sm:min-w-[168px]">
+            <Select
+              value={isMoreTab ? tab : ''}
+              onChange={(e) => {
+                const next = e.target.value as OrderTab | ''
+                if (next) setTab(next)
+              }}
+              options={[
+                { value: '', label: t('orders_tab_more') },
+                ...MORE_TABS.map((key) => ({ value: key, label: tabLabel[key] })),
+              ]}
+              className={cn(isMoreTab && 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]')}
+            />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1">
@@ -112,7 +122,7 @@ export function DashboardOrdersPage() {
                   'rounded-full px-3 py-1 text-[12px] font-medium',
                   paymentFilter === key
                     ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-                    : 'bg-[var(--neutral-0)] text-[var(--kwork-text-muted)] border border-[var(--kwork-border)]'
+                    : 'bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)] border border-[var(--ishbor-border)]'
                 )}
               >
                 {key === 'all'
@@ -178,11 +188,11 @@ export function DashboardOrdersPage() {
               <div key={order.id} className="dashboard-order-card">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[12px] text-[var(--kwork-text-muted)]">
+                    <p className="text-[12px] text-[var(--ishbor-text-muted)]">
                       {t('order_number').replace('{n}', order.id.slice(0, 8))}
                       {order.created_at && ` · ${formatDate(order.created_at, language)}`}
                     </p>
-                    <p className="mt-1 text-[14px] font-bold text-[var(--kwork-text)]">{order.services?.title ?? t('nav_orders')}</p>
+                    <p className="mt-1 text-[14px] font-bold text-[var(--ishbor-text)]">{order.services?.title ?? t('nav_orders')}</p>
                     <div className="mt-2 flex items-center gap-2">
                       <Avatar name={otherName} size={24} />
                       <span className="text-[13px]">{otherName}</span>
@@ -201,32 +211,15 @@ export function DashboardOrdersPage() {
                     {t('payment_waiting_freelancer')}
                   </Alert>
                 )}
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--kwork-border)] pt-3">
-                  <p className="text-[14px] font-bold text-[var(--kwork-text)]">{formatPrice(order.amount)}</p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ishbor-border)] pt-3">
+                  <p className="text-[14px] font-bold text-[var(--ishbor-text)]">{formatPrice(order.amount)}</p>
                   <div className="flex gap-2">
                     <Link href={`${PATHS.dashboardMessages}?order=${order.id}`}>
                       <Button variant="outline" size="sm">{t('send_message')}</Button>
                     </Link>
-                    {role === 'freelancer' && order.status === 'pending' && order.payment_status === 'held' && (
-                      <Button variant="primary" size="sm" onClick={() => updateStatus(order, 'active')}>
-                        {t('accept_order')}
-                      </Button>
-                    )}
-                    {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
-                      <Link href={dashboardOrderPath(order.id)}>
-                        <Button variant="primary" size="sm">{t('payment_pay_now')}</Button>
-                      </Link>
-                    )}
-                    {role === 'freelancer' && order.status === 'active' && (
-                      <Link href={dashboardOrderPath(order.id)}>
-                        <Button variant="primary" size="sm">{t('deliver_work')}</Button>
-                      </Link>
-                    )}
-                    {role === 'client' && order.status === 'delivered' && (
-                      <Button variant="primary" size="sm" onClick={() => updateStatus(order, 'completed', true)}>
-                        {t('accept_work')}
-                      </Button>
-                    )}
+                    <Link href={dashboardOrderPath(order.id)}>
+                      <Button variant="primary" size="sm">{t('order_open_detail')}</Button>
+                    </Link>
                   </div>
                 </div>
               </div>

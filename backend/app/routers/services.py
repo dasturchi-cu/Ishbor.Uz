@@ -211,7 +211,7 @@ def update_service(service_id: str, payload: ServiceUpdate, auth: UserAuthDep):
     if not updates:
         return existing.data
 
-    content_fields = {"title", "description", "price", "delivery_days", "packages", "category", "tags"}
+    content_fields = {"title", "description", "price", "delivery_days", "packages", "category", "tags", "includes", "faq"}
     if content_fields.intersection(updates.keys()):
         updates["moderation_status"] = "pending"
         updates["is_hidden"] = True

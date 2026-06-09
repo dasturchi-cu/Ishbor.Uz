@@ -143,7 +143,7 @@ export function DashboardServicesPage() {
           ))}
         </div>
       ) : services.length === 0 ? (
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
+        <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)]">
           <EmptyState
             icon={<Package />}
             title={t('no_services_dashboard')}
@@ -162,10 +162,10 @@ export function DashboardServicesPage() {
                     <input
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full rounded-md border border-[var(--kwork-border)] px-2 py-1.5 text-[13px]"
+                      className="w-full rounded-md border border-[var(--ishbor-border)] px-2 py-1.5 text-[13px]"
                     />
                   ) : (
-                    <Link href={servicePath(s.id)} className="text-[14px] font-semibold text-[var(--kwork-text)] hover:text-[var(--color-primary)]">
+                    <Link href={servicePath(s.id)} className="text-[14px] font-semibold text-[var(--ishbor-text)] hover:text-[var(--color-primary)]">
                       {s.title}
                     </Link>
                   )}
@@ -182,7 +182,7 @@ export function DashboardServicesPage() {
                   ) : (
                     <Link
                       href={PATHS.dashboardServiceEdit(s.id)}
-                      className="flex h-10 w-10 items-center justify-center text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]"
+                      className="flex h-10 w-10 items-center justify-center text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)]"
                       aria-label={t('edit_service')}
                     >
                       <Pencil className="h-4 w-4" />
@@ -192,18 +192,18 @@ export function DashboardServicesPage() {
                     type="button"
                     disabled={deletingId === s.id}
                     onClick={() => handleDelete(s.id)}
-                    className="flex h-10 w-10 items-center justify-center text-[var(--kwork-text-muted)] hover:text-[var(--error)] disabled:opacity-50"
+                    className="flex h-10 w-10 items-center justify-center text-[var(--ishbor-text-muted)] hover:text-[var(--error)] disabled:opacity-50"
                     aria-label={t('delete_service')}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-between border-t border-[var(--kwork-border)] pt-3 text-[13px]">
-                <span className="font-semibold text-[var(--kwork-text)]">
+              <div className="mt-3 flex items-center justify-between border-t border-[var(--ishbor-border)] pt-3 text-[13px]">
+                <span className="font-semibold text-[var(--ishbor-text)]">
                   {t('from_price').replace('{price}', formatPrice(s.price))}
                 </span>
-                <span className="text-[var(--kwork-text-muted)]">
+                <span className="text-[var(--ishbor-text-muted)]">
                   {t('col_orders_count')}:{' '}
                   <span className="font-semibold text-[var(--color-primary)]">{orderCounts.get(s.id) ?? 0}</span>
                 </span>
@@ -212,10 +212,10 @@ export function DashboardServicesPage() {
           ))}
         </div>
 
-        <div className="hide-mobile overflow-hidden rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
+        <div className="hide-mobile overflow-hidden rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)]">
           <table className="w-full text-left text-[13px]">
             <thead>
-              <tr className="border-b border-[var(--kwork-border)] text-[11px] font-semibold uppercase text-[var(--kwork-text-muted)]">
+              <tr className="border-b border-[var(--ishbor-border)] text-[11px] font-semibold uppercase text-[var(--ishbor-text-muted)]">
                 <th className="px-4 py-3">{t('col_service')}</th>
                 <th className="hide-mobile px-4 py-3">{t('col_category')}</th>
                 <th className="px-4 py-3">{t('col_price')}</th>
@@ -226,13 +226,13 @@ export function DashboardServicesPage() {
             </thead>
             <tbody>
               {services.map((s) => (
-                <tr key={s.id} className="border-b border-[var(--kwork-border)] last:border-b-0 hover:bg-[var(--neutral-50)]">
+                <tr key={s.id} className="border-b border-[var(--ishbor-border)] last:border-b-0 hover:bg-[var(--neutral-50)]">
                   <td className="px-4 py-3 font-semibold">
                     {editingId === s.id ? (
                       <input
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
-                        className="w-full rounded-md border border-[var(--kwork-border)] px-2 py-1 text-[13px]"
+                        className="w-full rounded-md border border-[var(--ishbor-border)] px-2 py-1 text-[13px]"
                       />
                     ) : (
                       <Link href={servicePath(s.id)} className="hover:text-[var(--color-primary)]">
@@ -261,7 +261,7 @@ export function DashboardServicesPage() {
                       ) : (
                         <Link
                           href={PATHS.dashboardServiceEdit(s.id)}
-                          className="text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]"
+                          className="text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)]"
                           aria-label={t('edit_service')}
                         >
                           <Pencil className="h-4 w-4" />
@@ -271,7 +271,7 @@ export function DashboardServicesPage() {
                         type="button"
                         disabled={deletingId === s.id}
                         onClick={() => handleDelete(s.id)}
-                        className="text-[var(--kwork-text-muted)] hover:text-[var(--error)] disabled:opacity-50"
+                        className="text-[var(--ishbor-text-muted)] hover:text-[var(--error)] disabled:opacity-50"
                         aria-label={t('delete_service')}
                       >
                         <Trash2 className="h-4 w-4" />

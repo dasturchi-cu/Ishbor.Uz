@@ -7,12 +7,6 @@ import type { ApiPublicStats } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 
 const PULSE_INTERVAL_MS = 5000
-const TIME_LABELS = ['1', '3', '5', '8', '12'] as const
-
-function estimateOnline(freelancers: number): number {
-  if (freelancers <= 0) return 12
-  return Math.max(8, Math.min(99, Math.round(freelancers * 0.08 + 5)))
-}
 
 type PulseItem = { id: string; text: string }
 
@@ -27,34 +21,22 @@ export function MarketplacePulse({
   const [activeIdx, setActiveIdx] = useState(0)
 
   const items = useMemo((): PulseItem[] => {
-    const online = estimateOnline(stats.freelancers)
-    const list: PulseItem[] = [
-      {
-        id: 'online',
-        text: t('landing_users_online').replace('{n}', String(online)),
-      },
-    ]
+    const list: PulseItem[] = []
 
-    const topCategory = Object.entries(stats.category_counts ?? {})
-      .sort(([, a], [, b]) => b - a)
-      .map(([cat]) => cat)[0]
-
-    if (topCategory) {
+    const newestService = stats.top_services?.[0]
+    if (newestService?.title) {
       list.push({
-        id: 'completed',
-        text: t('landing_pulse_completed').replace('{category}', topCategory),
+        id: 'new-service',
+        text: t('landing_pulse_new_service').replace('{title}', newestService.title),
       })
     }
 
-    TIME_LABELS.forEach((time, i) => {
+    if (stats.completed_orders != null && stats.completed_orders > 0) {
       list.push({
-        id: `order-${i}`,
-        text: t('landing_last_order').replace(
-          '{time}',
-          t('landing_time_minutes').replace('{n}', time)
-        ),
+        id: 'completed',
+        text: t('landing_pulse_completed_count').replace('{n}', String(stats.completed_orders)),
       })
-    })
+    }
 
     if (stats.review_count > 0) {
       list.push({
@@ -63,7 +45,45 @@ export function MarketplacePulse({
       })
     }
 
-    return list
+    if (stats.services > 0) {
+      list.push({
+        id: 'services',
+        text: t('landing_pulse_services_count').replace('{n}', String(stats.services)),
+      })
+    }
+
+    if (stats.freelancers > 0) {
+      list.push({
+        id: 'freelancers',
+        text: t('landing_pulse_freelancers_count').replace('{n}', String(stats.freelancers)),
+      })
+    }
+
+    for (const event of stats.recent_activity ?? []) {
+      if (!event.title) continue
+      if (event.kind === 'order_completed') {
+        list.push({
+          id: event.id,
+          text: t('landing_pulse_order_done').replace('{title}', event.title),
+        })
+      } else if (event.kind === 'new_service') {
+        list.push({
+          id: event.id,
+          text: t('landing_pulse_new_service').replace('{title}', event.title),
+        })
+      }
+    }
+
+    if (list.length === 0) {
+      list.push({ id: 'growing', text: t('landing_pulse_growing') })
+    }
+
+    const seen = new Set<string>()
+    return list.filter((item) => {
+      if (seen.has(item.text)) return false
+      seen.add(item.text)
+      return true
+    })
   }, [stats, t])
 
   useEffect(() => {

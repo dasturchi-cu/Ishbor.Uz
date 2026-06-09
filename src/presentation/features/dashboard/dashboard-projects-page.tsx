@@ -86,7 +86,7 @@ export function DashboardProjectsPage() {
       )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('my_projects_desc')}</p>
+        <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('my_projects_desc')}</p>
         <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => router.push(PATHS.postProject)}>
           {t('post_project')}
         </Button>
@@ -127,7 +127,7 @@ export function DashboardProjectsPage() {
                   <Link href={projectPath(p.id)} className="text-[15px] font-bold hover:text-[var(--color-primary)]">
                     {p.title}
                   </Link>
-                  <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">
+                  <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">
                     {p.region} · {formatPrice(p.budget)}
                   </p>
                 </div>
@@ -135,7 +135,7 @@ export function DashboardProjectsPage() {
                   {projectStatusLabel(p.status)}
                 </Badge>
               </div>
-              <p className="mt-2 text-[12px] text-[var(--kwork-text-muted)]">
+              <p className="mt-2 text-[12px] text-[var(--ishbor-text-muted)]">
                 {t('project_applications_count').replace('{n}', String(p.application_count ?? 0))}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">

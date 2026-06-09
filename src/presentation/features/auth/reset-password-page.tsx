@@ -161,7 +161,7 @@ function ResetPasswordContent() {
                   passwordToggleShowLabel={t('show_password')}
                   passwordToggleHideLabel={t('hide_password')}
                 />
-                <p className="text-[12px] leading-relaxed text-[var(--kwork-text-muted)]">
+                <p className="text-[12px] leading-relaxed text-[var(--ishbor-text-muted)]">
                   {t('reset_password_relogin_note')}
                 </p>
                 <Button type="submit" variant="primary" fullWidth size="lg" loading={loading}>
@@ -170,7 +170,7 @@ function ResetPasswordContent() {
               </form>
             ) : (
               !error && (
-                <p className="text-sm text-[var(--kwork-text-muted)]" role="status">
+                <p className="text-sm text-[var(--ishbor-text-muted)]" role="status">
                   {t('auth_callback_loading')}
                 </p>
               )

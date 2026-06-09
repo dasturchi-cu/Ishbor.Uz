@@ -105,12 +105,12 @@ export function CvBuilderPage() {
   const update = (patch: Partial<CvForm>) => setForm((prev) => ({ ...prev, ...patch }))
 
   return (
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-5 md:pt-8">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-8">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-[var(--kwork-text)] sm:text-[24px]">{t('cv_builder_title')}</h1>
-        <p className="mt-1 text-[14px] text-[var(--kwork-text-muted)]">{t('cv_builder_subtitle')}</p>
+        <h1 className="text-xl font-bold text-[var(--ishbor-text)] sm:text-[24px]">{t('cv_builder_title')}</h1>
+        <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">{t('cv_builder_subtitle')}</p>
         {!isLoggedIn && (
-          <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">
+          <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
             <Link href={PATHS.login} className="text-[var(--color-primary)] hover:underline">
               {t('login')}
             </Link>{' '}
@@ -120,7 +120,7 @@ export function CvBuilderPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-xl border border-[var(--kwork-border)] bg-white p-4 dark:bg-[var(--neutral-900)]">
+        <div className="space-y-4 rounded-xl border border-[var(--ishbor-border)] bg-white p-4 dark:bg-[var(--neutral-900)]">
           <Input value={form.fullName} onChange={(e) => update({ fullName: e.target.value })} placeholder={t('settings_your_name')} />
           <Input value={form.headline} onChange={(e) => update({ headline: e.target.value })} placeholder={t('cv_builder_headline')} />
           <Input value={form.contacts} onChange={(e) => update({ contacts: e.target.value })} placeholder={t('cv_builder_contacts_ph')} />
@@ -128,8 +128,8 @@ export function CvBuilderPage() {
           <Textarea value={form.experience} onChange={(e) => update({ experience: e.target.value })} rows={5} placeholder={t('cv_builder_experience_label')} />
           <Textarea value={form.education} onChange={(e) => update({ education: e.target.value })} rows={3} placeholder={t('cv_builder_education_label')} />
         </div>
-        <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-50)] p-4 dark:bg-[var(--neutral-900)]">
-          <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--kwork-text)]">{preview || t('cv_builder_preview_empty')}</pre>
+        <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-4 dark:bg-[var(--neutral-900)]">
+          <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--ishbor-text)]">{preview || t('cv_builder_preview_empty')}</pre>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outline" onClick={handleCopy}>
               <Copy className="mr-2 h-4 w-4" />

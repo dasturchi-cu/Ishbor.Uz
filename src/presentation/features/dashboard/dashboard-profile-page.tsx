@@ -13,12 +13,13 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Select } from '@/presentation/components/ui/select'
 import { UZ_REGIONS } from '@/domain/constants/regions'
-import { freelancerPath } from '@/domain/constants/routes'
+import { freelancerPath, PATHS } from '@/domain/constants/routes'
 import { POPULAR_SKILLS } from '@/domain/constants/skills'
 import { saveProfileFields } from '@/shared/lib/profile-fields'
 import { parseSpecialtyTitle } from '@/shared/lib/onboarding-profile'
 import { cn } from '@/shared/lib/utils'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import { ProfileTrustScoreCard } from '@/presentation/components/features/profile-trust-score-card'
 
 const BIO_MAX = 500
 
@@ -29,7 +30,7 @@ export function DashboardProfilePage() {
   const isFreelancer = role === 'freelancer'
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [tab, setTab] = useState<'view' | 'edit'>('edit')
+  const [tab, setTab] = useState<'view' | 'edit'>('view')
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
@@ -155,6 +156,8 @@ export function DashboardProfilePage() {
       )}
 
       {tab === 'view' ? (
+        <div className="space-y-4">
+        {isFreelancer && <ProfileTrustScoreCard />}
         <div className="profile-view-card">
           <Avatar name={displayName} src={avatarSrc} size={96} />
           <div>
@@ -175,12 +178,31 @@ export function DashboardProfilePage() {
               </div>
             )}
           </div>
-          {userId && (
-            <Link href={freelancerPath({ id: userId, username: profile?.username })} className="profile-view-link">
-              {t('view_public_profile')}
-              <ExternalLink className="h-3.5 w-3.5" />
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {userId && (
+              <Link href={freelancerPath({ id: userId, username: profile?.username })} className="profile-view-link">
+                {t('view_public_profile')}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+            )}
+            <Link href={PATHS.dashboardSettings} className="profile-view-link">
+              {t('nav_settings')}
+              <ChevronRight className="h-3.5 w-3.5" />
             </Link>
-          )}
+            {isFreelancer && (
+              <>
+                <Link href={PATHS.dashboardReviews} className="profile-view-link">
+                  {t('nav_reviews')}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link href={PATHS.dashboardAnalytics} className="profile-view-link">
+                  {t('nav_analytics')}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
         </div>
       ) : (
         <div className="space-y-5">
@@ -321,7 +343,7 @@ export function DashboardProfilePage() {
                   </div>
                 )}
 
-                <p className="mt-4 text-[12px] font-medium text-[var(--kwork-text-muted)]">
+                <p className="mt-4 text-[12px] font-medium text-[var(--ishbor-text-muted)]">
                   {t('popular_skills')}
                 </p>
                 <div className="profile-edit-skills-tags">

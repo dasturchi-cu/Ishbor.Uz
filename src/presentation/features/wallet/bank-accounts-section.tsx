@@ -47,17 +47,17 @@ export function BankAccountsSection() {
 
   return (
     <section className="surface-panel p-5">
-      <h2 className="mb-4 text-[15px] font-bold text-[var(--kwork-text)]">{t('bank_accounts_title')}</h2>
+      <h2 className="mb-4 text-[15px] font-bold text-[var(--ishbor-text)]">{t('bank_accounts_title')}</h2>
       {list.length > 0 && (
         <ul className="mb-5 space-y-2">
           {list.map((a) => (
             <li
               key={a.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3 text-[13px]"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--r-md)] border border-[var(--ishbor-border)] p-3 text-[13px]"
             >
               <div>
-                <p className="font-semibold text-[var(--kwork-text)]">{a.bank_name}</p>
-                <p className="text-[var(--kwork-text-muted)]">
+                <p className="font-semibold text-[var(--ishbor-text)]">{a.bank_name}</p>
+                <p className="text-[var(--ishbor-text-muted)]">
                   {a.account_holder} · •••• {a.account_number.slice(-4)}
                 </p>
               </div>

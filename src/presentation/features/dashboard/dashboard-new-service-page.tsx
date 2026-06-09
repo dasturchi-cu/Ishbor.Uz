@@ -24,6 +24,8 @@ import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { useServerDraft } from '@/shared/lib/use-server-draft'
 import { ServicePackagesEditor } from '@/presentation/components/dashboard/service-packages-editor'
 import { buildDefaultPackages } from '@/shared/lib/service-packages'
+import { parseServiceIncludesText } from '@/shared/lib/service-includes'
+import { parseServiceFaqText } from '@/shared/lib/service-faq'
 import type { ApiServicePackage } from '@/infrastructure/api/types'
 
 function fieldMsg(template: string, field: string, n?: number): string {
@@ -50,6 +52,8 @@ export function DashboardNewServicePage() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
+  const [includesText, setIncludesText] = useState('')
+  const [faqText, setFaqText] = useState('')
   const [price, setPrice] = useState('')
   const [deliveryDays, setDeliveryDays] = useState('5')
   const [region, setRegion] = useState(profile?.region ?? UZ_REGIONS[0])
@@ -74,13 +78,15 @@ export function DashboardNewServicePage() {
       title,
       category,
       description,
+      includesText,
+      faqText,
       price,
       deliveryDays,
       region,
       imageUrls,
       packages,
     }),
-    [step, title, category, description, price, deliveryDays, region, imageUrls, packages]
+    [step, title, category, description, includesText, faqText, price, deliveryDays, region, imageUrls, packages]
   )
 
   const draft = useServerDraft('new-service', draftPayload, authed, (remote) => {
@@ -91,6 +97,8 @@ export function DashboardNewServicePage() {
     if (typeof remote.title === 'string') setTitle(remote.title)
     if (typeof remote.category === 'string') setCategory(remote.category)
     if (typeof remote.description === 'string') setDescription(remote.description)
+    if (typeof remote.includesText === 'string') setIncludesText(remote.includesText)
+    if (typeof remote.faqText === 'string') setFaqText(remote.faqText)
     if (typeof remote.price === 'string') setPrice(remote.price)
     if (typeof remote.deliveryDays === 'string') setDeliveryDays(remote.deliveryDays)
     if (typeof remote.region === 'string') setRegion(remote.region)
@@ -110,6 +118,8 @@ export function DashboardNewServicePage() {
       title: '',
       category: '',
       description: '',
+      includesText: '',
+      faqText: '',
       price: '',
       deliveryDays: '5',
       region: profile?.region ?? UZ_REGIONS[0],
@@ -121,6 +131,8 @@ export function DashboardNewServicePage() {
       setTitle(restored.title)
       setCategory(restored.category)
       setDescription(restored.description)
+      if (typeof restored.includesText === 'string') setIncludesText(restored.includesText)
+      if (typeof restored.faqText === 'string') setFaqText(restored.faqText)
       setPrice(restored.price)
       setDeliveryDays(restored.deliveryDays)
       setRegion(restored.region)
@@ -148,6 +160,7 @@ export function DashboardNewServicePage() {
   const fieldLabels: Record<string, string> = {
     title: t('service_title'),
     description: t('description'),
+    includes: t('service_includes_title'),
     category: t('category'),
     region: t('city'),
     price: t('package_basic'),
@@ -162,6 +175,7 @@ export function DashboardNewServicePage() {
       region: string
       price: number
       delivery_days: number
+      includes: string[]
     },
     onlyFields?: string[]
   ) => {
@@ -200,8 +214,9 @@ export function DashboardNewServicePage() {
           region,
           price: 1,
           delivery_days: 5,
+          includes: parseServiceIncludesText(includesText),
         },
-        ['title', 'description', 'category']
+        ['title', 'description', 'category', 'includes']
       )
       if (!ok) return
     }
@@ -216,6 +231,7 @@ export function DashboardNewServicePage() {
           region,
           price: priceNum,
           delivery_days: days,
+          includes: parseServiceIncludesText(includesText),
         },
         ['price', 'delivery_days', 'region']
       )
@@ -240,6 +256,7 @@ export function DashboardNewServicePage() {
         region,
         price: priceNum,
         delivery_days: days,
+        includes: parseServiceIncludesText(includesText),
       })
     ) {
       return
@@ -264,6 +281,8 @@ export function DashboardNewServicePage() {
         image_urls: urls,
         delivery_days: safeDays,
         packages,
+        includes: parseServiceIncludesText(includesText),
+        faq: parseServiceFaqText(faqText),
       })
       draft.clear()
       router.push(`${PATHS.dashboardFreelancer}?created=1`)
@@ -289,7 +308,7 @@ export function DashboardNewServicePage() {
                     'service-wizard-stepper__badge flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-bold',
                     done && 'bg-[var(--success)] text-white',
                     active && 'bg-[var(--color-primary)] text-white shadow-[0_0_0_3px_rgba(37,99,235,0.18)]',
-                    !done && !active && 'border border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text-muted)]'
+                    !done && !active && 'border border-[var(--ishbor-border)] bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)]'
                   )}
                 >
                   {done ? <Check className="h-4 w-4" strokeWidth={2.5} /> : s}
@@ -298,8 +317,8 @@ export function DashboardNewServicePage() {
                   className={cn(
                     'service-wizard-stepper__label hidden text-[13px] font-medium sm:inline',
                     active && 'font-semibold text-[var(--color-primary)]',
-                    done && 'text-[var(--kwork-text)]',
-                    !done && !active && 'text-[var(--kwork-text-muted)]'
+                    done && 'text-[var(--ishbor-text)]',
+                    !done && !active && 'text-[var(--ishbor-text-muted)]'
                   )}
                 >
                   {stepLabels[i]}
@@ -309,7 +328,7 @@ export function DashboardNewServicePage() {
                 <span
                   className={cn(
                     'service-wizard-stepper__line mx-3 hidden h-px w-8 sm:block md:w-12',
-                    done ? 'bg-[var(--success)]' : 'bg-[var(--kwork-border)]'
+                    done ? 'bg-[var(--success)]' : 'bg-[var(--ishbor-border)]'
                   )}
                   aria-hidden
                 />
@@ -319,7 +338,7 @@ export function DashboardNewServicePage() {
         })}
       </ol>
 
-      <div className="mx-auto max-w-[640px] rounded-[var(--r-card)] border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 sm:p-6">
+      <div className="mx-auto max-w-[640px] rounded-[var(--r-card)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 sm:p-6">
         {error && (
           <Alert variant="error" className="mb-4">
             {error}
@@ -359,6 +378,26 @@ export function DashboardNewServicePage() {
               error={fieldErrors.description}
               hint={t('description_min_hint')}
             />
+            <Textarea
+              label={t('service_includes_title')}
+              value={includesText}
+              onChange={(e) => {
+                setIncludesText(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, includes: '' }))
+              }}
+              rows={5}
+              error={fieldErrors.includes}
+              hint={t('service_includes_hint')}
+              placeholder={t('service_includes_ph')}
+            />
+            <Textarea
+              label={t('service_faq')}
+              value={faqText}
+              onChange={(e) => setFaqText(e.target.value)}
+              rows={6}
+              hint={t('service_faq_hint')}
+              placeholder={t('service_faq_ph')}
+            />
           </div>
         )}
         {step === 2 && (
@@ -385,7 +424,7 @@ export function DashboardNewServicePage() {
               }}
               hint={t('delivery_days_hint')}
               rightIcon={
-                <span className="text-[12px] font-semibold text-[var(--kwork-text-muted)]">
+                <span className="text-[12px] font-semibold text-[var(--ishbor-text-muted)]">
                   {t('delivery_days_unit')}
                 </span>
               }

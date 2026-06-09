@@ -39,6 +39,7 @@ const SLUG_TO_MEGA_ID: Record<string, string> = {
   business: 'business',
 }
 
+/** @deprecated Use ISHBOR_CATEGORY_ITEMS — Kwork nomi tarixiy alias */
 export const KWORK_CATEGORY_ITEMS: {
   slug: string
   cat: string
@@ -53,6 +54,8 @@ export const KWORK_CATEGORY_ITEMS: {
   { slug: 'video', cat: 'video', icon: Video, labelKey: 'kwork_cat_video' },
   { slug: 'business', cat: 'design', icon: Briefcase, labelKey: 'kwork_cat_business' },
 ]
+
+export const ISHBOR_CATEGORY_ITEMS = KWORK_CATEGORY_ITEMS
 
 export function slugFromCategory(cat: string | null | undefined): string | undefined {
   if (!cat) return undefined

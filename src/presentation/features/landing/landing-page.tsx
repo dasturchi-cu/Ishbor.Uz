@@ -16,18 +16,15 @@ import { ServiceCard } from '@/presentation/components/features/service-card'
 
 import { SkeletonCard } from '@/presentation/components/ui/skeleton'
 
-import { PATHS, servicePath } from '@/domain/constants/routes'
+import { freelancerPath, PATHS, servicePath } from '@/domain/constants/routes'
 
 import { fetchPublicStatsCached } from '@/shared/lib/public-stats-cache'
 
 import type { ApiPublicStats } from '@/infrastructure/api/types'
 
-import type { TranslationKey } from '@/infrastructure/i18n'
-
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
 
-import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import { MarketplacePulse } from '@/presentation/components/layout/marketplace-pulse'
 import { SearchAutocomplete } from '@/presentation/components/layout/search-autocomplete'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
@@ -39,8 +36,6 @@ import {
   LandingCategoryGrid,
 
   LandingCtaBanner,
-
-  LandingDarkTrust,
 
   LandingFeaturedTabs,
 
@@ -84,20 +79,6 @@ const EMPTY_STATS: ApiPublicStats = {
 
 
 
-const POPULAR_TAGS: { key: TranslationKey; cat: string }[] = [
-
-  { key: 'mega_sub_uiux', cat: 'uiux' },
-
-  { key: 'mega_sub_logo', cat: 'graphic' },
-
-  { key: 'mega_sub_social_design', cat: 'graphic' },
-
-  { key: 'mega_sub_wordpress', cat: 'web' },
-
-]
-
-
-
 const PROMO_KEY = 'ishbor-promo-dismissed'
 
 
@@ -106,7 +87,7 @@ function PromoBanner({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useApp()
 
   return (
-    <div className="kwork-promo-banner">
+    <div className="ishbor-promo-banner">
       <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
         <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-white sm:text-[14px]">
           {t('first_order_promo')}
@@ -150,7 +131,7 @@ function PromoBanner({ onDismiss }: { onDismiss: () => void }) {
 
 export function LandingPage() {
 
-  const { t, isLoggedIn, isAuthLoading, currentUserRole, profile } = useApp()
+  const { t, isLoggedIn, isAuthLoading, profile } = useApp()
 
   const router = useRouter()
 
@@ -168,14 +149,11 @@ export function LandingPage() {
 
 
   useEffect(() => {
-
-    if (typeof window !== 'undefined' && !localStorage.getItem(PROMO_KEY)) {
-
+    if (typeof window === 'undefined' || isLoggedIn) return
+    if (!localStorage.getItem(PROMO_KEY)) {
       setPromoVisible(true)
-
     }
-
-  }, [])
+  }, [isLoggedIn])
 
 
 
@@ -256,8 +234,8 @@ export function LandingPage() {
         role="status"
         aria-live="polite"
       >
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--kwork-border)] border-t-[var(--color-primary)]" />
-        <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('landing_redirecting')}</p>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--ishbor-border)] border-t-[var(--color-primary)]" />
+        <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('auth_callback_loading')}</p>
       </div>
     )
   }
@@ -270,7 +248,7 @@ export function LandingPage() {
 
 
 
-      <section className="kwork-landing-hero">
+      <section className="ishbor-landing-hero">
 
         <div className="layout-container landing-hero-content max-w-[1280px] py-[var(--landing-hero-pad)]">
 
@@ -288,15 +266,11 @@ export function LandingPage() {
 
               </h1>
 
-              <p className="mt-5 max-w-[540px] text-[15px] leading-relaxed text-[var(--kwork-text-muted)] sm:text-[17px]">
+              <p className="mt-5 max-w-[540px] text-[15px] leading-relaxed text-[var(--ishbor-text-muted)] sm:text-[17px]">
 
                 {t('landing_hero_sub')}
 
               </p>
-
-
-
-              <MarketplacePulse stats={stats} className="mt-5" />
 
 
 
@@ -309,90 +283,47 @@ export function LandingPage() {
                 variant="hero"
               />
 
-              <div className="landing-hero-actions mt-6">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  className="rounded-full px-7 font-bold shadow-[0_8px_24px_color-mix(in_srgb,var(--color-primary)_28%,transparent)]"
-                  onClick={handleSearch}
-                >
-                  {t('browse_services')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="rounded-full border-[var(--kwork-border)] bg-[color-mix(in_srgb,var(--neutral-0)_85%,transparent)] px-7 font-bold backdrop-blur-sm"
-                  onClick={() => router.push(PATHS.register)}
-                >
-                  {t('start_now')}
-                </Button>
-              </div>
+              {!isLoggedIn && (
+                <div className="landing-hero-actions mt-6">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="rounded-full border-[var(--ishbor-border)] bg-[color-mix(in_srgb,var(--neutral-0)_85%,transparent)] px-7 font-bold backdrop-blur-sm"
+                    onClick={() => router.push(PATHS.register)}
+                  >
+                    {t('start_now')}
+                  </Button>
+                </div>
+              )}
 
-              <div className="landing-hero-shortcuts">
-                <Link href={PATHS.services} className="landing-hero-shortcut">
-                  <Search className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
-                  {t('nav_services')}
-                </Link>
+              <MarketplacePulse stats={stats} className="mt-5" />
+
+              <div className="landing-hero-shortcuts mt-5">
                 <Link href={PATHS.freelancers} className="landing-hero-shortcut">
                   <Users className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
                   {t('nav_freelancers')}
                 </Link>
                 <Link href={PATHS.projects} className="landing-hero-shortcut">
                   <Briefcase className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
-                  {t('nav_projects')}
+                  {t('nav_project_marketplace')}
                 </Link>
-              </div>
-
-
-
-              <TrustStrip className="mt-7" />
-
-
-
-              <div className="mt-6 flex flex-wrap items-center gap-2">
-
-                <span className="text-[13px] font-medium text-[var(--kwork-text-muted)]">
-
-                  {t('hero_popular')}:
-
-                </span>
-
-                {POPULAR_TAGS.map(({ key, cat }) => (
-
-                  <button
-
-                    key={key}
-
-                    type="button"
-
-                    onClick={() => router.push(`${PATHS.services}?cat=${cat}`)}
-
-                    className="kwork-landing-tag"
-
-                  >
-
-                    <Search className="h-3.5 w-3.5 shrink-0 opacity-60" />
-
-                    {t(key)}
-
-                  </button>
-
-                ))}
-
               </div>
 
             </div>
 
 
 
-            {showFeaturedCard && (
-              <div className="landing-hero-spotlight relative mx-auto w-full max-w-[380px] lg:mx-0">
+            {showFeaturedCard && featured && (
+              <Link
+                href={freelancerPath(featured)}
+                className="landing-hero-spotlight relative mx-auto block w-full max-w-[380px] transition hover:opacity-[0.98] lg:mx-0"
+              >
                 <div className="landing-hero-spotlight-inner">
-                  <div className="kwork-hero-visual">
+                  <div className="ishbor-hero-visual">
                     <Avatar name={featuredName ?? t('freelancer')} size={120} />
                   </div>
                 </div>
-                <div className="kwork-hero-badge">
+                <div className="ishbor-hero-badge">
                   {featuredRating != null && featuredRating > 0 && (
                     <div className="flex gap-0.5">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -408,26 +339,21 @@ export function LandingPage() {
                       ))}
                     </div>
                   )}
-                  <p className="mt-1 text-[13px] font-semibold text-[var(--kwork-text)]">
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--ishbor-text)]">
                     {featuredName}, {featuredRole}
                   </p>
                   {featuredRating != null && featuredRating > 0 && (
-                    <p className="text-[12px] text-[var(--kwork-text-muted)]">
+                    <p className="text-[12px] text-[var(--ishbor-text-muted)]">
                       {featuredRating.toFixed(1)} · {t('nav_freelancers')}
                     </p>
                   )}
                 </div>
-              </div>
+              </Link>
             )}
 
           </div>
 
 
-
-          <LandingStatsRow stats={stats} />
-          {statsUnavailable && (
-            <p className="mt-2 text-center text-[11px] text-[var(--kwork-text-muted)]">{t('landing_stats_unavailable')}</p>
-          )}
 
         </div>
 
@@ -437,17 +363,15 @@ export function LandingPage() {
 
       <LandingCategoryGrid stats={stats} />
 
-      <LandingTopFreelancers stats={stats} />
-
       <section className="landing-featured-section page-section">
 
         <div className="layout-container max-w-[1280px]">
 
-          <div className="surface-panel rounded-2xl border border-[var(--kwork-border)] p-5 shadow-[var(--shadow-card)] sm:p-7">
+          <div className="surface-panel rounded-2xl border border-[var(--ishbor-border)] p-5 shadow-[var(--shadow-card)] sm:p-7">
 
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-              <h2 className="kwork-section-title mb-0">{t('kwork_popular_services')}</h2>
+              <h2 className="ishbor-section-title mb-0">{t('kwork_popular_services')}</h2>
 
               <Link
 
@@ -473,7 +397,7 @@ export function LandingPage() {
 
             {loading ? (
 
-              <div className="kwork-grid mt-5">
+              <div className="ishbor-grid mt-5">
 
                 {Array.from({ length: 8 }).map((_, i) => (
 
@@ -493,7 +417,7 @@ export function LandingPage() {
               />
             ) : (
 
-              <div className="kwork-grid mt-5">
+              <div className="ishbor-grid mt-5">
 
                 {filteredServices.slice(0, 8).map((svc) => (
 
@@ -534,18 +458,24 @@ export function LandingPage() {
 
       </section>
 
+      <LandingTopFreelancers stats={stats} />
 
+      <LandingStatsRow stats={stats} />
+      {statsUnavailable && (
+        <p className="layout-container max-w-[1280px] pb-6 text-center text-[11px] text-[var(--ishbor-text-muted)]">
+          {t('landing_stats_unavailable')}
+        </p>
+      )}
 
       <LandingHowItWorks />
 
       <LandingTestimonials />
 
-      <LandingDarkTrust />
-
       <LandingCtaBanner />
 
+      {!isLoggedIn && !promoVisible && (
       <div className="mobile-sticky-cta show-mobile">
-        <p className="min-w-0 flex-1 text-[13px] font-medium text-[var(--kwork-text)]">{t('kwork_hero_headline')}</p>
+        <p className="min-w-0 flex-1 text-[13px] font-medium text-[var(--ishbor-text)]">{t('kwork_hero_headline')}</p>
         <Button
           variant="primary"
           size="md"
@@ -555,6 +485,7 @@ export function LandingPage() {
           {t('register')}
         </Button>
       </div>
+      )}
 
     </div>
 

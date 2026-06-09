@@ -5,12 +5,12 @@ import { MILESTONE_STATUS_KEYS, marketplaceStatusLabel } from '@/shared/lib/mark
 import { cn } from '@/shared/lib/utils'
 
 const STATUS_CLASS: Record<string, string> = {
-  pending: 'bg-[var(--neutral-100)] text-[var(--kwork-text-muted)]',
+  pending: 'bg-[var(--neutral-100)] text-[var(--ishbor-text-muted)]',
   funded: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
   submitted: 'bg-[var(--warning-bg)] text-[var(--warning-dark)]',
   approved: 'bg-[var(--success-bg)] text-[var(--success-dark)]',
   released: 'bg-[var(--success-bg)] text-[var(--success-dark)]',
-  cancelled: 'bg-[var(--neutral-100)] text-[var(--kwork-text-muted)]',
+  cancelled: 'bg-[var(--neutral-100)] text-[var(--ishbor-text-muted)]',
 }
 
 export function MilestoneStatusBadge({ status }: { status?: string | null }) {

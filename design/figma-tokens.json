@@ -53,6 +53,16 @@
         "filled": { "value": "#F59E0B", "type": "color" },
         "empty": { "value": "#E2E8F0", "type": "color" }
       },
+      "secondary": {
+        "default": { "value": "{IshBor.color.neutral.100}", "type": "color", "description": "Secondary button/chip bg" },
+        "hover": { "value": "{IshBor.color.neutral.200}", "type": "color" },
+        "text": { "value": "{IshBor.color.neutral.700}", "type": "color" }
+      },
+      "accent": {
+        "default": { "value": "#7C3AED", "type": "color", "description": "Highlights, premium badges" },
+        "light": { "value": "#F5F3FF", "type": "color" },
+        "text": { "value": "#5B21B6", "type": "color" }
+      },
       "surface": {
         "light": {
           "bg": { "value": "{IshBor.color.neutral.0}", "type": "color" },

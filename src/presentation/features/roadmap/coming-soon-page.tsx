@@ -42,8 +42,8 @@ export function ComingSoonPage({ titleKey, descKey }: ComingSoonPageProps) {
       <div className="mb-4 text-[var(--color-primary)] [&>svg]:h-14 [&>svg]:w-14">
         <Construction />
       </div>
-      <h1 className="text-2xl font-bold text-[var(--kwork-text)]">{t(titleKey)}</h1>
-      <p className="mt-3 max-w-md text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">{t(descKey)}</p>
+      <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t(titleKey)}</h1>
+      <p className="mt-3 max-w-md text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{t(descKey)}</p>
 
       <form onSubmit={handleWaitlist} className="mt-8 flex w-full max-w-sm flex-col gap-2 sm:flex-row">
         <Input

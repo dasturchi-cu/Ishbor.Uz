@@ -15,12 +15,12 @@ export interface EmptyStateProps {
 export function EmptyState({ icon, title, description, action, secondaryAction, compact }: EmptyStateProps) {
   if (compact) {
     return (
-      <div className="dashboard-empty-inline rounded-[var(--r-md)] border border-dashed border-[var(--kwork-border)] bg-[var(--neutral-50)] px-4 py-3">
-        <div className="dashboard-empty-inline-icon text-[var(--kwork-text-muted)] [&>svg]:h-8 [&>svg]:w-8">{icon}</div>
+      <div className="dashboard-empty-inline rounded-[var(--r-md)] border border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-50)] px-4 py-3">
+        <div className="dashboard-empty-inline-icon text-[var(--ishbor-text-muted)] [&>svg]:h-8 [&>svg]:w-8">{icon}</div>
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold text-[var(--kwork-text)]">{title}</p>
+          <p className="text-[14px] font-semibold text-[var(--ishbor-text)]">{title}</p>
           {description && (
-            <p className="mt-0.5 text-[13px] leading-snug text-[var(--kwork-text-muted)]">{description}</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-[var(--ishbor-text-muted)]">{description}</p>
           )}
         </div>
         {action && (
@@ -41,9 +41,9 @@ export function EmptyState({ icon, title, description, action, secondaryAction, 
           {icon}
         </div>
       </div>
-      <h3 className="text-[var(--text-h4)] font-bold text-[var(--kwork-text)]">{title}</h3>
+      <h3 className="text-[var(--text-h4)] font-bold text-[var(--ishbor-text)]">{title}</h3>
       {description && (
-        <p className="max-w-[320px] text-[14px] leading-relaxed text-[var(--kwork-text-muted)]">{description}</p>
+        <p className="max-w-[320px] text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{description}</p>
       )}
       {(action || secondaryAction) && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2">

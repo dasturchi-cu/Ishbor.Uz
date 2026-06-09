@@ -14,7 +14,11 @@ export function profileCompletionPercent(
   ]
 
   if (role === 'freelancer') {
-    checks.push(Boolean(profile.specialty?.trim()), Boolean(profile.bio?.trim()))
+    checks.push(
+      Boolean(profile.specialty?.trim()),
+      Boolean(profile.bio?.trim()),
+      (profile.portfolio_urls?.length ?? 0) > 0,
+    )
   }
 
   const done = checks.filter(Boolean).length

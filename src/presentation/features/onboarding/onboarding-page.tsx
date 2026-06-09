@@ -19,6 +19,7 @@ import { uploadAvatar } from '@/infrastructure/supabase/storage'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { pickAvailableUsername } from '@/shared/lib/username'
 import { serviceCreateSchema } from '@/domain/validators/service'
+import { parseServiceIncludesText } from '@/shared/lib/service-includes'
 import {
   normalizeExpLevel,
   normalizeLanguages,
@@ -62,6 +63,7 @@ export function OnboardingPage() {
   const [serviceTitle, setServiceTitle] = useState('')
   const [serviceCategory, setServiceCategory] = useState('')
   const [serviceDesc, setServiceDesc] = useState('')
+  const [serviceIncludesText, setServiceIncludesText] = useState('')
   const [packagePrice, setPackagePrice] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'error'>('idle')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -401,6 +403,7 @@ export function OnboardingPage() {
       region: string
       price: number
       delivery_days: number
+      includes: string[]
     } | null = null
 
     if (!isClient && !skipService && serviceTitle.trim() && serviceCategory && serviceDesc.trim()) {
@@ -413,6 +416,7 @@ export function OnboardingPage() {
         region,
         price,
         delivery_days: 5,
+        includes: parseServiceIncludesText(serviceIncludesText),
       })
       if (!parsed.success || price <= 0) {
         toast.error(t('onboarding_service_error'))
@@ -425,6 +429,7 @@ export function OnboardingPage() {
         region: parsed.data.region,
         price: parsed.data.price,
         delivery_days: parsed.data.delivery_days ?? 5,
+        includes: parsed.data.includes,
       }
     }
 
@@ -468,10 +473,10 @@ export function OnboardingPage() {
 
   const renderProgress = () => (
     <div className="mb-6">
-      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--kwork-border)]">
+      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--ishbor-border)]">
         <div className="h-full rounded-full bg-[var(--color-primary)] transition-all" style={{ width: `${progress}%` }} />
       </div>
-      <p className="mt-2 text-center text-[13px] text-[var(--kwork-text-muted)]">
+      <p className="mt-2 text-center text-[13px] text-[var(--ishbor-text-muted)]">
         {t('step_n_of_total').replace('{n}', String(step)).replace('{total}', String(totalSteps))}
       </p>
     </div>
@@ -479,10 +484,10 @@ export function OnboardingPage() {
 
   if (step === 1) {
     return (
-      <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
+      <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
         <div className="surface-panel form-shell p-6 sm:p-8">
           {renderProgress()}
-          <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">
+          <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">
             {isClient ? t('onboarding_client_profile_title') : t('onboarding_profile_title')}
           </h1>
           <div className="mt-6 space-y-5">
@@ -535,7 +540,7 @@ export function OnboardingPage() {
                 error={fieldErrors.username}
               />
               {usernameStatus === 'checking' && (
-                <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{t('username_checking')}</p>
+                <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('username_checking')}</p>
               )}
               {usernameStatus === 'ok' && (
                 <p className="mt-1 text-[12px] text-[var(--success-dark)]">{t('username_available')}</p>
@@ -571,7 +576,7 @@ export function OnboardingPage() {
                     rows={4}
                     error={fieldErrors.bio}
                   />
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[var(--kwork-text-muted)]">
+                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[var(--ishbor-text-muted)]">
                     <span>{t('onboarding_bio_hint')}</span>
                     <span className="shrink-0">
                       {t('char_counter').replace('{n}', String(bio.length)).replace('{max}', '500')}
@@ -615,12 +620,12 @@ export function OnboardingPage() {
             type="button"
             disabled={!step1Valid || saving}
             onClick={() => void finish(true)}
-            className="mt-4 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-4 block w-full text-center text-[13px] text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t('skip')}
           </button>
           {isClient && (
-            <p className="mt-6 text-center text-[12px] text-[var(--kwork-text-muted)]">{t('client_find_freelancer_hint')}</p>
+            <p className="mt-6 text-center text-[12px] text-[var(--ishbor-text-muted)]">{t('client_find_freelancer_hint')}</p>
           )}
         </div>
       </div>
@@ -629,29 +634,29 @@ export function OnboardingPage() {
 
   if (isClient && step === 2) {
     return (
-      <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
+      <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
         <div className="surface-panel form-shell p-6 sm:p-8">
           {renderProgress()}
-          <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">{t('onboarding_client_project_title')}</h1>
+          <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">{t('onboarding_client_project_title')}</h1>
           <div className="mt-6 space-y-4">
             <button
               type="button"
               onClick={() => void completeAndGo(PATHS.postProject)}
-              className="block w-full rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
+              className="block w-full rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
             >
               <Briefcase className="h-12 w-12 text-[var(--color-primary)]" />
-              <h3 className="mt-4 text-[16px] font-bold text-[var(--kwork-text)]">{t('post_project_now')}</h3>
-              <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('post_project_now_desc')}</p>
+              <h3 className="mt-4 text-[16px] font-bold text-[var(--ishbor-text)]">{t('post_project_now')}</h3>
+              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('post_project_now_desc')}</p>
               <Button variant="primary" size="sm" className="mt-4 pointer-events-none">{t('post_project_btn')}</Button>
             </button>
             <button
               type="button"
               onClick={() => void completeAndGo(PATHS.services)}
-              className="block w-full rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
+              className="block w-full rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
             >
               <Search className="h-12 w-12 text-[var(--color-primary)]" />
-              <h3 className="mt-4 text-[16px] font-bold text-[var(--kwork-text)]">{t('browse_catalog_title')}</h3>
-              <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{t('browse_catalog_desc')}</p>
+              <h3 className="mt-4 text-[16px] font-bold text-[var(--ishbor-text)]">{t('browse_catalog_title')}</h3>
+              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('browse_catalog_desc')}</p>
               <Button variant="outline" size="sm" className="mt-4 pointer-events-none">{t('go_to_catalog')}</Button>
             </button>
           </div>
@@ -659,7 +664,7 @@ export function OnboardingPage() {
             type="button"
             disabled={saving}
             onClick={() => void finish(true)}
-            className="mt-8 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)] disabled:opacity-50"
+            className="mt-8 block w-full text-center text-[13px] text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)] disabled:opacity-50"
           >
             {t('decide_later')}
           </button>
@@ -670,10 +675,10 @@ export function OnboardingPage() {
 
   if (!isClient && step === 2) {
     return (
-      <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
+      <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
         <div className="surface-panel form-shell p-6 sm:p-8">
           {renderProgress()}
-          <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">{t('onboarding_skills_title')}</h1>
+          <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">{t('onboarding_skills_title')}</h1>
           <div className="mt-6 space-y-5">
             <div>
               <Input
@@ -681,7 +686,7 @@ export function OnboardingPage() {
                 value={skillInput}
                 onChange={(e) => setSkillInput(e.target.value)}
                 placeholder={t('skills_placeholder')}
-                className="catalog-control !h-[42px] border-[var(--kwork-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-xs)]"
+                className="catalog-control !h-[42px] border-[var(--ishbor-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-xs)]"
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill(skillInput))}
               />
               <div className="mt-2 flex flex-wrap gap-2">
@@ -692,10 +697,10 @@ export function OnboardingPage() {
                   </span>
                 ))}
               </div>
-              <p className="mt-3 text-[12px] font-medium text-[var(--kwork-text-muted)]">{t('popular_skills')}</p>
+              <p className="mt-3 text-[12px] font-medium text-[var(--ishbor-text-muted)]">{t('popular_skills')}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {POPULAR_SKILLS.map((s) => (
-                  <button key={s} type="button" onClick={() => addSkill(s)} className="rounded-full border border-[var(--kwork-border)] px-3 py-1 text-[12px] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+                  <button key={s} type="button" onClick={() => addSkill(s)} className="rounded-full border border-[var(--ishbor-border)] px-3 py-1 text-[12px] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
                     {s}
                   </button>
                 ))}
@@ -717,13 +722,13 @@ export function OnboardingPage() {
                     onClick={() => setExpLevel(card.id)}
                     className={cn(
                       'rounded-xl border p-4 text-left transition',
-                      active ? 'border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'border-[var(--kwork-border)] bg-[var(--neutral-0)] hover:bg-[var(--color-primary-light)]/50'
+                      active ? 'border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'border-[var(--ishbor-border)] bg-[var(--neutral-0)] hover:bg-[var(--color-primary-light)]/50'
                     )}
                   >
                     <Icon className="h-6 w-6" style={{ color: card.color }} />
-                    <p className="mt-2 text-[14px] font-bold text-[var(--kwork-text)]">{card.title}</p>
-                    <p className="text-[12px] text-[var(--kwork-text-muted)]">{card.desc}</p>
-                    <p className="mt-1 text-[11px] text-[var(--kwork-text-muted)]">{card.sub}</p>
+                    <p className="mt-2 text-[14px] font-bold text-[var(--ishbor-text)]">{card.title}</p>
+                    <p className="text-[12px] text-[var(--ishbor-text-muted)]">{card.desc}</p>
+                    <p className="mt-1 text-[11px] text-[var(--ishbor-text-muted)]">{card.sub}</p>
                   </button>
                 )
               })}
@@ -795,10 +800,10 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-var(--kwork-header-h))] bg-[var(--neutral-50)] px-4 py-8">
+    <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
       <div className="surface-panel form-shell p-6 sm:p-8">
         {renderProgress()}
-        <h1 className="text-[22px] font-bold text-[var(--kwork-text)]">{t('onboarding_first_service_title')}</h1>
+        <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">{t('onboarding_first_service_title')}</h1>
         <div className="mt-6 space-y-5">
           <Input label={t('service_title')} value={serviceTitle} onChange={(e) => setServiceTitle(e.target.value)} placeholder={t('service_title_ph')} />
           <Select
@@ -816,18 +821,26 @@ export function OnboardingPage() {
             rows={6}
             hint={t('onboarding_service_desc_hint')}
           />
+          <Textarea
+            label={t('service_includes_title')}
+            value={serviceIncludesText}
+            onChange={(e) => setServiceIncludesText(e.target.value)}
+            rows={4}
+            hint={t('service_includes_hint')}
+            placeholder={t('service_includes_ph')}
+          />
           <Input
             label={t('col_price')}
             value={packagePrice}
             onChange={(e) => setPackagePrice(e.target.value)}
             placeholder={t('price_placeholder')}
           />
-          <p className="text-[12px] text-[var(--kwork-text-muted)]">{t('onboarding_single_package_hint')}</p>
+          <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('onboarding_single_package_hint')}</p>
         </div>
         <Button variant="primary" fullWidth size="lg" className="mt-8" onClick={() => finish()}>
           {t('finish_profile')}
         </Button>
-        <button type="button" onClick={() => finish(true)} className="mt-4 block w-full text-center text-[13px] text-[var(--kwork-text-muted)] hover:text-[var(--color-primary)]">
+        <button type="button" onClick={() => finish(true)} className="mt-4 block w-full text-center text-[13px] text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)]">
           {t('add_later')}
         </button>
       </div>

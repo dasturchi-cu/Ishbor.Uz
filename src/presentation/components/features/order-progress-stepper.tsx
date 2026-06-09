@@ -44,7 +44,8 @@ export function OrderProgressStepper({
   }
 
   return (
-    <ol className="flex flex-wrap items-center gap-2 sm:gap-0">
+    <div className="ishbor-order-progress">
+    <ol className="ishbor-order-progress__steps flex flex-wrap items-center gap-2 sm:gap-0">
       {STEPS.map((step, i) => {
         const done = current > i
         const active = current === i
@@ -59,7 +60,7 @@ export function OrderProgressStepper({
                   done && 'bg-[var(--color-primary)] text-white',
                   active && awaitingPayment && 'border-2 border-[var(--warning)] bg-[var(--warning-bg)] text-[var(--warning-dark)]',
                   active && !awaitingPayment && 'border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]',
-                  !done && !active && 'bg-[var(--color-bg-muted)] text-[var(--kwork-text-muted)]',
+                  !done && !active && 'bg-[var(--color-bg-muted)] text-[var(--ishbor-text-muted)]',
                 )}
               >
                 {i + 1}
@@ -67,7 +68,7 @@ export function OrderProgressStepper({
               <span
                 className={cn(
                   'text-[12px] font-medium sm:text-[13px]',
-                  (done || active) ? 'text-[var(--kwork-text)]' : 'text-[var(--kwork-text-muted)]',
+                  (done || active) ? 'text-[var(--ishbor-text)]' : 'text-[var(--ishbor-text-muted)]',
                   active && awaitingPayment && 'text-[var(--warning-dark)]',
                 )}
               >
@@ -78,7 +79,7 @@ export function OrderProgressStepper({
               <span
                 className={cn(
                   'mx-2 hidden h-px w-6 sm:block md:w-10',
-                  done ? 'bg-[var(--color-primary)]' : 'bg-[var(--kwork-border)]',
+                  done ? 'bg-[var(--color-primary)]' : 'bg-[var(--ishbor-border)]',
                 )}
                 aria-hidden
               />
@@ -87,5 +88,6 @@ export function OrderProgressStepper({
         )
       })}
     </ol>
+    </div>
   )
 }

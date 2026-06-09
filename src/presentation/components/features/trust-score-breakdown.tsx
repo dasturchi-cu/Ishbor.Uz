@@ -63,7 +63,7 @@ export function TrustScoreBreakdown({ userId }: { userId?: string }) {
   return (
     <div className="surface-panel p-5">
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h3 className="text-[15px] font-bold text-[var(--kwork-text)]">{t('trust_breakdown_title')}</h3>
+        <h3 className="text-[15px] font-bold text-[var(--ishbor-text)]">{t('trust_breakdown_title')}</h3>
         <ReputationBadge trustScore={data.trust_score} />
         {breakdown.is_verified ? <VerifiedBadge /> : null}
       </div>
@@ -73,15 +73,15 @@ export function TrustScoreBreakdown({ userId }: { userId?: string }) {
           if (!val && key !== 'verification_points') return null
           return (
             <li key={key} className="flex items-center justify-between text-[13px]">
-              <span className="text-[var(--kwork-text-muted)]">{t(labelKey)}</span>
-              <span className={negative ? 'font-semibold text-[var(--error)]' : 'font-semibold text-[var(--kwork-text)]'}>
+              <span className="text-[var(--ishbor-text-muted)]">{t(labelKey)}</span>
+              <span className={negative ? 'font-semibold text-[var(--error)]' : 'font-semibold text-[var(--ishbor-text)]'}>
                 {negative ? `-${val}` : `+${val}`}
               </span>
             </li>
           )
         })}
       </ul>
-      <p className="mt-4 text-[12px] text-[var(--kwork-text-muted)]">
+      <p className="mt-4 text-[12px] text-[var(--ishbor-text-muted)]">
         {t('trust_pts_orders')}: {data.completed_orders} · {t('trust_pts_reviews')}: {data.review_count}
       </p>
     </div>

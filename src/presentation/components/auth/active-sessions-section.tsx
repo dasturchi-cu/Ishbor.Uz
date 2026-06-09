@@ -71,16 +71,16 @@ export function ActiveSessionsSection() {
       {loading ? (
         <div className="mt-4 h-14 animate-pulse rounded-lg bg-[var(--color-bg-muted)]" />
       ) : (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--kwork-border)] px-4 py-3">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--ishbor-border)] px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-primary-light)] text-[var(--color-primary)]">
               <Monitor className="h-4 w-4" aria-hidden />
             </div>
             <div>
-              <p className="text-[13px] font-medium text-[var(--kwork-text)]">
+              <p className="text-[13px] font-medium text-[var(--ishbor-text)]">
                 {t('session_this_device')}
               </p>
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">
+              <p className="text-[12px] text-[var(--ishbor-text-muted)]">
                 {t('session_last_active').replace('{date}', lastActive)}
               </p>
             </div>

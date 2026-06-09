@@ -33,7 +33,7 @@
 |------|-------|
 | Backend `run_query` (kritik routerlar) | ✅ ~95% |
 | Auth race (`useAuthReady` / `useProtectedLoader`) | ✅ ~99% |
-| Enterprise security migration | ⚠️ `pnpm db:push` kerak |
+| Enterprise security migration | ⚠️ `pnpm db:push` kerak (`includes` + `faq` migratsiyalari ham) |
 | Build + lint | ✅ 0 xato |
 | Click/Payme live | ⬜ scope tashqari |
 

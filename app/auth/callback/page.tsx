@@ -66,7 +66,7 @@ function AuthCallbackContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)]">
-      <p className="text-sm text-[var(--kwork-text-muted)]">
+      <p className="text-sm text-[var(--ishbor-text-muted)]">
         {error || t('auth_callback_loading')}
       </p>
     </div>

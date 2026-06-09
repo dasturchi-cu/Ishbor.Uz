@@ -8,8 +8,8 @@ export type StatCardIconTone = 'primary' | 'success' | 'warning' | 'purple'
 const ICON_TONE_CLASS: Record<StatCardIconTone, string> = {
   primary: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
   success: 'bg-[var(--success-bg)] text-[var(--success)]',
-  warning: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
-  purple: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400',
+  warning: 'bg-[var(--warning-bg)] text-[var(--warning)]',
+  purple: 'bg-[var(--color-accent-light)] text-[var(--color-accent)]',
 }
 
 export interface StatCardProps {
@@ -55,7 +55,7 @@ export function StatCard({
                 className={cn(
                   'mt-1 text-[11px] font-semibold',
                   changeNeutral
-                    ? 'text-[var(--kwork-text-muted)]'
+                    ? 'text-[var(--ishbor-text-muted)]'
                     : changePositive
                       ? 'text-[var(--success)]'
                       : 'text-[var(--error)]'

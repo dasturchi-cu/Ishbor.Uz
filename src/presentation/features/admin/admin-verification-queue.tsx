@@ -48,25 +48,25 @@ export function AdminVerificationQueue({ items, onReviewed }: AdminVerificationQ
   }
 
   if (items.length === 0) {
-    return <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_verifications_empty')}</p>
+    return <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_verifications_empty')}</p>
   }
 
   return (
     <>
       <div className="space-y-3">
         {items.map((v) => (
-          <div key={v.id} className="rounded-lg border border-[var(--kwork-border)] p-4">
+          <div key={v.id} className="rounded-lg border border-[var(--ishbor-border)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="flex items-center gap-2 text-[14px] font-semibold text-[var(--kwork-text)]">
+                <p className="flex items-center gap-2 text-[14px] font-semibold text-[var(--ishbor-text)]">
                   <ShieldCheck className="h-4 w-4 text-[var(--color-primary)]" />
                   {t(VERIFICATION_TYPE_KEYS[v.verification_type] ?? 'verification_type_identity')}
                 </p>
-                <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">
+                <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">
                   {t('admin_verification_user')}: {v.user_id.slice(0, 8)}…
                   {v.created_at && ` · ${formatRelativeTime(v.created_at, language)}`}
                 </p>
-                {v.notes && <p className="mt-2 text-[13px] text-[var(--kwork-text-sub)]">{v.notes}</p>}
+                {v.notes && <p className="mt-2 text-[13px] text-[var(--ishbor-text-sub)]">{v.notes}</p>}
                 {v.document_urls && v.document_urls.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {v.document_urls.filter(isAllowedExternalUrl).map((url) => (
@@ -88,7 +88,7 @@ export function AdminVerificationQueue({ items, onReviewed }: AdminVerificationQ
               <div className="flex shrink-0 flex-wrap gap-2">
                 <Link
                   href={`${PATHS.admin}/users`}
-                  className="rounded-lg border border-[var(--kwork-border)] px-3 py-1.5 text-[12px] font-medium hover:bg-[var(--neutral-50)]"
+                  className="rounded-lg border border-[var(--ishbor-border)] px-3 py-1.5 text-[12px] font-medium hover:bg-[var(--neutral-50)]"
                 >
                   {t('admin_view_user')}
                 </Link>
@@ -122,11 +122,11 @@ export function AdminVerificationQueue({ items, onReviewed }: AdminVerificationQ
 
       {pending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 shadow-lg">
+          <div className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 shadow-lg">
             <h3 className="text-[16px] font-bold">
               {approve ? t('admin_verify_confirm_approve') : t('admin_verify_confirm_reject')}
             </h3>
-            <p className="mt-2 text-[13px] text-[var(--kwork-text-muted)]">
+            <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
               {t(VERIFICATION_TYPE_KEYS[pending.verification_type] ?? 'verification_type_identity')} ·{' '}
               {pending.user_id.slice(0, 8)}…
             </p>

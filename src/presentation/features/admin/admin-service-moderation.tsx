@@ -40,7 +40,7 @@ export function AdminServiceModeration() {
   if (loading) return <LoadingBlock />
 
   if (items.length === 0) {
-    return <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('admin_service_moderation_empty')}</p>
+    return <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_service_moderation_empty')}</p>
   }
 
   return (
@@ -50,11 +50,11 @@ export function AdminServiceModeration() {
         {items.map((svc) => (
           <li
             key={svc.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-md)] border border-[var(--kwork-border)] p-3"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-md)] border border-[var(--ishbor-border)] p-3"
           >
             <div>
-              <p className="font-semibold text-[var(--kwork-text)]">{svc.title}</p>
-              <p className="text-[12px] text-[var(--kwork-text-muted)]">
+              <p className="font-semibold text-[var(--ishbor-text)]">{svc.title}</p>
+              <p className="text-[12px] text-[var(--ishbor-text-muted)]">
                 {svc.profiles?.full_name ?? svc.freelancer_id}
               </p>
             </div>

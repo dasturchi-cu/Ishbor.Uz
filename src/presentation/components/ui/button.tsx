@@ -15,28 +15,28 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantStyles: Record<string, string> = {
   primary:
-    'bg-[var(--color-primary)] text-[var(--color-on-primary)] shadow-none hover:bg-[var(--color-primary-hover)] hover:shadow-[0_2px_10px_color-mix(in_srgb,var(--color-primary)_30%,transparent)] active:bg-[var(--color-primary-active)] disabled:bg-[var(--color-primary-disabled-bg)] disabled:text-[var(--color-primary-disabled-text)] disabled:opacity-100',
+    'bg-[var(--color-primary)] text-[var(--color-on-primary)] shadow-[var(--shadow-xs)] hover:bg-[var(--color-primary-hover)] hover:shadow-[0_2px_8px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] active:bg-[var(--color-primary-active)] active:shadow-none disabled:bg-[var(--color-primary-disabled-bg)] disabled:text-[var(--color-primary-disabled-text)] disabled:shadow-none disabled:opacity-100',
   default:
-    'bg-[var(--color-primary)] text-[var(--color-on-primary)] shadow-none hover:bg-[var(--color-primary-hover)] hover:shadow-[0_2px_10px_color-mix(in_srgb,var(--color-primary)_30%,transparent)] active:bg-[var(--color-primary-active)] disabled:bg-[var(--color-primary-disabled-bg)] disabled:text-[var(--color-primary-disabled-text)] disabled:opacity-100',
+    'bg-[var(--color-primary)] text-[var(--color-on-primary)] shadow-[var(--shadow-xs)] hover:bg-[var(--color-primary-hover)] hover:shadow-[0_2px_8px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] active:bg-[var(--color-primary-active)] active:shadow-none disabled:bg-[var(--color-primary-disabled-bg)] disabled:text-[var(--color-primary-disabled-text)] disabled:shadow-none disabled:opacity-100',
   secondary:
-    'bg-[var(--color-bg-muted)] text-[var(--neutral-700)] hover:bg-[var(--color-border)] active:scale-[0.98]',
+    'bg-[var(--color-secondary)] text-[var(--color-secondary-text)] hover:bg-[var(--color-secondary-hover)] active:scale-[0.98]',
   outline:
-    'bg-transparent border border-[var(--color-border-strong)] text-[var(--neutral-700)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--neutral-400)] active:scale-[0.98]',
+    'bg-transparent border border-[var(--color-border)] text-[var(--color-text-sub)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] active:scale-[0.98]',
   ghost:
-    'bg-transparent text-[var(--color-text-sub)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--neutral-700)] active:scale-[0.98]',
+    'bg-transparent text-[var(--color-text-sub)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)] active:scale-[0.98]',
   danger:
-    'border border-[#B91C1C] bg-[#DC2626] text-white shadow-sm hover:bg-[#B91C1C] hover:text-white active:scale-[0.98]',
+    'border border-[var(--error-dark)] bg-[var(--error)] text-white shadow-[var(--shadow-xs)] hover:bg-[var(--error-dark)] hover:text-white active:scale-[0.98] active:shadow-none',
   destructive:
-    'border border-[#B91C1C] bg-[#DC2626] text-white shadow-sm hover:bg-[#B91C1C] hover:text-white active:scale-[0.98]',
+    'border border-[var(--error-dark)] bg-[var(--error)] text-white shadow-[var(--shadow-xs)] hover:bg-[var(--error-dark)] hover:text-white active:scale-[0.98] active:shadow-none',
   link:
     'bg-transparent p-0 h-auto text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] hover:underline active:scale-100 shadow-none',
 }
 
 const sizeStyles: Record<string, string> = {
-  sm: 'h-8 min-h-[var(--btn-h-sm)] px-3 text-[13px] rounded-[var(--r-sm)] [&_svg]:h-3.5 [&_svg]:w-3.5',
-  md: 'h-10 min-h-[var(--btn-h-md)] px-4 text-[14px] rounded-[var(--r-md)] [&_svg]:h-4 [&_svg]:w-4',
-  default: 'h-10 min-h-[var(--btn-h-md)] px-4 text-[14px] rounded-[var(--r-md)] [&_svg]:h-4 [&_svg]:w-4',
-  lg: 'h-12 min-h-[var(--btn-h-lg)] px-6 text-[15px] rounded-[var(--r-md)] [&_svg]:h-[18px] [&_svg]:w-[18px]',
+  sm: 'h-8 min-h-[var(--btn-h-sm)] px-3 text-[13px] font-medium rounded-[var(--r-sm)] [&_svg]:h-3.5 [&_svg]:w-3.5',
+  md: 'h-10 min-h-[var(--btn-h-md)] px-4 text-[14px] font-medium rounded-[var(--r-md)] [&_svg]:h-4 [&_svg]:w-4',
+  default: 'h-10 min-h-[var(--btn-h-md)] px-4 text-[14px] font-medium rounded-[var(--r-md)] [&_svg]:h-4 [&_svg]:w-4',
+  lg: 'h-12 min-h-[var(--btn-h-lg)] px-6 text-[15px] font-semibold rounded-[var(--r-md)] [&_svg]:h-[18px] [&_svg]:w-[18px]',
   icon: 'h-11 w-11 min-h-[44px] min-w-[44px] p-0 rounded-[var(--r-md)] [&_svg]:h-4 [&_svg]:w-4',
 }
 

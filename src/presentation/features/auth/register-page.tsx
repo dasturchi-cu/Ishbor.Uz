@@ -305,7 +305,7 @@ function RegisterPageContent() {
             {t('continue')} →
           </Button>
           {!role && (
-            <p className="text-center text-[12px] text-[var(--kwork-text-muted)]">{t('select_role_first')}</p>
+            <p className="text-center text-[12px] text-[var(--ishbor-text-muted)]">{t('select_role_first')}</p>
           )}
 
           {googleEnabled && (
@@ -592,12 +592,12 @@ function RoleCard({
       >
         {icon}
       </div>
-      <h3 className="text-[16px] font-bold text-[var(--kwork-text)]">{title}</h3>
-      <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">{subtitle}</p>
+      <h3 className="text-[16px] font-bold text-[var(--ishbor-text)]">{title}</h3>
+      <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{subtitle}</p>
       <ul className="mt-3 space-y-1.5">
         {bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2 text-[12px] text-[var(--kwork-text-muted)]">
-            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--kwork-text-muted)]" />
+          <li key={b} className="flex items-start gap-2 text-[12px] text-[var(--ishbor-text-muted)]">
+            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--ishbor-text-muted)]" />
             {b}
           </li>
         ))}

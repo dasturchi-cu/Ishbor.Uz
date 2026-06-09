@@ -9,6 +9,55 @@ from app.review_stats import batch_min_service_prices, batch_review_stats
 router = APIRouter(prefix="/stats", tags=["stats"])
 
 
+def _build_public_activity(supabase, limit: int = 6) -> list[dict]:
+    events: list[dict] = []
+
+    completed_orders = run_query(
+        lambda: supabase.table("orders")
+        .select("id, created_at, services(title)")
+        .eq("status", "completed")
+        .order("created_at", desc=True)
+        .limit(4)
+        .execute()
+    )
+    for row in completed_orders.data or []:
+        title = (row.get("services") or {}).get("title") or ""
+        if not title:
+            continue
+        events.append(
+            {
+                "id": f"completed-{row['id']}",
+                "kind": "order_completed",
+                "title": title,
+                "created_at": row.get("created_at"),
+            }
+        )
+
+    new_services = run_query(
+        lambda: supabase.table("services")
+        .select("id, title, created_at")
+        .eq("is_hidden", False)
+        .order("created_at", desc=True)
+        .limit(4)
+        .execute()
+    )
+    for row in new_services.data or []:
+        title = row.get("title") or ""
+        if not title:
+            continue
+        events.append(
+            {
+                "id": f"service-{row['id']}",
+                "kind": "new_service",
+                "title": title,
+                "created_at": row.get("created_at"),
+            }
+        )
+
+    events.sort(key=lambda e: e.get("created_at") or "", reverse=True)
+    return events[:limit]
+
+
 @router.get("/public")
 def public_stats():
     supabase = get_supabase_admin()
@@ -27,6 +76,12 @@ def public_stats():
         .execute()
     )
     orders = run_query(lambda: supabase.table("orders").select("id", count="exact").execute())
+    completed_orders = run_query(
+        lambda: supabase.table("orders")
+        .select("id", count="exact")
+        .eq("status", "completed")
+        .execute()
+    )
 
     reviews = run_query(lambda: supabase.table("reviews").select("rating").execute())
     ratings = [r["rating"] for r in (reviews.data or [])]
@@ -65,7 +120,7 @@ def public_stats():
 
     top_freelancers = run_query(
         lambda: supabase.table("profiles")
-        .select("id, full_name, specialty, region, role")
+        .select("id, full_name, specialty, region, role, is_verified, trust_score")
         .eq("role", "freelancer")
         .eq("is_banned", False)
         .order("created_at", desc=True)
@@ -92,6 +147,7 @@ def public_stats():
         )
 
     project_total = (projects.count or 0) + (orders.count or 0)
+    recent_activity = _build_public_activity(supabase)
 
     payload = {
         "commission_percent": 10,
@@ -101,10 +157,12 @@ def public_stats():
         "clients": clients.count or 0,
         "projects": project_total,
         "services": services.count or 0,
+        "completed_orders": completed_orders.count or 0,
         "avg_rating": avg_rating,
         "review_count": len(ratings),
         "category_counts": category_counts,
         "top_services": enriched_services,
+        "recent_activity": recent_activity,
         "featured_freelancers": enriched_freelancers,
     }
     return JSONResponse(

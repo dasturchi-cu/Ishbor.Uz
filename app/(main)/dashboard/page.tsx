@@ -3,7 +3,7 @@ import { FreelancerDashboard } from '@/presentation/features/dashboard/freelance
 
 export default function FreelancerDashboardRoute() {
   return (
-    <Suspense fallback={<div className="text-[var(--kwork-text-muted)]">...</div>}>
+    <Suspense fallback={<div className="text-[var(--ishbor-text-muted)]">...</div>}>
       <FreelancerDashboard />
     </Suspense>
   )

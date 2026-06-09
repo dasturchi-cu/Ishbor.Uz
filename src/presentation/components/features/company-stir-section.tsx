@@ -69,7 +69,7 @@ export function CompanyStirSection() {
 
   if (!company) {
     return (
-      <p className="text-[13px] text-[var(--kwork-text-muted)]">{t('stir_no_company')}</p>
+      <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('stir_no_company')}</p>
     )
   }
 
@@ -78,7 +78,7 @@ export function CompanyStirSection() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[13px] font-semibold text-[var(--kwork-text)]">{company.name}</p>
+        <p className="text-[13px] font-semibold text-[var(--ishbor-text)]">{company.name}</p>
         {company.stir_verified ? (
           <Badge variant="success" size="xs">
             {t('stir_verified_badge')}
@@ -102,7 +102,7 @@ export function CompanyStirSection() {
           />
           {userId && isSupabaseConfigured() && (
             <div className="max-w-[420px]">
-              <p className="mb-2 text-[13px] font-medium text-[var(--kwork-text)]">{t('stir_document_label')}</p>
+              <p className="mb-2 text-[13px] font-medium text-[var(--ishbor-text)]">{t('stir_document_label')}</p>
               <FileUploadZone
                 maxFiles={1}
                 maxSizeMb={5}
@@ -130,8 +130,8 @@ export function CompanyStirSection() {
           </Button>
         </>
       ) : (
-        <p className="text-[13px] text-[var(--kwork-text-muted)]">
-          {t('stir_number_label')}: <span className="font-semibold text-[var(--kwork-text)]">{company.stir}</span>
+        <p className="text-[13px] text-[var(--ishbor-text-muted)]">
+          {t('stir_number_label')}: <span className="font-semibold text-[var(--ishbor-text)]">{company.stir}</span>
         </p>
       )}
     </div>

@@ -166,13 +166,13 @@ export function WalletTopupModal({ open, onClose, onSuccess }: WalletTopupModalP
 
         aria-modal="true"
 
-        className="w-full max-w-md rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5 shadow-lg"
+        className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 shadow-lg"
 
       >
 
         <div className="mb-4 flex items-center justify-between">
 
-          <h2 className="text-[18px] font-bold text-[var(--kwork-text)]">{t('wallet_topup_title')}</h2>
+          <h2 className="text-[18px] font-bold text-[var(--ishbor-text)]">{t('wallet_topup_title')}</h2>
 
           <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--neutral-50)]" aria-label={t('close')}>
 
@@ -182,9 +182,9 @@ export function WalletTopupModal({ open, onClose, onSuccess }: WalletTopupModalP
 
         </div>
 
-        <p className="mb-4 text-[13px] text-[var(--kwork-text-muted)]">{t('wallet_topup_desc')}</p>
+        <p className="mb-4 text-[13px] text-[var(--ishbor-text-muted)]">{t('wallet_topup_desc')}</p>
 
-        <p className="mb-3 text-[12px] text-[var(--kwork-text-muted)]">{t('payment_sandbox_note')}</p>
+        <p className="mb-3 text-[12px] text-[var(--ishbor-text-muted)]">{t('payment_protected_note')}</p>
 
         <Input
 
@@ -210,7 +210,7 @@ export function WalletTopupModal({ open, onClose, onSuccess }: WalletTopupModalP
 
               onClick={() => setAmount(String(p))}
 
-              className="rounded-full border border-[var(--kwork-border)] px-3 py-1 text-[12px] font-medium hover:border-[var(--color-primary)]"
+              className="rounded-full border border-[var(--ishbor-border)] px-3 py-1 text-[12px] font-medium hover:border-[var(--color-primary)]"
 
             >
 

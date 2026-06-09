@@ -108,8 +108,8 @@ export function VacanciesCatalog() {
     <PageWrapper>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--kwork-text)]">{t('jobs_catalog_title')}</h1>
-          <p className="mt-1 text-[14px] text-[var(--kwork-text-muted)]">{t('jobs_catalog_subtitle')}</p>
+          <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('jobs_catalog_title')}</h1>
+          <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">{t('jobs_catalog_subtitle')}</p>
         </div>
         <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>
           {t('vacancy_create_btn')}
@@ -118,7 +118,7 @@ export function VacanciesCatalog() {
 
       {showForm && (
         <Card className="mb-6 space-y-4 p-5">
-          <h2 className="text-[16px] font-bold text-[var(--kwork-text)]">{t('vacancy_create_title')}</h2>
+          <h2 className="text-[16px] font-bold text-[var(--ishbor-text)]">{t('vacancy_create_title')}</h2>
           <Input
             label={t('vacancy_title_label')}
             value={title}
@@ -193,12 +193,12 @@ export function VacanciesCatalog() {
         <div className="grid gap-4 md:grid-cols-2">
           {vacancies.map((job) => (
             <Card key={job.id} className="p-5">
-              <h3 className="font-semibold text-[var(--kwork-text)]">{job.title}</h3>
-              <p className="mt-1 text-[12px] text-[var(--kwork-text-muted)]">
+              <h3 className="font-semibold text-[var(--ishbor-text)]">{job.title}</h3>
+              <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">
                 {[job.region, employmentLabel(job.employment_type)].filter(Boolean).join(' · ')}
               </p>
               {job.description && (
-                <p className="mt-2 line-clamp-3 text-[13px] text-[var(--kwork-text-sub)]">{job.description}</p>
+                <p className="mt-2 line-clamp-3 text-[13px] text-[var(--ishbor-text-sub)]">{job.description}</p>
               )}
               {(job.salary_min != null || job.salary_max != null) && (
                 <p className="mt-3 text-sm font-semibold text-[var(--color-primary)]">

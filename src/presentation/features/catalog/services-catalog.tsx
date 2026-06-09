@@ -31,6 +31,7 @@ import {
   buildPriceHistogram,
 } from '@/presentation/components/ui/price-range-slider'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 
 type CatalogService = {
   id: string
@@ -99,7 +100,7 @@ export function ServicesCatalog() {
 
 function ServicesCatalogSkeleton() {
   return (
-    <PageWrapper className="bg-[var(--kwork-bg)] pt-4 md:pt-5">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-4 md:pt-5">
       <div className="catalog-shell">
         <div className="catalog-shell-cats">
           <div className="h-16 animate-pulse rounded-lg bg-[var(--color-bg-muted)]" />
@@ -168,10 +169,10 @@ function ServicesCatalogContent() {
   const [maxDeliveryDays, setMaxDeliveryDays] = useState(0)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     category: true,
-    price: true,
-    delivery: true,
-    region: true,
-    experience: true,
+    price: false,
+    delivery: false,
+    region: false,
+    experience: false,
   })
 
   const DELIVERY_FILTER_OPTIONS = [0, 3, 7, 14, 30] as const
@@ -337,6 +338,13 @@ function ServicesCatalogContent() {
     .split(String(resultCount))
 
   const activeCategoryForIcons = selectedCategory === 'all' ? null : selectedCategory
+  const lowLiquidity = !hasActiveFilters && totalCount > 0 && totalCount < 8
+
+  useEffect(() => {
+    if (lowLiquidity && sortBy === 'popular') {
+      setSortBy('newest')
+    }
+  }, [lowLiquidity, sortBy])
 
   const filterSidebar = (
     <div className="catalog-filter-panel">
@@ -419,58 +427,62 @@ function ServicesCatalogContent() {
         </div>
       </FilterSection>
 
-      <FilterSection
-        title={t('filter_region')}
-        open={expandedSections.region}
-        onToggle={() => setExpandedSections((s) => ({ ...s, region: !s.region }))}
-      >
-        <div className="catalog-filter-select-wrap">
-          <Select
-            value={selectedRegion}
-            onChange={(e) => setSelectedRegion(e.target.value)}
-            options={[{ value: '', label: t('cat_all') }, ...UZ_REGIONS.map((r) => ({ value: r, label: r }))]}
-            className="catalog-filter-select"
-          />
-        </div>
-      </FilterSection>
-
-      <FilterSection
-        title={t('filter_level')}
-        open={expandedSections.experience}
-        onToggle={() => setExpandedSections((s) => ({ ...s, experience: !s.experience }))}
-      >
-        <p className="mb-2 text-[11px] leading-relaxed text-[var(--kwork-text-muted)]">
-          {t('filter_level_rating_hint')}
-        </p>
-        <div className="catalog-filter-options">
-          {(['exp_new', 'exp_mid', 'exp_expert'] as const).map((key) => (
-            <label
-              key={key}
-              className={cn(
-                'catalog-filter-option catalog-filter-option--check',
-                experienceFilters.includes(key) && 'catalog-filter-option--active'
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={experienceFilters.includes(key)}
-                onChange={(e) => {
-                  setExperienceFilters((prev) =>
-                    e.target.checked ? [...prev, key] : prev.filter((k) => k !== key)
-                  )
-                }}
+      {!lowLiquidity && (
+        <>
+          <FilterSection
+            title={t('filter_region')}
+            open={expandedSections.region}
+            onToggle={() => setExpandedSections((s) => ({ ...s, region: !s.region }))}
+          >
+            <div className="catalog-filter-select-wrap">
+              <Select
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+                options={[{ value: '', label: t('cat_all') }, ...UZ_REGIONS.map((r) => ({ value: r, label: r }))]}
+                className="catalog-filter-select"
               />
-              {t(key)}
-            </label>
-          ))}
-        </div>
-      </FilterSection>
+            </div>
+          </FilterSection>
+
+          <FilterSection
+            title={t('filter_level')}
+            open={expandedSections.experience}
+            onToggle={() => setExpandedSections((s) => ({ ...s, experience: !s.experience }))}
+          >
+            <p className="mb-2 text-[11px] leading-relaxed text-[var(--ishbor-text-muted)]">
+              {t('filter_level_rating_hint')}
+            </p>
+            <div className="catalog-filter-options">
+              {(['exp_new', 'exp_mid', 'exp_expert'] as const).map((key) => (
+                <label
+                  key={key}
+                  className={cn(
+                    'catalog-filter-option catalog-filter-option--check',
+                    experienceFilters.includes(key) && 'catalog-filter-option--active'
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={experienceFilters.includes(key)}
+                    onChange={(e) => {
+                      setExperienceFilters((prev) =>
+                        e.target.checked ? [...prev, key] : prev.filter((k) => k !== key)
+                      )
+                    }}
+                  />
+                  {t(key)}
+                </label>
+              ))}
+            </div>
+          </FilterSection>
+        </>
+      )}
     </div>
   )
 
   return (
     <PageWrapper
-      className="bg-[var(--kwork-bg)] pt-6 md:pt-8"
+      className="bg-[var(--ishbor-bg)] pt-6 md:pt-8"
       breadcrumb={[
         { label: t('home'), href: PATHS.home },
         { label: t('nav_services') },
@@ -549,6 +561,7 @@ function ServicesCatalogContent() {
                     onChange={(e) => setSortBy(e.target.value)}
                     options={[
                       { value: 'popular', label: t('sort_popular') },
+                      { value: 'newest', label: t('sort_newest') },
                       { value: 'rating', label: t('sort_rating') },
                       { value: 'delivery-fast', label: t('sort_delivery_fast') },
                       { value: 'price-low', label: t('sort_price_asc') },
@@ -575,6 +588,8 @@ function ServicesCatalogContent() {
                 </Button>
               </div>
             </div>
+
+            <IshborProtectionStrip compact className="mb-4" />
 
             {hasActiveFilters && (
               <div className="mb-3 flex flex-wrap gap-2">
@@ -626,9 +641,18 @@ function ServicesCatalogContent() {
             ) : filteredServices.length === 0 ? (
               <EmptyState
                 icon={<Search />}
-                title={t('no_services_found')}
-                description={t('no_services_desc')}
-                action={{ label: t('clear_filters'), onClick: resetFilters }}
+                title={hasActiveFilters ? t('no_services_found') : t('catalog_empty_discovery_title')}
+                description={hasActiveFilters ? t('no_services_desc') : t('catalog_empty_discovery_desc')}
+                action={
+                  hasActiveFilters
+                    ? { label: t('clear_filters'), onClick: resetFilters }
+                    : { label: t('browse_services'), onClick: () => router.push(PATHS.services) }
+                }
+                secondaryAction={
+                  hasActiveFilters
+                    ? { label: t('catalog_empty_browse_freelancers'), onClick: () => router.push(PATHS.freelancers) }
+                    : { label: t('catalog_empty_post_project'), onClick: () => router.push(PATHS.postProject), variant: 'outline' }
+                }
               />
             ) : (
               <>
@@ -670,7 +694,7 @@ function ServicesCatalogContent() {
                     >
                       {t('back')}
                     </Button>
-                    <span className="text-[13px] text-[var(--kwork-text-muted)]">
+                    <span className="text-[13px] text-[var(--ishbor-text-muted)]">
                       {t('catalog_page_of').replace('{n}', String(currentPage)).replace('{total}', String(totalPages))}
                     </span>
                     {hasMore ? (

@@ -64,29 +64,29 @@ export function ContractReviewModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="contract-review-modal-title"
-        className="w-full max-w-[420px] rounded-[var(--r-card)] border border-[var(--kwork-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
+        className="w-full max-w-[420px] rounded-[var(--r-card)] border border-[var(--ishbor-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 id="contract-review-modal-title" className="text-[18px] font-bold text-[var(--kwork-text)]">
+            <h2 id="contract-review-modal-title" className="text-[18px] font-bold text-[var(--ishbor-text)]">
               {t('write_review')}
             </h2>
             {contractTitle && (
-              <p className="mt-1 text-[13px] text-[var(--kwork-text-muted)]">{contractTitle}</p>
+              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{contractTitle}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-[var(--kwork-text-muted)] hover:text-[var(--kwork-text)]"
+            className="text-[var(--ishbor-text-muted)] hover:text-[var(--ishbor-text)]"
             aria-label={t('close')}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         <div className="mb-4">
-          <p className="mb-2 text-[13px] font-medium text-[var(--kwork-text)]">{t('your_rating')}</p>
+          <p className="mb-2 text-[13px] font-medium text-[var(--ishbor-text)]">{t('your_rating')}</p>
           <RatingStars rating={rating} size="lg" interactive onChange={setRating} />
         </div>
         <Textarea

@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
-import { ArrowUpRight, ChevronRight, Lock, Receipt, Shield, TrendingUp, Wallet } from 'lucide-react'
+import { ChevronRight, Receipt, Shield, Wallet } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
 import type {
   ApiBankAccount,
@@ -18,7 +18,7 @@ import type {
 } from '@/infrastructure/api/types'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatPrice } from '@/shared/lib/format'
-import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
+import { dashboardOrderPath, dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { Input } from '@/presentation/components/ui/input'
 import { Button } from '@/presentation/components/ui/button'
@@ -30,7 +30,6 @@ import { formatDate } from '@/shared/lib/format-date'
 import { withdrawalSchema } from '@/domain/validators/withdrawal'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
-import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { WalletTopupModal } from '@/presentation/features/wallet/wallet-topup-modal'
 import { BankAccountsSection } from '@/presentation/features/wallet/bank-accounts-section'
 import { useSearchParams } from 'next/navigation'
@@ -142,7 +141,6 @@ export function WalletPage() {
         }
       } catch (e) {
         if (cancelled) return
-        const msg = e instanceof Error ? e.message : ''
         toast.error(captureActionError(e, { scope: 'wallet_topup' }, t))
       } finally {
         if (!cancelled) router.replace(pathname)
@@ -154,21 +152,15 @@ export function WalletPage() {
     }
   }, [searchParams, t, loadWallet, refreshProfile, router, pathname])
 
-  const { completed, active, pending, balance, activeCount } = useMemo(() => {
+  const { completed, active, pending, balance } = useMemo(() => {
     const orders = walletData?.orders ?? []
     let completed = 0
     let active = 0
     let pending = 0
-    let activeCount = 0
     for (const o of orders) {
       if (o.status === 'completed') completed += o.amount
-      else if (o.status === 'active' || o.status === 'delivered') {
-        active += o.amount
-        activeCount += 1
-      } else if (o.status === 'pending') {
-        pending += o.amount
-        activeCount += 1
-      }
+      else if (o.status === 'active' || o.status === 'delivered') active += o.amount
+      else if (o.status === 'pending') pending += o.amount
     }
     const computed =
       currentUserRole === 'freelancer' ? completed : completed + active + pending
@@ -181,7 +173,7 @@ export function WalletPage() {
         : dbBalance != null && dbBalance > 0
           ? dbBalance
           : computed
-    return { completed, active, pending, balance, activeCount }
+    return { completed, active, pending, balance }
   }, [walletData, currentUserRole, profile?.wallet_balance])
 
   const recentTx = useMemo(() => {
@@ -229,6 +221,23 @@ export function WalletPage() {
 
   const ordersHref = PATHS.dashboardOrders
 
+  const protectedOrders = useMemo(() => {
+    const orders = walletData?.orders ?? []
+    return [...orders]
+      .filter(
+        (o) =>
+          o.payment_status === 'held' ||
+          (['pending', 'active', 'delivered'].includes(o.status) && o.payment_status !== 'released')
+      )
+      .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+  }, [walletData?.orders])
+
+  useEffect(() => {
+    if (searchParams.get('tab') !== 'protected') return
+    const el = document.getElementById('wallet-protected-section')
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [searchParams, loading])
+
   return (
     <div className="wallet-layout">
       <div className="wallet-intro">
@@ -265,8 +274,6 @@ export function WalletPage() {
         </span>
       </div>
 
-      {currentUserRole === 'freelancer' && <ReferralBanner className="mb-4" />}
-
       <div className="wallet-balance-card">
         <div className="wallet-balance-top">
           <div>
@@ -283,7 +290,7 @@ export function WalletPage() {
             </div>
             <div className="wallet-balance-escrow">
               <Shield className="h-3.5 w-3.5" />
-              {t('escrow')} —{' '}
+              {t('protected_payment_label')} —{' '}
               {loading ? <Skeleton className="inline-block h-4 w-24 align-middle" /> : formatPrice(active + pending)}{' '}
               {currentUserRole === 'client' ? t('client_wallet_escrow_note') : t('protected_in_escrow')}
             </div>
@@ -328,35 +335,6 @@ export function WalletPage() {
           {t('client_withdraw_unavailable')}
         </Alert>
       )}
-
-      <div className="wallet-stats">
-        <div className="wallet-stat">
-          <div className="wallet-stat-icon">
-            <TrendingUp />
-          </div>
-          <p className="wallet-stat-value">{loading ? '…' : formatPrice(completed)}</p>
-          <p className="wallet-stat-label">{t('total_earnings')}</p>
-        </div>
-        <div className="wallet-stat">
-          <div className="wallet-stat-icon">
-            <Lock />
-          </div>
-          <div className="wallet-stat-value">
-            {loading ? <Skeleton className="mx-auto h-7 w-28" /> : formatPrice(active + pending)}
-          </div>
-          <p className="wallet-stat-label">{t('escrow_balance')}</p>
-          <p className="wallet-stat-hint">{t('protected_orders')}</p>
-        </div>
-        <div className="wallet-stat">
-          <div className="wallet-stat-icon">
-            <ArrowUpRight />
-          </div>
-          <div className="wallet-stat-value">
-            {loading ? <Skeleton className="inline-block h-6 w-8" /> : String(activeCount)}
-          </div>
-          <p className="wallet-stat-label">{t('active_orders')}</p>
-        </div>
-      </div>
 
       {currentUserRole === 'freelancer' && (
         <div className="mb-5">
@@ -441,19 +419,19 @@ export function WalletPage() {
               <Skeleton className="h-4 w-2/3 max-w-sm" />
             </div>
           ) : withdrawals.length === 0 ? (
-            <p className="mt-2 text-sm text-[var(--kwork-text-muted)]">{t('withdrawal_pending_empty')}</p>
+            <p className="mt-2 text-sm text-[var(--ishbor-text-muted)]">{t('withdrawal_pending_empty')}</p>
           ) : (
             <div className="mt-3 space-y-2">
               {withdrawals.map((w) => (
                 <div
                   key={w.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kwork-border)] py-2 text-sm last:border-0"
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ishbor-border)] py-2 text-sm last:border-0"
                 >
                   <div>
                     <p className="font-medium">{formatPrice(w.amount)}</p>
-                    {w.note && <p className="text-[12px] text-[var(--kwork-text-muted)]">{w.note}</p>}
+                    {w.note && <p className="text-[12px] text-[var(--ishbor-text-muted)]">{w.note}</p>}
                     {w.created_at && (
-                      <p className="text-[11px] text-[var(--kwork-text-muted)]">
+                      <p className="text-[11px] text-[var(--ishbor-text-muted)]">
                         {formatDate(w.created_at, language)}
                       </p>
                     )}
@@ -471,6 +449,52 @@ export function WalletPage() {
           )}
         </section>
       )}
+
+      <section id="wallet-protected-section" className="surface-panel mb-5 p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-bold text-[var(--ishbor-text)]">{t('wallet_protected_section_title')}</h2>
+            <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('wallet_protected_section_desc')}</p>
+          </div>
+          <Shield className="h-5 w-5 shrink-0 text-[var(--color-primary)]" aria-hidden />
+        </div>
+        {loading ? (
+          <div className="space-y-2">
+            {[0, 1].map((i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : protectedOrders.length === 0 ? (
+          <EmptyState
+            compact
+            icon={<Shield />}
+            title={t('wallet_protected_empty_title')}
+            description={t('wallet_protected_empty_desc')}
+            action={{ label: t('nav_orders'), onClick: () => router.push(ordersHref) }}
+          />
+        ) : (
+          <ul className="divide-y divide-[var(--ishbor-border)]">
+            {protectedOrders.map((order) => (
+              <li key={order.id}>
+                <Link
+                  href={dashboardOrderPath(order.id)}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3 transition hover:text-[var(--color-primary)]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-[var(--ishbor-text)]">
+                      {order.services?.title ?? order.projects?.title ?? t('order_label')}
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-[var(--ishbor-text-muted)]">
+                      {t('wallet_held_amount').replace('{amount}', formatPrice(order.amount))}
+                    </p>
+                  </div>
+                  <OrderStatusBadge status={order.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="wallet-tx-card">
         <div className="wallet-tx-header">

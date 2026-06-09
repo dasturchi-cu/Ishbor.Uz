@@ -28,7 +28,7 @@ export function NotificationChannelStatus({
             'rounded-full px-2.5 py-1 text-[11px] font-medium',
             item.active
               ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
-              : 'bg-[var(--neutral-100)] text-[var(--kwork-text-muted)]'
+              : 'bg-[var(--neutral-100)] text-[var(--ishbor-text-muted)]'
           )}
         >
           {item.label}: {item.active ? t('notif_channel_active') : t('notif_channel_inactive')}

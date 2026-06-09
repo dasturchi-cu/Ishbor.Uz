@@ -67,12 +67,12 @@ export function DashboardPaymentsPage() {
       {paymentsLoadError && (
         <LoadErrorAlert error={paymentsFetchError} scope="payments" onRetry={loadPayments} />
       )}
-      <div className="rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)] p-5">
+      <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5">
         <h3 className="settings-section-title">{t('payments_methods_title')}</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {['Click', 'Payme'].map((method) => (
-            <div key={method} className="flex items-center justify-between rounded-xl border border-dashed border-[var(--kwork-border)] p-4">
-              <span className="font-bold text-[var(--kwork-text)]">{method}</span>
+            <div key={method} className="flex items-center justify-between rounded-xl border border-dashed border-[var(--ishbor-border)] p-4">
+              <span className="font-bold text-[var(--ishbor-text)]">{method}</span>
               <Button variant="outline" size="sm" disabled title={t('payment_connect_live_soon')}>
                 {method === 'Click' ? t('connect_click') : t('connect_payme')}
               </Button>
@@ -80,11 +80,11 @@ export function DashboardPaymentsPage() {
           ))}
         </div>
         {!paymentsLive && (
-          <p className="mt-3 text-[12px] text-[var(--kwork-text-muted)]">{t('payment_provider_sandbox')}</p>
+          <p className="mt-3 text-[12px] text-[var(--ishbor-text-muted)]">{t('payment_protected_note')}</p>
         )}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[var(--kwork-border)] bg-[var(--neutral-0)]">
+      <div className="overflow-hidden rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)]">
         {loading ? (
           <div className="h-32 animate-pulse bg-[var(--color-bg-muted)]" />
         ) : transactions.length === 0 ? (
@@ -95,11 +95,11 @@ export function DashboardPaymentsPage() {
           />
         ) : (
           <>
-          <div className="show-mobile divide-y divide-[var(--kwork-border)]">
+          <div className="show-mobile divide-y divide-[var(--ishbor-border)]">
             {transactions.map((tx) => (
               <div key={tx.id} className="px-4 py-3">
-                <p className="text-[11px] text-[var(--kwork-text-muted)]">{tx.date}</p>
-                <p className="mt-1 text-[14px] font-medium text-[var(--kwork-text)]">{tx.desc}</p>
+                <p className="text-[11px] text-[var(--ishbor-text-muted)]">{tx.date}</p>
+                <p className="mt-1 text-[14px] font-medium text-[var(--ishbor-text)]">{tx.desc}</p>
                 <div className="mt-2 flex items-center justify-between">
                   <p className={cnAmount(tx.amount)}>
                     {tx.amount < 0 ? '−' : '+'}
@@ -115,7 +115,7 @@ export function DashboardPaymentsPage() {
           <table className="hide-mobile w-full text-left text-[13px]">
             <caption className="sr-only">{t('nav_payments')}</caption>
             <thead>
-              <tr className="border-b border-[var(--kwork-border)] text-[11px] font-semibold uppercase text-[var(--kwork-text-muted)]">
+              <tr className="border-b border-[var(--ishbor-border)] text-[11px] font-semibold uppercase text-[var(--ishbor-text-muted)]">
                 <th className="px-4 py-3">{t('date')}</th>
                 <th className="px-4 py-3">{t('description')}</th>
                 <th className="px-4 py-3">{t('amount')}</th>
@@ -124,7 +124,7 @@ export function DashboardPaymentsPage() {
             </thead>
             <tbody>
               {transactions.map((tx) => (
-                <tr key={tx.id} className="border-b border-[var(--kwork-border)] last:border-b-0">
+                <tr key={tx.id} className="border-b border-[var(--ishbor-border)] last:border-b-0">
                   <td className="px-4 py-3">{tx.date}</td>
                   <td className="px-4 py-3">{tx.desc}</td>
                   <td
