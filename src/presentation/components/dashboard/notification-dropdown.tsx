@@ -20,7 +20,7 @@ import { cn } from '@/shared/lib/utils'
 import { markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
 import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
-import { useNotificationsQuery } from '@/shared/lib/use-notifications-query'
+import { useNotificationsFeed } from '@/application/providers/notifications-provider'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/shared/lib/query-keys'
 
@@ -54,11 +54,11 @@ const TYPE_META: Record<NotifItem['type'], { icon: LucideIcon; iconClass: string
 }
 
 export function NotificationDropdown() {
-  const { t, language, userId } = useApp()
+  const { t, language } = useApp()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const { notifications } = useNotificationsQuery(userId, Boolean(userId))
+  const { notifications, ensureLoaded } = useNotificationsFeed()
 
   const items = fromApiNotifications(notifications, language)
 
@@ -93,7 +93,10 @@ export function NotificationDropdown() {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          ensureLoaded()
+          setOpen((v) => !v)
+        }}
         className="relative flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--kwork-border)] bg-[var(--neutral-0)] text-[var(--kwork-text-muted)] transition hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--kwork-border))] hover:text-[var(--color-primary)]"
         aria-label={t('notifications_title')}
         aria-expanded={open}

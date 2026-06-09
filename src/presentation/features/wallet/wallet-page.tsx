@@ -109,8 +109,8 @@ export function WalletPage() {
   const bankAccounts = walletData?.bankAccounts ?? []
   const hasVerifiedBank = bankAccounts.some((a) => a.is_verified)
   const hasPendingBank = bankAccounts.length > 0 && !hasVerifiedBank
-  const loadError = partialLoadError || loaderError
-  const walletError = loaderError ? walletFetchError : partialLoadError ? new Error('partial_wallet') : null
+  const loadError = loaderError
+  const walletError = walletFetchError
 
   useEffect(() => {
     const topup = searchParams.get('topup')
@@ -254,6 +254,11 @@ export function WalletPage() {
             className="mt-3"
           />
         )}
+        {partialLoadError && !loadError && (
+          <Alert variant="info" className="mt-3">
+            {t('error_load_generic')}
+          </Alert>
+        )}
         <span className="wallet-intro-note">
           <Shield className="h-3 w-3" />
           {t('wallet_payment_note')}
@@ -269,13 +274,13 @@ export function WalletPage() {
               <Wallet className="h-4 w-4" />
               {currentUserRole === 'client' ? t('client_wallet_spent') : t('available_balance')}
             </p>
-            <p className="wallet-balance-value">
+            <div className="wallet-balance-value">
               {loading ? (
                 <Skeleton className="h-9 w-36" />
               ) : (
                 formatPrice(currentUserRole === 'client' ? completed : balance)
               )}
-            </p>
+            </div>
             <div className="wallet-balance-escrow">
               <Shield className="h-3.5 w-3.5" />
               {t('escrow')} —{' '}
@@ -346,9 +351,9 @@ export function WalletPage() {
           <div className="wallet-stat-icon">
             <ArrowUpRight />
           </div>
-          <p className="wallet-stat-value">
+          <div className="wallet-stat-value">
             {loading ? <Skeleton className="inline-block h-6 w-8" /> : String(activeCount)}
-          </p>
+          </div>
           <p className="wallet-stat-label">{t('active_orders')}</p>
         </div>
       </div>

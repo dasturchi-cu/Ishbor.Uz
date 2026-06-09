@@ -43,7 +43,11 @@ export function logClientError(error: unknown, context: ClientErrorContext): voi
   if (loggedKeys.has(dedupeKey)) return
   loggedKeys.add(dedupeKey)
 
-  console.error('[IshBor client error]', payload)
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[IshBor client error]', payload)
+  } else {
+    console.error('[IshBor client error]', payload)
+  }
 
   if (typeof window === 'undefined') return
 

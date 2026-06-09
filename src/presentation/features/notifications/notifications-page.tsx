@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Card } from '@/presentation/components/ui/card'
@@ -16,7 +16,7 @@ import { markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-read
 import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { PATHS } from '@/domain/constants/routes'
-import { useNotificationsQuery } from '@/shared/lib/use-notifications-query'
+import { useNotificationsFeed } from '@/application/providers/notifications-provider'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/shared/lib/query-keys'
 
@@ -28,10 +28,14 @@ const TYPE_ICON = {
 } as const
 
 export function NotificationsPage() {
-  const { t, language, userId } = useApp()
+  const { t, language } = useApp()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const { notifications: items, loading, error, loadError, refetch } = useNotificationsQuery(userId, Boolean(userId))
+  const { notifications: items, loading, error, loadError, refetch, ensureLoaded } = useNotificationsFeed()
+
+  useEffect(() => {
+    ensureLoaded()
+  }, [ensureLoaded])
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [dismissingId, setDismissingId] = useState<string | null>(null)
 

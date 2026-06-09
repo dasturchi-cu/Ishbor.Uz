@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase_admin
 from app.db_utils import run_query
-from app.deps import UserAuthDep
+from app.deps import UserAuthDep, UserAuthWithProfileDep
 from app.review_stats import batch_review_stats
 from app.routers.reviews import _enrich_reviews, _enrich_reviews_freelancer
 
@@ -29,9 +29,7 @@ def _notification_unread_count(supabase, user_id: str) -> int:
     return int(result.count or 0)
 
 
-def _build_badges(auth: UserAuthDep) -> dict:
-    user_id = auth.user_id
-    supabase = auth.supabase
+def _build_badges(supabase, user_id: str) -> dict:
     msg_result = run_query(
         lambda: supabase.table("messages")
         .select("id", count="exact")
@@ -43,6 +41,10 @@ def _build_badges(auth: UserAuthDep) -> dict:
         "message_unread": int(msg_result.count or 0),
         "notification_unread": _notification_unread_count(supabase, user_id),
     }
+
+
+def _build_badges_auth(auth: UserAuthDep) -> dict:
+    return _build_badges(auth.supabase, auth.user_id)
 
 
 def _build_home(auth: UserAuthDep, role: str) -> dict:
@@ -108,7 +110,7 @@ def _build_home(auth: UserAuthDep, role: str) -> dict:
 
 @router.get("/badges")
 def dashboard_badges(auth: UserAuthDep):
-    return _build_badges(auth)
+    return _build_badges_auth(auth)
 
 
 @router.get("/home")
@@ -125,7 +127,7 @@ def dashboard_overview(
     role: str = Query(..., pattern="^(freelancer|client)$"),
 ):
     """Dashboard bosh sahifa: home + badge bitta so'rovda."""
-    return {**_build_home(auth, role), "badges": _build_badges(auth)}
+    return {**_build_home(auth, role), "badges": _build_badges_auth(auth)}
 
 
 def _fetch_profile(auth: UserAuthDep) -> dict:
@@ -139,13 +141,13 @@ def _fetch_profile(auth: UserAuthDep) -> dict:
 
 @router.get("/summary")
 def dashboard_summary(
-    auth: UserAuthDep,
+    auth: UserAuthWithProfileDep,
     role: str = Query(..., pattern="^(freelancer|client)$"),
 ):
     """Bitta so'rov: profil, wallet, home stats, badge countlar, review stats."""
-    profile = _fetch_profile(auth)
+    profile = auth.profile
     home = _build_home(auth, role)
-    badges = _build_badges(auth)
+    badges = _build_badges(auth.supabase, auth.user_id)
     return {
         "profile": profile,
         "wallet_balance": profile.get("wallet_balance") or 0,

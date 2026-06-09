@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useApp } from '@/application/providers/app-provider'
-import { useNotificationsQuery } from '@/shared/lib/use-notifications-query'
+import { useNotificationsFeed } from '@/application/providers/notifications-provider'
 
 const SEEN_STORAGE_KEY = 'ishbor:browser-notif-seen'
 const MAX_SEEN_IDS = 200
@@ -30,10 +30,10 @@ function persistSeenIds(ids: Set<string>) {
 }
 
 export function BrowserNotificationWatcher() {
-  const { isLoggedIn, userId } = useApp()
+  const { isLoggedIn } = useApp()
   const seenRef = useRef<Set<string>>(loadSeenIds())
   const askedRef = useRef(false)
-  const { notifications } = useNotificationsQuery(userId, isLoggedIn)
+  const { notifications } = useNotificationsFeed()
 
   useEffect(() => {
     if (!isLoggedIn || typeof window === 'undefined' || !('Notification' in window)) return

@@ -125,3 +125,65 @@ Next server console: `[IshBor supabase] { kind: 'middleware', queryName: 'auth.g
 2. `window.__ISHBOR_SUPABASE_DEBUG__.dump()`
 3. `GET /platform/request-audit/top`
 4. Next terminal — middleware chastotasi.
+
+---
+
+## Optimizatsiya (2026-06-09)
+
+| O'zgarish | Ta'sir |
+|-----------|--------|
+| `auth_profile_cache` — 60s TTL + inflight dedupe | Parallel REST → 1 `profiles` (auth_deps) |
+| Summary — `UserAuthWithProfile` (bitta select) | Summary −1 `profiles` |
+| Badges — dashboard home da fetch yo'q | −3 DB cold load |
+| `NotificationsProvider` — 1 realtime, lazy list | −8 DB default, −1 channel |
+| `InboxRealtimeBridge` — bitta inbox channel | −1 subscription |
+
+**Kutilgan cold load:** ~5 REST, **~12–16 DB** (oldin ~29–32).
+
+---
+
+## Postgres Logs — xato va connection spam
+
+### `duplicate key value violates unique constraint "schema_migrations_pkey"`
+
+**Sabab:** `supabase db push` migration versiyasini `supabase_migrations.schema_migrations` jadvaliga qayta yozmoqchi (allaqachon remote da bor). Ko'pincha:
+
+- `pnpm dev:start` har safar `db push` ishga tushirganda
+- Ikki terminal bir vaqtda push qilganda
+- Migration SQL o'tdi, lekin versiya yozuvi oldin qolgan
+
+**Tekshirish:**
+
+```powershell
+supabase migration list --linked
+```
+
+Local va Remote ustunlari bir xil bo'lsa — push **kerak emas**.
+
+**Tuzatish** (Remote bo'sh, lekin SQL allaqachon qo'llangan bo'lsa):
+
+```powershell
+supabase migration repair --status applied 20240629980000
+```
+
+**Dev da push o'chirish** (`.env.local` yoki shell):
+
+```
+SUPABASE_SKIP_DB_PUSH=1
+```
+
+`dev.ps1` endi `migration list` bilan pending tekshiradi; `schema_migrations_pkey` bo'lsa dev to'xtamaydi.
+
+### `connection received` / `connection authenticated` (identity=postgres)
+
+Bu **to'g'ridan-to'g'ri Postgres** ulanishlari (PostgREST HTTP emas). Manbalar:
+
+| Manba | Qachon |
+|-------|--------|
+| `supabase db push` | `dev:start`, `pnpm db:push` |
+| Supabase CLI `migration list` | Har dev pre-check |
+| Dashboard Studio / Logs | Panel ochiq bo'lsa |
+
+1 user + faqat ilova ishlatganda ko'p connection spike = odatda **CLI migration** yoki **dev restart loop**, app REST emas.
+
+PostgREST so'rovlarini ko'rish: Dashboard → **Logs → PostgREST** (Postgres emas).

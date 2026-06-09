@@ -27,6 +27,11 @@ function Stop-DevBackendProcesses {
 }
 
 function Sync-SupabaseMigrations {
+  if ($env:SUPABASE_SKIP_DB_PUSH -eq '1') {
+    Write-Host "Supabase: db push skipped (SUPABASE_SKIP_DB_PUSH=1)" -ForegroundColor Yellow
+    return
+  }
+
   $cli = Get-Command supabase -ErrorAction SilentlyContinue
   if (-not $cli) {
     Write-Host "Supabase CLI not found - skip db push" -ForegroundColor Yellow
@@ -39,22 +44,38 @@ function Sync-SupabaseMigrations {
   }
 
   Write-Host "Supabase: checking migrations..." -ForegroundColor Cyan
-  $dryRun = supabase db push --linked --dry-run 2>&1 | Out-String
+  $listOut = supabase migration list --linked 2>&1 | Out-String
 
   if ($LASTEXITCODE -ne 0) {
     Write-Host "Supabase not linked - skip db push (supabase link --project-ref REF)" -ForegroundColor Yellow
     return
   }
 
-  $upToDate = $dryRun -match 'up to date|Remote database is up to date|Nothing to push|No migrations to apply'
-  if ($upToDate) {
-    Write-Host "Supabase: database up to date" -ForegroundColor Green
+  $hasPending = $false
+  foreach ($line in ($listOut -split "`n")) {
+    # Local bor, Remote bo'sh → hali push qilinmagan
+    if ($line -match '^\s+(\d{14,})\s+\|\s+\|\s+') {
+      $hasPending = $true
+      break
+    }
+  }
+
+  if (-not $hasPending) {
+    Write-Host "Supabase: database up to date (migration list)" -ForegroundColor Green
     return
   }
 
   Write-Host "Supabase: pending migrations - running db push..." -ForegroundColor Cyan
-  supabase db push --linked --yes 2>&1 | Out-Host
+  $pushOut = supabase db push --linked --yes 2>&1 | Out-String
+  $pushOut | Out-Host
+
   if ($LASTEXITCODE -ne 0) {
+    if ($pushOut -match 'schema_migrations_pkey|duplicate key value violates unique constraint') {
+      Write-Host "Supabase: migration version already on remote (schema_migrations duplicate)." -ForegroundColor Yellow
+      Write-Host "  Fix: supabase migration list --linked  then  supabase migration repair --status applied <VERSION>" -ForegroundColor Yellow
+      Write-Host "  Dev davom etadi — qo'lda repair qiling agar migration list noto'g'ri bo'lsa." -ForegroundColor Yellow
+      return
+    }
     Write-Host "Supabase db push failed - stopping dev" -ForegroundColor Red
     exit 1
   }

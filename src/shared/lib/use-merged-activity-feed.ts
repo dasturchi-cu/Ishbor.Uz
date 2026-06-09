@@ -162,9 +162,11 @@ export function useMergedActivityFeed(t: (key: TranslationKey) => string, limit 
 
     queryKey: queryKeys.activityFeed(limit),
 
-    queryFn: wrapQueryFn('activity-feed', () => api.getActivityFeed(limit), {
-      queryKey: `activity-feed:${limit}`,
-    }),
+    queryFn: wrapQueryFn(
+      'activity-feed',
+      () => api.getActivityFeed(limit).catch(() => []),
+      { queryKey: `activity-feed:${limit}` }
+    ),
     enabled: ready && authed && Boolean(userId),
     staleTime: 60_000,
     refetchOnMount: false,

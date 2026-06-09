@@ -30,7 +30,13 @@ NEXT_PUBLIC_SESSION_IDLE_MINUTES=120
 ## 4. Supabase Dashboard
 
 - Auth → Email → **Confirm email** ixtiyoriy (default: o‘chiq). Tasdiqlanmagan bo‘lsa dashboardda banner ko‘rsatiladi, kirish bloklanmaydi.
+- Auth → Email → **Prevent use of leaked passwords (HIBP)** — faqat **Pro plan** da yoqiladi. Free planda Security Advisor warning qolishi mumkin (kutilgan).
+- `config.toml`: `minimum_password_length = 8`, `password_requirements = lower_upper_letters_digits` (local + yangi deploylar).
 - Auth → CAPTCHA (ixtiyoriy, Turnstile allaqachon frontendda)
+
+### Security Advisor — `deny_financial_mutation`
+
+Migration `20240629991000_security_advisor_deny_financial.sql` — EXECUTE faqat `postgres` / `service_role` (trigger ishlashda davom etadi).
 
 ## 5. GitHub org
 

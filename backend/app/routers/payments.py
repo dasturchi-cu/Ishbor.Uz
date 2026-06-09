@@ -214,6 +214,10 @@ def checkout_order(order_id: str, body: CheckoutBody, auth: UserAuthDep):
         )
 
     held = hold_escrow(supabase, order, user_id, provider="sandbox", provider_ref=f"sandbox-{order_id}")
+    try:
+        ensure_order_conversation(held)
+    except Exception:
+        pass
     return CheckoutResponse(order=_order_response(held))
 
 

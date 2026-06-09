@@ -30,9 +30,11 @@ def run_query(fn: Callable[[], T], retries: int = 5) -> T:
             last_exc = exc
             if attempt >= retries - 1:
                 break
-            from app.database import reset_supabase_client
+            # Client cache faqat connection uzilganda tozalanadi (har retry da emas)
+            if attempt == 0:
+                from app.database import reset_supabase_client
 
-            reset_supabase_client()
+                reset_supabase_client()
             time.sleep(0.2 * (2**attempt))
 
     assert last_exc is not None
