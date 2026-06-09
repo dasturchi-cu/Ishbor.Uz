@@ -9,4 +9,4 @@ httpx==0.28.1
 sentry-sdk[fastapi]==2.22.0
 pytest==8.3.4
 redis==5.2.1
-fpdf2==2.8.2
+fpdf2==2.8.7
