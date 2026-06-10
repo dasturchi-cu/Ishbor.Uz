@@ -330,42 +330,43 @@ def track_event(payload: AnalyticsTrack, request: Request, user_id: OptionalUser
 _CHAT_STORAGE_BUCKET = "project-attachments"
 
 
-def _assert_chat_storage_access(admin, user_id: str, path: str) -> None:
+def _assert_storage_signed_url_access(admin, user_id: str, bucket: str, path: str) -> None:
+    if bucket != _CHAT_STORAGE_BUCKET:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bucket qo'llab-quvvatlanmaydi")
     if ".." in path or path.startswith("/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Noto'g'ri yo'l")
     parts = path.split("/")
-    if len(parts) < 4 or parts[1] != "chat":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
     if parts[0] == user_id:
         return
-    scope_id = parts[2]
-    conv = run_query(
-        lambda: admin.table("conversations")
-        .select("participant_ids")
-        .eq("id", scope_id)
-        .limit(1)
-        .execute()
-    )
-    if conv.data and user_id in (conv.data[0].get("participant_ids") or []):
-        return
-    order = run_query(
-        lambda: admin.table("orders")
-        .select("client_id, freelancer_id")
-        .eq("id", scope_id)
-        .limit(1)
-        .execute()
-    )
-    if order.data:
-        row = order.data[0]
-        if user_id in (row.get("client_id"), row.get("freelancer_id")):
+    if len(parts) >= 4 and parts[1] == "chat":
+        scope_id = parts[2]
+        conv = run_query(
+            lambda: admin.table("conversations")
+            .select("participant_ids")
+            .eq("id", scope_id)
+            .limit(1)
+            .execute()
+        )
+        if conv.data and user_id in (conv.data[0].get("participant_ids") or []):
             return
+        order = run_query(
+            lambda: admin.table("orders")
+            .select("client_id, freelancer_id")
+            .eq("id", scope_id)
+            .limit(1)
+            .execute()
+        )
+        if order.data:
+            row = order.data[0]
+            if user_id in (row.get("client_id"), row.get("freelancer_id")):
+                return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ruxsat yo'q")
 
 
 @router.post("/storage/signed-url", response_model=StorageSignedUrlResponse)
 def storage_signed_url(payload: StorageSignedUrlRequest, auth: UserAuthDep):
     admin = get_supabase_admin()
-    _assert_chat_storage_access(admin, auth.user_id, payload.path)
+    _assert_storage_signed_url_access(admin, auth.user_id, payload.bucket, payload.path)
     try:
         result = admin.storage.from_(payload.bucket).create_signed_url(payload.path, 3600)
     except Exception as exc:

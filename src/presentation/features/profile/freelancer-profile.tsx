@@ -32,6 +32,7 @@ import type { TranslationKey } from '@/infrastructure/i18n'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { PortfolioLightbox } from '@/presentation/components/ui/portfolio-lightbox'
+import { StorageImage } from '@/presentation/components/features/storage-image'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
 import { formatPrice } from '@/shared/lib/format'
@@ -510,7 +511,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                           onClick={() => setLightboxIndex(i)}
                           className="group relative overflow-hidden rounded-lg border border-[var(--ishbor-border)] text-left"
                         >
-                          <img
+                          <StorageImage
                             src={item.url}
                             alt={item.title}
                             className="aspect-square w-full object-cover transition group-hover:scale-105"

@@ -44,7 +44,7 @@ export function ChatAttachmentContent({ content }: { content: string }) {
         if (!cancelled) setResolvedUrl(res.url)
       })
       .catch((e) => {
-        ignoreWithLog(e, { scope: 'messages', apiPath: '/api/v1/storage/signed-url' })
+        ignoreWithLog(e, { scope: 'messages', apiPath: '/api/v1/platform/storage/signed-url' })
         if (!cancelled) setResolvedUrl(null)
       })
       .finally(() => {

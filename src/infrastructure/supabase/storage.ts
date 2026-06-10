@@ -1,6 +1,10 @@
 import { getCachedSession } from '@/infrastructure/auth/session-cache'
 import { getSupabase } from './client'
-import { buildChatStorageRef } from '@/shared/lib/chat-storage-ref'
+import {
+  buildStorageRef,
+  parseLegacyPublicStorageUrl,
+  parseChatStorageRef,
+} from '@/shared/lib/chat-storage-ref'
 import { validateFileMagicBytes } from '@/shared/lib/file-magic'
 
 const BUCKETS = {
@@ -65,11 +69,24 @@ export function formatStorageUploadError(error: unknown, bucket: string): string
 
 type UploadBucket = keyof typeof BUCKETS
 
+function storagePathFromReference(reference: string, bucket: string, userId: string): string | null {
+  const ref = parseChatStorageRef(reference)
+  if (ref?.bucket === bucket && ref.path.startsWith(`${userId}/`)) {
+    return ref.path
+  }
+  const legacy = parseLegacyPublicStorageUrl(reference)
+  if (legacy?.bucket === bucket && legacy.path.startsWith(`${userId}/`)) {
+    return legacy.path
+  }
+  return null
+}
+
 async function uploadImage(
   file: File,
   userId: string,
   bucketKey: UploadBucket,
-  subfolder?: string
+  subfolder?: string,
+  options?: { returnPublicUrl?: boolean }
 ): Promise<string> {
   const allowed = bucketKey === 'avatar' ? ALLOWED_AVATAR : ALLOWED
   if (!allowed.has(file.type)) {
@@ -105,31 +122,31 @@ async function uploadImage(
     throw new Error(formatStorageUploadError(error, bucket))
   }
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-  return data.publicUrl
+  if (options?.returnPublicUrl !== false && bucketKey !== 'project') {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  return buildStorageRef(bucket, path)
 }
 
-async function removeImage(publicUrl: string, userId: string, bucketKey: UploadBucket): Promise<void> {
+async function removeImage(reference: string, userId: string, bucketKey: UploadBucket): Promise<void> {
   const bucket = BUCKETS[bucketKey]
-  const marker = `/storage/v1/object/public/${bucket}/`
-  const idx = publicUrl.indexOf(marker)
-  if (idx === -1) return
-
-  const path = publicUrl.slice(idx + marker.length)
-  if (!path.startsWith(`${userId}/`)) return
+  const path = storagePathFromReference(reference, bucket, userId)
+  if (!path) return
 
   const supabase = getSupabase()
   await supabase.storage.from(bucket).remove([path])
 }
 
-/** Loyiha rasmi */
+/** Loyiha rasmi — private bucket, storage ref qaytaradi */
 export async function uploadProjectImage(file: File, userId: string): Promise<string> {
-  return uploadImage(file, userId, 'project')
+  return uploadImage(file, userId, 'project', undefined, { returnPublicUrl: false })
 }
 
-/** Freelancer portfolio galereyasi */
+/** Freelancer portfolio galereyasi — public service-media bucket */
 export async function uploadPortfolioImage(file: File, userId: string): Promise<string> {
-  return uploadImage(file, userId, 'project', 'portfolio')
+  return uploadImage(file, userId, 'service', 'portfolio')
 }
 
 export async function removeProjectImage(publicUrl: string, userId: string): Promise<void> {
@@ -199,7 +216,7 @@ async function uploadChatFile(file: File, userId: string, orderId: string): Prom
     throw new Error(formatStorageUploadError(error, bucket))
   }
 
-  return buildChatStorageRef(bucket, path)
+  return buildStorageRef(bucket, path)
 }
 
 /** Chat rasm/PDF biriktirish (project-attachments/chat/) — private bucket, signed URL API orqali */

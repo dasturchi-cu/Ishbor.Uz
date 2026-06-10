@@ -15,6 +15,7 @@ import { UZ_REGIONS } from '@/domain/constants/regions'
 import { api, ApiError } from '@/infrastructure/api/client'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { uploadProjectImage, removeProjectImage } from '@/infrastructure/supabase/storage'
+import { StorageImage } from '@/presentation/components/features/storage-image'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { useServerDraft } from '@/shared/lib/use-server-draft'
@@ -545,7 +546,7 @@ export function PostProject() {
                           key={file.url}
                           className="group relative overflow-hidden rounded-lg border border-[var(--ishbor-border)]"
                         >
-                          <img src={file.url} alt={file.name} className="h-24 w-full object-cover" />
+                          <StorageImage src={file.url} alt={file.name} className="h-24 w-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeAttachment(file)}

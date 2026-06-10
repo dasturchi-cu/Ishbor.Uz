@@ -16,6 +16,7 @@ const PROTECTED_PREFIXES = [
   '/wallet',
   '/settings',
   '/services/create',
+  '/messages',
 ]
 const AUTH_PATHS = new Set(['/login', '/register'])
 const MIDDLEWARE_AUTH_TIMEOUT_MS = 8_000

@@ -109,10 +109,14 @@ def _amount_matches(expected: int, received: float) -> bool:
 
 
 def _payments_providers() -> list[str]:
-    """Hozircha faqat sandbox — Click/Payme keyinroq yoqiladi."""
-    if settings.is_production:
-        return []
-    return ["sandbox"]
+    providers: list[str] = []
+    if not settings.is_production:
+        providers.append("sandbox")
+    if settings.click_enabled:
+        providers.append("click")
+    if settings.payme_enabled:
+        providers.append("payme")
+    return providers
 
 
 @router.get("/config")
@@ -141,13 +145,7 @@ def checkout_order(order_id: str, body: CheckoutBody, auth: UserAuthDep):
     if user_id != order["client_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz to'lov qiladi")
 
-    if body.provider != "sandbox":
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Hozircha faqat test (sandbox) to'lov mavjud",
-        )
-
-    if settings.is_production:
+    if body.provider == "sandbox" and settings.is_production:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sandbox to'lovi production muhitida taqiqlangan",

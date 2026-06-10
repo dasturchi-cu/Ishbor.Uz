@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Upload, X } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { cn } from '@/shared/lib/utils'
+import { StorageImage } from '@/presentation/components/features/storage-image'
 
 export interface FileUploadZoneProps {
   accept?: string
@@ -40,7 +41,11 @@ export function FileUploadZone({
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
 
+  const initialKey = initialUrls.join('\0')
+
   useEffect(() => {
+    // Bo'sh [] har renderda yangi reference — local preview ni o'chirmaslik
+    if (initialUrls.length === 0) return
     setPreviews((prev) => {
       prev.forEach((p) => {
         if (p.startsWith('blob:')) URL.revokeObjectURL(p)
@@ -48,7 +53,8 @@ export function FileUploadZone({
       return initialUrls
     })
     setUploadedUrls(initialUrls)
-  }, [initialUrls])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialKey stabilizes initialUrls (bo'sh [] reference)
+  }, [initialKey])
 
   const handleFiles = useCallback(
     async (incoming: FileList | null) => {
@@ -111,11 +117,19 @@ export function FileUploadZone({
   if (circular && displayPreview) {
     return (
       <div className={cn('relative mx-auto h-24 w-24', className)}>
-        <img
-          src={displayPreview}
-          alt=""
-          className="h-24 w-24 rounded-full border-2 border-[var(--ishbor-border)] object-cover"
-        />
+        {displayPreview.startsWith('blob:') ? (
+          <img
+            src={displayPreview}
+            alt=""
+            className="h-24 w-24 rounded-full border-2 border-[var(--ishbor-border)] object-cover"
+          />
+        ) : (
+          <StorageImage
+            src={displayPreview}
+            alt=""
+            className="h-24 w-24 rounded-full border-2 border-[var(--ishbor-border)] object-cover"
+          />
+        )}
         {uploading && (
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
             <Loader2 className="h-6 w-6 animate-spin text-white" />
@@ -183,7 +197,11 @@ export function FileUploadZone({
               key={`${src}-${i}`}
               className="relative aspect-square overflow-hidden rounded-[var(--r-card)] border border-[var(--ishbor-border)]"
             >
-              <img src={src} alt="" className="h-full w-full object-cover" />
+              {src.startsWith('blob:') ? (
+                <img src={src} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <StorageImage src={src} alt="" className="h-full w-full object-cover" />
+              )}
               {!disabled && !uploading && (
                 <button
                   type="button"
