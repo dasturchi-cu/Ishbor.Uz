@@ -12,6 +12,9 @@ REQUIRED_CHECKS: dict[str, bool] = {
     "rate_limit_hits_table": True,
     "profiles_rls_enabled": True,
     "vacancy_applications_guard_trigger": True,
+    "participant_profiles_view": True,
+    "profiles_order_participant_leak": False,
+    "payment_intents_client_update": False,
 }
 
 

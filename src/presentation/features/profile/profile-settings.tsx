@@ -21,6 +21,7 @@ import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { uploadAvatar, uploadPortfolioImage } from '@/infrastructure/supabase/storage'
+import { checkUsernameRemote } from '@/shared/lib/check-username-remote'
 import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { updatePassword } from '@/infrastructure/auth/password'
@@ -165,7 +166,7 @@ function SettingsNav({
 }
 
 export function ProfileSettings() {
-  const { t, profile, refreshProfile, userId, currentUserRole, language, setLanguage, theme, setTheme } = useApp()
+  const { t, profile, refreshProfile, mergeProfile, userId, currentUserRole, language, setLanguage, theme, setTheme } = useApp()
   const pathname = usePathname()
   const router = useRouter()
   const inDashboard = pathname.startsWith('/dashboard')
@@ -213,6 +214,7 @@ export function ProfileSettings() {
     telegram: false,
     telegram_bot_username: null as string | null,
   })
+  const [telegramLinkToken, setTelegramLinkToken] = useState<string | null>(null)
   const telegramHintShown = useRef(false)
   const [verifications, setVerifications] = useState<ApiVerification[]>([])
   const [verificationsLoading, setVerificationsLoading] = useState(false)
@@ -244,7 +246,7 @@ export function ProfileSettings() {
       .getNotificationPrefs()
       .then(setSimpleNotif)
       .catch((e) => {
-        ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/notifications/prefs' })
+        ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/profiles/me/notification-prefs' })
         setSimpleNotif(loadNotificationPrefs())
       })
     api
@@ -261,6 +263,20 @@ export function ProfileSettings() {
         toast.error(captureLoadError(e, { scope: 'notifications', apiPath: '/api/v1/notifications/channels' }, t))
       })
   }, [t])
+
+  useEffect(() => {
+    if (!userId || !notifChannels.telegram || profile?.telegram_chat_id) {
+      setTelegramLinkToken(null)
+      return
+    }
+    api
+      .telegramLinkToken()
+      .then((r) => setTelegramLinkToken(r.token))
+      .catch((e) => {
+        ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/notifications/telegram/link-token' })
+        setTelegramLinkToken(null)
+      })
+  }, [userId, notifChannels.telegram, profile?.telegram_chat_id])
 
   useEffect(() => {
     if (
@@ -345,8 +361,7 @@ export function ProfileSettings() {
     }
     setUsernameStatus('checking')
     const id = setTimeout(() => {
-      api
-        .checkUsername(slug)
+      checkUsernameRemote(slug, { excludeUserId: profile?.id ?? userId })
         .then((r) => setUsernameStatus(r.available ? 'ok' : 'taken'))
         .catch((e) => {
           setUsernameStatus('idle')
@@ -354,7 +369,7 @@ export function ProfileSettings() {
         })
     }, 400)
     return () => clearTimeout(id)
-  }, [username, profile?.username, t])
+  }, [username, profile?.username, profile?.id, userId, t])
 
   const profileLink =
     userId && typeof window !== 'undefined'
@@ -424,7 +439,8 @@ export function ProfileSettings() {
     }
     setSaving(true)
     try {
-      await api.updateProfile({
+      if (!userId) throw new Error(t('error_required'))
+      const saved = await persistProfilePatch(userId, {
         full_name: formData.name,
         username: username.trim() || undefined,
         bio,
@@ -450,8 +466,8 @@ export function ProfileSettings() {
                 })
             : undefined,
       })
-      await api.updateUiPreferences({ timezone })
-      await refreshProfile()
+      mergeProfile(saved)
+      void api.updateUiPreferences({ timezone }).catch(() => undefined)
       setMessage(t('save_success'))
       toast.success(t('save_success'))
     } catch (e) {
@@ -541,7 +557,7 @@ export function ProfileSettings() {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
-                      placeholder="+998901234567"
+                      placeholder={t('settings_phone_placeholder')}
                       className="catalog-control !h-[42px]"
                     />
                   </div>
@@ -644,8 +660,8 @@ export function ProfileSettings() {
                         setMessage('')
                         try {
                           const url = await uploadAvatar(files[0], userId)
-                          await persistProfilePatch(userId, { avatar_url: url })
-                          await refreshProfile()
+                          const saved = await persistProfilePatch(userId, { avatar_url: url })
+                          mergeProfile(saved)
                           setMessage(t('save_success'))
                           return [url]
                         } catch (e) {
@@ -752,7 +768,7 @@ export function ProfileSettings() {
                         <Input
                           value={hourlyRate}
                           onChange={(e) => setHourlyRate(e.target.value)}
-                          placeholder="150000"
+                          placeholder={t('settings_hourly_rate_placeholder')}
                           className="catalog-control !h-[42px]"
                         />
                       </div>
@@ -774,7 +790,7 @@ export function ProfileSettings() {
                         <Input
                           value={languagesText}
                           onChange={(e) => setLanguagesText(e.target.value)}
-                          placeholder="uz:native, en:intermediate"
+                          placeholder={t('settings_languages_placeholder')}
                           className="catalog-control !h-[42px]"
                         />
                       </div>
@@ -1138,10 +1154,10 @@ export function ProfileSettings() {
                     ) : (
                       <div className="space-y-2">
                         <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('notif_telegram_connect_desc')}</p>
-                        {userId && notifChannels.telegram_bot_username && (
+                        {userId && notifChannels.telegram_bot_username && telegramLinkToken && (
                           <div className="flex flex-wrap gap-2">
                             <a
-                              href={`https://t.me/${notifChannels.telegram_bot_username}?start=${userId}`}
+                              href={`https://t.me/${notifChannels.telegram_bot_username}?start=${telegramLinkToken}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex"

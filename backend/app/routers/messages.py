@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase_admin
+from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import UserAuthDep
 from app.fraud_service import flag_message_if_risky
@@ -79,7 +80,11 @@ def list_conversations(
     )
 
     profiles_result = run_query(
-        lambda: supabase.table("profiles").select("id, full_name").in_("id", other_ids).execute()
+        lambda: get_supabase_admin()
+        .table("participant_profiles")
+        .select("id, full_name")
+        .in_("id", other_ids)
+        .execute()
     )
     profiles_map = {
         p["id"]: p.get("full_name") or "Foydalanuvchi" for p in (profiles_result.data or [])

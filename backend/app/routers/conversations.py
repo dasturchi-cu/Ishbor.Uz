@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 
 
+from app.database import get_supabase_admin
 from app.db_utils import run_query
 
 from app.deps import UserAuthDep
@@ -66,7 +67,8 @@ def _enrich_conversations_batch(supabase, user_id: str, conversations: list[dict
     profiles_map: dict[str, str] = {}
     if other_ids:
         prof_res = run_query(
-            lambda: supabase.table("profiles")
+            lambda: get_supabase_admin()
+            .table("participant_profiles")
             .select("id, full_name")
             .in_("id", list(set(other_ids)))
             .execute()

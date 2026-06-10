@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase_admin
+from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import UserAuthDep
 from app.referral_bonus import try_credit_referral_bonus
@@ -41,7 +42,8 @@ def list_my_orders(
     profiles_map: dict[str, dict] = {}
     if profile_ids:
         profiles = run_query(
-            lambda: supabase.table("profiles")
+            lambda: get_supabase_admin()
+            .table("participant_profiles")
             .select("id, full_name, region")
             .in_("id", list(profile_ids))
             .execute()
@@ -146,7 +148,8 @@ def get_order(order_id: str, auth: UserAuthDep):
 
     profile_ids = {order["client_id"], order["freelancer_id"]}
     profiles = run_query(
-        lambda: supabase.table("profiles")
+        lambda: get_supabase_admin()
+        .table("participant_profiles")
         .select("id, full_name, region")
         .in_("id", list(profile_ids))
         .execute()

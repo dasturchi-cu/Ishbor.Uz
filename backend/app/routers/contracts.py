@@ -30,14 +30,16 @@ def _enrich_contract(row: dict, supabase) -> dict:
         .execute()
     )
     client = run_query(
-        lambda: supabase.table("profiles")
+        lambda: get_supabase_admin()
+        .table("participant_profiles")
         .select("id, full_name, avatar_url, region")
         .eq("id", row["client_id"])
         .single()
         .execute()
     )
     freelancer = run_query(
-        lambda: supabase.table("profiles")
+        lambda: get_supabase_admin()
+        .table("participant_profiles")
         .select("id, full_name, avatar_url, specialty, region")
         .eq("id", row["freelancer_id"])
         .single()

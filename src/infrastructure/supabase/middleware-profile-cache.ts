@@ -12,12 +12,13 @@ export type CachedProfile = {
 
 type CachePayload = CachedProfile & { uid: string; exp: number }
 
-function cacheSecret(): string {
-  return (
-    process.env.MIDDLEWARE_CACHE_SECRET ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    'ishbor-dev-cache'
-  )
+const DEV_CACHE_SECRET = 'ishbor-dev-cache-local-only'
+
+function cacheSecret(): string | null {
+  const secret = process.env.MIDDLEWARE_CACHE_SECRET?.trim()
+  if (secret) return secret
+  if (process.env.NODE_ENV === 'production') return null
+  return DEV_CACHE_SECRET
 }
 
 function toBase64Url(text: string): string {
@@ -33,11 +34,11 @@ function fromBase64Url(encoded: string): string {
   return atob(b64)
 }
 
-async function hmacSign(message: string): Promise<string> {
+async function hmacSign(message: string, secret: string): Promise<string> {
   const enc = new TextEncoder()
   const key = await crypto.subtle.importKey(
     'raw',
-    enc.encode(cacheSecret()),
+    enc.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign'],
@@ -53,6 +54,8 @@ export async function readProfileCache(
   request: NextRequest,
   userId: string,
 ): Promise<CachedProfile | null> {
+  const secret = cacheSecret()
+  if (!secret) return null
   const raw = request.cookies.get(PROFILE_CACHE_COOKIE)?.value
   if (!raw) return null
   const dot = raw.lastIndexOf('.')
@@ -60,7 +63,7 @@ export async function readProfileCache(
   const body = raw.slice(0, dot)
   const sig = raw.slice(dot + 1)
   try {
-    const expected = await hmacSign(body)
+    const expected = await hmacSign(body, secret)
     if (expected !== sig) return null
     const payload = JSON.parse(fromBase64Url(body)) as CachePayload
     if (payload.uid !== userId) return null
@@ -81,13 +84,15 @@ export async function writeProfileCache(
   userId: string,
   profile: CachedProfile,
 ): Promise<void> {
+  const secret = cacheSecret()
+  if (!secret) return
   const payload: CachePayload = {
     uid: userId,
     exp: Date.now() + TTL_SEC * 1000,
     ...profile,
   }
   const body = toBase64Url(JSON.stringify(payload))
-  const sig = await hmacSign(body)
+  const sig = await hmacSign(body, secret)
   response.cookies.set(PROFILE_CACHE_COOKIE, `${body}.${sig}`, {
     httpOnly: true,
     sameSite: 'lax',

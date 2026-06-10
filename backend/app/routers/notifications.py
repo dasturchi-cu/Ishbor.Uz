@@ -9,6 +9,7 @@ from app.db_utils import run_query
 from app.deps import UserAuthDep
 from app.schemas_notifications import NotificationMarkRead, NotificationResponse
 from app.postgrest_embed import REVIEW_REVIEWER_PROFILE
+from app.telegram_link_service import create_telegram_link_token, verify_telegram_link_token
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -30,6 +31,16 @@ def notification_channels():
         "telegram_bot_username": username,
         "redis": settings.redis_enabled,
     }
+
+
+@router.get("/telegram/link-token")
+def telegram_link_token(auth: UserAuthDep):
+    if not settings.telegram_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram sozlanmagan",
+        )
+    return {"token": create_telegram_link_token(auth.user_id)}
 
 
 @router.post("/telegram/webhook")
@@ -59,11 +70,28 @@ async def telegram_webhook(
         return {"ok": True}
 
     parts = text.split(maxsplit=1)
-    if len(parts) < 2 or not _UUID_RE.match(parts[1].strip()):
+    if len(parts) < 2:
         return {"ok": True}
 
-    user_id = parts[1].strip()
+    user_id = verify_telegram_link_token(parts[1].strip())
+    if not user_id:
+        return {"ok": True}
+
     admin = get_supabase_admin()
+    existing = run_query(
+        lambda: admin.table("profiles")
+        .select("telegram_chat_id")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    rows = existing.data or []
+    if not rows:
+        return {"ok": True}
+    linked = rows[0].get("telegram_chat_id")
+    if linked and str(linked) != str(chat_id):
+        return {"ok": True}
+
     run_query(
         lambda: admin.table("profiles")
         .update({"telegram_chat_id": str(chat_id)})
