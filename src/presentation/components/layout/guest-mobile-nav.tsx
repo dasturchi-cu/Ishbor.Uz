@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Briefcase, FolderKanban, Home, UserPlus, Users } from 'lucide-react'
+import { Briefcase, ClipboardList, FolderKanban, Home, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
@@ -11,7 +11,7 @@ import { cn } from '@/shared/lib/utils'
 interface GuestTab {
   id: string
   href: string
-  labelKey: 'nav_home' | 'nav_services' | 'nav_freelancers' | 'nav_projects' | 'register'
+  labelKey: 'nav_home' | 'nav_services' | 'nav_freelancers' | 'nav_projects' | 'nav_jobs'
   icon: LucideIcon
   isActive: (pathname: string) => boolean
 }
@@ -39,7 +39,13 @@ const GUEST_TABS: GuestTab[] = [
     icon: FolderKanban,
     isActive: (p) => p === PATHS.projects || p.startsWith('/projects/'),
   },
-  { id: 'register', href: PATHS.register, labelKey: 'register', icon: UserPlus, isActive: (p) => p === PATHS.register },
+  {
+    id: 'jobs',
+    href: PATHS.jobs,
+    labelKey: 'nav_jobs',
+    icon: ClipboardList,
+    isActive: (p) => p === PATHS.jobs || p.startsWith('/jobs/'),
+  },
 ]
 
 export function GuestMobileNav() {

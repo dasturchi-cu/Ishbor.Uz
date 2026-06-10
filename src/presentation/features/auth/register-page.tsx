@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
+import { AuthPageBrand } from '@/presentation/components/layout/brand-logo'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
@@ -12,6 +13,7 @@ import { ArrowLeft, Briefcase, Users } from 'lucide-react'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { api } from '@/infrastructure/api/client'
+import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
 import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { signInWithGoogle } from '@/infrastructure/auth/oauth'
@@ -156,11 +158,11 @@ function RegisterPageContent() {
 
       if (data.session) {
         setCurrentUserRole(selectedRole)
-        let destination =
-          selectedRole === 'client' ? dashboardPathForRole('client') : PATHS.onboarding
+        let destination: string = PATHS.onboarding
         try {
           const username = await pickAvailableUsername(formData.email, formData.fullName)
-          const updated = await api.updateProfile({
+          const userId = data.session.user.id
+          const updated = await persistProfilePatch(userId, {
             full_name: formData.fullName,
             phone: formData.phone,
             region: formData.city,
@@ -170,14 +172,13 @@ function RegisterPageContent() {
               selectedRole === 'client'
                 ? formData.company.trim() || formData.bio
                 : formData.bio,
-            ...(selectedRole === 'client' ? { onboarding_completed: true } : {}),
           })
           if (updated.role !== selectedRole) {
             await api.updateProfileRole(selectedRole)
           }
           await refreshProfile()
-          if (selectedRole === 'client' && !updated.onboarding_completed) {
-            destination = PATHS.onboarding
+          if (updated.onboarding_completed) {
+            destination = dashboardPathForRole(selectedRole)
           }
         } catch (profileErr) {
           destination = PATHS.onboarding
@@ -258,12 +259,7 @@ function RegisterPageContent() {
               <ArrowLeft className="h-4 w-4" />
               {t('nav_home')}
             </Link>
-            <div className="auth-page-brand">
-              <Link href={PATHS.home} className="auth-page-brand__logo">
-                <span className="auth-page-brand__mark" aria-hidden />
-                ISH<span>BOR</span>
-              </Link>
-            </div>
+            <AuthPageBrand href={PATHS.home} />
 
             <div id="register-form" className="auth-form-card">
               <AuthMobileTrust />
@@ -347,12 +343,7 @@ function RegisterPageContent() {
             <ArrowLeft className="h-4 w-4" />
             {t('nav_home')}
           </Link>
-          <div className="auth-page-brand">
-            <Link href={PATHS.home} className="auth-page-brand__logo">
-              <span className="auth-page-brand__mark" aria-hidden />
-              ISH<span>BOR</span>
-            </Link>
-          </div>
+          <AuthPageBrand href={PATHS.home} />
 
           <div id="register-form" className="auth-form-card">
             <AuthMobileTrust />

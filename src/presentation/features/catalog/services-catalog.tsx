@@ -209,6 +209,9 @@ function ServicesCatalogContent() {
 
   const [minPrice, maxPrice] = priceRange
 
+  const experienceParam =
+    experienceFilters.length > 0 ? experienceFilters.join(',') : undefined
+
   useEffect(() => {
     setLoading(true)
     setLoadError(null)
@@ -221,6 +224,7 @@ function ServicesCatalogContent() {
         min_price: minPrice > 0 ? minPrice : undefined,
         max_price: maxPrice < priceCeilingRef.current ? maxPrice : undefined,
         max_delivery_days: maxDeliveryDays > 0 ? maxDeliveryDays : undefined,
+        experience: experienceParam,
         limit: PAGE_SIZE,
         offset: (currentPage - 1) * PAGE_SIZE,
       })
@@ -245,7 +249,7 @@ function ServicesCatalogContent() {
         setLoadError(e)
       })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, maxDeliveryDays, reloadTick, t])
+  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, maxDeliveryDays, experienceParam, reloadTick, t])
 
   const categories = [
     { id: 'all', label: t('cat_all') },
@@ -284,32 +288,18 @@ function ServicesCatalogContent() {
   )
 
   const filteredServices = useMemo(() => {
-    let result = services
-
-    if (sortBy === 'rating') {
-      result = [...result].sort(
-        (a, b) =>
-          b.rating - a.rating ||
-          b.reviewCount - a.reviewCount ||
-          a.price - b.price
-      )
-    }
-
-    if (experienceFilters.length === 0) return result
-
-    return result.filter((service) => {
-      const rating = service.rating
-      const checks: boolean[] = []
-      if (experienceFilters.includes('exp_new')) checks.push(rating < 4 || rating === 0)
-      if (experienceFilters.includes('exp_mid')) checks.push(rating >= 4 && rating < 4.7)
-      if (experienceFilters.includes('exp_expert')) checks.push(rating >= 4.7)
-      return checks.some(Boolean)
-    })
-  }, [services, experienceFilters, sortBy])
+    if (sortBy !== 'rating') return services
+    return [...services].sort(
+      (a, b) =>
+        b.rating - a.rating ||
+        b.reviewCount - a.reviewCount ||
+        a.price - b.price
+    )
+  }, [services, sortBy])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, selectedCategory, selectedRegion, minPrice, maxPrice, maxDeliveryDays, sortBy])
+  }, [debouncedSearch, selectedCategory, selectedRegion, minPrice, maxPrice, maxDeliveryDays, sortBy, experienceFilters])
 
   const paginatedServices = filteredServices
 
@@ -330,7 +320,7 @@ function ServicesCatalogContent() {
     return key ? t(key) : id
   }
 
-  const resultCount = experienceFilters.length > 0 ? filteredServices.length : totalCount
+  const resultCount = totalCount
   const servicesFoundParts = t('services_found')
     .replace('{n}', String(resultCount))
     .split(String(resultCount))
@@ -526,7 +516,7 @@ function ServicesCatalogContent() {
                     ) : (
                       <>
                         {servicesFoundParts[0]}
-                        <strong>{filteredServices.length}</strong>
+                        <strong>{resultCount}</strong>
                         {servicesFoundParts[1] ?? ''}
                       </>
                     )}
@@ -579,6 +569,9 @@ function ServicesCatalogContent() {
                 {debouncedSearch && (
                   <FilterChip label={debouncedSearch} onRemove={() => { setSearchTerm(''); setDebouncedSearch('') }} />
                 )}
+                {selectedRegion && (
+                  <FilterChip label={selectedRegion} onRemove={() => setSelectedRegion('')} />
+                )}
                 {minPrice > 0 && (
                   <FilterChip
                     label={`≥ ${formatPrice(minPrice)}`}
@@ -597,6 +590,13 @@ function ServicesCatalogContent() {
                     onRemove={() => setMaxDeliveryDays(0)}
                   />
                 )}
+                {experienceFilters.map((key) => (
+                  <FilterChip
+                    key={key}
+                    label={t(key as TranslationKey)}
+                    onRemove={() => setExperienceFilters((prev) => prev.filter((k) => k !== key))}
+                  />
+                ))}
               </div>
             )}
 
@@ -621,7 +621,7 @@ function ServicesCatalogContent() {
                 action={
                   hasActiveFilters
                     ? { label: t('clear_filters'), onClick: resetFilters }
-                    : { label: t('browse_services'), onClick: () => router.push(PATHS.services) }
+                    : { label: t('catalog_empty_browse_freelancers'), onClick: () => router.push(PATHS.freelancers) }
                 }
                 secondaryAction={
                   hasActiveFilters

@@ -12,6 +12,8 @@ import { useApp } from '@/application/providers/app-provider'
 
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
 
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
+
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 
 import { Button } from '@/presentation/components/ui/button'
@@ -293,6 +295,13 @@ export function ProjectsCatalog({
 
   const loadingMore = loading && offset > 0
 
+  const hasActiveFilters =
+    debouncedSearch !== '' ||
+    region !== '' ||
+    category !== '' ||
+    budgetMin.trim() !== '' ||
+    budgetMax.trim() !== ''
+
 
 
   const categoryLabel = (value: string) => {
@@ -307,15 +316,17 @@ export function ProjectsCatalog({
 
   return (
 
-    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
 
-      <div className="surface-panel mb-4 px-4 py-3.5 sm:px-5 sm:py-4">
+      <div className="catalog-shell-head mb-5">
 
-        <h1 className="text-xl font-bold text-[var(--ishbor-text)] sm:text-[22px]">{t(titleKey)}</h1>
+        <h1 className="catalog-shell-title">{t(titleKey)}</h1>
 
-        <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)] sm:text-[14px]">{t(subtitleKey)}</p>
+        <p className="catalog-shell-subtitle">{t(subtitleKey)}</p>
 
       </div>
+
+      <IshborProtectionStrip compact className="mb-5" />
 
 
 
@@ -443,9 +454,27 @@ export function ProjectsCatalog({
 
         <div className="space-y-3">
 
-          {[0, 1, 2].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
 
-            <div key={i} className="h-28 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+            <div key={i} className="project-catalog-card-skeleton animate-pulse rounded-[var(--r-card)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5">
+
+              <div className="flex justify-between gap-4">
+
+                <div className="min-w-0 flex-1 space-y-2">
+
+                  <div className="h-5 w-2/3 rounded bg-[var(--ishbor-bg-muted)]" />
+
+                  <div className="h-3 w-full rounded bg-[var(--ishbor-bg-muted)]" />
+
+                  <div className="h-3 w-1/3 rounded bg-[var(--ishbor-bg-muted)]" />
+
+                </div>
+
+                <div className="h-6 w-24 shrink-0 rounded bg-[var(--ishbor-bg-muted)]" />
+
+              </div>
+
+            </div>
 
           ))}
 
@@ -457,21 +486,33 @@ export function ProjectsCatalog({
 
           icon={<Briefcase />}
 
-          title={t('no_projects_yet')}
+          title={hasActiveFilters ? t('no_projects_filtered') : t('no_projects_yet')}
 
-          description={t('projects_subtitle')}
+          description={hasActiveFilters ? t('no_services_desc') : t('projects_empty_desc')}
 
-          action={{ label: t('post_project'), onClick: () => router.push(PATHS.postProject) }}
+          action={
+            hasActiveFilters
+              ? { label: t('clear_filters'), onClick: () => {
+                  setSearch('')
+                  setDebouncedSearch('')
+                  setRegion('')
+                  setCategory('')
+                  setBudgetMin('')
+                  setBudgetMax('')
+                  router.replace(pathname, { scroll: false })
+                } }
+              : { label: t('post_project'), onClick: () => router.push(PATHS.postProject) }
+          }
 
-          secondaryAction={{
-
-            label: t('nav_freelancers'),
-
-            onClick: () => router.push(PATHS.freelancers),
-
-            variant: 'outline',
-
-          }}
+          secondaryAction={
+            hasActiveFilters
+              ? undefined
+              : {
+                  label: t('nav_freelancers'),
+                  onClick: () => router.push(PATHS.freelancers),
+                  variant: 'outline',
+                }
+          }
 
         />
 
@@ -481,15 +522,15 @@ export function ProjectsCatalog({
 
           {projects.map((p) => (
 
-            <article key={p.id} className="dashboard-order-card sm:p-5">
+            <Link key={p.id} href={projectPath(p.id)} className="project-catalog-card group block">
 
               <div className="flex flex-wrap items-start justify-between gap-3">
 
-                <div>
+                <div className="min-w-0 flex-1">
 
                   <div className="flex flex-wrap items-center gap-2">
 
-                    <h2 className="text-[16px] font-bold text-[var(--ishbor-text)]">{p.title}</h2>
+                    <h2 className="text-[17px] font-bold text-[var(--ishbor-text)] transition group-hover:text-[var(--color-primary)]">{p.title}</h2>
 
                     <Badge variant={projectStatusBadgeVariant(p.status)} size="xs">
 
@@ -499,45 +540,37 @@ export function ProjectsCatalog({
 
                   </div>
 
-                  <p className="mt-1 line-clamp-2 text-[13px] text-[var(--ishbor-text-muted)]">{p.description}</p>
+                  <p className="mt-1.5 line-clamp-2 text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{p.description}</p>
 
-                  <p className="mt-2 text-[12px] text-[var(--ishbor-text-muted)]">
+                  <p className="mt-2.5 text-[12px] font-medium text-[var(--ishbor-text-sub)]">
 
-                    {p.region} · {categoryLabel(p.category)}
+                    {p.region}
+
+                    <span className="mx-1.5 text-[var(--ishbor-text-muted)]">·</span>
+
+                    {categoryLabel(p.category)}
+
+                    {(p.application_count ?? 0) > 0 && (
+
+                      <>
+
+                        <span className="mx-1.5 text-[var(--ishbor-text-muted)]">·</span>
+
+                        {t('project_applications_count').replace('{n}', String(p.application_count))}
+
+                      </>
+
+                    )}
 
                   </p>
 
                 </div>
 
-                <p className="text-[16px] font-bold text-[var(--color-primary)]">{formatPrice(p.budget)}</p>
+                <p className="text-[18px] font-bold tabular-nums text-[var(--color-primary)]">{formatPrice(p.budget)}</p>
 
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-
-                <Link href={projectPath(p.id)}>
-
-                  <Button variant="primary" size="sm">
-
-                    {t('project_view_detail')}
-
-                  </Button>
-
-                </Link>
-
-                {(p.application_count ?? 0) > 0 && (
-
-                  <span className="self-center text-[12px] text-[var(--ishbor-text-muted)]">
-
-                    {t('project_applications_count').replace('{n}', String(p.application_count))}
-
-                  </span>
-
-                )}
-
-              </div>
-
-            </article>
+            </Link>
 
           ))}
 

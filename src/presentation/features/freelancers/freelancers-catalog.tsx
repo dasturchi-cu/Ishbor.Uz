@@ -80,6 +80,7 @@ export function FreelancersCatalog({
   }, [search, region, specialty, offset, sortBy, reloadTick])
 
   const filtered = freelancers
+  const hasActiveFilters = search.trim() !== '' || region !== '' || specialty !== ''
 
   const [suggestions, setSuggestions] = useState<ApiProfilePublic[]>([])
 
@@ -235,10 +236,25 @@ export function FreelancersCatalog({
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Users />}
-          title={t('no_freelancers_yet')}
-          description={t('kwork_freelancers_sub')}
-          action={{ label: t('browse_services'), onClick: () => router.push(PATHS.services) }}
-          secondaryAction={{ label: t('register'), onClick: () => router.push(PATHS.register), variant: 'outline' }}
+          title={hasActiveFilters ? t('no_freelancers_filtered') : t('no_freelancers_yet')}
+          description={hasActiveFilters ? t('no_services_desc') : t('kwork_freelancers_sub')}
+          action={
+            hasActiveFilters
+              ? {
+                  label: t('clear_filters'),
+                  onClick: () => {
+                    setSearch('')
+                    setRegion('')
+                    setSpecialty('')
+                  },
+                }
+              : { label: t('browse_services'), onClick: () => router.push(PATHS.services) }
+          }
+          secondaryAction={
+            hasActiveFilters
+              ? undefined
+              : { label: t('register'), onClick: () => router.push(PATHS.register), variant: 'outline' }
+          }
         />
       ) : (
         <div className="freelancer-grid">
@@ -259,9 +275,14 @@ export function FreelancersCatalog({
         </div>
       )}
 
-      {hasMore && !loading && filtered.length > 0 && (
+      {hasMore && filtered.length > 0 && (
         <div className="mt-6 flex justify-center">
-          <Button variant="outline" onClick={() => setOffset((o) => o + pageSize)}>
+          <Button
+            variant="outline"
+            loading={loading && offset > 0}
+            disabled={loading && offset > 0}
+            onClick={() => setOffset((o) => o + pageSize)}
+          >
             {t('show_more')}
           </Button>
         </div>

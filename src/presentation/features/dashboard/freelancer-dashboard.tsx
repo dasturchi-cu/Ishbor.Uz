@@ -21,6 +21,7 @@ import { DashboardRecommendedActions } from '@/presentation/components/dashboard
 import { useDashboardSummary } from '@/shared/lib/use-dashboard-summary'
 import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
 import { FreelancerOnboardingChecklist } from '@/presentation/components/dashboard/freelancer-onboarding-checklist'
+import { OrderRowSkeleton } from '@/presentation/components/dashboard/order-row-skeleton'
 import { freelancerOnboardingProgress } from '@/shared/lib/onboarding-progress'
 import { useOnboardingChecklistVisible } from '@/shared/lib/onboarding-session-limit'
 
@@ -57,21 +58,6 @@ function DashboardPanel({
       </div>
       <div className="dashboard-panel-body">{children}</div>
     </section>
-  )
-}
-
-function OrderRowSkeleton() {
-  return (
-    <div className="rounded-[var(--r-md)] border border-[var(--ishbor-border)] p-3.5">
-      <div className="mb-2 flex justify-between gap-3">
-        <div className="space-y-2">
-          <div className="h-4 w-36 animate-pulse rounded bg-[var(--color-bg-muted)]" />
-          <div className="h-3 w-24 animate-pulse rounded bg-[var(--color-bg-muted)]" />
-        </div>
-        <div className="h-6 w-20 animate-pulse rounded-full bg-[var(--color-bg-muted)]" />
-      </div>
-      <div className="h-1.5 animate-pulse rounded-full bg-[var(--color-bg-muted)]" />
-    </div>
   )
 }
 
@@ -145,7 +131,7 @@ export function FreelancerDashboard() {
       ? { label: t('dash_action_create_service'), href: PATHS.dashboardServicesNew }
       : readyToAccept.length > 0
         ? { label: t('accept_order'), href: dashboardOrderPath(readyToAccept[0].id) }
-        : { label: t('dash_action_find_orders'), href: PATHS.dashboardOrders }
+        : { label: t('dash_action_find_orders'), href: PATHS.projects }
 
   const viewAllServicesLink = (
     <Link
@@ -213,7 +199,6 @@ export function FreelancerDashboard() {
               action={{
                 label: t('create_service_title'),
                 onClick: () => router.push(PATHS.dashboardServicesNew),
-                variant: 'outline',
               }}
             />
           ) : (
@@ -281,7 +266,6 @@ export function FreelancerDashboard() {
             action={{
               label: t('create_service_title'),
               onClick: () => router.push(PATHS.dashboardServicesNew),
-              variant: 'outline',
             }}
           />
         ) : (

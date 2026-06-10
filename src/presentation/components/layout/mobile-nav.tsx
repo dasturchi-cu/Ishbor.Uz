@@ -53,14 +53,13 @@ function buildTabs(isClient: boolean, messageUnread: number): TabItem[] {
 
   const birja: TabItem = {
     id: 'birja',
-    href: PATHS.postProject,
+    href: isClient ? PATHS.postProject : PATHS.projects,
     labelKey: 'nav_birja',
     icon: Briefcase,
     isActive: (p) =>
-      p === PATHS.postProject ||
-      p.startsWith(`${PATHS.postProject}/`) ||
-      p === PATHS.projects ||
-      p.startsWith(`${PATHS.projects}/`),
+      (isClient &&
+        (p === PATHS.postProject || p.startsWith(`${PATHS.postProject}/`))) ||
+      (!isClient && (p === PATHS.projects || p.startsWith(`${PATHS.projects}/`))),
   }
 
   const messages: TabItem = {

@@ -42,6 +42,7 @@ import { formatDashboardHeaderDate } from '@/shared/lib/format-date'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { buildDashboardBreadcrumbs } from '@/shared/lib/dashboard-breadcrumbs'
 import { useSessionIdleTimeout } from '@/shared/lib/use-session-idle'
+import { useDashboardCacheHydrate } from '@/shared/lib/use-dashboard-cache-hydrate'
 
 interface NavItem {
   id: string
@@ -301,10 +302,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { t, language } = useApp()
+  const { t, language, userId } = useApp()
   const role = useDashboardRole()
   useAdminDeniedToast()
   useSessionIdleTimeout()
+  useDashboardCacheHydrate(userId, role === 'client' ? 'client' : 'freelancer')
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileDrawerRef = useRef<HTMLElement>(null)
   const pageTitle = getPageTitle(pathname)
@@ -413,17 +415,26 @@ function DashboardBottomNav() {
   const isClient = role === 'client'
   const homeHref = isClient ? PATHS.dashboardClient : PATHS.dashboardFreelancer
 
-  const items = [
-    { href: homeHref, labelKey: 'nav_dashboard' as TranslationKey, icon: LayoutDashboard },
-    { href: PATHS.dashboardOrders, labelKey: 'nav_orders' as TranslationKey, icon: ShoppingBag },
+  const roleTab = isClient
+    ? { href: PATHS.dashboardProjects, labelKey: 'my_projects' as TranslationKey, icon: Briefcase, badge: undefined }
+    : { href: PATHS.dashboardServices, labelKey: 'nav_my_services' as TranslationKey, icon: Package, badge: undefined }
+
+  const items: {
+    href: string
+    labelKey: TranslationKey
+    icon: LucideIcon
+    badge?: number
+  }[] = [
+    { href: homeHref, labelKey: 'nav_dashboard', icon: LayoutDashboard },
+    { href: PATHS.dashboardOrders, labelKey: 'nav_orders', icon: ShoppingBag },
     {
       href: PATHS.dashboardMessages,
-      labelKey: 'nav_messages' as TranslationKey,
+      labelKey: 'nav_messages',
       icon: MessageCircle,
       badge: messageUnread,
     },
-    { href: PATHS.dashboardWallet, labelKey: 'nav_wallet' as TranslationKey, icon: Wallet },
-    { href: PATHS.dashboardProfile, labelKey: 'nav_profile' as TranslationKey, icon: User },
+    { href: PATHS.dashboardWallet, labelKey: 'nav_wallet', icon: Wallet },
+    roleTab,
   ]
 
   return (

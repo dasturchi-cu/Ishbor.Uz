@@ -22,7 +22,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthLoading && !isLoggedIn) {
-      router.replace(PATHS.login)
+      const returnTo =
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : ''
+      const loginUrl =
+        returnTo && returnTo !== PATHS.login
+          ? `${PATHS.login}?returnTo=${encodeURIComponent(returnTo)}`
+          : PATHS.login
+      router.replace(loginUrl)
       return
     }
     if (!isAuthLoading && isLoggedIn && profile?.is_banned) {

@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { dashboardPathForRole } from '@/domain/constants/routes'
 import { trackMiddlewareSupabaseRequest } from '@/infrastructure/supabase/middleware-request-debug'
 import {
   readProfileCache,
@@ -113,16 +114,19 @@ export async function updateSession(request: NextRequest) {
     })
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_banned, onboarding_completed, is_admin')
+      .select('is_banned, onboarding_completed, is_admin, role')
       .eq('id', user!.id)
       .maybeSingle()
 
     if (!profile) return null
 
+    const role = profile.role === 'client' ? 'client' : profile.role === 'freelancer' ? 'freelancer' : undefined
+
     const flags: CachedProfile = {
       is_banned: Boolean(profile.is_banned),
       is_admin: Boolean(profile.is_admin),
       onboarding_completed: Boolean(profile.onboarding_completed),
+      role,
     }
     profileFresh = flags
     return flags
@@ -141,7 +145,7 @@ export async function updateSession(request: NextRequest) {
     const dest =
       profile?.onboarding_completed === false && !profile?.is_admin
         ? '/onboarding'
-        : '/dashboard'
+        : dashboardPathForRole(profile?.role === 'client' ? 'client' : 'freelancer')
     return withProfileCache(NextResponse.redirect(new URL(dest, request.url)))
   }
 

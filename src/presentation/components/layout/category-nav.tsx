@@ -22,6 +22,16 @@ const MAIN_LINKS = [
     labelKey: 'nav_project_marketplace' as const,
     match: (p: string) => p.startsWith(PATHS.projects) || p === PATHS.postProject,
   },
+  {
+    href: PATHS.jobs,
+    labelKey: 'nav_jobs' as const,
+    match: (p: string) => p === PATHS.jobs || p.startsWith(`${PATHS.jobs}/`),
+  },
+  {
+    href: PATHS.companies,
+    labelKey: 'nav_companies' as const,
+    match: (p: string) => p === PATHS.companies || p.startsWith(`${PATHS.companies}/`),
+  },
 ] as const
 
 const INTERIOR_PREFIXES = ['/dashboard', '/onboarding', '/wallet', '/settings', '/notifications', '/messages', '/admin']
