@@ -31,13 +31,17 @@ def _to_guard(row: dict[str, Any] | None) -> ProfileGuard:
     )
 
 
+def _peek_cached_unlocked(user_id: str, now: float) -> ProfileGuard | None:
+    entry = _cache.get(user_id)
+    if entry and now - entry[1] < GUARD_TTL_SEC:
+        return _to_guard(entry[0])
+    return None
+
+
 def get_cached_profile_guard(user_id: str) -> ProfileGuard | None:
     now = time.monotonic()
     with _lock:
-        entry = _cache.get(user_id)
-        if entry and now - entry[1] < GUARD_TTL_SEC:
-            return _to_guard(entry[0])
-    return None
+        return _peek_cached_unlocked(user_id, now)
 
 
 def store_profile_guard(user_id: str, row: dict[str, Any] | None) -> ProfileGuard:
@@ -60,7 +64,8 @@ def fetch_profile_guard_deduped(user_id: str, fetch_fn: Callable[[], dict[str, A
     wait_event: threading.Event | None = None
 
     with _lock:
-        cached = get_cached_profile_guard(user_id)
+        now = time.monotonic()
+        cached = _peek_cached_unlocked(user_id, now)
         if cached is not None:
             return cached
         if user_id not in _inflight:
@@ -71,7 +76,7 @@ def fetch_profile_guard_deduped(user_id: str, fetch_fn: Callable[[], dict[str, A
             wait_event = _inflight[user_id]
 
     if not leader:
-        wait_event.wait(timeout=15.0)
+        wait_event.wait(timeout=10.0)
         cached = get_cached_profile_guard(user_id)
         if cached is not None:
             return cached

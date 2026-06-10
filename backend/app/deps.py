@@ -7,9 +7,10 @@ from supabase import Client
 
 from app.auth.jwt_verify import verify_supabase_token
 from app.auth_profile_cache import fetch_profile_guard_deduped, get_cached_profile_guard, store_profile_guard
-from app.database import create_supabase_user_client, get_supabase_admin
+from app.database import UserSupabaseMisconfiguredError, create_supabase_user_client, get_supabase_admin
 from app.db_utils import run_query
 from app.supabase_instrumentation import reset_request_component, set_request_component
+from app.timing_log import timed
 
 security = HTTPBearer(auto_error=False)
 
@@ -51,16 +52,20 @@ def _enforce_profile_guard(guard) -> None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob vaqtincha to'xtatilgan")
 
 
-def _fetch_guard_row(supabase: Client, user_id: str) -> dict | None:
+def _fetch_guard_row(user_id: str) -> dict | None:
+    """JWT tasdiqlangan — guard uchun service_role (RLS bypass, tezroq)."""
+    admin = get_supabase_admin()
     comp_token = set_request_component("auth_deps")
     try:
-        row = run_query(
-            lambda: supabase.table("profiles")
-            .select("is_banned, is_suspended, suspended_until")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
+        with timed("auth.guard_fetch", user_id=user_id):
+            row = run_query(
+                lambda: admin.table("profiles")
+                .select("is_banned, is_suspended, suspended_until")
+                .eq("id", user_id)
+                .limit(1)
+                .execute(),
+                op="profiles.guard_select",
+            )
     finally:
         reset_request_component(comp_token)
     data = row.data or []
@@ -74,13 +79,22 @@ def require_user_auth(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token kerak")
 
     token = credentials.credentials
-    payload = verify_supabase_token(token)
+    with timed("auth.jwt_verify"):
+        payload = verify_supabase_token(token)
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
 
-    supabase = create_supabase_user_client(token)
-    guard = fetch_profile_guard_deduped(user_id, lambda: _fetch_guard_row(supabase, user_id))
+    try:
+        with timed("auth.create_user_client"):
+            supabase = create_supabase_user_client(token)
+    except UserSupabaseMisconfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    with timed("auth.profile_guard_deduped", user_id=user_id):
+        guard = fetch_profile_guard_deduped(user_id, lambda: _fetch_guard_row(user_id))
     _enforce_profile_guard(guard)
 
     return UserAuth(user_id=user_id, supabase=supabase)
@@ -94,17 +108,27 @@ def require_user_auth_with_profile(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token kerak")
 
     token = credentials.credentials
-    payload = verify_supabase_token(token)
+    with timed("auth.jwt_verify"):
+        payload = verify_supabase_token(token)
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
 
-    supabase = create_supabase_user_client(token)
+    try:
+        with timed("auth.create_user_client"):
+            supabase = create_supabase_user_client(token)
+    except UserSupabaseMisconfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     comp_token = set_request_component("auth_summary_profile")
     try:
-        row = run_query(
-            lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-        )
+        with timed("auth.summary_profile_fetch", user_id=user_id):
+            row = run_query(
+                lambda: get_supabase_admin().table("profiles").select("*").eq("id", user_id).single().execute(),
+                op="profiles.summary_select",
+            )
     finally:
         reset_request_component(comp_token)
 

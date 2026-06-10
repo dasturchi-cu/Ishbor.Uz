@@ -1,8 +1,8 @@
 import re
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, status
 
-from app.platform_services import log_activity, log_audit
+from app.platform_services import log_activity, log_audit, track_activation_once
 
 REFERRAL_BONUS = 50_000
 
@@ -14,7 +14,9 @@ from app.db_utils import run_query
 from app.deps import OptionalUserId, OptionalUserIdLight, UserAuthDep
 
 from app.analytics_service import build_user_analytics
+from app.profile_service import ensure_profile_row, update_profile_row
 from app.review_stats import batch_review_stats, batch_trust_scores
+from app.timing_log import timed
 
 from app.schemas import (
     NotificationPrefsResponse,
@@ -161,22 +163,33 @@ def my_analytics(auth: UserAuthDep, period: str = Query(default="30d", pattern="
 
 def get_my_profile(auth: UserAuthDep):
     user_id = auth.user_id
-    supabase = auth.supabase
+    admin = get_supabase_admin()
 
     result = run_query(
-        lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        lambda: admin.table("profiles").select("*").eq("id", user_id).limit(1).execute()
     )
-    if not result.data:
+    profile_row = (result.data or [None])[0]
+    if not profile_row:
+        ensure_profile_row(user_id)
+        result = run_query(
+            lambda: admin.table("profiles").select("*").eq("id", user_id).limit(1).execute()
+        )
+        profile_row = (result.data or [None])[0]
+    if not profile_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-    return result.data
+    return profile_row
 
 
 
 
 
 @router.patch("/me", response_model=ProfileResponse)
-
-def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Request):
+def update_my_profile(
+    payload: ProfileUpdate, 
+    auth: UserAuthDep, 
+    request: Request, 
+    background_tasks: BackgroundTasks
+):
     user_id = auth.user_id
     supabase = auth.supabase
 
@@ -186,7 +199,9 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
 
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yangilash ma'lumoti yo'q")
 
-    data.pop("role", None)
+    # role ham payload da kelishi mumkin (onboarding da bitta so'rovda saqlash uchun)
+    if "role" in data and data["role"] not in ("freelancer", "client"):
+        data.pop("role", None)
 
     if "portfolio_urls" in data and data["portfolio_urls"] is not None:
         data["portfolio_urls"] = [u.strip() for u in data["portfolio_urls"] if u and u.strip()][:12]
@@ -196,7 +211,8 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
         if len(slug) < 3:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username juda qisqa")
         taken = run_query(
-            lambda: supabase.table("profiles")
+            lambda: get_supabase_admin()
+            .table("profiles")
             .select("id")
             .eq("username", slug)
             .neq("id", user_id)
@@ -208,35 +224,28 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
         data["username"] = slug
 
     if data.get("onboarding_completed"):
-        current_row = run_query(
-            lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-        )
-        merged = {**(current_row.data or {}), **data}
-        if not (merged.get("full_name") or "").strip():
+        # Payload dagi ma'lumotlarni tekshiramiz — extra DB so'rov kerak emas
+        if not (data.get("full_name") or "").strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Onboarding: ism talab qilinadi",
             )
-        if len((merged.get("username") or "")) < 3:
+        if len((data.get("username") or "")) < 3:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Onboarding: username talab qilinadi",
             )
-        if not (merged.get("region") or "").strip():
+        if not (data.get("region") or "").strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Onboarding: viloyat talab qilinadi",
             )
 
-    run_query(lambda: supabase.table("profiles").update(data).eq("id", user_id).execute())
+    with timed("profiles.patch_me", user_id=user_id, fields=list(data.keys())):
+        profile_data = update_profile_row(user_id, data)
 
-    refetch = run_query(
-        lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-    )
-    if not refetch.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-
-    log_audit(
+    background_tasks.add_task(
+        log_audit,
         actor_id=user_id,
         action="profile_update",
         entity_type="profile",
@@ -244,22 +253,26 @@ def update_my_profile(payload: ProfileUpdate, auth: UserAuthDep, request: Reques
         metadata={"fields": list(data.keys())},
         request=request,
     )
-    log_activity(user_id, "profile_update", "Profil yangilandi", href="/dashboard/settings")
+    background_tasks.add_task(
+        log_activity, user_id, "profile_update", "Profil yangilandi", href="/dashboard/settings"
+    )
+    if data.get("onboarding_completed"):
+        background_tasks.add_task(track_activation_once, user_id, "onboarding_complete")
 
-    return refetch.data
+    return profile_data
 
 
 @router.patch("/me/role", response_model=ProfileResponse)
-def update_my_role(payload: ProfileRoleUpdate, auth: UserAuthDep, request: Request):
+def update_my_role(
+    payload: ProfileRoleUpdate, 
+    auth: UserAuthDep, 
+    request: Request,
+    background_tasks: BackgroundTasks
+):
     user_id = auth.user_id
-    supabase = auth.supabase
-    run_query(lambda: supabase.table("profiles").update({"role": payload.role}).eq("id", user_id).execute())
-    refetch = run_query(
-        lambda: supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-    )
-    if not refetch.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
-    log_audit(
+    profile_data = update_profile_row(user_id, {"role": payload.role})
+    background_tasks.add_task(
+        log_audit,
         actor_id=user_id,
         action="profile_role_update",
         entity_type="profile",
@@ -267,7 +280,7 @@ def update_my_role(payload: ProfileRoleUpdate, auth: UserAuthDep, request: Reque
         metadata={"role": payload.role},
         request=request,
     )
-    return refetch.data
+    return profile_data
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
