@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Send, Shield } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
+import { BrandLogo } from '@/presentation/components/layout/brand-logo'
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -33,9 +34,7 @@ export function Footer() {
       <div className="layout-container max-w-[1280px] py-10 md:py-12">
         <div className="footer-grid">
           <div className="footer-brand">
-            <p className="footer-logo">
-              IshBor<span>.uz</span>
-            </p>
+            <BrandLogo variant="footer" href={PATHS.home} />
             <p className="footer-about">{t('footer_about')}</p>
             <div className="footer-social">
               <a
@@ -102,7 +101,6 @@ export function Footer() {
               <Shield className="h-4 w-4 shrink-0" aria-hidden />
               {t('nav_buyer_protection')}
             </Link>
-            <p className="footer-payments-note">{t('footer_payments_soon')}</p>
           </div>
         </div>
 

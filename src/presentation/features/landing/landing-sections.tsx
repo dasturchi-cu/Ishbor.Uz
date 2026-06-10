@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
   Award,
+  CheckCircle2,
   ChevronRight,
   CreditCard,
   Headphones,
   Languages,
   Rocket,
+  Search,
   Shield,
   Star,
 } from 'lucide-react'
@@ -26,10 +28,10 @@ import { Button } from '@/presentation/components/ui/button'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { api } from '@/infrastructure/api/client'
 
-const HOW_STEPS: { num: string; titleKey: TranslationKey; descKey: TranslationKey }[] = [
-  { num: '01', titleKey: 'how_step1_title', descKey: 'how_step1_desc' },
-  { num: '02', titleKey: 'how_step2_title', descKey: 'how_step2_desc' },
-  { num: '03', titleKey: 'how_step3_title', descKey: 'how_step3_desc' },
+const HOW_STEPS: { icon: LucideIcon; titleKey: TranslationKey; descKey: TranslationKey }[] = [
+  { icon: Search, titleKey: 'how_step1_title', descKey: 'how_step1_desc' },
+  { icon: Shield, titleKey: 'how_step2_title', descKey: 'how_step2_desc' },
+  { icon: CheckCircle2, titleKey: 'how_step3_title', descKey: 'how_step3_desc' },
 ]
 
 const TRUST_ITEMS: { icon: LucideIcon; labelKey: TranslationKey }[] = [
@@ -108,18 +110,21 @@ export function LandingHowItWorks() {
       <div className="layout-container max-w-[1280px]">
         <h2 className="landing-section-heading">{t('how_it_works_title')}</h2>
         <div className="landing-how-grid">
-          {HOW_STEPS.map((step, i) => (
-            <div key={step.num} className="landing-how-step">
-              <div className="landing-how-step-circle">
-                <span className="landing-how-step-num">{step.num}</span>
+          {HOW_STEPS.map((step, i) => {
+            const StepIcon = step.icon
+            return (
+              <div key={step.titleKey} className="landing-how-step">
+                <div className="landing-how-step-circle landing-how-step-circle--icon">
+                  <StepIcon className="h-5 w-5 text-[var(--color-primary)]" aria-hidden />
+                </div>
+                <h3 className="landing-how-step-title">{t(step.titleKey)}</h3>
+                <p className="landing-how-step-desc">{t(step.descKey)}</p>
+                {i < HOW_STEPS.length - 1 && (
+                  <ArrowRight className="landing-how-arrow hide-mobile" aria-hidden />
+                )}
               </div>
-              <h3 className="landing-how-step-title">{t(step.titleKey)}</h3>
-              <p className="landing-how-step-desc">{t(step.descKey)}</p>
-              {i < HOW_STEPS.length - 1 && (
-                <ArrowRight className="landing-how-arrow hide-mobile" aria-hidden />
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
         <div className="mt-10 flex justify-center">
           <Link href={PATHS.services}>
@@ -240,7 +245,44 @@ export function LandingTestimonials() {
       .finally(() => setReady(true))
   }, [])
 
-  if (!ready || items.length === 0) return null
+  if (!ready) {
+    return (
+      <section className="landing-testimonials-section" aria-busy="true">
+        <div className="layout-container max-w-[1280px]">
+          <div className="landing-testimonials-grid">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="landing-testimonial-card animate-pulse">
+                <div className="mb-3 h-4 w-24 rounded bg-[var(--ishbor-bg-muted)]" />
+                <div className="space-y-2">
+                  <div className="h-3 w-full rounded bg-[var(--ishbor-bg-muted)]" />
+                  <div className="h-3 w-5/6 rounded bg-[var(--ishbor-bg-muted)]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <section className="landing-testimonials-section">
+        <div className="layout-container max-w-[1280px]">
+          <h2 className="landing-section-heading">{t('clients_say')}</h2>
+          <div className="rounded-[var(--r-lg)] border border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-6 py-10 text-center">
+            <p className="text-[15px] font-medium text-[var(--ishbor-text)]">{t('landing_empty_testimonials_title')}</p>
+            <p className="mx-auto mt-2 max-w-md text-[14px] text-[var(--ishbor-text-muted)]">
+              {t('landing_empty_testimonials_desc')}
+            </p>
+            <Link href={PATHS.services} className="mt-5 inline-block">
+              <Button variant="primary">{t('browse_services')}</Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="landing-testimonials-section">
@@ -249,7 +291,7 @@ export function LandingTestimonials() {
         <div className="landing-testimonials-grid">
           {items.map((item, idx) => (
             <article key={idx} className="landing-testimonial-card">
-              <div className="flex gap-0.5">
+              <div className="flex gap-0.5" role="img" aria-label={t('rating_stars_aria').replace('{rating}', String(item.rating))}>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
@@ -259,6 +301,7 @@ export function LandingTestimonials() {
                         ? 'fill-[var(--warning)] text-[var(--warning)]'
                         : 'fill-[var(--rating-empty)] text-[var(--rating-empty)]'
                     )}
+                    aria-hidden
                   />
                 ))}
               </div>
@@ -277,7 +320,29 @@ export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
   const router = useRouter()
   const freelancers = stats.featured_freelancers.slice(0, 4)
 
-  if (freelancers.length === 0) return null
+  if (freelancers.length === 0) {
+    return (
+      <section className="page-section">
+        <div className="layout-container max-w-[1280px]">
+          <h2 className="landing-section-heading mb-4 text-left">{t('featured_freelancers')}</h2>
+          <div className="rounded-[var(--r-lg)] border border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-6 py-10 text-center">
+            <p className="text-[15px] font-medium text-[var(--ishbor-text)]">{t('landing_empty_freelancers_title')}</p>
+            <p className="mx-auto mt-2 max-w-md text-[14px] text-[var(--ishbor-text-muted)]">
+              {t('landing_empty_freelancers_desc')}
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Link href={PATHS.register}>
+                <Button variant="primary">{t('register')}</Button>
+              </Link>
+              <Link href={PATHS.freelancers}>
+                <Button variant="outline">{t('nav_freelancers')}</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="page-section">
@@ -347,21 +412,29 @@ export function LandingRecentActivity({ stats }: { stats: ApiPublicStats }) {
 export function LandingDarkTrust() {
   const { t } = useApp()
   return (
-    <section className="landing-dark-trust">
+    <section className="landing-trust-band border-t border-[var(--ishbor-border)] bg-[var(--neutral-50)] py-12 md:py-14">
       <div className="layout-container max-w-[1280px]">
-        <h2 className="landing-dark-trust-title">{t('trust_section_title')}</h2>
-        <ul className="landing-dark-trust-grid">
+        <h2 className="mb-6 text-[length:var(--text-h3)] font-bold tracking-tight text-[var(--ishbor-text)]">
+          {t('trust_section_title')}
+        </h2>
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {TRUST_ITEMS.map(({ icon: Icon, labelKey }) => (
-            <li key={labelKey} className="landing-dark-trust-item">
-              <span className="landing-dark-trust-icon">
-                <Icon className="h-5 w-5" />
+            <li
+              key={labelKey}
+              className="flex items-start gap-3 rounded-[var(--r-lg)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-4 py-4"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--r-md)] bg-[var(--color-primary-light)] text-[var(--color-primary)]">
+                <Icon className="h-5 w-5" aria-hidden />
               </span>
               {labelKey === 'trust_item_support' || labelKey === 'trust_item_cert' ? (
-                <Link href={PATHS.help} className="hover:text-[var(--color-primary)] hover:underline">
+                <Link
+                  href={PATHS.help}
+                  className="pt-2 text-[14px] font-medium text-[var(--ishbor-text)] hover:text-[var(--color-primary)]"
+                >
                   {t(labelKey)}
                 </Link>
               ) : (
-                <span>{t(labelKey)}</span>
+                <span className="pt-2 text-[14px] font-medium text-[var(--ishbor-text)]">{t(labelKey)}</span>
               )}
             </li>
           ))}
@@ -372,24 +445,27 @@ export function LandingDarkTrust() {
 }
 
 export function LandingCtaBanner() {
-  const { t } = useApp()
+  const { t, isLoggedIn, isAuthLoading } = useApp()
   const router = useRouter()
   return (
-    <section className="landing-cta-banner">
-      <div className="layout-container max-w-[1280px]">
-        <div className="landing-cta-banner-inner">
-          <div>
-            <h2 className="landing-cta-banner-title">{t('cta_banner_title')}</h2>
-            <p className="landing-cta-banner-sub">{t('cta_banner_sub')}</p>
-          </div>
-          <Button
-            variant="secondary"
-            size="lg"
-            className="shrink-0 rounded-[var(--r-md)] bg-[var(--neutral-0)] font-semibold text-[var(--color-primary)] hover:bg-[var(--brand-50)]"
-            onClick={() => router.push(PATHS.services)}
-          >
-            {t('browse_services')}
-          </Button>
+    <section className="layout-container max-w-[1280px] py-12 md:py-16">
+      <div className="flex flex-col gap-6 rounded-[var(--r-xl)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-6 py-8 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-10">
+        <div className="max-w-xl">
+          <h2 className="text-[length:var(--text-h3)] font-bold tracking-tight text-[var(--ishbor-text)]">
+            {t('cta_banner_title')}
+          </h2>
+          <p className="mt-2 text-[15px] leading-relaxed text-[var(--ishbor-text-muted)]">{t('cta_banner_sub')}</p>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          {!isAuthLoading && !isLoggedIn ? (
+            <Button variant="primary" size="lg" className="min-w-[160px] font-semibold" onClick={() => router.push(PATHS.register)}>
+              {t('register')}
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" className="min-w-[160px] font-semibold" onClick={() => router.push(PATHS.services)}>
+              {t('browse_services')}
+            </Button>
+          )}
         </div>
       </div>
     </section>

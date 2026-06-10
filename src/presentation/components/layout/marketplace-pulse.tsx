@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, Circle } from 'lucide-react'
+import { Activity } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import type { ApiPublicStats } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
@@ -104,10 +104,7 @@ export function MarketplacePulse({
         <Activity className="h-3.5 w-3.5" aria-hidden />
         {t('landing_pulse_title')}
       </span>
-      <span className="marketplace-pulse__dot" aria-hidden>
-        <Circle className="h-2 w-2 fill-[var(--success)] text-[var(--success)]" />
-      </span>
-      <span key={current.id} className="marketplace-pulse__text animate-fadeInUp">
+      <span className="marketplace-pulse__text">
         {current.text}
       </span>
     </div>

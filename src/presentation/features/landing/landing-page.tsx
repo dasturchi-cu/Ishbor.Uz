@@ -17,10 +17,18 @@ import { SearchAutocomplete } from '@/presentation/components/layout/search-auto
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { Button } from '@/presentation/components/ui/button'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
+import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import {
   LandingCategoryGrid,
+  LandingCtaBanner,
+  LandingDarkTrust,
   LandingFeaturedTabs,
+  LandingHeroBadge,
   LandingHowItWorks,
+  LandingRecentActivity,
+  LandingStatsRow,
   LandingTestimonials,
   LandingTopFreelancers,
   filterServicesByTab,
@@ -36,6 +44,94 @@ const EMPTY_STATS: ApiPublicStats = {
   category_counts: {},
   top_services: [],
   featured_freelancers: [],
+}
+
+function HeroSpotlightCard({
+  featured,
+  featuredName,
+  featuredRole,
+  featuredRating,
+  t,
+}: {
+  featured: ApiPublicStats['featured_freelancers'][0]
+  featuredName: string
+  featuredRole: string
+  featuredRating?: number
+  t: ReturnType<typeof useApp>['t']
+}) {
+  const ratingLabel =
+    featuredRating != null && featuredRating > 0
+      ? t('rating_stars_aria').replace('{rating}', featuredRating.toFixed(1))
+      : undefined
+
+  return (
+    <Link
+      href={freelancerPath(featured)}
+      className="landing-hero-spotlight relative mx-auto w-full max-w-[340px] transition hover:opacity-[0.98] lg:mx-0"
+    >
+      <div className="landing-hero-spotlight-inner hidden lg:block">
+        <div className="ishbor-hero-visual">
+          <Avatar name={featuredName} size={120} />
+        </div>
+      </div>
+      <div className="landing-hero-spotlight-mobile lg:hidden">
+        <Avatar name={featuredName} size={64} />
+        <div className="landing-hero-spotlight-mobile__body min-w-0 flex-1">
+          {featuredRating != null && featuredRating > 0 && (
+            <div className="flex gap-0.5" role="img" aria-label={ratingLabel}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={cn(
+                    'h-3 w-3',
+                    i < Math.round(featuredRating)
+                      ? 'fill-[var(--rating-filled)] text-[var(--rating-filled)]'
+                      : 'fill-[var(--rating-empty)] text-[var(--rating-empty)]'
+                  )}
+                  aria-hidden
+                />
+              ))}
+            </div>
+          )}
+          <p className="mt-0.5 truncate text-[14px] font-semibold text-[var(--ishbor-text)] lg:mt-1 lg:text-[13px]">
+            {featuredName}, {featuredRole}
+          </p>
+          {featuredRating != null && featuredRating > 0 && (
+            <p className="text-[12px] text-[var(--ishbor-text-muted)]">
+              {featuredRating.toFixed(1)} · {t('nav_freelancers')}
+            </p>
+          )}
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ishbor-text-muted)] lg:hidden" aria-hidden />
+      </div>
+      <div className="ishbor-hero-badge hidden lg:block">
+        {featuredRating != null && featuredRating > 0 && (
+          <div className="flex gap-0.5" role="img" aria-label={ratingLabel}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={cn(
+                  'h-3.5 w-3.5',
+                  i < Math.round(featuredRating)
+                    ? 'fill-[var(--rating-filled)] text-[var(--rating-filled)]'
+                    : 'fill-[var(--rating-empty)] text-[var(--rating-empty)]'
+                )}
+                aria-hidden
+              />
+            ))}
+          </div>
+        )}
+        <p className="mt-1 text-[13px] font-semibold text-[var(--ishbor-text)]">
+          {featuredName}, {featuredRole}
+        </p>
+        {featuredRating != null && featuredRating > 0 && (
+          <p className="text-[12px] text-[var(--ishbor-text-muted)]">
+            {featuredRating.toFixed(1)} · {t('nav_freelancers')}
+          </p>
+        )}
+      </div>
+    </Link>
+  )
 }
 
 export function LandingPage() {
@@ -98,25 +194,16 @@ export function LandingPage() {
   }
 
   return (
-    <div className="landing-page min-h-screen bg-[var(--body-bg)]">
-      {statsLoadError ? (
-        <div className="layout-container max-w-[1280px] pt-4">
-          <LoadErrorAlert
-            error={statsLoadError}
-            scope="landing"
-            onRetry={loadStats}
-            context={{ apiPath: '/api/v1/stats/public' }}
-          />
-        </div>
-      ) : null}
+    <div className="landing-page min-h-[100dvh] bg-[var(--body-bg)]">
       <section className="ishbor-landing-hero">
         <div className="layout-container landing-hero-content max-w-[1280px] py-[var(--landing-hero-pad)]">
-          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,340px)] lg:gap-12">
+          <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(280px,340px)] lg:gap-14">
             <div className="min-w-0">
-              <h1 className="landing-hero-title text-[length:var(--text-h2)] font-bold leading-[1.1] tracking-tight sm:text-[length:var(--text-h1)] lg:text-[length:var(--text-display)] lg:leading-[1.06]">
+              <LandingHeroBadge />
+              <h1 className="landing-hero-title mt-3 text-[length:var(--text-h2)] font-bold leading-[1.1] tracking-tight sm:text-[length:var(--text-h1)] lg:text-[length:var(--text-display)] lg:leading-[1.06]">
                 {t('kwork_hero_headline')}
               </h1>
-              <p className="mt-4 max-w-[480px] text-[15px] leading-relaxed text-[var(--ishbor-text-muted)] sm:text-[16px]">
+              <p className="mt-4 max-w-[520px] text-[length:var(--text-body)] leading-relaxed text-[var(--ishbor-text-muted)]">
                 {t('landing_hero_sub')}
               </p>
 
@@ -129,49 +216,53 @@ export function LandingPage() {
                 variant="hero"
               />
 
-              <MarketplacePulse stats={stats} className="mt-4" />
+              {!isAuthLoading && !isLoggedIn && (
+                <div className="landing-hero-actions mt-5">
+                  <Link href={PATHS.register}>
+                    <Button variant="primary" size="lg" className="min-w-[140px] font-semibold">
+                      {t('register')}
+                    </Button>
+                  </Link>
+                  <Link href={PATHS.services}>
+                    <Button variant="outline" size="lg" className="font-semibold">
+                      {t('browse_services')}
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
 
-            {showFeaturedCard && featured && (
-              <Link
-                href={freelancerPath(featured)}
-                className="landing-hero-spotlight relative mx-auto hidden w-full max-w-[340px] transition hover:opacity-[0.98] lg:block"
-              >
-                <div className="landing-hero-spotlight-inner">
-                  <div className="ishbor-hero-visual">
-                    <Avatar name={featuredName ?? t('freelancer')} size={120} />
-                  </div>
-                </div>
-                <div className="ishbor-hero-badge">
-                  {featuredRating != null && featuredRating > 0 && (
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            'h-3.5 w-3.5',
-                            i < Math.round(featuredRating)
-                              ? 'fill-[var(--rating-filled)] text-[var(--rating-filled)]'
-                              : 'fill-[var(--rating-empty)] text-[var(--rating-empty)]'
-                          )}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <p className="mt-1 text-[13px] font-semibold text-[var(--ishbor-text)]">
-                    {featuredName}, {featuredRole}
-                  </p>
-                  {featuredRating != null && featuredRating > 0 && (
-                    <p className="text-[12px] text-[var(--ishbor-text-muted)]">
-                      {featuredRating.toFixed(1)} · {t('nav_freelancers')}
-                    </p>
-                  )}
-                </div>
-              </Link>
+            {showFeaturedCard && featured && featuredName && (
+              <HeroSpotlightCard
+                featured={featured}
+                featuredName={featuredName}
+                featuredRole={featuredRole}
+                featuredRating={featuredRating}
+                t={t}
+              />
             )}
           </div>
         </div>
       </section>
+
+      {!loading && (
+        <div className="layout-container max-w-[1280px] space-y-4 py-4">
+          <LandingStatsRow stats={stats} />
+          <MarketplacePulse stats={stats} />
+          <IshborProtectionStrip compact />
+        </div>
+      )}
+
+      {statsLoadError ? (
+        <div className="layout-container max-w-[1280px] pb-4">
+          <LoadErrorAlert
+            error={statsLoadError}
+            scope="landing"
+            onRetry={loadStats}
+            context={{ apiPath: '/api/v1/stats/public' }}
+          />
+        </div>
+      ) : null}
 
       <LandingCategoryGrid stats={stats} />
 
@@ -200,8 +291,13 @@ export function LandingPage() {
             <EmptyState
               icon={<Search />}
               title={t('no_services_yet')}
-              description={t('no_services_dashboard_desc')}
+              description={t('no_services_landing_desc')}
               action={{ label: t('browse_services'), onClick: () => router.push(PATHS.services) }}
+              secondaryAction={{
+                label: t('post_project'),
+                onClick: () => router.push(PATHS.postProject),
+                variant: 'outline',
+              }}
             />
           ) : (
             <div className="ishbor-grid mt-5">
@@ -227,9 +323,19 @@ export function LandingPage() {
 
       <LandingTopFreelancers stats={stats} />
 
+      <LandingRecentActivity stats={stats} />
+
       <LandingTestimonials />
 
       <LandingHowItWorks />
+
+      <section className="layout-container max-w-[1280px] py-8 md:py-10">
+        <TrustStrip />
+      </section>
+
+      <LandingDarkTrust />
+
+      <LandingCtaBanner />
     </div>
   )
 }

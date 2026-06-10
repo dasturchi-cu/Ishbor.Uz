@@ -14,6 +14,7 @@ import { SearchAutocomplete } from '@/presentation/components/layout/search-auto
 import { NotificationDropdown } from '@/presentation/components/dashboard/notification-dropdown'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { headerLogoHref, hideMarketplaceNav } from '@/shared/lib/marketplace-nav'
+import { cn } from '@/shared/lib/utils'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
@@ -55,7 +56,8 @@ export function Header() {
   const dashboardHref = dashboardPathForRole(currentUserRole)
   const showAuthNav = !isAuthLoading && isLoggedIn
   const logoHref = headerLogoHref(pathname, dashboardHref, showAuthNav)
-  const showCategoryNav = !hideMarketplaceNav(pathname)
+  const showCategoryNav = !hideMarketplaceNav(pathname) && pathname !== PATHS.home
+  const isHome = pathname === PATHS.home
 
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -80,7 +82,7 @@ export function Header() {
             layout={showAuthNav ? 'inline' : 'stacked'}
           />
 
-          <div className="ishbor-site-header__search-slot hide-mobile">
+          <div className={cn('ishbor-site-header__search-slot hide-mobile', isHome && 'hidden')}>
             <SearchAutocomplete
               value={searchQuery}
               onChange={setSearchQuery}
@@ -104,19 +106,8 @@ export function Header() {
                 >
                   {t('login')}
                 </Link>
-                <Link href={PATHS.register} className="hide-mobile">
-                  <Button variant="primary" size="md" className="px-5 font-semibold">
-                    {t('register')}
-                  </Button>
-                </Link>
-                <Link
-                  href={PATHS.login}
-                  className="show-mobile px-2 py-2 text-[13px] font-medium text-[var(--ishbor-text)] transition hover:text-[var(--color-primary)]"
-                >
-                  {t('login')}
-                </Link>
-                <Link href={PATHS.register} className="show-mobile">
-                  <Button variant="primary" size="md" className="px-4 font-semibold">
+                <Link href={PATHS.register}>
+                  <Button variant="primary" size="md" className="px-4 font-semibold sm:px-5">
                     {t('register')}
                   </Button>
                 </Link>
