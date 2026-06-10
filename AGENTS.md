@@ -181,27 +181,67 @@ Batafsil: [mvp.md](../mvp.md)
 
 
 
+## Skill indeksi
+
+Skill fayllari: [skills/](./skills/). Review skilllar faqat foydalanuvchi aniq chaqirganda yuklanadi (`disable-model-invocation: true`).
+
+### Qachon qaysi skill?
+
+| Skill | Fayl | Ishlat |
+|-------|------|--------|
+| **ishbor-mvp** | [skills/ishbor-mvp/SKILL.md](./skills/ishbor-mvp/SKILL.md) | MVP feature: routing, auth, xizmatlar, buyurtma, to'lov, launch tartibi |
+| **ishbor-backend** | [skills/ishbor-backend/SKILL.md](./skills/ishbor-backend/SKILL.md) | FastAPI, Prisma/DB, JWT, Click/Payme, escrow, API route |
+| **ishbor-i18n** | [skills/ishbor-i18n/SKILL.md](./skills/ishbor-i18n/SKILL.md) | Yangi `TranslationKey`, uz/ru/en tarjima, matn qoidalari |
+| **ishbor-ui-review** | [skills/ishbor-ui-review/SKILL.md](./skills/ishbor-ui-review/SKILL.md) | Komponent tekshiruv: i18n, responsive, tokenlar, loading/empty state |
+| **ishbor-product-review** | [skills/ishbor-product-review/SKILL.md](./skills/ishbor-product-review/SKILL.md) | Product audit: UX journey, onboarding, marketplace, employer/candidate tajriba |
+| **ishbor-growth-review** | [skills/ishbor-growth-review/SKILL.md](./skills/ishbor-growth-review/SKILL.md) | Growth audit: SEO, acquisition, retention, referral, growth loop |
+| **ishbor-security-review** | [skills/ishbor-security-review/SKILL.md](./skills/ishbor-security-review/SKILL.md) | Security audit: auth, RLS, upload, to'lov, secret, OWASP Top 10 |
+| **ishbor-performance-review** | [skills/ishbor-performance-review/SKILL.md](./skills/ishbor-performance-review/SKILL.md) | Performance audit: bundle, Core Web Vitals, React, cache, DB |
+| **ishbor-conversion-review** | [skills/ishbor-conversion-review/SKILL.md](./skills/ishbor-conversion-review/SKILL.md) | Conversion audit: landing, register, CTA, trust architecture, funnel |
+| **taste-skill** | `~/.cursor/skills/taste-skill/SKILL.md` | Landing/portfolio/redesign: anti-slop UI, hero/CTA disiplinasi, taste-skill pre-flight |
+
+### Build vs review (chegara)
+
+| Tur | Skilllar | Maqsad |
+|-----|----------|--------|
+| **Build** | mvp, backend, i18n | Kod yozish, feature yetkazish |
+| **UI checklist** | ui-review | Tez UI/regression tekshiruv |
+| **Chuqur audit** | product, growth, security, performance, conversion | Production-grade hisobot + prioritet |
+| **Dizayn sifati** | taste-skill | Marketing/landing vizual sifat (dashboard emas) |
+
+Review skilllar bir-birini qoplaydi emas — har biri alohida hisobot shabloni va severity (P0–P3) beradi. Bir vazifada bir nechta review kerak bo'lsa, alohida chaqir: masalan, launch oldidan `ishbor-security-review` + `ishbor-performance-review`.
+
+### Tez tanlash
+
+```
+"Sahifa UI buzilgan"           → ishbor-ui-review
+"Buyurtma flow tushunarsiz"    → ishbor-product-review
+"Google'dan topilmayapti"     → ishbor-growth-review
+"RLS / auth xavfi"             → ishbor-security-review
+"Sahifa sekin"                 → ishbor-performance-review
+"Ro'yxatdan o'tish past"       → ishbor-conversion-review
+"Landing redesign"             → taste-skill (+ kerak bo'lsa ishbor-conversion-review)
+"Yangi API endpoint"           → ishbor-backend (+ ishbor-mvp)
+```
+
 ## Agent vazifalari
 
-
-
 | Vazifa | Qaysi skill/rule |
-
 |--------|------------------|
-
 | Yangi sahifa UI | `.cursor/rules/react-ui.mdc` |
-
 | Tarjima qo'shish | `skills/ishbor-i18n/SKILL.md` |
-
 | Backend/API | `skills/ishbor-backend/SKILL.md` |
-
 | MVP feature | `skills/ishbor-mvp/SKILL.md` |
-
-| UI review | `skills/ishbor-ui-review/SKILL.md` |
-
+| UI checklist | `skills/ishbor-ui-review/SKILL.md` |
+| Product audit | `skills/ishbor-product-review/SKILL.md` |
+| Growth audit | `skills/ishbor-growth-review/SKILL.md` |
+| Security audit | `skills/ishbor-security-review/SKILL.md` |
+| Performance audit | `skills/ishbor-performance-review/SKILL.md` |
+| Conversion audit | `skills/ishbor-conversion-review/SKILL.md` |
+| Landing / redesign sifati | `taste-skill` (`~/.cursor/skills/taste-skill/SKILL.md`) |
 | Umumiy standart | `.cursor/rules/project-core.mdc` |
-
 | Har doim o'qish | `.cursor/rules/agent-bootstrap.mdc` |
+| To'liq skill ro'yxati | [Skill indeksi](#skill-indeksi) |
 
 
 
@@ -219,15 +259,62 @@ Batafsil: [mvp.md](../mvp.md)
 
 
 
+## Dev serverlar (agent qoidasi)
+
+
+
+**Dev serverlarni FAQAT foydalanuvchi aniq so'raganda ishga tushir.** Background terminalda `pnpm dev`, `pnpm dev:api`, `pnpm dev:all` **ishlatma** — hatto test/audit uchun ham.
+
+
+
+**Audit/debug paytida serverlarni qayta ishga tushirma.** Avval `pnpm dev:status` tekshir.
+
+
+
+| Qoida | Tafsilot |
+|-------|----------|
+| Avtomatik start | **Taqiqlangan** — agent o'zi server ochmaydi |
+| Port 3000 band | `pnpm dev` / `next dev` **ishga tushirma** |
+| Port 8002 band | `pnpm dev:api` / `uvicorn` **ishga tushirma** |
+| Qayta ishga tushirish | Faqat `pnpm dev:stop` → port bo'sh → bitta instance |
+| To'xtatish | `pnpm dev:stop` — `taskkill /F /IM node.exe` **ishlatma** (Cursor ham o'lad) |
+| Holat | `pnpm dev:status` — listener PID va dublikatlar |
+
+
+
+`scripts/lib/dev-lib.ps1` — umumiy port guard; `dev-frontend.ps1` va `dev-backend.ps1` dublikat ochmaydi.
+
+
+
+## Arxitektura (Frontend ↔ Backend)
+
+
+
+| Qatlam | Vazifa |
+|--------|--------|
+| **Frontend → Supabase** | Auth (login/register/session/logout), Storage upload (avatar, media), Realtime (chat, notifications) |
+| **Frontend → Backend API** | Barcha business logic: profil, xizmatlar, buyurtmalar, to'lov, admin, … |
+| **Backend → Supabase** | Validation, authorization, DB (service_role + RLS) |
+
+**Qoida:** Bir feature uchun ikki yo'l ishlatma. `api.*` → FastAPI; to'g'ridan `supabase.from(...)` faqat auth/storage/realtime/middleware redirect flaglari.
+
+To'liq klassifikatsiya: [docs/architecture-supabase-vs-api.md](./docs/architecture-supabase-vs-api.md).
+
+
+
 ## Test
 
 
 
 ```bash
 
-pnpm dev      # localhost:3000
+pnpm dev:status   # listener PID (dublikat tekshiruv)
 
-pnpm build    # production build
+pnpm dev          # faqat 3000 bo'sh bo'lsa
+
+pnpm dev:api      # faqat 8002 bo'sh bo'lsa
+
+pnpm build        # production build
 
 npx tsc --noEmit
 
