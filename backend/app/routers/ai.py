@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.ai_suggest import SuggestKind, build_suggestion
+from app.deps import UserAuthDep
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -25,7 +26,7 @@ class AiSuggestResponse(BaseModel):
 
 
 @router.post("/suggest", response_model=AiSuggestResponse)
-def ai_suggest(body: AiSuggestBody):
+def ai_suggest(body: AiSuggestBody, _auth: UserAuthDep):
     if body.kind == "project_description" and not body.title.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

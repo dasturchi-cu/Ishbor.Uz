@@ -2,7 +2,7 @@ import logging
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, status
 
 from app.database import get_supabase_admin
 from app.db_utils import run_query
@@ -34,10 +34,22 @@ from app.schemas_platform import (
     VerificationCreate,
     VerificationResponse,
 )
-from app.supabase_instrumentation import get_stats, get_top10, merge_client_events, reset_stats
+from app.config import settings
+from app.supabase_instrumentation import get_stats, get_top10, is_debug_enabled, merge_client_events, reset_stats
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 _client_error_logger = logging.getLogger("ishbor.client_errors")
+
+
+def _require_request_audit_access(auth: UserAuthDep) -> None:
+    """Debug stats — admin in production; dev only when SUPABASE_REQUEST_DEBUG=1."""
+    from app.admin_rbac import require_admin_role
+
+    if settings.is_production:
+        require_admin_role(auth.user_id, "moderator")
+        return
+    if not is_debug_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
 
 @router.get("/activities", response_model=list[UserActivityResponse])
@@ -389,17 +401,17 @@ def list_feature_flags():
 
 
 @router.post("/audit/login", status_code=status.HTTP_204_NO_CONTENT)
-def audit_login(auth: UserAuthDep, request: Request):
-    log_audit(actor_id=auth.user_id, action="login", request=request)
-    log_activity(auth.user_id, "login", "Tizimga kirildi", href="/dashboard")
+def audit_login(auth: UserAuthDep, request: Request, background_tasks: BackgroundTasks):
+    background_tasks.add_task(log_audit, actor_id=auth.user_id, action="login", request=request)
+    background_tasks.add_task(log_activity, auth.user_id, "login", "Tizimga kirildi", href="/dashboard")
     return None
 
 
 @router.post("/audit/register", status_code=status.HTTP_204_NO_CONTENT)
-def audit_register(auth: UserAuthDep, request: Request):
-    log_audit(actor_id=auth.user_id, action="register", request=request)
-    track_analytics_event("register", user_id=auth.user_id)
-    log_activity(auth.user_id, "register", "Ro'yxatdan o'tildi", href="/onboarding")
+def audit_register(auth: UserAuthDep, request: Request, background_tasks: BackgroundTasks):
+    background_tasks.add_task(log_audit, actor_id=auth.user_id, action="register", request=request)
+    background_tasks.add_task(track_analytics_event, "register", user_id=auth.user_id)
+    background_tasks.add_task(log_activity, auth.user_id, "register", "Ro'yxatdan o'tildi", href="/onboarding")
     return None
 
 
@@ -429,23 +441,27 @@ def report_client_error(
 
 
 @router.get("/request-audit/top", response_model=list[RequestAuditStat])
-def request_audit_top():
+def request_audit_top(auth: UserAuthDep):
     """SUPABASE_REQUEST_DEBUG=1 — oxirgi 1 soatda eng ko'p DB so'rovlar (backend + client batch)."""
+    _require_request_audit_access(auth)
     return [RequestAuditStat.model_validate(row) for row in get_top10()]
 
 
 @router.get("/request-audit/all", response_model=list[RequestAuditStat])
-def request_audit_all():
+def request_audit_all(auth: UserAuthDep):
+    _require_request_audit_access(auth)
     return [RequestAuditStat.model_validate(row) for row in get_stats()]
 
 
 @router.post("/request-audit/client", status_code=status.HTTP_204_NO_CONTENT)
-def request_audit_client_batch(payload: RequestAuditClientBatch):
+def request_audit_client_batch(payload: RequestAuditClientBatch, auth: UserAuthDep):
+    _require_request_audit_access(auth)
     merge_client_events([e.model_dump(by_alias=True) for e in payload.events])
     return None
 
 
 @router.post("/request-audit/reset", status_code=status.HTTP_204_NO_CONTENT)
-def request_audit_reset():
+def request_audit_reset(auth: UserAuthDep):
+    _require_request_audit_access(auth)
     reset_stats()
     return None

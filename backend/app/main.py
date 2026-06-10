@@ -107,6 +107,9 @@ app.include_router(security.router, prefix="/api/v1")
 
 app.add_exception_handler(APIError, supabase_api_error_handler)
 
+_RATE_GET_PATHS = (
+    "/api/v1/profiles/check-username",
+)
 _RATE_PATHS = (
     "/api/v1/messages",
     "/api/v1/payments",
@@ -116,8 +119,10 @@ _RATE_PATHS = (
     "/api/v1/ai",
     "/api/v1/security",
     "/api/v1/admin",
-    "/api/v1/platform/analytics",
+    "/api/v1/platform",
     "/api/v1/contracts",
+    "/api/v1/vacancies",
+    "/api/v1/applications",
 )
 _WEBHOOK_PATH_PREFIX = "/api/v1/payments/webhooks"
 
@@ -147,10 +152,14 @@ async def origin_guard(request: Request, call_next):
 @app.middleware("http")
 async def light_rate_limit(request: Request, call_next):
     path = request.url.path
+    ip = request.client.host if request.client else "unknown"
+    if request.method == "GET" and any(path.startswith(p) for p in _RATE_GET_PATHS):
+        bucket_key = f"api:{ip}:{path}"
+        if not check_rate_limit(bucket_key, max_hits=30):
+            return JSONResponse(status_code=429, content={"detail": "Juda ko'p so'rov. Biroz kuting."})
     if request.method == "POST" and (
         any(path.startswith(p) for p in _RATE_PATHS) or path.startswith(_WEBHOOK_PATH_PREFIX)
     ):
-        ip = request.client.host if request.client else "unknown"
         is_webhook = path.startswith(_WEBHOOK_PATH_PREFIX)
         bucket_key = f"{'webhook' if is_webhook else 'api'}:{ip}:{path}"
         max_hits = 120 if is_webhook else 40
