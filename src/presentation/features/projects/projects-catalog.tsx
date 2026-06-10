@@ -97,6 +97,8 @@ interface ProjectsCatalogProps {
 
   subtitleKey?: TranslationKey
 
+  hideHeader?: boolean
+
 }
 
 
@@ -106,6 +108,8 @@ export function ProjectsCatalog({
   titleKey = 'projects_title',
 
   subtitleKey = 'projects_subtitle',
+
+  hideHeader = false,
 
 }: ProjectsCatalogProps = {}) {
 
@@ -316,15 +320,19 @@ export function ProjectsCatalog({
 
   return (
 
-    <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
+    <PageWrapper id="projects-catalog" className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
 
-      <div className="catalog-shell-head mb-5">
+      {!hideHeader && (
 
-        <h1 className="catalog-shell-title">{t(titleKey)}</h1>
+        <div className="catalog-shell-head mb-5">
 
-        <p className="catalog-shell-subtitle">{t(subtitleKey)}</p>
+          <h1 className="catalog-shell-title">{t(titleKey)}</h1>
 
-      </div>
+          <p className="catalog-shell-subtitle">{t(subtitleKey)}</p>
+
+        </div>
+
+      )}
 
       <IshborProtectionStrip compact className="mb-5" />
 

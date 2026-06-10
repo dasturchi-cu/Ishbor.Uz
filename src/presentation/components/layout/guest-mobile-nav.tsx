@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Briefcase, ClipboardList, FolderKanban, Home, Users } from 'lucide-react'
+import { Briefcase, Home, Users, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
@@ -11,7 +11,7 @@ import { cn } from '@/shared/lib/utils'
 interface GuestTab {
   id: string
   href: string
-  labelKey: 'nav_home' | 'nav_services' | 'nav_freelancers' | 'nav_projects' | 'nav_jobs'
+  labelKey: 'nav_home' | 'nav_services' | 'nav_freelancers' | 'jobs_catalog_title'
   icon: LucideIcon
   isActive: (pathname: string) => boolean
 }
@@ -22,7 +22,7 @@ const GUEST_TABS: GuestTab[] = [
     id: 'services',
     href: PATHS.services,
     labelKey: 'nav_services',
-    icon: Briefcase,
+    icon: Wrench,
     isActive: (p) => p === PATHS.services || p.startsWith('/services/'),
   },
   {
@@ -30,21 +30,18 @@ const GUEST_TABS: GuestTab[] = [
     href: PATHS.freelancers,
     labelKey: 'nav_freelancers',
     icon: Users,
-    isActive: (p) => p === PATHS.freelancers || p.startsWith('/freelancers/'),
-  },
-  {
-    id: 'projects',
-    href: PATHS.projects,
-    labelKey: 'nav_projects',
-    icon: FolderKanban,
-    isActive: (p) => p === PATHS.projects || p.startsWith('/projects/'),
+    isActive: (p) => p === PATHS.freelancers || p.startsWith('/freelancers/') || p.startsWith('/freelancer/'),
   },
   {
     id: 'jobs',
     href: PATHS.jobs,
-    labelKey: 'nav_jobs',
-    icon: ClipboardList,
-    isActive: (p) => p === PATHS.jobs || p.startsWith('/jobs/'),
+    labelKey: 'jobs_catalog_title',
+    icon: Briefcase,
+    isActive: (p) =>
+      p === PATHS.jobs ||
+      p.startsWith('/jobs/') ||
+      p === PATHS.projects ||
+      p.startsWith('/projects/'),
   },
 ]
 

@@ -30,6 +30,7 @@ import { loginPath } from '@/shared/lib/auth-redirect'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import {
   PriceRangeSlider,
@@ -94,10 +95,10 @@ function initials(name: string): string {
   )
 }
 
-export function ServicesCatalog() {
+export function ServicesCatalog({ hideHeader = false }: { hideHeader?: boolean }) {
   return (
     <Suspense fallback={<ServicesCatalogSkeleton />}>
-      <ServicesCatalogContent />
+      <ServicesCatalogContent hideHeader={hideHeader} />
     </Suspense>
   )
 }
@@ -126,7 +127,7 @@ function ServicesCatalogSkeleton() {
   )
 }
 
-function ServicesCatalogContent() {
+function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { t, isLoggedIn } = useApp()
@@ -470,16 +471,24 @@ function ServicesCatalogContent() {
 
   return (
     <PageWrapper
+      id="services-catalog"
       className="bg-[var(--ishbor-bg)] pt-6 md:pt-8"
-      breadcrumb={[
-        { label: t('home'), href: PATHS.home },
-        { label: t('nav_services') },
-      ]}
+      breadcrumb={
+        hideHeader
+          ? undefined
+          : [
+              { label: t('home'), href: PATHS.home },
+              { label: t('nav_services') },
+            ]
+      }
     >
+      <IshborProtectionStrip compact className="mb-5" />
       <div className="catalog-shell">
-        <div className="catalog-shell-head">
-          <h1 className="catalog-shell-title">{t('nav_services')}</h1>
-        </div>
+        {!hideHeader && (
+          <div className="catalog-shell-head">
+            <h1 className="catalog-shell-title">{t('nav_services')}</h1>
+          </div>
+        )}
 
         <div className="catalog-shell-cats">
           <CategoryIconRow

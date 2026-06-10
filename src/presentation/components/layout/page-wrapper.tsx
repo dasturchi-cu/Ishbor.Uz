@@ -9,11 +9,13 @@ export interface PageWrapperProps {
   className?: string
   fullWidth?: boolean
   breadcrumb?: BreadcrumbItem[]
+  id?: string
 }
 
-export function PageWrapper({ children, className, fullWidth = false, breadcrumb }: PageWrapperProps) {
+export function PageWrapper({ children, className, fullWidth = false, breadcrumb, id }: PageWrapperProps) {
   return (
     <div
+      id={id}
       className={cn(
         'page-wrapper layout-container pb-8 pt-6 md:pt-8',
         !fullWidth && 'max-w-[1280px]',

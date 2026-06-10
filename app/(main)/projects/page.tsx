@@ -1,4 +1,4 @@
-import { ProjectsCatalog } from '@/presentation/features/projects/projects-catalog'
+import { ProjectsLandingPage } from '@/presentation/features/projects/projects-landing-page'
 import { buildPageMetadata } from '@/shared/lib/seo'
 
 export const metadata = buildPageMetadata(
@@ -8,5 +8,5 @@ export const metadata = buildPageMetadata(
 )
 
 export default function ProjectsPage() {
-  return <ProjectsCatalog />
+  return <ProjectsLandingPage />
 }

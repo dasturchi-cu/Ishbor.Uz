@@ -259,8 +259,12 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="layout-container max-w-[1280px] py-4 md:py-5">
+        <TrustStrip />
+      </section>
+
       {!loading && (
-        <div className="layout-container max-w-[1280px] space-y-4 py-4">
+        <div className="layout-container max-w-[1280px] space-y-4 pb-4">
           <LandingStatsRow stats={stats} />
           <MarketplacePulse stats={stats} />
           <IshborProtectionStrip compact />
@@ -338,15 +342,11 @@ export function LandingPage() {
 
       <LandingTopFreelancers stats={stats} />
 
+      <LandingHowItWorks />
+
       <LandingRecentActivity stats={stats} />
 
       <LandingTestimonials />
-
-      <LandingHowItWorks />
-
-      <section className="layout-container max-w-[1280px] py-8 md:py-10">
-        <TrustStrip />
-      </section>
 
       <LandingDarkTrust />
 

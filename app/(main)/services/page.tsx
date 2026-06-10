@@ -1,4 +1,4 @@
-import { ServicesCatalog } from '@/presentation/features/catalog/services-catalog'
+import { ServicesLandingPage } from '@/presentation/features/catalog/services-landing-page'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -11,5 +11,5 @@ export const metadata: Metadata = {
 }
 
 export default function ServicesRoute() {
-  return <ServicesCatalog />
+  return <ServicesLandingPage />
 }

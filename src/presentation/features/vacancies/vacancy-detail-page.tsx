@@ -293,13 +293,42 @@ export function VacancyDetailPage({ vacancyId }: { vacancyId: string }) {
         </aside>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 hide-mobile">
         <Link href={PATHS.jobs}>
           <Button variant="outline" leftIcon={<Briefcase className="h-4 w-4" />}>
             {t('vacancy_view_jobs')}
           </Button>
         </Link>
       </div>
+
+      {!isOwner && !hasApplied && (
+        <div className="mobile-sticky-cta show-mobile">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-[var(--ishbor-text)]">{vacancy.title}</p>
+            {salaryRange ? (
+              <p className="text-[16px] font-bold tabular-nums text-[var(--color-primary)]">{salaryRange}</p>
+            ) : (
+              <p className="text-[13px] text-[var(--ishbor-text-muted)]">{employmentLabel(vacancy.employment_type)}</p>
+            )}
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            loading={submitting}
+            className="shrink-0 px-5"
+            onClick={() => {
+              if (!isLoggedIn) {
+                router.push(loginPath(vacancyPath(vacancyId)))
+                return
+              }
+              const el = document.getElementById('vacancy-apply')
+              el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+          >
+            {isLoggedIn ? t('vacancy_apply_btn') : t('login_to_apply')}
+          </Button>
+        </div>
+      )}
     </PageWrapper>
   )
 }

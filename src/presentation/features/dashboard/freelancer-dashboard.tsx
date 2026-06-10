@@ -183,6 +183,7 @@ export function FreelancerDashboard() {
         />
       )}
 
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <DashboardPanel id="orders" title={t('nav_orders')}>
           {loading ? (
             <div className="space-y-2.5">
@@ -299,6 +300,7 @@ export function FreelancerDashboard() {
           </div>
         )}
       </DashboardPanel>
+      </div>
 
     </div>
   )

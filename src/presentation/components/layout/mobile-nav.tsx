@@ -4,14 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Briefcase,
+  LayoutGrid,
   MessageCircle,
-  Package,
   Search,
   ShoppingBag,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
-import { PATHS } from '@/domain/constants/routes'
+import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { useMessageUnreadCount } from '@/shared/lib/use-message-unread'
@@ -34,7 +34,19 @@ function isServiceCatalogPath(pathname: string): boolean {
   )
 }
 
-function buildTabs(isClient: boolean, messageUnread: number): TabItem[] {
+function isDashboardHomePath(pathname: string, dashboardHref: string): boolean {
+  return pathname === dashboardHref || pathname === PATHS.dashboardFreelancer || pathname === PATHS.dashboardClient
+}
+
+function buildTabs(isClient: boolean, messageUnread: number, dashboardHref: string): TabItem[] {
+  const dashboard: TabItem = {
+    id: 'dashboard',
+    href: dashboardHref,
+    labelKey: 'nav_dashboard',
+    icon: LayoutGrid,
+    isActive: (p) => isDashboardHomePath(p, dashboardHref),
+  }
+
   const catalog: TabItem = {
     id: 'catalog',
     href: PATHS.services,
@@ -72,22 +84,10 @@ function buildTabs(isClient: boolean, messageUnread: number): TabItem[] {
   }
 
   if (isClient) {
-    return [catalog, orders, birja, messages]
+    return [dashboard, catalog, orders, birja, messages]
   }
 
-  return [
-    catalog,
-    {
-      id: 'my-services',
-      href: PATHS.dashboardServices,
-      labelKey: 'nav_my_services',
-      icon: Package,
-      isActive: (p) => p === PATHS.dashboardServices || p.startsWith(`${PATHS.dashboardServices}/`),
-    },
-    orders,
-    birja,
-    messages,
-  ]
+  return [dashboard, catalog, birja, orders, messages]
 }
 
 export function MobileNav() {
@@ -99,7 +99,8 @@ export function MobileNav() {
   if (hideOnAuth || isAuthLoading || !isLoggedIn) return null
 
   const isClient = currentUserRole === 'client'
-  const tabs = buildTabs(isClient, messageUnread)
+  const dashboardHref = dashboardPathForRole(currentUserRole)
+  const tabs = buildTabs(isClient, messageUnread, dashboardHref)
 
   return (
     <nav
