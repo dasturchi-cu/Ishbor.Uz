@@ -1,119 +1,54 @@
-# IshBor.uz dev serverlarni to'liq to'xtatish
-# Usage: pnpm dev:stop
-
+# Dev serverlarni to'xtatish — pnpm dev:stop
 $ErrorActionPreference = 'Continue'
-$Root = Split-Path -Parent $PSScriptRoot
-Set-Location $Root
+. (Join-Path $PSScriptRoot 'lib\dev-lib.ps1')
 
-function Stop-PortListener($port) {
-  Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-    ForEach-Object {
-      Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
-    }
-}
-
-function Stop-NextDevProcesses {
-  Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object {
-      $cmd = $_.CommandLine
-      $cmd -and ($cmd -match 'next dev' -or $cmd -match 'next\\dist\\bin\\next')
-    } |
-    ForEach-Object {
-      Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-    }
-}
-
-function Stop-DevBackendProcesses {
-  Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'uvicorn app\.main:app' -and $_.CommandLine -match '8002' } |
-    ForEach-Object {
-      Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-    }
-}
-
-function Stop-DevShellWrappers {
-  Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-    Where-Object {
-      $cmd = $_.CommandLine
-      $cmd -and (
-        $cmd -match 'dev\.ps1' -or
-        $cmd -match 'ensure-backend\.ps1' -or
-        $cmd -match 'pnpm dev:api' -or
-        ($cmd -match 'pnpm dev' -and $cmd -notmatch 'dev:start' -and $cmd -notmatch 'dev:stop')
-      )
-    } |
-    ForEach-Object {
-      Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-    }
-}
-
-function Clear-NextDevLock {
-  $lockPath = Join-Path $Root '.next\dev\lock'
-  if (-not (Test-Path $lockPath)) { return }
-  try {
-    $raw = Get-Content $lockPath -Raw -ErrorAction Stop
-    if ($raw) {
-      $text = $raw.Trim()
-      try {
-        $info = $text | ConvertFrom-Json
-        if ($null -ne $info.pid) {
-          Stop-Process -Id ([int]$info.pid) -Force -ErrorAction SilentlyContinue
+function Get-DevBusyPorts {
+    $busy = @()
+    foreach ($port in @($Script:DevFrontendPort) + @(Get-DevBackendPortRange)) {
+        if ((Get-DevPortListenerPids -Port $port).Count -gt 0) {
+            $busy += $port
         }
-      } catch {
-        if ($text -match '^\d+$') {
-          Stop-Process -Id ([int]$text) -Force -ErrorAction SilentlyContinue
-        }
-      }
     }
-  } catch { }
-  Remove-Item $lockPath -Force -ErrorAction SilentlyContinue
+    return $busy
 }
 
-$pidsFile = Join-Path $Root '.dev-pids.json'
-if (Test-Path $pidsFile) {
-  try {
-    $info = Get-Content $pidsFile -Raw | ConvertFrom-Json
-    foreach ($key in @('parent', 'backend', 'frontend')) {
-      $pid = $info.$key
-      if ($pid) {
-        Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
-      }
-    }
-  } catch { }
-  Remove-Item $pidsFile -Force -ErrorAction SilentlyContinue
-}
+Stop-AllDevServers
 
-Write-Host 'Dev serverlar to''xtatilmoqda...' -ForegroundColor Cyan
-
-Stop-DevShellWrappers
-Stop-NextDevProcesses
-Stop-DevBackendProcesses
-
-foreach ($port in @(3000, 3001, 8002)) {
-  Stop-PortListener $port
-}
-
-Clear-NextDevLock
-
-Start-Sleep -Seconds 1
-
-Stop-NextDevProcesses
-Stop-DevBackendProcesses
-foreach ($port in @(3000, 3001, 8002)) {
-  Stop-PortListener $port
-}
-
-$still = @()
-foreach ($port in @(3000, 8002)) {
-  $listen = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
-  if ($listen.Count -gt 0) {
-    $still += $port
-  }
-}
-
+$still = @(Get-DevBusyPorts)
 if ($still.Count -gt 0) {
-  Write-Host "Ogohlantirish: port(lar) hali band: $($still -join ', ')" -ForegroundColor Yellow
-  Write-Host '  taskkill /F /IM node.exe  yoki  qayta: pnpm dev:stop' -ForegroundColor Yellow
-} else {
-  Write-Host 'Dev serverlar to''xtatildi.' -ForegroundColor Green
+    Write-Host "Port(lar) hali band: $($still -join ', ') - qayta tozalash..." -ForegroundColor Yellow
+    foreach ($port in $still) {
+        if (Test-DevPortZombie -Port $port) {
+            Repair-DevZombiePort -Port $port | Out-Null
+        } else {
+            Stop-DevPortListener -Port $port
+        }
+    }
+    Start-Sleep -Milliseconds 800
+    $still = @(Get-DevBusyPorts)
 }
+
+$orphans = @(Get-DevUvicornProcesses)
+if ($orphans.Count -gt 0) {
+    Write-Host "Orphan uvicorn: $($orphans.Count) - tozalash..." -ForegroundColor Yellow
+    Stop-DevBackendProcesses
+    Start-Sleep -Milliseconds 500
+    $orphans = @(Get-DevUvicornProcesses)
+}
+
+if ($still.Count -gt 0 -or $orphans.Count -gt 0) {
+    if ($still.Count -gt 0) {
+        Write-Host "Ogohlantirish: port(lar) hali band: $($still -join ', ')" -ForegroundColor Yellow
+    }
+    if ($orphans.Count -gt 0) {
+        Write-Host "Ogohlantirish: orphan uvicorn: $($orphans.Count)" -ForegroundColor Yellow
+        foreach ($p in $orphans) {
+            Write-Host "  PID $($p.ProcessId): $(Get-DevProcessCmd $p.ProcessId)" -ForegroundColor DarkGray
+        }
+    }
+    Write-Host '  pnpm dev:stop qayta urinib ko''ring' -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host 'Dev serverlar to''xtatildi.' -ForegroundColor Green
+exit 0
