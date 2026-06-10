@@ -32,6 +32,7 @@ export function SearchAutocomplete({
   const { t } = useApp()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [suggestions, setSuggestions] = useState<{ id: string; title: string }[]>([])
   const [history, setHistory] = useState<string[]>([])
   const ref = useRef<HTMLDivElement>(null)
@@ -42,7 +43,7 @@ export function SearchAutocomplete({
 
   useEffect(() => {
     const q = value.trim()
-    if (q.length < 2) {
+    if (!focused || q.length < 2) {
       setSuggestions([])
       return
     }
@@ -56,7 +57,7 @@ export function SearchAutocomplete({
         })
     }, 250)
     return () => clearTimeout(id)
-  }, [value])
+  }, [value, focused])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -99,7 +100,11 @@ export function SearchAutocomplete({
               className={cn('catalog-search__input input-touch', inputClassName)}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              onFocus={() => setOpen(true)}
+              onFocus={() => {
+                setFocused(true)
+                setOpen(true)
+              }}
+              onBlur={() => setFocused(false)}
               placeholder={placeholder}
               aria-label={placeholder}
               autoComplete="off"
@@ -114,7 +119,11 @@ export function SearchAutocomplete({
                 className={cn('ishbor-search-input input-touch', inputClassName)}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                onFocus={() => setOpen(true)}
+                onFocus={() => {
+                  setFocused(true)
+                  setOpen(true)
+                }}
+                onBlur={() => setFocused(false)}
                 placeholder={placeholder}
                 aria-label={placeholder}
                 autoComplete="off"

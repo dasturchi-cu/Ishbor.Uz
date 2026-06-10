@@ -6,14 +6,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Search, Star } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
-import { ServiceCard } from '@/presentation/components/features/service-card'
 import { SkeletonCard } from '@/presentation/components/ui/skeleton'
 import { freelancerPath, PATHS, servicePath } from '@/domain/constants/routes'
-import { fetchPublicStatsCached } from '@/shared/lib/public-stats-cache'
+import { fetchPublicStatsCached, readPublicStatsCacheSync } from '@/shared/lib/public-stats-cache'
 import type { ApiPublicStats } from '@/infrastructure/api/types'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { cn } from '@/shared/lib/utils'
-import { MarketplacePulse } from '@/presentation/components/layout/marketplace-pulse'
 import { SearchAutocomplete } from '@/presentation/components/layout/search-autocomplete'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Avatar } from '@/presentation/components/ui/avatar'
@@ -22,14 +20,32 @@ import { Button } from '@/presentation/components/ui/button'
 import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import {
-  LandingCategoryGrid,
   LandingCtaBanner,
-  LandingFeaturedTabs,
   LandingHeroBadge,
   LandingStatsRow,
-  LandingTopFreelancers,
   filterServicesByTab,
 } from '@/presentation/features/landing/landing-sections'
+
+const MarketplacePulse = dynamic(
+  () => import('@/presentation/components/layout/marketplace-pulse').then((m) => m.MarketplacePulse),
+  { ssr: false }
+)
+const LandingCategoryGrid = dynamic(
+  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingCategoryGrid),
+  { ssr: false }
+)
+const LandingFeaturedTabs = dynamic(
+  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingFeaturedTabs),
+  { ssr: false }
+)
+const LandingTopFreelancers = dynamic(
+  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingTopFreelancers),
+  { ssr: false }
+)
+const ServiceCard = dynamic(
+  () => import('@/presentation/components/features/service-card').then((m) => m.ServiceCard),
+  { ssr: false }
+)
 
 const LandingRecentActivity = dynamic(
   () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingRecentActivity),
@@ -151,8 +167,8 @@ function HeroSpotlightCard({
 export function LandingPage() {
   const { t, isLoggedIn, isAuthLoading, profile } = useApp()
   const router = useRouter()
-  const [stats, setStats] = useState<ApiPublicStats>(EMPTY_STATS)
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<ApiPublicStats>(() => readPublicStatsCacheSync() ?? EMPTY_STATS)
+  const [loading, setLoading] = useState(() => readPublicStatsCacheSync() == null)
   const [statsLoadError, setStatsLoadError] = useState<unknown>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [featuredTab, setFeaturedTab] = useState('all')

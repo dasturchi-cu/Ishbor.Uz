@@ -2,10 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import { t, type Language, type TranslationKey } from '@/infrastructure/i18n'
+import { isLocaleChunkLoaded, loadLocaleChunk } from '@/infrastructure/i18n/locale-loader'
 import { isSupabaseConfigured, getSupabase } from '@/infrastructure/supabase/client'
 import { clearAuthCache, getCachedSession, updateCachedSessionToken } from '@/infrastructure/auth/session-cache'
 import { clearCachedProfile, readCachedProfile, writeCachedProfile } from '@/infrastructure/auth/profile-cache'
 import { api } from '@/infrastructure/api/client'
+import { clearDebouncedInvalidations } from '@/shared/lib/query-invalidate-debounce'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { ApiProfile } from '@/infrastructure/api/types'
 
@@ -55,6 +57,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [profile, setProfile] = useState<ApiProfile | null>(() => readCachedProfile())
   const [mounted, setMounted] = useState(false)
+  const [localeReady, setLocaleReady] = useState(true)
   const profileRef = useRef<ApiProfile | null>(profile)
   const refreshInflight = useRef<Promise<void> | null>(null)
 
@@ -80,7 +83,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setUserId(session.userId)
         setIsLoggedIn(true)
 
-        const loaded = await api.getProfile()
+        let loaded: ApiProfile | null = null
+        loaded = await api.getProfile()
         const role = roleFromProfile(loaded)
         activeRoleRef.current = role
         setCurrentUserRoleState(role)
@@ -98,6 +102,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (ui?.language === 'uz' || ui?.language === 'ru' || ui?.language === 'en') {
           setLanguage(ui.language)
           localStorage.setItem('language', ui.language)
+          if (ui.language !== 'uz' && !isLocaleChunkLoaded(ui.language)) {
+            setLocaleReady(false)
+            void loadLocaleChunk(ui.language).finally(() => setLocaleReady(true))
+          }
         }
       } catch {
         // Vaqtinchalik API xatosi — eski profil va avatar saqlanadi
@@ -111,14 +119,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const mergeProfile = useCallback((patch: Partial<ApiProfile>) => {
     setProfile((prev) => {
-      if (!prev) return prev
-      const next = { ...prev, ...patch }
+      const base =
+        prev ??
+        (userId
+          ? ({
+              id: userId,
+              role: activeRoleRef.current,
+              full_name: null,
+              email: null,
+              phone: null,
+              bio: null,
+              region: null,
+              specialty: null,
+            } satisfies ApiProfile)
+          : null)
+      if (!base) return prev
+      const next = { ...base, ...patch }
       writeCachedProfile(next)
       return next
     })
-  }, [])
+  }, [userId])
 
   const signOut = useCallback(async () => {
+    clearDebouncedInvalidations()
     clearAuthCache()
     try {
       const [{ clearDashboardHomeCache }, { clearMergedActivityFeedCache }, { clearDashboardSummaryCache }] =
@@ -152,7 +175,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const savedLanguage = localStorage.getItem('language') as 'uz' | 'ru' | 'en' | null
 
     if (savedTheme) setThemeState(savedTheme)
-    if (savedLanguage) setLanguage(savedLanguage)
+    if (savedLanguage) {
+      setLanguage(savedLanguage)
+      if (savedLanguage !== 'uz' && !isLocaleChunkLoaded(savedLanguage)) {
+        setLocaleReady(false)
+        void loadLocaleChunk(savedLanguage).finally(() => setLocaleReady(true))
+      }
+    }
 
     const savedRole = readStoredRole()
     if (savedRole) {
@@ -226,11 +255,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           (event === 'INITIAL_SESSION' && !profileRef.current))
 
       if (shouldRefresh) {
-        if (event === 'SIGNED_IN') {
-          import('@/infrastructure/api/client').then(({ api }) => {
-            api.auditLogin().catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: '/api/v1/platform/audit/login' }))
-          })
-        }
         setTimeout(() => {
           refreshProfile().catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }))
         }, 0)
@@ -286,6 +310,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setLang = useCallback((lang: Language) => {
     setLanguage(lang)
     localStorage.setItem('language', lang)
+    if (lang !== 'uz' && !isLocaleChunkLoaded(lang)) {
+      setLocaleReady(false)
+      void loadLocaleChunk(lang).finally(() => setLocaleReady(true))
+    }
     if (userId) {
       api.updateUiPreferences({ language: lang }).catch((e) =>
         ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/ui-preferences' })
@@ -293,7 +321,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userId])
 
-  const translate = useCallback((key: TranslationKey) => t(language, key), [language])
+  const translate = useCallback((key: TranslationKey) => t(language, key), [language, localeReady])
 
   const contextValue = useMemo<AppContextType>(
     () => ({

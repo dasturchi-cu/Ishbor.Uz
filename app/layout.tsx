@@ -10,10 +10,11 @@ import { GoogleAnalytics } from '@/presentation/components/analytics/google-anal
 
 const inter = Inter({
   variable: '--font-inter',
-  subsets: ['latin'],
+  subsets: ['latin', 'cyrillic'],
   weight: ['400', '500', '600', '700'],
   display: 'swap',
   preload: true,
+  adjustFontFallback: true,
 })
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -21,7 +22,8 @@ const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   weight: ['600', '700', '800'],
   display: 'swap',
-  preload: true,
+  preload: false,
+  adjustFontFallback: true,
 })
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ishbor.uz'
