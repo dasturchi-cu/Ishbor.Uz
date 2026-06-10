@@ -42,8 +42,9 @@ import type {
 } from './types'
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8002'
-const FETCH_TIMEOUT_MS = 20_000
-const QUICK_FETCH_TIMEOUT_MS = 18_000
+const FETCH_TIMEOUT_MS = 25_000
+const QUICK_FETCH_TIMEOUT_MS = 6_000
+const WRITE_TIMEOUT_MS = 20_000
 
 type ApiFetchConfig = {
   timeoutMs?: number
@@ -56,7 +57,11 @@ type ApiFetchConfig = {
  * Backend CORS dev uchun localhost:3000 ga ochiq (main.py).
  */
 function resolveApiUrl(): string {
-  return DEFAULT_API_URL
+  // Dev brauzer: same-origin /api/v1 → Next rewrite (port drift + CSP muammosiz)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    return ''
+  }
+  return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL
 }
 
 export function getApiBaseUrl(): string {
@@ -93,7 +98,7 @@ function paymentIdempotencyHeaders(): Record<string, string> {
   return {}
 }
 
-const RETRYABLE_GET_STATUSES = new Set([0, 408, 429, 503])
+const RETRYABLE_STATUSES = new Set([0, 408, 429, 502, 503])
 const MAX_GET_ATTEMPTS = 2
 
 async function parseApiError(res: Response, path: string): Promise<ApiError> {
@@ -104,13 +109,14 @@ async function parseApiError(res: Response, path: string): Promise<ApiError> {
   } catch {
     // ignore
   }
+  const text = typeof detail === 'string' ? detail : JSON.stringify(detail)
   if (
     res.status >= 500 &&
-    (detail === 'Internal Server Error' || !detail || detail === res.statusText)
+    (text === 'Internal Server Error' || !text || text === res.statusText)
   ) {
-    detail = "Server xatosi. Sahifani yangilab qayta urinib ko'ring."
+    return new ApiError(`Server xatosi (${path}). Backend logini tekshiring.`, res.status, path)
   }
-  return new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), res.status, path)
+  return new ApiError(text, res.status, path)
 }
 
 export async function apiFetch<T>(
@@ -133,7 +139,9 @@ export async function apiFetch<T>(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   const method = (options.method ?? 'GET').toUpperCase()
   const isGet = method === 'GET'
-  const canRetryGet = isGet && attempt < maxAttempts - 1
+  const canRetry = attempt < maxAttempts - 1
+  const canRetryGet = isGet && canRetry
+  const canRetryWrite = !isGet && canRetry && maxAttempts > 1
   const canRetry401 = !refreshAuth && attempt === 0
 
   trackRequest(`${method} ${path}`, { method, path })
@@ -156,8 +164,12 @@ export async function apiFetch<T>(
         await refreshCachedSession()
         return apiFetch<T>(path, options, attempt + 1, true, config)
       }
-      if (canRetryGet && RETRYABLE_GET_STATUSES.has(err.status)) {
+      if (canRetryGet && RETRYABLE_STATUSES.has(err.status)) {
         await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
+        return apiFetch<T>(path, options, attempt + 1, refreshAuth, config)
+      }
+      if (canRetryWrite && RETRYABLE_STATUSES.has(err.status)) {
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
         return apiFetch<T>(path, options, attempt + 1, refreshAuth, config)
       }
       throw err
@@ -171,16 +183,24 @@ export async function apiFetch<T>(
       if (options.signal?.aborted && !controller.signal.aborted) {
         throw new ApiError('Bekor qilindi', 499, path)
       }
-      const err = new ApiError("Server javob bermadi. Qayta urinib ko'ring.", 408, path)
-      if (canRetryGet) {
-        await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
+      const err = new ApiError(
+        `${method} ${path}: backend ${Math.round(timeoutMs / 1000)}s ichida javob bermadi. pnpm dev:status tekshiring.`,
+        408,
+        path,
+      )
+      if (canRetryGet || canRetryWrite) {
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
         return apiFetch<T>(path, options, attempt + 1, refreshAuth, config)
       }
       throw err
     }
     if (e instanceof TypeError && e.message.toLowerCase().includes('fetch')) {
-      const err = new ApiError('Backend ishlamayapti. Terminalda: pnpm dev:start', 0, path)
-      if (canRetryGet) {
+      const err = new ApiError(
+        `Backend ulanmadi (${method} ${path}). pnpm dev:api ishlayaptimi?`,
+        0,
+        path,
+      )
+      if (canRetryGet || canRetryWrite) {
         await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
         return apiFetch<T>(path, options, attempt + 1, refreshAuth, config)
       }
@@ -201,7 +221,7 @@ export const api = {
     apiFetch<ApiProfile>('/api/v1/profiles/me', {
       method: 'PATCH',
       body: JSON.stringify(data),
-    }),
+    }, 0, false, { timeoutMs: WRITE_TIMEOUT_MS, maxAttempts: 2 }),
   updateProfileRole: (role: 'freelancer' | 'client') =>
     apiFetch<ApiProfile>('/api/v1/profiles/me/role', {
       method: 'PATCH',
@@ -258,6 +278,7 @@ export const api = {
     min_price?: number
     max_price?: number
     max_delivery_days?: number
+    experience?: string
     limit?: number
     offset?: number
   }) => {
@@ -269,6 +290,7 @@ export const api = {
     if (params?.min_price != null) q.set('min_price', String(params.min_price))
     if (params?.max_price != null) q.set('max_price', String(params.max_price))
     if (params?.max_delivery_days != null) q.set('max_delivery_days', String(params.max_delivery_days))
+    if (params?.experience) q.set('experience', params.experience)
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
     const qs = q.toString()
@@ -1138,6 +1160,15 @@ export const api = {
     const qs = q.toString()
     return apiFetch<import('./types').ApiVacancy[]>(`/api/v1/vacancies${qs ? `?${qs}` : ''}`)
   },
+  getVacancy: (id: string) =>
+    apiFetch<import('./types').ApiVacancyDetail>(`/api/v1/vacancies/${id}`),
+  applyToVacancy: (id: string, data: { cover_letter: string }) =>
+    apiFetch<import('./types').ApiVacancyApplication>(`/api/v1/vacancies/${id}/apply`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getCompany: (slug: string) =>
+    apiFetch<import('./types').ApiCompany>(`/api/v1/companies/${slug}`),
   createVacancy: (data: {
     title: string
     description?: string

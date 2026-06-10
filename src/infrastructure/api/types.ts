@@ -1056,6 +1056,29 @@ export interface ApiVacancy {
   created_at?: string
 }
 
+export interface ApiVacancyClientProfile {
+  id: string
+  full_name?: string | null
+  specialty?: string | null
+  region?: string | null
+  avatar_url?: string | null
+}
+
+export interface ApiVacancyDetail extends ApiVacancy {
+  client_profile?: ApiVacancyClientProfile | null
+  application_count?: number
+  my_application_status?: string | null
+}
+
+export interface ApiVacancyApplication {
+  id: string
+  vacancy_id: string
+  freelancer_id: string
+  cover_letter: string
+  status: string
+  created_at?: string
+}
+
 export interface ApiCompany {
   id: string
   name: string

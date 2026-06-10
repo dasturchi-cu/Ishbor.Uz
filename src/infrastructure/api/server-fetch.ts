@@ -34,6 +34,39 @@ export async function fetchProjectForMeta(id: string) {
   }
 }
 
+export async function fetchVacancyForMeta(id: string) {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/vacancies/${id}`, {
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return null
+    return (await res.json()) as {
+      title?: string
+      description?: string
+      region?: string
+      employment_type?: string
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function fetchCompanyForMeta(slug: string) {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/companies/${slug}`, {
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return null
+    return (await res.json()) as {
+      name?: string
+      description?: string
+      region?: string
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function fetchProfileForMeta(id: string) {
   try {
     const res = await fetch(`${API_BASE}/api/v1/profiles/${id}`, {

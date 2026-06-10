@@ -11,8 +11,10 @@ import { FileUploadZone } from '@/presentation/components/dashboard/file-upload-
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { api, ApiError } from '@/infrastructure/api/client'
-import { uploadAvatar } from '@/infrastructure/supabase/storage'
+import { captureActionError } from '@/shared/lib/action-error'
+import { checkUsernameRemote } from '@/shared/lib/check-username-remote'
 import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
+import { uploadAvatar, formatStorageUploadError } from '@/infrastructure/supabase/storage'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { normalizeUsername, pickAvailableUsername } from '@/shared/lib/username'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
@@ -75,6 +77,7 @@ function OnboardingShell({
 export function OnboardingPage() {
   const { t, profile, currentUserRole, refreshProfile, mergeProfile, userId } = useApp()
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? '')
   const [saving, setSaving] = useState(false)
   const router = useRouter()
   const isClient = currentUserRole === 'client'
@@ -90,9 +93,7 @@ export function OnboardingPage() {
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'error'>('idle')
   const [usernameCheckHint, setUsernameCheckHint] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastAutoSavedRef = useRef<string>('')
-  const autoSavingRef = useRef(false)
   const profileHydratedRef = useRef(false)
   const skipAutoSaveUntilRef = useRef(0)
   const userEditedUsernameRef = useRef(false)
@@ -169,6 +170,7 @@ export function OnboardingPage() {
     profileHydratedRef.current = true
     skipAutoSaveUntilRef.current = Date.now() + 1500
     setFullName(profile.full_name || '')
+    if (profile.avatar_url) setAvatarUrl(profile.avatar_url)
     if (profile.username) {
       setUsername(profile.username)
       setUsernameStatus('ok')
@@ -232,8 +234,7 @@ export function OnboardingPage() {
     const seq = ++usernameCheckSeqRef.current
     const abort = new AbortController()
     const id = setTimeout(() => {
-      void api
-        .checkUsername(slug, abort.signal)
+      void checkUsernameRemote(slug, { excludeUserId: profile?.id ?? userId, signal: abort.signal })
         .then((r) => {
           if (abort.signal.aborted || seq !== usernameCheckSeqRef.current) return
           setUsernameStatus(r.available ? 'ok' : 'taken')
@@ -243,9 +244,7 @@ export function OnboardingPage() {
           if (abort.signal.aborted || seq !== usernameCheckSeqRef.current) return
           if (e instanceof ApiError && (e.status === 499 || e.status === 408)) return
           setUsernameStatus('error')
-          setUsernameCheckHint(
-            e instanceof ApiError && e.message ? e.message : t('username_check_failed'),
-          )
+          setUsernameCheckHint(t('username_check_failed'))
         })
     }, 300)
 
@@ -253,7 +252,7 @@ export function OnboardingPage() {
       clearTimeout(id)
       abort.abort()
     }
-  }, [username, profile?.username, authReady, t])
+  }, [username, profile?.username, profile?.id, userId, authReady, t])
 
   const step1Valid = useMemo(() => {
     const base =
@@ -290,6 +289,7 @@ export function OnboardingPage() {
 
   const persistProfile = useCallback(
     async (complete: boolean) => {
+      if (!userId) throw new Error(t('auth_supabase_not_configured'))
       let finalUsername = username.trim().replace(/^@/, '')
       if (finalUsername.length < 3 || usernameStatus !== 'ok') {
         let email = profile?.email
@@ -303,53 +303,15 @@ export function OnboardingPage() {
           setUsernameStatus('ok')
         }
       }
-      const payload = profilePayload(complete, finalUsername)
-      const updated = await api.updateProfile(payload)
-      const withRole =
-        updated.role === currentUserRole
-          ? updated
-          : await api.updateProfileRole(currentUserRole)
-      mergeProfile({ ...withRole, role: currentUserRole })
+      const payload = { ...profilePayload(complete, finalUsername), role: currentUserRole }
+      const updated = await persistProfilePatch(userId, payload)
+      mergeProfile({ ...updated, role: currentUserRole })
       lastAutoSavedRef.current = JSON.stringify(payload)
       sessionStorage.removeItem(REGISTER_REGION_KEY)
       return updated
     },
-    [username, usernameStatus, profile?.email, fullName, currentUserRole, mergeProfile, profilePayload],
+    [userId, username, usernameStatus, profile?.email, fullName, currentUserRole, mergeProfile, profilePayload, t],
   )
-
-  const canAutoSave = useMemo(() => {
-    if (!profile?.id || profile.onboarding_completed) return false
-    if (fullName.trim().length <= 1 || !city.trim()) return false
-    if (username.trim().length >= 3 && usernameStatus !== 'ok') return false
-    if (username.trim().length > 0 && username.trim().length < 3) return false
-    return true
-  }, [profile?.id, profile?.onboarding_completed, fullName, city, username, usernameStatus])
-
-  const runAutoSave = useCallback(async () => {
-    if (!canAutoSave || autoSavingRef.current || saving) return
-    if (Date.now() < skipAutoSaveUntilRef.current) return
-    const key = JSON.stringify(profilePayload(false))
-    if (key === lastAutoSavedRef.current) return
-    autoSavingRef.current = true
-    try {
-      await persistProfile(false)
-    } catch {
-      /* silent */
-    } finally {
-      autoSavingRef.current = false
-    }
-  }, [canAutoSave, saving, persistProfile, profilePayload])
-
-  useEffect(() => {
-    if (!canAutoSave) return
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-    autoSaveTimerRef.current = setTimeout(() => {
-      void runAutoSave()
-    }, 1200)
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-    }
-  }, [canAutoSave, runAutoSave, fullName, username, title, bio, city, company, currentUserRole])
 
   const validateStep1 = () => {
     const errs: Record<string, string> = {}
@@ -372,14 +334,18 @@ export function OnboardingPage() {
   }
 
   const goToStep2 = async () => {
-    if (!validateStep1()) return
+    const valid = validateStep1()
+    if (valid === null) {
+      toast.error(t('username_checking'))
+      return
+    }
+    if (!valid) return
     setSaving(true)
     try {
       await persistProfile(false)
       setStep(2)
     } catch (e) {
-      const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
-      toast.error(detail || t('onboarding_save_error'))
+      toast.error(captureActionError(e, { scope: 'generic', apiPath: '/api/v1/profiles/me' }, t))
     } finally {
       setSaving(false)
     }
@@ -390,8 +356,7 @@ export function OnboardingPage() {
     try {
       await persistProfile(true)
     } catch (e) {
-      const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
-      toast.error(detail || t('onboarding_save_error'))
+      toast.error(captureActionError(e, { scope: 'generic', apiPath: '/api/v1/profiles/me' }, t))
       return false
     } finally {
       setSaving(false)
@@ -440,12 +405,15 @@ export function OnboardingPage() {
             </Button>
             <button
               type="button"
-              disabled={!step1Valid || saving}
+              disabled={saving}
               onClick={() => void completeAndGoDashboard()}
               className="onboarding-skip"
             >
               {t('skip')}
             </button>
+            <p className="mt-2 text-center text-[12px] text-[var(--ishbor-text-muted)]">
+              {t('onboarding_skip_hint')}
+            </p>
             {isClient && (
               <p className="mt-6 text-center text-[12px] text-[var(--ishbor-text-muted)]">
                 {t('client_find_freelancer_hint')}
@@ -459,7 +427,7 @@ export function OnboardingPage() {
             circular
             maxFiles={1}
             disabled={avatarUploading || !userId}
-            initialUrls={profile?.avatar_url ? [profile.avatar_url] : []}
+            initialUrls={avatarUrl ? [avatarUrl] : []}
             onUpload={async (files) => {
               if (!userId || !files[0]) {
                 toast.error(t('upload_error'))
@@ -472,11 +440,14 @@ export function OnboardingPage() {
               setAvatarUploading(true)
               try {
                 const url = await uploadAvatar(files[0], userId)
-                await persistProfilePatch(userId, { avatar_url: url })
-                await refreshProfile()
+                setAvatarUrl(url)
+                const updated = await api.updateProfile({ avatar_url: url })
+                mergeProfile({ avatar_url: updated.avatar_url ?? url })
+                toast.success(t('profile_photo_done'))
                 return [url]
               } catch (e) {
-                toast.error(e instanceof Error ? e.message : t('upload_error'))
+                const storageMsg = formatStorageUploadError(e, 'avatars')
+                toast.error(storageMsg.includes('pnpm db:push') ? t('storage_bucket_missing') : storageMsg || t('upload_error'))
                 return []
               } finally {
                 setAvatarUploading(false)

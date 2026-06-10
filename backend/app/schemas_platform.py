@@ -206,6 +206,33 @@ class VacancyResponse(BaseModel):
     created_at: datetime | None = None
 
 
+class VacancyClientProfile(BaseModel):
+    id: str
+    full_name: str | None = None
+    specialty: str | None = None
+    region: str | None = None
+    avatar_url: str | None = None
+
+
+class VacancyDetailResponse(VacancyResponse):
+    client_profile: VacancyClientProfile | None = None
+    application_count: int = 0
+    my_application_status: str | None = None
+
+
+class VacancyApplyCreate(BaseModel):
+    cover_letter: str = Field(min_length=10, max_length=4000)
+
+
+class VacancyApplicationResponse(BaseModel):
+    id: str
+    vacancy_id: str
+    freelancer_id: str
+    cover_letter: str
+    status: str
+    created_at: datetime | None = None
+
+
 class ModerationActionResponse(BaseModel):
     id: str
     admin_id: str

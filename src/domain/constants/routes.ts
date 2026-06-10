@@ -59,6 +59,8 @@ export const PATHS = {
   notifications: '/dashboard/notifications',
   jobs: '/jobs',
   companies: '/companies',
+  vacancyDetail: '/jobs',
+  companyDetail: '/companies',
   cvBuilder: '/cv-builder',
 } as const
 
@@ -83,6 +85,14 @@ export function dashboardOrderPath(id: string) {
 
 export function projectPath(id: string) {
   return `/projects/${id}`
+}
+
+export function vacancyPath(id: string) {
+  return `/jobs/${id}`
+}
+
+export function companyPath(slug: string) {
+  return `/companies/${slug}`
 }
 
 export function dashboardContract(id: string) {

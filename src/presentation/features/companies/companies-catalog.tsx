@@ -12,7 +12,7 @@ import { isSafeExternalWebsiteUrl } from '@/shared/lib/safe-url'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { useRouter } from 'next/navigation'
-import { PATHS } from '@/domain/constants/routes'
+import { PATHS, companyPath } from '@/domain/constants/routes'
 import { Button } from '@/presentation/components/ui/button'
 
 function CompanyCardSkeleton() {
@@ -31,7 +31,7 @@ function CompanyCardSkeleton() {
   )
 }
 
-export function CompaniesCatalog() {
+export function CompaniesCatalog({ hideHeader = false }: { hideHeader?: boolean }) {
   const { t } = useApp()
   const router = useRouter()
   const [companies, setCompanies] = useState<ApiCompany[]>([])
@@ -60,10 +60,12 @@ export function CompaniesCatalog() {
 
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
-      <div className="catalog-shell-head mb-5">
-        <h1 className="catalog-shell-title">{t('companies_catalog_title')}</h1>
-        <p className="catalog-shell-subtitle">{t('companies_catalog_subtitle')}</p>
-      </div>
+      {!hideHeader && (
+        <div className="catalog-shell-head mb-5">
+          <h1 className="catalog-shell-title">{t('companies_catalog_title')}</h1>
+          <p className="catalog-shell-subtitle">{t('companies_catalog_subtitle')}</p>
+        </div>
+      )}
 
       <IshborProtectionStrip compact className="mb-5" />
 
@@ -92,7 +94,7 @@ export function CompaniesCatalog() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {companies.map((company) => (
-            <article key={company.id} className="company-catalog-card">
+            <Link key={company.id} href={companyPath(company.slug)} className="company-catalog-card block">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="company-catalog-card__mark" aria-hidden>
@@ -126,7 +128,7 @@ export function CompaniesCatalog() {
                   {company.website.replace(/^https?:\/\//, '')}
                 </a>
               )}
-            </article>
+            </Link>
           ))}
         </div>
       )}

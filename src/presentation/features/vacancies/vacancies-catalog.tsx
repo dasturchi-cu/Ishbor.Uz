@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Briefcase, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -16,7 +17,7 @@ import { Input } from '@/presentation/components/ui/input'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Select } from '@/presentation/components/ui/select'
 import { UZ_REGIONS } from '@/domain/constants/regions'
-import { PATHS } from '@/domain/constants/routes'
+import { PATHS, vacancyPath } from '@/domain/constants/routes'
 import { loginPath } from '@/shared/lib/auth-redirect'
 import { formatPrice } from '@/shared/lib/format'
 import { toast } from '@/presentation/components/ui/toast'
@@ -31,7 +32,7 @@ const EMPLOYMENT_KEYS: Record<string, TranslationKey> = {
   internship: 'vacancy_employment_internship',
 }
 
-export function VacanciesCatalog() {
+export function VacanciesCatalog({ hideHeader = false }: { hideHeader?: boolean }) {
   const { t, isLoggedIn, currentUserRole } = useApp()
   const router = useRouter()
   const [vacancies, setVacancies] = useState<ApiVacancy[]>([])
@@ -116,15 +117,24 @@ export function VacanciesCatalog() {
 
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
-      <div className="catalog-shell-head mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="catalog-shell-title">{t('jobs_catalog_title')}</h1>
-          <p className="catalog-shell-subtitle">{t('jobs_catalog_subtitle')}</p>
+      {!hideHeader && (
+        <div className="catalog-shell-head mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="catalog-shell-title">{t('jobs_catalog_title')}</h1>
+            <p className="catalog-shell-subtitle">{t('jobs_catalog_subtitle')}</p>
+          </div>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+            {t('vacancy_create_btn')}
+          </Button>
         </div>
-        <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-          {t('vacancy_create_btn')}
-        </Button>
-      </div>
+      )}
+      {hideHeader && (
+        <div className="catalog-shell-head mb-5 flex flex-wrap items-center justify-end gap-3">
+          <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+            {t('vacancy_create_btn')}
+          </Button>
+        </div>
+      )}
 
       <IshborProtectionStrip compact className="mb-5" />
 
@@ -208,21 +218,23 @@ export function VacanciesCatalog() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {vacancies.map((job) => (
-            <Card key={job.id} className="p-5">
-              <h3 className="font-semibold text-[var(--ishbor-text)]">{job.title}</h3>
-              <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">
-                {[job.region, employmentLabel(job.employment_type)].filter(Boolean).join(' · ')}
-              </p>
-              {job.description && (
-                <p className="mt-2 line-clamp-3 text-[13px] text-[var(--ishbor-text-sub)]">{job.description}</p>
-              )}
-              {(job.salary_min != null || job.salary_max != null) && (
-                <p className="mt-3 text-sm font-semibold text-[var(--color-primary)]">
-                  {job.salary_min != null ? formatPrice(job.salary_min) : '—'}
-                  {job.salary_max != null ? ` – ${formatPrice(job.salary_max)}` : ''}
+            <Link key={job.id} href={vacancyPath(job.id)} className="vacancy-catalog-card block">
+              <Card className="h-full p-5 transition-[border-color,box-shadow] hover:border-[color-mix(in_srgb,var(--color-primary)_16%,var(--ishbor-border))] hover:shadow-[var(--shadow-card-hover)]">
+                <h3 className="font-semibold text-[var(--ishbor-text)]">{job.title}</h3>
+                <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">
+                  {[job.region, employmentLabel(job.employment_type)].filter(Boolean).join(' · ')}
                 </p>
-              )}
-            </Card>
+                {job.description && (
+                  <p className="mt-2 line-clamp-3 text-[13px] text-[var(--ishbor-text-sub)]">{job.description}</p>
+                )}
+                {(job.salary_min != null || job.salary_max != null) && (
+                  <p className="mt-3 text-sm font-semibold text-[var(--color-primary)]">
+                    {job.salary_min != null ? formatPrice(job.salary_min) : '—'}
+                    {job.salary_max != null ? ` – ${formatPrice(job.salary_max)}` : ''}
+                  </p>
+                )}
+              </Card>
+            </Link>
           ))}
         </div>
       )}

@@ -1,10 +1,34 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useApp } from '@/application/providers/app-provider'
+import { MarketplaceCatalogHero } from '@/presentation/components/layout/marketplace-catalog-hero'
 import { FreelancersCatalog } from '@/presentation/features/freelancers/freelancers-catalog'
 import { CompaniesCatalog } from '@/presentation/features/companies/companies-catalog'
 import { api } from '@/infrastructure/api/client'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
+import { PATHS } from '@/domain/constants/routes'
+
+function CompaniesHero() {
+  const { t } = useApp()
+
+  return (
+    <MarketplaceCatalogHero
+      badge={t('companies_hero_badge')}
+      title={t('companies_hero_title')}
+      subtitle={t('companies_hero_subtitle')}
+      primaryAction={{
+        label: t('companies_hero_browse'),
+        onClick: () => document.getElementById('companies-catalog')?.scrollIntoView({ behavior: 'smooth' }),
+      }}
+      secondaryAction={{
+        label: t('companies_hero_hire'),
+        href: PATHS.freelancers,
+      }}
+      trustLine={t('companies_hero_trust')}
+    />
+  )
+}
 
 export function CompaniesLandingPage() {
   const [companiesEnabled, setCompaniesEnabled] = useState(false)
@@ -20,7 +44,14 @@ export function CompaniesLandingPage() {
   }, [])
 
   if (companiesEnabled) {
-    return <CompaniesCatalog />
+    return (
+      <>
+        <CompaniesHero />
+        <div id="companies-catalog">
+          <CompaniesCatalog hideHeader />
+        </div>
+      </>
+    )
   }
 
   return (
