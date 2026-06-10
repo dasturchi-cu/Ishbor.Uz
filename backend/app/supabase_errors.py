@@ -32,5 +32,18 @@ def map_supabase_error(exc: APIError) -> str:
     return "Ma'lumotlar bazasi xatosi"
 
 
+def supabase_error_status(exc: APIError) -> int:
+    code = getattr(exc, "code", None)
+    message = getattr(exc, "message", "") or str(exc)
+    if code == "42703" or ("column" in message.lower() and "does not exist" in message.lower()):
+        return 503
+    if code == "42501" or "row-level security" in message.lower():
+        return 403
+    return 400
+
+
 async def supabase_api_error_handler(_request: Request, exc: APIError) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"detail": map_supabase_error(exc)})
+    return JSONResponse(
+        status_code=supabase_error_status(exc),
+        content={"detail": map_supabase_error(exc)},
+    )

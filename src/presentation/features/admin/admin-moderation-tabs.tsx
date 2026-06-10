@@ -27,6 +27,7 @@ import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { toast } from '@/presentation/components/ui/toast'
 import { Download } from 'lucide-react'
 import { captureLoadError } from '@/shared/lib/load-error'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { exportAuditLogsCsv, fetchAllAuditLogs } from '@/shared/lib/audit-log-export'
 
 type ModerationTab = 'overview' | 'reports' | 'verifications' | 'fraud' | 'audit' | 'services' | 'compliance' | 'banks'
@@ -336,14 +337,22 @@ function ComplianceFlagsPanel() {
   const { t } = useApp()
   const [flags, setFlags] = useState<import('@/infrastructure/api/types').ApiComplianceFlag[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [actionId, setActionId] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
+    setLoadError(null)
     api
       .adminComplianceFlags(false)
-      .then(setFlags)
-      .catch(() => setFlags([]))
+      .then((rows) => {
+        setFlags(rows)
+        setLoadError(null)
+      })
+      .catch((e) => {
+        setFlags([])
+        setLoadError(e)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -362,6 +371,10 @@ function ComplianceFlagsPanel() {
   }
 
   if (loading) return <LoadingBlock />
+
+  if (loadError) {
+    return <LoadErrorAlert error={loadError} scope="admin" onRetry={load} />
+  }
 
   return (
     <Card className="p-6">

@@ -1,4 +1,5 @@
 import { api } from '@/infrastructure/api/client'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 const SERVICES_KEY = 'ishbor-saved-services'
 const FREELANCERS_KEY = 'ishbor-saved-freelancers'
@@ -39,7 +40,8 @@ export async function syncSavedServicesFromApi(): Promise<string[]> {
       serviceIdsCache = res.service_ids
       writeIds(SERVICES_KEY, res.service_ids)
     })
-    .catch(() => {
+    .catch((e) => {
+      ignoreWithLog(e, { scope: 'saved', apiPath: '/api/v1/saved/services' })
       serviceIdsCache = readIds(SERVICES_KEY)
     })
     .finally(() => {
@@ -60,7 +62,8 @@ export async function syncSavedFreelancersFromApi(): Promise<string[]> {
       freelancerIdsCache = res.freelancer_ids
       writeIds(FREELANCERS_KEY, res.freelancer_ids)
     })
-    .catch(() => {
+    .catch((e) => {
+      ignoreWithLog(e, { scope: 'saved', apiPath: '/api/v1/saved/freelancers' })
       freelancerIdsCache = readIds(FREELANCERS_KEY)
     })
     .finally(() => {
@@ -99,10 +102,10 @@ export async function toggleSavedService(id: string): Promise<boolean> {
     } else {
       await api.saveService(id)
     }
-  } catch {
+  } catch (e) {
     serviceIdsCache = ids
     writeIds(SERVICES_KEY, ids)
-    return wasSaved
+    throw e
   }
   return !wasSaved
 }
@@ -119,7 +122,8 @@ export async function syncSavedProjectsFromApi(): Promise<string[]> {
       projectIdsCache = ids
       writeIds(PROJECTS_KEY, ids)
     })
-    .catch(() => {
+    .catch((e) => {
+      ignoreWithLog(e, { scope: 'saved', apiPath: '/api/v1/saved/projects' })
       projectIdsCache = readIds(PROJECTS_KEY)
     })
     .finally(() => {
@@ -150,10 +154,10 @@ export async function toggleSavedProject(id: string): Promise<boolean> {
     } else {
       await api.saveProject(id)
     }
-  } catch {
+  } catch (e) {
     projectIdsCache = ids
     writeIds(PROJECTS_KEY, ids)
-    return wasSaved
+    throw e
   }
   return !wasSaved
 }
@@ -171,10 +175,10 @@ export async function toggleSavedFreelancer(id: string): Promise<boolean> {
     } else {
       await api.saveFreelancer(id)
     }
-  } catch {
+  } catch (e) {
     freelancerIdsCache = ids
     writeIds(FREELANCERS_KEY, ids)
-    return wasSaved
+    throw e
   }
   return !wasSaved
 }

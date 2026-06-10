@@ -145,7 +145,8 @@
   --ishbor-text-sub: var(--color-text-sub);
   --ishbor-text-muted: var(--color-text-muted);
   --ishbor-search-bg: var(--neutral-100);
-  --body-bg: var(--neutral-50);
+  --body-bg: var(--neutral-0);
+  --body-bg-muted: var(--neutral-50);
   --ishbor-header-h: 60px;
   --ishbor-nav-h: 42px;
   --ishbor-header-total: var(--ishbor-header-h);

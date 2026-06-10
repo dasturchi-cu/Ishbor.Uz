@@ -11,7 +11,7 @@ REFERRAL_BONUS = 50_000
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 
-from app.deps import OptionalUserId, UserAuthDep
+from app.deps import OptionalUserId, OptionalUserIdLight, UserAuthDep
 
 from app.analytics_service import build_user_analytics
 from app.review_stats import batch_review_stats, batch_trust_scores
@@ -315,7 +315,7 @@ def _load_notification_prefs(supabase, user_id: str) -> dict:
 
 
 @router.get("/check-username", response_model=UsernameCheckResponse)
-def check_username(user_id: OptionalUserId, username: str = Query(..., min_length=1)):
+def check_username(user_id: OptionalUserIdLight, username: str = Query(..., min_length=1)):
     slug = normalize_username(username)
     if len(slug) < 3:
         return {"available": False}

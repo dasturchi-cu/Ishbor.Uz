@@ -92,6 +92,11 @@ export function AdminFeatureFlagsPage() {
                       }
                     }}
                     onBlur={(e) => void setRollout(flag, Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur()
+                      }
+                    }}
                     aria-label={`${flag.key} rollout`}
                   />
                   <Button

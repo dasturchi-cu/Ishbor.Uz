@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Avatar } from '@/presentation/components/ui/avatar'
-import { Alert } from '@/presentation/components/ui/alert'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { RatingStars } from '@/presentation/components/ui/rating-stars'
@@ -27,8 +26,8 @@ import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiProfilePublic, ApiReview, ApiService } from '@/infrastructure/api/types'
 import { freelancerPath, PATHS, servicePath } from '@/domain/constants/routes'
 import { isUuid } from '@/shared/lib/uuid'
-import { loginPath, registerPath } from '@/shared/lib/auth-redirect'
-import { toast } from '@/presentation/components/ui/toast'
+import { loginPath } from '@/shared/lib/auth-redirect'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
@@ -41,6 +40,8 @@ import {
   parseSpecialtyTitle,
 } from '@/shared/lib/onboarding-profile'
 import { isFreelancerSaved, syncSavedFreelancersFromApi, toggleSavedFreelancer } from '@/shared/lib/saved-items'
+import { toast } from '@/presentation/components/ui/toast'
+import { captureActionError } from '@/shared/lib/action-error'
 import { SkeletonProfileHero } from '@/presentation/components/ui/skeleton'
 import { UserX } from 'lucide-react'
 import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
@@ -84,7 +85,9 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   const [reportOpen, setReportOpen] = useState(false)
 
   useEffect(() => {
-    api.recordProfileView(profileId).catch(() => undefined)
+    api
+      .recordProfileView(profileId)
+      .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: `/api/v1/profiles/${profileId}/view` }))
   }, [profileId])
 
   const loadProfile = useCallback(() => {
@@ -148,7 +151,10 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
   const handleContact = async () => {
     if (!isLoggedIn || currentUserRole !== 'client') return
-    const orders = await api.listOrders().catch(() => [])
+    const orders = await api.listOrders().catch((e) => {
+      ignoreWithLog(e, { scope: 'orders', apiPath: '/api/v1/orders' })
+      return []
+    })
     const existing = orders.find(
       (o) =>
         o.freelancer_id === profileId &&
@@ -163,6 +169,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
       return
     }
     setContactHint(true)
+    setActiveTab('services')
   }
 
   const handleShare = async () => {
@@ -203,8 +210,10 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
 
   const name = profile.full_name ?? t('freelancer')
   const isOwnProfile = userId === profileId
-  const profileReturnTo = `/freelancer/${profileId}`
   const memberYears = yearsOnPlatform(profile.created_at)
+  const hireTarget = services[0] ? servicePath(services[0].id) : PATHS.services
+  const hireLabel = services[0] ? t('order_secure_cta') : t('browse_services')
+
   const locationLabel = profile.region
     ? t('profile_location_format').replace('{region}', profile.region)
     : t('country_uzbekistan')
@@ -253,9 +262,8 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
           ]}
         />
       </div>
-      <div className="freelancer-profile-cover" aria-hidden />
       <div className="freelancer-profile">
-        <section className="freelancer-profile-hero freelancer-profile-hero--overlap">
+        <section className="freelancer-profile-hero">
           <div className="freelancer-profile-hero-inner">
             <div className="freelancer-profile-hero-top">
               <div className="freelancer-profile-hero-main">
@@ -303,93 +311,76 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
               <div className="freelancer-profile-actions">
                 {isOwnProfile ? (
                   <Link href={PATHS.dashboardSettings}>
-                    <Button
-                      variant="primary"
-                      size="md"
-                      leftIcon={<Settings className="h-4 w-4" />}
-                    >
+                    <Button variant="primary" size="md" leftIcon={<Settings className="h-4 w-4" />}>
                       {t('profile_account_settings')}
                     </Button>
                   </Link>
                 ) : (
                   <>
-                    {!isLoggedIn && (
-                      <>
-                        <Button
-                          variant="primary"
-                          size="md"
-                          className="hide-mobile"
-                          onClick={() => router.push(loginPath(profileReturnTo))}
-                        >
-                          {t('order_secure_cta')}
-                        </Button>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      className="freelancer-profile-actions__primary"
+                      onClick={() =>
+                        router.push(isLoggedIn ? hireTarget : loginPath(hireTarget))
+                      }
+                    >
+                      {hireLabel}
+                    </Button>
+                    <div className="freelancer-profile-actions__secondary">
+                      {isLoggedIn && currentUserRole === 'client' && (
                         <Button
                           variant="outline"
                           size="md"
-                          className="hide-mobile"
-                          onClick={() => router.push(registerPath(profileReturnTo))}
+                          leftIcon={<MessageCircle className="h-4 w-4" />}
+                          onClick={handleContact}
                         >
-                          {t('register')}
+                          {t('send_message')}
                         </Button>
-                      </>
-                    )}
-                    {contactHint && (
-                      <Alert variant="info" className="mb-3 w-full">
-                        <p>{t('contact_requires_order')}</p>
-                        {services[0] ? (
-                          <Link href={servicePath(services[0].id)} className="mt-3 inline-block">
-                            <Button variant="primary" size="sm">
-                              {t('contact_order_cta')}
-                            </Button>
-                          </Link>
-                        ) : (
-                          <Link href={PATHS.services} className="mt-3 inline-block">
-                            <Button variant="outline" size="sm">
-                              {t('contact_browse_services')}
-                            </Button>
-                          </Link>
-                        )}
-                      </Alert>
-                    )}
-                    {isLoggedIn && currentUserRole === 'client' && (
-                      <Button
-                        variant="primary"
-                        size="md"
-                        leftIcon={<MessageCircle className="h-4 w-4" />}
-                        onClick={handleContact}
-                      >
-                        {t('send_message')}
-                      </Button>
-                    )}
-                    {isLoggedIn && (
+                      )}
+                      {isLoggedIn && currentUserRole === 'client' && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          aria-label={t('profile_favorite')}
+                          className="h-10 w-10"
+                          onClick={() => {
+                            void toggleSavedFreelancer(profileId)
+                              .then((next) => {
+                                setFavorite(next)
+                                toast.success(next ? t('saved') : t('unsave'))
+                              })
+                              .catch((e) => {
+                                toast.error(captureActionError(e, { scope: 'generic', action: 'save_item' }, t))
+                              })
+                          }}
+                        >
+                          <Bookmark className="h-4 w-4" fill={favorite ? 'currentColor' : 'none'} />
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
-                        size="md"
-                        leftIcon={<Bookmark className="h-4 w-4" fill={favorite ? 'currentColor' : 'none'} />}
-                        onClick={() => {
-                          if (currentUserRole !== 'client') {
-                            toast.info(t('client_only_saved'))
-                            return
-                          }
-                          toggleSavedFreelancer(profileId).then(setFavorite)
-                        }}
+                        size="icon"
+                        aria-label={t('profile_share')}
+                        className="h-10 w-10"
+                        onClick={handleShare}
                       >
-                        {t('profile_favorite')}
+                        <Share2 className="h-4 w-4" />
                       </Button>
+                    </div>
+                    {contactHint && (
+                      <p className="w-full text-[12px] text-[var(--ishbor-text-muted)]">
+                        {t('contact_requires_order')}
+                      </p>
                     )}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      aria-label={t('profile_share')}
-                      className="h-10 w-10"
-                      onClick={handleShare}
-                    >
-                      <Share2 className="h-4 w-4" />
-                    </Button>
                     {isLoggedIn && userId !== profileId && (
-                      <Button variant="outline" size="sm" onClick={() => setReportOpen(true)}>
+                      <button
+                        type="button"
+                        className="text-[12px] font-medium text-[var(--ishbor-text-muted)] hover:text-[var(--error)]"
+                        onClick={() => setReportOpen(true)}
+                      >
                         {t('report_user')}
-                      </Button>
+                      </button>
                     )}
                   </>
                 )}
@@ -642,16 +633,9 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   <Button
                     variant="primary"
                     fullWidth
-                    onClick={() => router.push(loginPath(profileReturnTo))}
+                    onClick={() => router.push(loginPath(hireTarget))}
                   >
-                    {t('order_secure_cta')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    onClick={() => router.push(registerPath(profileReturnTo))}
-                  >
-                    {t('register')}
+                    {hireLabel}
                   </Button>
                   <p className="freelancer-profile-guest-note">{t('profile_guest_free')}</p>
                 </div>
@@ -728,24 +712,15 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   : t('freelancer')}
             </span>
           </div>
-          {isLoggedIn && currentUserRole === 'client' ? (
-            <Button
-              variant="primary"
-              leftIcon={<MessageCircle className="h-4 w-4" />}
-              onClick={handleContact}
-              className="shrink-0 px-5"
-            >
-              {t('send_message')}
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              className="shrink-0 px-5"
-              onClick={() => router.push(loginPath(profileReturnTo))}
-            >
-              {t('order_secure_cta')}
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            className="shrink-0 px-5"
+            onClick={() =>
+              router.push(isLoggedIn ? hireTarget : loginPath(hireTarget))
+            }
+          >
+            {hireLabel}
+          </Button>
         </div>
       )}
     </div>

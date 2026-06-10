@@ -14,6 +14,8 @@ Write-Host "   - Import GitHub repo dasturchi-cu/Ishbor.Uz"
 Write-Host "   - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY"
 Write-Host "   - NEXT_PUBLIC_API_URL = Render URL"
 Write-Host "   - NEXT_PUBLIC_SITE_URL = https://ishbor.uz"
+Write-Host "   - MIDDLEWARE_CACHE_SECRET = random 32+ byte (openssl rand -hex 32)"
+Write-Host "   - NEXT_PUBLIC_SENTRY_DSN, SENTRY_DSN (ixtiyoriy monitoring)"
 
 Write-Host "`n3. SUPABASE" -ForegroundColor Yellow
 Write-Host "   - Auth redirect: https://ishbor.uz/**"

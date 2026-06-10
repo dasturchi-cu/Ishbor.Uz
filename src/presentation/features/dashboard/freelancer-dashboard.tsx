@@ -7,22 +7,14 @@ import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
-import { StatCard } from '@/presentation/components/ui/stat-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
-import {
-  DollarSign,
-  Star,
-  Package as PackageIcon,
-  ChevronRight,
-} from 'lucide-react'
+import { Package as PackageIcon, ChevronRight } from 'lucide-react'
 import { PATHS, servicePath, dashboardOrderPath } from '@/domain/constants/routes'
-import type { ApiOrder } from '@/infrastructure/api/types'
 import { formatPrice, orderProgress } from '@/shared/lib/format'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
-import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
 import { AdminPanelBanner } from '@/presentation/components/layout/admin-panel-banner'
 import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
 import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
@@ -42,32 +34,6 @@ const CATEGORY_KEYS: Record<string, TranslationKey> = {
   writing: 'cat_writing',
   video: 'cat_video',
   seo: 'cat_seo',
-}
-
-function isThisMonth(dateStr?: string): boolean {
-  if (!dateStr) return false
-  const d = new Date(dateStr)
-  const now = new Date()
-  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-}
-
-function orderEarningsDate(order: ApiOrder): string | undefined {
-  return order.updated_at ?? order.created_at
-}
-
-function isLastMonth(dateStr?: string): boolean {
-  if (!dateStr) return false
-  const d = new Date(dateStr)
-  const now = new Date()
-  const last = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-  return d.getMonth() === last.getMonth() && d.getFullYear() === last.getFullYear()
-}
-
-function formatResponseHours(hours: number | null | undefined, t: (k: TranslationKey) => string): string {
-  if (hours == null) return t('response_time_unknown')
-  if (hours < 1) return '<1h'
-  if (hours < 24) return `${Math.round(hours)}h`
-  return `${Math.round(hours / 24)}d`
 }
 
 function DashboardPanel({
@@ -116,7 +82,7 @@ export function FreelancerDashboard() {
   const { messageUnread } = useBadgeCounts()
   const authReady = !isAuthLoading && isLoggedIn && Boolean(userId)
 
-  const { orders, services, reviewStats, reputation, loading, error, loadError, reload } = useDashboardSummary(
+  const { orders, services, loading, error, loadError, reload } = useDashboardSummary(
     userId,
     'freelancer',
     authReady
@@ -145,80 +111,6 @@ export function FreelancerDashboard() {
       router.replace(PATHS.dashboardFreelancer)
     }
   }, [searchParams, router])
-
-  const metrics = useMemo(() => {
-    const completed = orders.filter((o) => o.status === 'completed')
-    const active = orders.filter((o) => ACTIVE_STATUSES.has(o.status))
-    const monthlyEarnings = completed
-      .filter((o) => isThisMonth(orderEarningsDate(o)))
-      .reduce((sum, o) => sum + o.amount, 0)
-    const lastMonthEarnings = completed
-      .filter((o) => isLastMonth(orderEarningsDate(o)))
-      .reduce((sum, o) => sum + o.amount, 0)
-    const earningsPct =
-      lastMonthEarnings > 0
-        ? Math.round(((monthlyEarnings - lastMonthEarnings) / lastMonthEarnings) * 100)
-        : monthlyEarnings > 0
-          ? 100
-          : 0
-
-    const hasEarnings = monthlyEarnings > 0
-    const hasActive = active.length > 0
-    const hasReviews = reviewStats.count > 0
-    const hasServices = services.length > 0
-    const hasCompleted = completed.length > 0
-    const hasSuccessRate = reputation != null && reputation.success_rate > 0
-    const hasResponse = reputation?.response_time_hours != null
-
-    const pipelineAmount = orders
-      .filter((o) => o.status === 'active' || o.status === 'delivered' || o.status === 'pending')
-      .reduce((sum, o) => sum + o.amount, 0)
-
-    return {
-      pipelineForecast: pipelineAmount,
-      monthlyEarnings: hasEarnings ? formatPrice(monthlyEarnings) : '0 so\'m',
-      earningsChange: hasEarnings
-        ? t('stat_vs_last_month').replace('{pct}', String(Math.abs(earningsPct)))
-        : t('stat_no_data'),
-      earningsPositive: earningsPct >= 0,
-      earningsNeutral: !hasEarnings,
-      activeCount: String(active.length),
-      activeChange: hasActive ? undefined : t('stat_no_data'),
-      activeNeutral: !hasActive,
-      completedCount: String(completed.length),
-      completedNeutral: !hasCompleted,
-      rating: reviewStats.average > 0 ? reviewStats.average.toFixed(1) : '—',
-      ratingChange: hasReviews
-        ? `${reviewStats.count} ${t('stat_reviews').toLowerCase()}`
-        : t('stat_no_reviews'),
-      ratingNeutral: !hasReviews,
-      profileViews:
-        profile?.profile_views != null && profile.profile_views > 0
-          ? String(profile.profile_views)
-          : hasServices
-            ? '0'
-            : '—',
-      viewsChange:
-        profile?.profile_views != null && profile.profile_views > 0
-          ? t('stat_profile_views_hint')
-          : hasServices
-            ? t('stat_no_data')
-            : t('stat_profile_views_hint'),
-      viewsNeutral: !(profile?.profile_views && profile.profile_views > 0) && !hasServices,
-      successRate: hasSuccessRate ? `${Math.round(reputation!.success_rate)}%` : '—',
-      successNeutral: !hasSuccessRate,
-      responseTime: formatResponseHours(reputation?.response_time_hours, t),
-      responseNeutral: !hasResponse,
-      walletTotal:
-        profile?.wallet_balance != null
-          ? profile.wallet_balance
-          : completed.reduce((sum, o) => sum + o.amount, 0),
-      pipelineForecastLabel:
-        pipelineAmount > 0
-          ? t('freelancer_earnings_forecast').replace('{amount}', formatPrice(pipelineAmount))
-          : '',
-    }
-  }, [orders, reviewStats, services.length, t, profile?.wallet_balance, profile?.profile_views, reputation])
 
   const activeOrders = useMemo(
     () => orders.filter((o) => ACTIVE_STATUSES.has(o.status)),
@@ -305,8 +197,7 @@ export function FreelancerDashboard() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
-        <DashboardPanel id="orders" title={t('nav_orders')}>
+      <DashboardPanel id="orders" title={t('nav_orders')}>
           {loading ? (
             <div className="space-y-2.5">
               {[0, 1].map((i) => (
@@ -368,50 +259,7 @@ export function FreelancerDashboard() {
               </Link>
             </div>
           )}
-        </DashboardPanel>
-
-        <div className="space-y-4">
-          <DashboardPanel title={t('recent_activity')} className="dashboard-panel--secondary">
-            {loading ? (
-              <div className="space-y-2.5">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-10 animate-pulse rounded bg-[var(--color-bg-muted)]" />
-                ))}
-              </div>
-            ) : (
-              <ActivityTimeline />
-            )}
-          </DashboardPanel>
-        </div>
-      </div>
-
-      <div className="dash-stats-grid dash-stats-grid--2">
-        <StatCard
-          icon={DollarSign}
-          iconTone="success"
-          label={t('stat_monthly_earnings')}
-          value={metrics.monthlyEarnings}
-          change={metrics.earningsChange}
-          changePositive={metrics.earningsPositive}
-          changeNeutral={metrics.earningsNeutral}
-          loading={loading}
-        />
-        <StatCard
-          icon={Star}
-          iconTone="warning"
-          label={t('stat_avg_rating')}
-          value={metrics.rating}
-          change={metrics.ratingChange}
-          changeNeutral={metrics.ratingNeutral}
-          loading={loading}
-        />
-      </div>
-
-      {!loading && metrics.pipelineForecastLabel ? (
-        <p className="text-sm text-muted-foreground" title={t('freelancer_earnings_forecast_hint')}>
-          {metrics.pipelineForecastLabel}
-        </p>
-      ) : null}
+      </DashboardPanel>
 
       <DashboardPanel
         id="services"

@@ -171,6 +171,20 @@ def get_optional_user_id(
     return user_id
 
 
+def get_optional_user_id_light(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+) -> str | None:
+    """JWT sub only — profil DB so'rovisiz (username check kabi yengil endpointlar)."""
+    if credentials is None:
+        return None
+    try:
+        payload = verify_supabase_token(credentials.credentials)
+    except HTTPException:
+        return None
+    return payload.get("sub")
+
+
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 OptionalUserId = Annotated[str | None, Depends(get_optional_user_id)]
+OptionalUserIdLight = Annotated[str | None, Depends(get_optional_user_id_light)]
 AdminSupabase = Annotated[Client, Depends(get_supabase_admin)]

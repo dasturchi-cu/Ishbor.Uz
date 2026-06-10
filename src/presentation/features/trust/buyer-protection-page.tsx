@@ -9,24 +9,34 @@ import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { api } from '@/infrastructure/api/client'
 import type { ApiBuyerProtection, ApiPublicDisputeStats } from '@/infrastructure/api/types'
 import { PATHS } from '@/domain/constants/routes'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 
 export function BuyerProtectionPage() {
   const { t } = useApp()
   const [data, setData] = useState<ApiBuyerProtection | null>(null)
   const [stats, setStats] = useState<ApiPublicDisputeStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setLoadError(null)
     Promise.all([api.getBuyerProtection(), api.getPublicDisputeStats()])
       .then(([bp, ds]) => {
         setData(bp)
         setStats(ds)
+        setLoadError(null)
       })
-      .catch(() => {
+      .catch((e) => {
         setData(null)
         setStats(null)
+        setLoadError(e)
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
   }, [])
 
   if (loading) return <PageWrapper><LoadingBlock className="py-20" /></PageWrapper>
@@ -36,6 +46,10 @@ export function BuyerProtectionPage() {
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-10">
       <div className="mx-auto max-w-[800px]">
+        {loadError ? (
+          <LoadErrorAlert error={loadError} scope="generic" onRetry={load} className="mb-6" />
+        ) : null}
+
         <div className="mb-8 text-center">
           <Shield className="mx-auto mb-3 h-12 w-12 text-[var(--color-primary)]" aria-hidden />
           <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('buyer_protection_title')}</h1>

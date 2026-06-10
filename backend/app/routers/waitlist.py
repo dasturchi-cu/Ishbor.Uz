@@ -30,9 +30,16 @@ def join_waitlist(payload: WaitlistCreate):
     if existing.data:
         return None
 
-    run_query(
-        lambda: supabase.table("waitlist_emails")
-        .insert({"email": email, "source": payload.source})
-        .execute()
-    )
+    try:
+        run_query(
+            lambda: supabase.table("waitlist_emails")
+            .insert({"email": email, "source": payload.source})
+            .execute()
+        )
+    except Exception as exc:
+        from postgrest.exceptions import APIError
+
+        if isinstance(exc, APIError) and getattr(exc, "code", None) == "23505":
+            return None
+        raise
     return None

@@ -9,7 +9,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { SkeletonListRow } from '@/presentation/components/ui/skeleton'
 import { Bell, ShoppingBag, MessageCircle, Star, Megaphone, CheckCheck, X } from 'lucide-react'
 import { toast } from '@/presentation/components/ui/toast'
-import { ApiError, api } from '@/infrastructure/api/client'
+import { api } from '@/infrastructure/api/client'
 import type { ApiNotification } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 import { markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-reads'
@@ -19,6 +19,8 @@ import { PATHS } from '@/domain/constants/routes'
 import { useNotificationsFeed } from '@/application/providers/notifications-provider'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/shared/lib/query-keys'
+import { captureLoadError } from '@/shared/lib/load-error'
+import { logClientError } from '@/shared/lib/log-client-error'
 
 const TYPE_ICON = {
   order: ShoppingBag,
@@ -55,7 +57,9 @@ export function NotificationsPage() {
   const markAllRead = () => {
     void markAllNotifsRead()
       .then(() => patchCache((prev) => prev.map((n) => ({ ...n, unread: false }))))
-      .catch(() => undefined)
+      .catch((err) => {
+        toast.error(captureLoadError(err, { scope: 'notifications', apiPath: '/api/v1/notifications/read-all' }, t))
+      })
   }
 
   const handleDismiss = (item: ApiNotification, e: React.MouseEvent) => {
@@ -68,7 +72,7 @@ export function NotificationsPage() {
         toast.success(t('notification_dismissed'))
       })
       .catch((err) => {
-        toast.error(err instanceof ApiError ? err.message : t('error_required'))
+        toast.error(captureLoadError(err, { scope: 'notifications', apiPath: '/api/v1/notifications/dismiss' }, t))
       })
       .finally(() => setDismissingId(null))
   }
@@ -76,7 +80,9 @@ export function NotificationsPage() {
   const handleClick = (item: ApiNotification) => {
     void markNotifRead(item.id)
       .then(() => patchCache((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))))
-      .catch(() => undefined)
+      .catch((err) => {
+        logClientError(err, { scope: 'notifications', apiPath: '/api/v1/notifications/read' })
+      })
     if (item.href) router.push(item.href)
   }
 

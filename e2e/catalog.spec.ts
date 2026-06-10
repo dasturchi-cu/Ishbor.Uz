@@ -1,16 +1,22 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('catalog pages', () => {
-  test('jobs page shows roadmap banner and catalog', async ({ page }) => {
-    await page.goto('/jobs')
-    await expect(page.getByText(/Ish e'lonlari|Job listings|Вакансии/i).first()).toBeVisible()
-    await expect(page.locator('input[type="email"]').first()).toBeVisible()
+  test('jobs page shows catalog or vacancies module', async ({ page }) => {
+    await page.goto('/jobs', { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    const vacancyUi = page.getByRole('button', { name: /vakansiya|vacancy|ваканс/i })
+    const projectUi = page.getByText(/loyiha|project|проект/i).first()
+    const hasVacancy = await vacancyUi.isVisible().catch(() => false)
+    const hasProjects = await projectUi.isVisible().catch(() => false)
+    expect(hasVacancy || hasProjects).toBeTruthy()
   })
 
-  test('companies page shows roadmap banner', async ({ page }) => {
-    await page.goto('/companies')
-    await expect(page.getByText(/Kompaniya|Companies|Компани/i).first()).toBeVisible()
-    await expect(page.locator('input[type="email"]').first()).toBeVisible()
+  test('companies page shows catalog or companies module', async ({ page }) => {
+    await page.goto('/companies', { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    const companyUi = page.getByText(/kompaniya|compan|компани/i).first()
+    const freelancerUi = page.getByText(/freelancer|frilanser|фриланс/i).first()
+    const hasCompany = await companyUi.isVisible().catch(() => false)
+    const hasFreelancers = await freelancerUi.isVisible().catch(() => false)
+    expect(hasCompany || hasFreelancers).toBeTruthy()
   })
 
   test('services catalog has filter controls', async ({ page }) => {

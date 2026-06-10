@@ -13,7 +13,7 @@ import { PATHS } from '@/domain/constants/routes'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { CategoryIconRow } from '@/presentation/components/layout/category-icon-row'
 import { ServiceCard } from '@/presentation/components/features/service-card'
-import { Search, X, SlidersHorizontal, ChevronDown, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, X, SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SearchAutocomplete } from '@/presentation/components/layout/search-autocomplete'
 import { api } from '@/infrastructure/api/client'
 import type { ApiService } from '@/infrastructure/api/types'
@@ -26,12 +26,16 @@ import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 import { isServiceSaved, toggleSavedService } from '@/shared/lib/saved-items'
+import { loginPath } from '@/shared/lib/auth-redirect'
+import { toast } from '@/presentation/components/ui/toast'
+import { captureActionError } from '@/shared/lib/action-error'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import {
   PriceRangeSlider,
   buildPriceHistogram,
 } from '@/presentation/components/ui/price-range-slider'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
-import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 
 type CatalogService = {
   id: string
@@ -132,22 +136,12 @@ function ServicesCatalogContent() {
   const [loading, setLoading] = useState(true)
   const showSkeleton = useDelayedShow(loading)
   const [filterOpen, setFilterOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const filterDrawerRef = useRef<HTMLDivElement>(null)
 
   useEscapeClose(filterOpen, () => setFilterOpen(false))
   useFocusTrap(filterOpen, filterDrawerRef)
   useBodyScrollLock(filterOpen)
 
-  useEffect(() => {
-    const saved = localStorage.getItem('ishbor-catalog-view')
-    if (saved === 'grid' || saved === 'list') setViewMode(saved)
-  }, [])
-
-  const handleViewMode = (mode: 'grid' | 'list') => {
-    setViewMode(mode)
-    localStorage.setItem('ishbor-catalog-view', mode)
-  }
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
@@ -164,7 +158,7 @@ function ServicesCatalogContent() {
   const priceCeilingRef = useRef(5_000_000)
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5_000_000])
   const [savedTick, setSavedTick] = useState(0)
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [reloadTick, setReloadTick] = useState(0)
   const [maxDeliveryDays, setMaxDeliveryDays] = useState(0)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -180,11 +174,13 @@ function ServicesCatalogContent() {
   useEffect(() => {
     const q = searchParams.get('q')
     const cat = searchParams.get('cat')
+    const reg = searchParams.get('region')
     if (q) {
       setSearchTerm(q)
       setDebouncedSearch(q)
     }
     if (cat) setSelectedCategory(cat)
+    if (reg) setSelectedRegion(reg)
   }, [searchParams])
 
   useEffect(() => {
@@ -194,7 +190,9 @@ function ServicesCatalogContent() {
 
   useEffect(() => {
     if (!authed || !debouncedSearch) return
-    api.trackAnalytics('search', { query: debouncedSearch, surface: 'services' }).catch(() => undefined)
+    api
+      .trackAnalytics('search', { query: debouncedSearch, surface: 'services' })
+      .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: '/api/v1/platform/analytics' }))
   }, [authed, debouncedSearch])
 
   const handleCategorySelect = useCallback(
@@ -213,7 +211,7 @@ function ServicesCatalogContent() {
 
   useEffect(() => {
     setLoading(true)
-    setLoadError(false)
+    setLoadError(null)
     api
       .listServices({
         search: debouncedSearch || undefined,
@@ -240,11 +238,11 @@ function ServicesCatalogContent() {
           high > ceiling || high === 5_000_000 ? ceiling : Math.min(high, ceiling),
         ])
       })
-      .catch(() => {
+      .catch((e) => {
         setServices([])
         setHasMore(false)
         setTotalCount(0)
-        setLoadError(true)
+        setLoadError(e)
       })
       .finally(() => setLoading(false))
   }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, maxDeliveryDays, reloadTick, t])
@@ -311,7 +309,7 @@ function ServicesCatalogContent() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, selectedCategory, selectedRegion, minPrice, maxPrice, maxDeliveryDays, sortBy, viewMode])
+  }, [debouncedSearch, selectedCategory, selectedRegion, minPrice, maxPrice, maxDeliveryDays, sortBy])
 
   const paginatedServices = filteredServices
 
@@ -535,25 +533,6 @@ function ServicesCatalogContent() {
                   </span>
                 )}
 
-                <div className="catalog-view-toggle">
-                  <button
-                    type="button"
-                    className={cn('catalog-view-btn', viewMode === 'grid' && 'catalog-view-btn--active')}
-                    onClick={() => handleViewMode('grid')}
-                    aria-label={t('catalog_view_grid')}
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={cn('catalog-view-btn', viewMode === 'list' && 'catalog-view-btn--active')}
-                    onClick={() => handleViewMode('list')}
-                    aria-label={t('catalog_view_list')}
-                  >
-                    <List className="h-4 w-4" />
-                  </button>
-                </div>
-
                 <div className="catalog-toolbar-sort">
                   <span className="catalog-toolbar-sort-label">{t('sort_label')}</span>
                   <Select
@@ -589,8 +568,6 @@ function ServicesCatalogContent() {
               </div>
             </div>
 
-            <IshborProtectionStrip compact className="mb-4" />
-
             {hasActiveFilters && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {selectedCategory !== 'all' && (
@@ -624,13 +601,11 @@ function ServicesCatalogContent() {
             )}
 
             {loadError ? (
-              <EmptyState
-                icon={<Search />}
-                title={t('catalog_load_error')}
-                action={{
-                  label: t('catalog_retry'),
-                  onClick: () => setReloadTick((n) => n + 1),
-                }}
+              <LoadErrorAlert
+                error={loadError}
+                scope="services"
+                onRetry={() => setReloadTick((n) => n + 1)}
+                className="mb-4"
               />
             ) : loading && !showSkeleton ? null : loading ? (
               <div className="catalog-grid">
@@ -656,7 +631,7 @@ function ServicesCatalogContent() {
               />
             ) : (
               <>
-                <div className={cn(viewMode === 'grid' ? 'catalog-grid' : 'catalog-list')}>
+                <div className="catalog-grid">
                   {paginatedServices.map((service, index) => (
                     <ServiceCard
                       key={`${service.id}-${savedTick}`}
@@ -670,11 +645,21 @@ function ServicesCatalogContent() {
                       category={service.category}
                       thumbnailUrl={service.thumbnailUrl}
                       deliveryDays={service.deliveryDays}
-                      description={viewMode === 'list' ? service.description : undefined}
-                      view={viewMode === 'list' ? 'list' : 'kwork'}
+                      view="kwork"
                       isSaved={isServiceSaved(service.id)}
                       onSave={() => {
-                        void toggleSavedService(service.id).then(() => setSavedTick((n) => n + 1))
+                        if (!isLoggedIn) {
+                          router.push(loginPath(servicePath(service.id)))
+                          return
+                        }
+                        void toggleSavedService(service.id)
+                          .then((next) => {
+                            setSavedTick((n) => n + 1)
+                            toast.success(next ? t('saved') : t('unsave'))
+                          })
+                          .catch((e) => {
+                            toast.error(captureActionError(e, { scope: 'generic', action: 'save_item' }, t))
+                          })
                       }}
                       onClick={() => router.push(servicePath(service.id))}
                     />

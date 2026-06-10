@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,10 +8,9 @@ import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Select } from '@/presentation/components/ui/select'
-import { Card } from '@/presentation/components/ui/card'
 import { cn } from '@/shared/lib/utils'
 import { PATHS } from '@/domain/constants/routes'
-import { ChevronRight, ChevronLeft, Upload, Zap, X } from 'lucide-react'
+import { ChevronLeft, Upload, X } from 'lucide-react'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { api, ApiError } from '@/infrastructure/api/client'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
@@ -21,9 +20,9 @@ import type { TranslationKey } from '@/infrastructure/i18n'
 import { useServerDraft } from '@/shared/lib/use-server-draft'
 import { postProjectSchema } from '@/domain/validators/project'
 import { formatDate } from '@/shared/lib/format-date'
-import { formatPrice } from '@/shared/lib/format'
 import { ensureProfileRole } from '@/shared/lib/ensure-profile-role'
 import { captureActionError } from '@/shared/lib/action-error'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { toast } from '@/presentation/components/ui/toast'
 import { SkeletonFormPanel } from '@/presentation/components/ui/skeleton'
 import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
@@ -254,19 +253,14 @@ export function PostProject() {
       return
     }
 
-    if (step === 2) {
-      const errs = validateStep2()
-      if (Object.keys(errs).length > 0) {
-        setFieldErrors(errs)
-        setError(Object.values(errs).join(' · '))
-        return
-      }
-      setFieldErrors({})
-      setError('')
-      setStep(3)
+    const errs = validateStep2()
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      setError(Object.values(errs).join(' · '))
       return
     }
-
+    setFieldErrors({})
+    setError('')
     await submitProject(false)
   }
 
@@ -346,15 +340,10 @@ export function PostProject() {
     { id: 'marketing', label: t('categories_marketing') },
   ]
 
-  const levels = [
-    { id: 'beginner', label: t('beginner') },
-    { id: 'intermediate', label: t('intermediate') },
-    { id: 'advanced', label: t('advanced') },
-  ]
-
   const cities = UZ_REGIONS
 
-  const stepTitles = [t('tab_basic'), t('budget_type'), t('preview')]
+  const totalSteps = 2
+  const stepTitles = [t('tab_basic'), t('budget_type')]
 
   useEffect(() => {
     if (!isAuthLoading && !isLoggedIn) {
@@ -368,10 +357,12 @@ export function PostProject() {
       .then((result) => {
         if (result.ok) {
           mergeProfile(result.profile)
-          refreshProfile().catch(() => undefined)
+          refreshProfile().catch((e) =>
+            ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' })
+          )
         }
       })
-      .catch(() => undefined)
+      .catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/role' }))
   }, [currentUserRole, profile, refreshProfile, mergeProfile])
 
   if (isAuthLoading || !isLoggedIn) {
@@ -382,62 +373,35 @@ export function PostProject() {
     )
   }
 
+  const progress = Math.round((step / totalSteps) * 100)
+
   return (
-    <div className="post-project-page min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8 sm:px-6 md:py-12 lg:px-8">
-      <div className="post-project-shell form-shell">
-        <div className="surface-panel overflow-hidden">
-          <div className="border-b border-[var(--ishbor-border)] bg-gradient-to-r from-[var(--brand-50)] to-[var(--neutral-0)] px-6 py-6 sm:px-8">
-            <h1 className="text-[22px] font-bold text-[var(--ishbor-text)] sm:text-[24px]">
-              {t('post_your_project')}
-            </h1>
-            <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">
-              {t('post_project_marketplace_hint')}
-            </p>
-            <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">
-              {t('register_step_label').replace('{n}', String(step)).replace('{total}', '3')}
-            </p>
-
-            <div className="mt-5 flex gap-2">
-              {[1, 2, 3].map((num) => (
-                <div key={num} className="flex flex-1 flex-col gap-1.5">
-                  <div
-                    className={cn(
-                      'h-1.5 rounded-full transition',
-                      num <= step ? 'bg-[var(--color-primary)]' : 'bg-[var(--neutral-200)]'
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      'hidden text-[11px] font-medium sm:block',
-                      num === step ? 'text-[var(--color-primary)]' : 'text-[var(--ishbor-text-muted)]'
-                    )}
-                  >
-                    {stepTitles[num - 1]}
-                  </span>
-                </div>
-              ))}
-            </div>
+    <div className="post-project-page min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--body-bg)] px-4 py-8">
+      <div className="post-project-shell onboarding-shell">
+        <div className="onboarding-shell__progress">
+          <div
+            className="onboarding-shell__bar"
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span style={{ width: `${progress}%` }} />
           </div>
+          <p className="onboarding-shell__step">
+            {t('step_n_of_total').replace('{n}', String(step)).replace('{total}', String(totalSteps))}
+            {' · '}
+            {stepTitles[step - 1]}
+          </p>
+        </div>
 
-          <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
+        <div className="onboarding-shell__card">
+          <h1 className="onboarding-shell__title">{t('post_your_project')}</h1>
+          <p className="onboarding-next-desc">{t('post_project_marketplace_hint')}</p>
+
+          <div className="onboarding-fields mt-5">
             {step === 1 && (
-              <div className="space-y-5">
-                <div className="flex flex-col gap-2 rounded-xl border border-[var(--color-primary)]/20 bg-[var(--color-primary-light)]/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2 text-[13px] text-[var(--ishbor-text-muted)]">
-                    <Zap className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
-                    <span>{t('ai_assistant_hint')}</span>
-                  </div>
-                  <AiSuggestButton
-                    kind="project_description"
-                    context={{
-                      title: formData.title,
-                      category: formData.category,
-                      skills: formData.skills,
-                    }}
-                    onApply={(text) => handleInputChange('description', text)}
-                  />
-                </div>
-
+              <>
                 <Input
                   label={t('project_title')}
                   placeholder={t('project_title_placeholder')}
@@ -446,73 +410,43 @@ export function PostProject() {
                   error={fieldErrors.title}
                 />
 
-                <Textarea
-                  label={t('project_description')}
-                  placeholder={t('description_placeholder')}
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  error={fieldErrors.description}
-                  rows={5}
-                  className="min-h-[120px]"
-                />
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Select
-                    label={t('project_category')}
-                    value={formData.category}
-                    onChange={(e) => handleInputChange('category', e.target.value)}
-                    options={categories.map((cat) => ({ value: cat.id, label: cat.label }))}
-                    className="catalog-control"
-                  />
-                  <Select
-                    label={t('experience_level')}
-                    value={formData.level}
-                    onChange={(e) => handleInputChange('level', e.target.value)}
-                    options={levels.map((level) => ({ value: level.id, label: level.label }))}
-                    className="catalog-control"
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-medium text-[var(--ishbor-text)]">
+                      {t('project_description')}
+                    </span>
+                    <AiSuggestButton
+                      kind="project_description"
+                      context={{
+                        title: formData.title,
+                        category: formData.category,
+                        skills: formData.skills,
+                      }}
+                      onApply={(text) => handleInputChange('description', text)}
+                    />
+                  </div>
+                  <Textarea
+                    placeholder={t('description_placeholder')}
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    error={fieldErrors.description}
+                    rows={5}
+                    className="min-h-[120px]"
                   />
                 </div>
 
-                <Input
-                  label={t('skills')}
-                  placeholder={t('skills_placeholder')}
-                  className="catalog-control !h-[42px] border-[var(--ishbor-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-xs)]"
-                  onChange={(e) =>
-                    handleInputChange('skills', e.target.value.split(',').map((s) => s.trim()))
-                  }
+                <Select
+                  label={t('project_category')}
+                  value={formData.category}
+                  onChange={(e) => handleInputChange('category', e.target.value)}
+                  options={categories.map((cat) => ({ value: cat.id, label: cat.label }))}
+                  className="catalog-control"
                 />
-              </div>
+              </>
             )}
 
             {step === 2 && (
-              <div className="space-y-5">
-                <div>
-                  <p className="mb-3 text-[13px] font-medium text-[var(--ishbor-text-sub)]">
-                    {t('budget_type')}
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                      { id: 'fixed', label: t('fixed_price'), desc: t('total_cost') },
-                      { id: 'hourly', label: t('hourly_label'), desc: t('pay_per_hour') },
-                    ].map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => handleInputChange('budgetType', option.id)}
-                        className={cn(
-                          'rounded-xl border-2 p-4 text-left transition-[var(--transition)]',
-                          formData.budgetType === option.id
-                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] shadow-[var(--shadow-xs)]'
-                            : 'border-[var(--ishbor-border)] bg-[var(--neutral-0)] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--ishbor-border))]'
-                        )}
-                      >
-                        <div className="text-[14px] font-bold text-[var(--ishbor-text)]">{option.label}</div>
-                        <div className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{option.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
+              <>
                 <Input
                   label={t('budget_amount')}
                   type="text"
@@ -568,12 +502,8 @@ export function PostProject() {
                   options={cities.map((city) => ({ value: city, label: city }))}
                   className="catalog-control"
                 />
-              </div>
-            )}
 
-            {step === 3 && (
-              <div className="space-y-5">
-                <div>
+                <div className="post-project-attachments">
                   <p className="mb-2 text-[13px] font-medium text-[var(--ishbor-text-sub)]">
                     {t('attachments')}
                   </p>
@@ -599,14 +529,13 @@ export function PostProject() {
                       e.stopPropagation()
                       handleFiles(e.dataTransfer.files)
                     }}
-                    className="cursor-pointer rounded-xl border-2 border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-8 text-center transition hover:border-[var(--color-primary)] hover:bg-[var(--brand-50)]"
+                    className="post-project-upload cursor-pointer rounded-xl border border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-5 text-center transition hover:border-[var(--color-primary)]"
                   >
-                    <Upload className="mx-auto mb-3 h-8 w-8 text-[var(--ishbor-text-muted)]" />
-                    <p className="font-semibold text-[var(--ishbor-text)]">
+                    <Upload className="mx-auto mb-2 h-6 w-6 text-[var(--ishbor-text-muted)]" />
+                    <p className="text-[13px] font-semibold text-[var(--ishbor-text)]">
                       {uploading ? '...' : t('upload_files')}
                     </p>
-                    <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('drag_drop')}</p>
-                    <p className="mt-2 text-[11px] text-[var(--ishbor-text-muted)]">{t('upload_formats_hint')}</p>
+                    <p className="mt-1 text-[11px] text-[var(--ishbor-text-muted)]">{t('upload_formats_hint')}</p>
                   </div>
                   {uploadError && <p className="mt-2 text-[13px] text-[var(--error)]">{uploadError}</p>}
                   {attachments.length > 0 && (
@@ -631,52 +560,15 @@ export function PostProject() {
                     </div>
                   )}
                 </div>
-
-                <div>
-                  <h3 className="settings-section-title mb-3">{t('preview')}</h3>
-                  <Card className="border border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-5">
-                    <h4 className="mb-2 font-bold text-[var(--ishbor-text)]">
-                      {formData.title || t('project_title_default')}
-                    </h4>
-                    <p className="mb-4 text-[13px] leading-relaxed text-[var(--ishbor-text-muted)]">
-                      {formData.description || t('project_desc_default')}
-                    </p>
-                    <div className="flex items-center justify-between gap-4 border-t border-[var(--ishbor-border)] pt-4">
-                      <div>
-                        <p className="text-[11px] text-[var(--ishbor-text-muted)]">{t('project_budget')}</p>
-                        <p className="font-bold text-[var(--color-primary)]">
-                          {formatPrice(parseInt(formData.budget.replace(/\D/g, ''), 10) || 0)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[11px] text-[var(--ishbor-text-muted)]">{t('project_deadline')}</p>
-                        <p className="font-bold text-[var(--ishbor-text)]">
-                          {deadlinePreview || t('not_set')}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </div>
+              </>
             )}
 
             {error && <Alert variant="error">{error}</Alert>}
 
-            <div className="flex flex-wrap gap-3 border-t border-[var(--ishbor-border)] pt-6">
+            <div className="post-project-actions mt-6">
               {step > 1 && (
-                <Button variant="outline" onClick={handlePrevStep} className="flex-1 gap-2 sm:flex-none">
+                <Button variant="outline" onClick={handlePrevStep} className="gap-2">
                   <ChevronLeft className="h-4 w-4" /> {t('back')}
-                </Button>
-              )}
-              {step === 3 && (
-                <Button
-                  variant="outline"
-                  onClick={() => void submitProject(true)}
-                  disabled={submitting}
-                  loading={submitting}
-                  className="flex-1 sm:flex-none"
-                >
-                  {t('project_save_draft')}
                 </Button>
               )}
               <Button
@@ -684,12 +576,21 @@ export function PostProject() {
                 onClick={handleNextStep}
                 disabled={submitting}
                 loading={submitting}
-                className="flex-1 gap-2 sm:ml-auto"
+                className="flex-1"
               >
-                {step === 3 ? t('post_project') : t('next')}
-                <ChevronRight className="h-4 w-4" />
+                {step === totalSteps ? t('post_project') : t('continue_btn')}
               </Button>
             </div>
+            {step === totalSteps && (
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => void submitProject(true)}
+                className="onboarding-skip mt-3"
+              >
+                {t('project_save_draft')}
+              </button>
+            )}
           </div>
         </div>
       </div>

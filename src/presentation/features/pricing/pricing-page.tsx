@@ -6,6 +6,12 @@ import { useApp } from '@/application/providers/app-provider'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
 import { Button } from '@/presentation/components/ui/button'
 import { PATHS } from '@/domain/constants/routes'
+import {
+  PLATFORM_COMMISSION_PERCENT,
+  calcFreelancerPayout,
+  calcPlatformFee,
+} from '@/domain/constants/commission'
+import { formatPrice } from '@/shared/lib/format'
 
 const PLANS = [
   {
@@ -20,8 +26,19 @@ const PLANS = [
   },
 ] as const
 
+const EXAMPLE_ORDER_SOM = 1_000_000
+
 export function PricingPage() {
   const { t } = useApp()
+  const exampleFee = calcPlatformFee(EXAMPLE_ORDER_SOM)
+  const examplePayout = calcFreelancerPayout(EXAMPLE_ORDER_SOM)
+  const commissionDesc = t('pricing_commission_desc').replace(
+    '{percent}',
+    String(PLATFORM_COMMISSION_PERCENT),
+  )
+  const commissionExample = t('pricing_commission_example')
+    .replace('{payout}', formatPrice(examplePayout))
+    .replace('{fee}', formatPrice(exampleFee))
 
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-8">
@@ -60,6 +77,18 @@ export function PricingPage() {
           </article>
         ))}
       </div>
+
+      <section className="surface-panel mx-auto mt-10 max-w-[560px] p-6 text-left sm:p-8">
+        <h2 className="text-lg font-bold text-[var(--ishbor-text)]">{t('pricing_commission_title')}</h2>
+        <p className="mt-2 text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{commissionDesc}</p>
+        <p className="mt-3 text-[14px] text-[var(--ishbor-text-sub)]">{commissionExample}</p>
+        <Link
+          href={PATHS.buyerProtection}
+          className="mt-4 inline-block text-[14px] font-medium text-[var(--color-primary)] hover:underline"
+        >
+          {t('pricing_commission_link')}
+        </Link>
+      </section>
 
       <div className="mx-auto mt-8 flex max-w-[560px] flex-col items-center gap-3 text-center">
         <Link href={PATHS.services}>

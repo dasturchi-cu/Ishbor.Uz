@@ -4,12 +4,12 @@ import { useState } from 'react'
 import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
-import type { ApiBankAccount } from '@/infrastructure/api/types'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureLoadError } from '@/shared/lib/load-error'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { VerifiedBadge } from '@/presentation/components/features/verified-badge'
 
 export function BankAccountsSection() {
@@ -19,8 +19,10 @@ export function BankAccountsSection() {
   const {
     data: accounts,
     loading,
+    error: accountsLoadFailed,
+    loadError: accountsFetchError,
     reload,
-  } = useProtectedLoader(() => api.listBankAccounts().catch(() => [] as ApiBankAccount[]), [])
+  } = useProtectedLoader(() => api.listBankAccounts(), [])
   const list = accounts ?? []
 
   const submit = async (e: React.FormEvent) => {
@@ -45,8 +47,19 @@ export function BankAccountsSection() {
 
   if (loading) return <LoadingBlock className="py-8" />
 
+  if (accountsLoadFailed) {
+    return (
+      <LoadErrorAlert
+        error={accountsFetchError}
+        scope="wallet"
+        onRetry={() => void reload()}
+        className="mb-4"
+      />
+    )
+  }
+
   return (
-    <section className="surface-panel p-5">
+    <section className="ps-card p-5">
       <h2 className="mb-4 text-[15px] font-bold text-[var(--ishbor-text)]">{t('bank_accounts_title')}</h2>
       {list.length > 0 && (
         <ul className="mb-5 space-y-2">

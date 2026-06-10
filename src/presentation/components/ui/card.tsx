@@ -17,9 +17,9 @@ const paddingStyles = {
 }
 
 const variantStyles: Record<NonNullable<CardProps['variant']>, string> = {
-  default: 'border border-[var(--color-border)] shadow-[var(--shadow-card)]',
+  default: 'ps-card border-0 shadow-none',
   interactive:
-    'border border-[var(--color-border)] shadow-[var(--shadow-card)] cursor-pointer hover:border-[var(--color-border-strong)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px',
+    'ps-card ps-card--interactive border-0 shadow-none cursor-pointer hover:border-[var(--color-border-strong)]',
   featured:
     'border border-[var(--color-primary)] shadow-[var(--shadow-md)] ring-1 ring-[color-mix(in_srgb,var(--color-primary)_12%,transparent)]',
   danger: 'border border-[var(--error-bg)] shadow-[var(--shadow-card)]',

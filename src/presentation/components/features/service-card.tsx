@@ -114,31 +114,20 @@ function themeForCategory(category: string) {
 
 
 function ServiceThumbnail({
-
   title,
-
   category,
-
   thumbnailUrl,
-
+  sellerName,
   className,
-
   imagePriority,
-
 }: {
-
   title: string
-
   category: string
-
   thumbnailUrl?: string
-
+  sellerName: string
   className?: string
-
   imagePriority?: boolean
-
 }) {
-
   if (thumbnailUrl) {
     return (
       <div className={cn('relative h-full w-full', className)}>
@@ -147,63 +136,40 @@ function ServiceThumbnail({
           alt={title}
           fill
           sizes="(max-width: 768px) 100vw, 320px"
-          className="object-cover"
+          className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           priority={imagePriority}
         />
       </div>
     )
   }
 
-
-
   const theme = themeForCategory(category)
-
   const Icon = theme.icon
 
-
-
   return (
-
     <div
-
-      className={cn('relative flex items-center justify-center overflow-hidden', className)}
-
+      data-placeholder
+      className={cn(
+        'ishbor-service-card__placeholder relative flex items-center justify-center overflow-hidden',
+        className
+      )}
       style={{
-
-        background: `linear-gradient(145deg, ${theme.from} 0%, ${theme.to} 100%)`,
-
+        background: `linear-gradient(160deg, ${theme.from} 0%, ${theme.to} 100%)`,
       }}
-
     >
-
       <div
-
-        className="absolute inset-0 opacity-[0.35]"
-
+        className="pointer-events-none absolute inset-0 opacity-40"
         style={{
-
           backgroundImage:
-
-            'radial-gradient(circle at 20% 20%, white 0, transparent 45%), radial-gradient(circle at 80% 70%, white 0, transparent 40%)',
-
+            'radial-gradient(circle at 18% 22%, white 0, transparent 42%), radial-gradient(circle at 82% 78%, white 0, transparent 38%)',
         }}
-
       />
-
-      <Icon
-
-        className="relative h-10 w-10 opacity-[0.22]"
-
-        style={{ color: theme.tint }}
-
-        strokeWidth={1.5}
-
-      />
-
+      <Avatar name={sellerName} src={null} size={56} className="relative z-[1] shadow-[var(--shadow-sm)]" />
+      <span className="ishbor-service-card__placeholder-cat" aria-hidden>
+        <Icon className="h-3 w-3" strokeWidth={2} />
+      </span>
     </div>
-
   )
-
 }
 
 
@@ -236,7 +202,7 @@ function RatingBlock({
 
   if (reviewCount <= 0) {
     return (
-      <span className="service-card-badge service-card-badge--new">{noReviewsLabel}</span>
+      <span className="text-[11px] font-medium text-[var(--ishbor-text-muted)]">{noReviewsLabel}</span>
     )
   }
 
@@ -333,17 +299,12 @@ export function ServiceCard({
       >
 
         <ServiceThumbnail
-
           title={title}
-
           category={category}
-
           thumbnailUrl={thumbnailUrl}
-
+          sellerName={sellerName}
           className="h-[100px] w-[160px] shrink-0 rounded-[var(--r-md)]"
-
           imagePriority={imagePriority}
-
         />
 
         <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
@@ -413,17 +374,12 @@ export function ServiceCard({
       <div className="ishbor-service-card__media relative aspect-[16/10] w-full shrink-0 overflow-hidden">
 
         <ServiceThumbnail
-
           title={title}
-
           category={category}
-
           thumbnailUrl={thumbnailUrl}
-
+          sellerName={sellerName}
           className="h-full w-full"
-
           imagePriority={imagePriority}
-
         />
 
         {onSave && (

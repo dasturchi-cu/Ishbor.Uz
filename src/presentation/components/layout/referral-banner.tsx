@@ -9,6 +9,7 @@ import { api } from '@/infrastructure/api/client'
 import { formatPrice } from '@/shared/lib/format'
 import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 export function ReferralBanner({ className }: { className?: string }) {
   const { t, userId } = useApp()
@@ -25,7 +26,7 @@ export function ReferralBanner({ className }: { className?: string }) {
         setReferralCount(s.count)
         setBonusEarned(s.bonus_earned ?? 0)
       })
-      .catch(() => {})
+      .catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/referral' }))
       .finally(() => setStatsLoading(false))
   }, [])
 

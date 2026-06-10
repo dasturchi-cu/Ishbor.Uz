@@ -13,6 +13,7 @@ import { uploadProjectImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 export function CompanyStirSection() {
   const { t, userId } = useApp()
@@ -28,9 +29,12 @@ export function CompanyStirSection() {
     api
       .listMyCompanies()
       .then(setCompanies)
-      .catch(() => setCompanies([]))
+      .catch((e) => {
+        setCompanies([])
+        toast.error(captureLoadError(e, { scope: 'companies', apiPath: '/api/v1/companies/mine' }, t))
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   useAuthedEffect(() => {
     load()

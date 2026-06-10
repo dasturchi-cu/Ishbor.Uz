@@ -104,31 +104,21 @@ export function DashboardRecommendedActions({
     })
   }
 
-  const visible = items.sort((a, b) => b.priority - a.priority).slice(0, 4)
-  if (visible.length === 0) return null
+  const top = items.sort((a, b) => b.priority - a.priority)[0]
+  if (!top) return null
+
+  const Icon = top.icon
 
   return (
-    <section className="dash-rec">
-      <h2 className="dash-rec__title">{t('dash_recommended_title')}</h2>
-      <ul className="dash-rec__list">
-        {visible.map((item) => {
-          const Icon = item.icon
-          return (
-            <li key={item.id}>
-              <Link href={item.href} className="dash-rec__item">
-                <span className="dash-rec__icon">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="dash-rec__item-title">{t(item.titleKey)}</span>
-                  <span className="dash-rec__item-desc">{t(item.descKey)}</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ishbor-text-muted)]" />
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+    <Link href={top.href} className="dash-rec-single">
+      <span className="dash-rec-single__icon">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="dash-rec-single__title">{t(top.titleKey)}</span>
+        <span className="dash-rec-single__desc">{t(top.descKey)}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ishbor-text-muted)]" />
+    </Link>
   )
 }

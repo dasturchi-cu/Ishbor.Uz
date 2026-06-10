@@ -16,6 +16,7 @@ import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
 import { Plus, Layers } from 'lucide-react'
 import type { TranslationKey } from '@/infrastructure/i18n'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 
 const STATUS_LABEL: Record<string, TranslationKey> = {
   pending: 'milestone_status_pending',
@@ -49,6 +50,7 @@ export function ContractMilestonesSection({
   const isClient = role === 'client'
   const [milestones, setMilestones] = useState<ApiMilestone[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
@@ -56,10 +58,17 @@ export function ContractMilestonesSection({
 
   const load = useCallback(() => {
     setLoading(true)
+    setLoadError(null)
     api
       .listContractMilestones(contractId)
-      .then(setMilestones)
-      .catch(() => setMilestones([]))
+      .then((rows) => {
+        setMilestones(rows)
+        setLoadError(null)
+      })
+      .catch((e) => {
+        setMilestones([])
+        setLoadError(e)
+      })
       .finally(() => setLoading(false))
   }, [contractId])
 
@@ -123,6 +132,12 @@ export function ContractMilestonesSection({
 
   if (loading) {
     return <div className="h-24 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+  }
+
+  if (loadError) {
+    return (
+      <LoadErrorAlert error={loadError} scope="payments" onRetry={load} className="mb-4" />
+    )
   }
 
   return (

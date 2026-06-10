@@ -15,7 +15,7 @@ export interface EmptyStateProps {
 export function EmptyState({ icon, title, description, action, secondaryAction, compact }: EmptyStateProps) {
   if (compact) {
     return (
-      <div className="dashboard-empty-inline rounded-[var(--r-md)] border border-dashed border-[var(--ishbor-border)] bg-[var(--neutral-50)] px-4 py-3">
+      <div className="dashboard-empty-inline rounded-[var(--r-card)] border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-4 py-3 shadow-[var(--shadow-xs)]">
         <div className="dashboard-empty-inline-icon text-[var(--ishbor-text-muted)] [&>svg]:h-8 [&>svg]:w-8">{icon}</div>
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-semibold text-[var(--ishbor-text)]">{title}</p>

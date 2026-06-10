@@ -8,18 +8,28 @@ import type { ApiServiceModerationItem } from '@/infrastructure/api/types'
 import { Button } from '@/presentation/components/ui/button'
 import { Card } from '@/presentation/components/ui/card'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+
 export function AdminServiceModeration() {
   const { t } = useApp()
   const [items, setItems] = useState<ApiServiceModerationItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [actionId, setActionId] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
+    setLoadError(null)
     api
       .adminServiceModerationQueue()
-      .then(setItems)
-      .catch(() => setItems([]))
+      .then((rows) => {
+        setItems(rows)
+        setLoadError(null)
+      })
+      .catch((e) => {
+        setItems([])
+        setLoadError(e)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -38,6 +48,10 @@ export function AdminServiceModeration() {
   }
 
   if (loading) return <LoadingBlock />
+
+  if (loadError) {
+    return <LoadErrorAlert error={loadError} scope="admin" onRetry={load} />
+  }
 
   if (items.length === 0) {
     return <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('admin_service_moderation_empty')}</p>

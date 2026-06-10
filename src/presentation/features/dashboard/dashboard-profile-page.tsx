@@ -20,6 +20,8 @@ import { parseSpecialtyTitle } from '@/shared/lib/onboarding-profile'
 import { cn } from '@/shared/lib/utils'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { ProfileTrustScoreCard } from '@/presentation/components/features/profile-trust-score-card'
+import { toast } from '@/presentation/components/ui/toast'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 const BIO_MAX = 500
 
@@ -72,10 +74,13 @@ export function DashboardProfilePage() {
       api
         .checkUsername(slug)
         .then((r) => setUsernameStatus(r.available ? 'ok' : 'taken'))
-        .catch(() => setUsernameStatus('idle'))
+        .catch((e) => {
+          setUsernameStatus('idle')
+          toast.error(captureLoadError(e, { scope: 'profile', apiPath: '/api/v1/profiles/check-username' }, t))
+        })
     }, 400)
     return () => clearTimeout(id)
-  }, [username, profile?.username, ready, authed])
+  }, [username, profile?.username, ready, authed, t])
 
   const handleAvatarChange = (file: File | undefined) => {
     if (!file) return

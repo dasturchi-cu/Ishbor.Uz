@@ -1,14 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
 import Link from 'next/link'
-import { Send } from 'lucide-react'
+import { Send, Shield } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
-import { Button } from '@/presentation/components/ui/button'
-import { Input } from '@/presentation/components/ui/input'
-import { toast } from '@/presentation/components/ui/toast'
-import { saveWaitlistEmail } from '@/shared/lib/waitlist'
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -32,40 +27,16 @@ function InstagramIcon({ className }: { className?: string }) {
 export function Footer() {
   const { t } = useApp()
   const currentYear = new Date().getFullYear()
-  const [email, setEmail] = useState('')
-
-  const handleNewsletter = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = email.trim()
-    if (!trimmed) {
-      toast.error(t('newsletter_invalid_email'))
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      toast.error(t('newsletter_invalid_email'))
-      return
-    }
-    const ok = await saveWaitlistEmail(trimmed, 'footer')
-    if (ok) {
-      toast.success(t('newsletter_thanks'))
-      setEmail('')
-    } else {
-      toast.info(t('waitlist_saved_local'))
-      setEmail('')
-    }
-  }
 
   return (
-    <footer className="site-footer mt-auto border-t border-[var(--ishbor-border)] bg-[var(--ishbor-bg)]">
+    <footer className="site-footer mt-auto border-t border-[var(--ishbor-border)] bg-[var(--neutral-0)]">
       <div className="layout-container max-w-[1280px] py-10 md:py-12">
         <div className="footer-grid">
           <div className="footer-brand">
             <p className="footer-logo">
               IshBor<span>.uz</span>
             </p>
-            <p className="footer-about">
-              {t('footer_about')}
-            </p>
+            <p className="footer-about">{t('footer_about')}</p>
             <div className="footer-social">
               <a
                 href="https://t.me/ishboruz"
@@ -89,9 +60,7 @@ export function Footer() {
           </div>
 
           <div className="footer-nav">
-            <h4 className="footer-overline">
-              {t('footer_pages')}
-            </h4>
+            <h4 className="footer-overline">{t('footer_pages')}</h4>
             <ul className="footer-link-list">
               <li>
                 <Link href={PATHS.services} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
@@ -126,24 +95,14 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="footer-newsletter">
-            <h4 className="footer-overline">
-              {t('footer_newsletter_title')}
-            </h4>
-            <form onSubmit={handleNewsletter} className="footer-newsletter-form">
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t('footer_newsletter_placeholder')}
-                className="input-touch flex-1"
-                aria-label={t('footer_newsletter_placeholder')}
-              />
-              <Button type="submit" variant="primary" size="md" className="shrink-0">
-                {t('footer_newsletter_btn')}
-              </Button>
-            </form>
-            <p className="footer-payments-note">{t('footer_payments_note')}</p>
+          <div className="footer-trust">
+            <h4 className="footer-overline">{t('landing_buyer_protection')}</h4>
+            <p className="footer-trust-desc">{t('footer_payments_note')}</p>
+            <Link href={PATHS.buyerProtection} className="footer-trust-link">
+              <Shield className="h-4 w-4 shrink-0" aria-hidden />
+              {t('nav_buyer_protection')}
+            </Link>
+            <p className="footer-payments-note">{t('footer_payments_soon')}</p>
           </div>
         </div>
 

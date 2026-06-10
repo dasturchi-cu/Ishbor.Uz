@@ -8,6 +8,7 @@ import type { ApiUserReputation } from '@/infrastructure/api/types'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { ReputationBadge } from '@/presentation/components/features/reputation-badge'
 import { VerifiedBadge } from '@/presentation/components/features/verified-badge'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 type BreakdownKey =
   | 'reviews_points'
@@ -38,7 +39,10 @@ export function TrustScoreBreakdown({ userId }: { userId?: string }) {
       api
         .getTrustBreakdown(userId)
         .then(setData)
-        .catch(() => setData(null))
+        .catch((e) => {
+          ignoreWithLog(e, { scope: 'profile', apiPath: `/api/v1/trust/${userId}` })
+          setData(null)
+        })
         .finally(() => setLoading(false))
       return
     }
@@ -51,7 +55,10 @@ export function TrustScoreBreakdown({ userId }: { userId?: string }) {
     api
       .getMyTrustBreakdown()
       .then(setData)
-      .catch(() => setData(null))
+      .catch((e) => {
+        ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/trust/me' })
+        setData(null)
+      })
       .finally(() => setLoading(false))
   }, [userId, ready, authed])
 

@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "dev:api": "cd backend && .venv\\Scripts\\python -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8002",
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/ensure-backend.ps1 && next dev --turbopack -p 3000",
+    "dev:api": "cd backend && .venv\\Scripts\\python -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8002 --access-log",
     "dev:all": "concurrently -n frontend,backend -c cyan,magenta --handle-input=false \"pnpm dev\" \"pnpm dev:api\"",
     "dev:start": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "dev:stop": "powershell -ExecutionPolicy Bypass -File scripts/dev-stop.ps1",
     "dev:check": "powershell -ExecutionPolicy Bypass -File scripts/dev-check.ps1",
     "dev:check:strict": "powershell -ExecutionPolicy Bypass -File scripts/dev-check.ps1 -Strict",
     "db:push": "supabase db push --linked --yes",
@@ -22,7 +23,11 @@
     "test:watch": "vitest",
     "test:backend": "cd backend && .venv\\Scripts\\python -m pytest",
     "test:all": "pnpm test:backend && pnpm test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "audit:ui": "powershell -ExecutionPolicy Bypass -File scripts/ui-action-audit.ps1",
+    "audit:api": "powershell -ExecutionPolicy Bypass -File scripts/api-connection-audit.ps1",
+    "analyze": "cross-env ANALYZE=true pnpm build",
+    "lighthouse": "powershell -ExecutionPolicy Bypass -File scripts/lighthouse.ps1"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -46,12 +51,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@lhci/cli": "^0.15.1",
+    "@next/bundle-analyzer": "^16.2.9",
     "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
     "eslint": "^10.4.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5",

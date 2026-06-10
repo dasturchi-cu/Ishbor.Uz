@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -33,7 +33,9 @@ import {
 } from '@/shared/lib/chat-message-merge'
 import { useAuthReady, useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { loadThreadMessages } from '@/shared/lib/load-thread-messages'
-import { resolveActionError } from '@/shared/lib/action-error'
+import { resolveActionError, captureActionError } from '@/shared/lib/action-error'
+import { logClientError } from '@/shared/lib/log-client-error'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { chatAttachmentLabelContent } from '@/shared/lib/chat-storage-ref'
 import { ChatAttachmentContent } from '@/presentation/components/features/chat-attachment-content'
 
@@ -111,14 +113,12 @@ export function MessagesPage() {
   const [messageText, setMessageText] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [muted, setMuted] = useState(false)
-  const [prefsLoaded, setPrefsLoaded] = useState(false)
   const [attachLoading, setAttachLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [messagesLoadError, setMessagesLoadError] = useState<unknown>(null)
   const [sendLoading, setSendLoading] = useState(false)
   const [unreadOnly, setUnreadOnly] = useState(false)
-  const [activeOnly, setActiveOnly] = useState(false)
   const [peerTyping, setPeerTyping] = useState(false)
   const [callStarting, setCallStarting] = useState(false)
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -145,7 +145,9 @@ export function MessagesPage() {
           setSelectedKey(`order:${contract.order_id}`)
         }
       })
-      .catch(() => undefined)
+      .catch((e) => {
+        logClientError(e, { scope: 'messages', apiPath: `/api/v1/contracts/${contractFromUrl}` })
+      })
   }, [ready, authed, contractFromUrl, conversationFromUrl, orderFromUrl, conversations])
 
   useAuthedEffect(() => {
@@ -153,9 +155,10 @@ export function MessagesPage() {
       .getNotificationPrefs()
       .then((prefs) => {
         setMuted(prefs.chatMuted)
-        setPrefsLoaded(true)
       })
-      .catch(() => setPrefsLoaded(true))
+      .catch((e) => {
+        ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/notifications/prefs' })
+      })
   }, [])
 
   useEffect(() => {
@@ -214,7 +217,14 @@ export function MessagesPage() {
       .then((rows) => {
         setMessages(rows)
         if (activeThread.conversationId) {
-          void api.markConversationRead(activeThread.conversationId).catch(() => undefined)
+          void api
+            .markConversationRead(activeThread.conversationId)
+            .catch((e) =>
+              ignoreWithLog(e, {
+                scope: 'messages',
+                apiPath: `/api/v1/conversations/${activeThread.conversationId}/read`,
+              })
+            )
         }
       })
       .catch((e) => {
@@ -243,7 +253,6 @@ export function MessagesPage() {
         setMessages((prev) => mergeIncomingChatMessage(prev, sent))
       }
       refreshConversations()
-      toast.success(t('save_success'))
     } catch (e) {
       toast.error(resolveChatError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : '', t))
     } finally {
@@ -322,10 +331,8 @@ export function MessagesPage() {
   }
 
   const filtered = useMemo(() => {
-    const activeStatuses = new Set(['pending', 'active', 'delivered'])
     return conversations.filter((thread) => {
       if (unreadOnly && (thread.unreadCount ?? 0) === 0) return false
-      if (activeOnly && thread.status && !activeStatuses.has(thread.status)) return false
       const q = searchQuery.toLowerCase()
       return (
         thread.otherUserName.toLowerCase().includes(q) ||
@@ -333,7 +340,7 @@ export function MessagesPage() {
         (thread.lastMessage?.toLowerCase().includes(q) ?? false)
       )
     })
-  }, [conversations, searchQuery, unreadOnly, activeOnly])
+  }, [conversations, searchQuery, unreadOnly])
 
   const showChat = Boolean(selectedKey && activeThread)
   const chatSendBlocked = activeThread?.status === 'cancelled'
@@ -363,20 +370,16 @@ export function MessagesPage() {
             </button>
             <button
               type="button"
-              className={cn('chat-filter-btn', activeOnly && 'chat-filter-btn--active')}
-              onClick={() => setActiveOnly((v) => !v)}
-            >
-              {t('messages_filter_active')}
-            </button>
-            <button
-              type="button"
               className={cn('chat-mute-btn', muted && 'chat-mute-btn--active')}
               onClick={() => {
                 const next = !muted
                 setMuted(next)
-                if (prefsLoaded) {
-                  api.updateNotificationPrefs({ chatMuted: next }).catch(() => setMuted(!next))
-                }
+                void api
+                  .updateNotificationPrefs({ chatMuted: next })
+                  .catch((e) => {
+                    setMuted(!next)
+                    toast.error(captureActionError(e, { scope: 'generic', action: 'chat_mute' }, t))
+                  })
               }}
               aria-label={t('messages_mute_label')}
               aria-pressed={muted}
@@ -413,14 +416,9 @@ export function MessagesPage() {
             <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
               <p className="chat-list-empty">{t('messages_no_conversations')}</p>
               <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('messages_empty_hint')}</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => router.push(PATHS.services)}>
-                  {t('messages_browse_cta')}
-                </Button>
-                <Button variant="primary" size="sm" onClick={() => router.push(PATHS.dashboardOrders)}>
-                  {t('nav_orders')}
-                </Button>
-              </div>
+              <Button variant="primary" size="sm" onClick={() => router.push(PATHS.services)}>
+                {t('messages_browse_cta')}
+              </Button>
             </div>
           )}
           {!loading &&
@@ -446,12 +444,7 @@ export function MessagesPage() {
                     </span>
                   )}
                 </div>
-                <p className="chat-list-item-preview">
-                  <span className="mr-1 text-[10px] font-semibold uppercase text-[var(--color-primary)]">
-                    {thread.type === 'contract' ? t('chat_thread_contract') : t('chat_thread_order')}
-                  </span>
-                  {thread.lastMessage ?? thread.title}
-                </p>
+                <p className="chat-list-item-preview">{thread.lastMessage ?? thread.title}</p>
               </div>
               {thread.unreadCount > 0 && (
                 <span className="chat-list-unread">{thread.unreadCount}</span>
@@ -607,21 +600,6 @@ export function MessagesPage() {
                   {t('chat_order_cancelled_no_send')}
                 </Alert>
               )}
-              <div className="chat-templates">
-                <p className="chat-templates-label">{t('chat_templates_title')}</p>
-                <div className="chat-templates-row">
-                  {(['chat_template_hello', 'chat_template_deadline', 'chat_template_files'] as const).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className="chat-template-chip"
-                      onClick={() => setMessageText(t(key))}
-                    >
-                      {t(key)}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div className="chat-composer-box">
                 <input
                   ref={fileInputRef}

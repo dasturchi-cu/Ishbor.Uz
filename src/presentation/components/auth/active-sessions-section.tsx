@@ -15,6 +15,7 @@ import {
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { formatDate } from '@/shared/lib/format-date'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 export function ActiveSessionsSection() {
   const { t, language } = useApp()
@@ -31,9 +32,12 @@ export function ActiveSessionsSection() {
     setLoading(true)
     getCurrentSessionSummary()
       .then(setSession)
-      .catch(() => setSession(null))
+      .catch((e) => {
+        setSession(null)
+        toast.error(captureLoadError(e, { scope: 'profile', apiPath: 'supabase/sessions' }, t))
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   useAuthedEffect(() => {
     refresh()

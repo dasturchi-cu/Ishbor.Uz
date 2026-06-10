@@ -1,7 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { getCachedAccessToken, refreshCachedSession } from '@/infrastructure/auth/session-cache'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
+
+async function ensureAccessToken(): Promise<boolean> {
+  if (await getCachedAccessToken()) return true
+  const session = await refreshCachedSession()
+  return Boolean(session?.accessToken)
+}
 
 /** Dashboard/admin: auth tayyor bo'lguncha kutadi, xatolikda reload beradi */
 export function useProtectedLoader<T>(
@@ -23,9 +30,17 @@ export function useProtectedLoader<T>(
     setLoading(true)
     setError(false)
     setLoadError(null)
-    return loaderRef
-      .current()
+    return ensureAccessToken()
+      .then((hasToken) => {
+        if (!hasToken) {
+          setError(true)
+          setLoadError(new Error('Auth token yo\'q'))
+          return
+        }
+        return loaderRef.current()
+      })
       .then((result) => {
+        if (result === undefined) return
         setData(result)
         setError(false)
         setLoadError(null)

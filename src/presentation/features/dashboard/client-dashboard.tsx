@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
@@ -8,23 +8,12 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
-import { SkeletonFreelancerCard } from '@/presentation/components/ui/skeleton'
-import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
-import {
-  ShoppingBag,
-  ChevronRight,
-  FolderKanban,
-  Search,
-  MapPin,
-  Plus,
-} from 'lucide-react'
-import { PATHS, freelancerPath, dashboardOrderPath, projectPath } from '@/domain/constants/routes'
-import { api } from '@/infrastructure/api/client'
-import type { ApiOrder, ApiProfilePublic } from '@/infrastructure/api/types'
+import { ShoppingBag, ChevronRight, FolderKanban, MapPin } from 'lucide-react'
+import { PATHS, dashboardOrderPath, projectPath } from '@/domain/constants/routes'
+import type { ApiOrder } from '@/infrastructure/api/types'
 import { formatPrice, orderProgress } from '@/shared/lib/format'
-import { ActivityTimeline } from '@/presentation/components/dashboard/activity-timeline'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { DashboardHero } from '@/presentation/components/dashboard/dashboard-hero'
 import { DashboardRecommendedActions } from '@/presentation/components/dashboard/dashboard-recommended-actions'
@@ -33,7 +22,6 @@ import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
 import { ClientOnboardingChecklist } from '@/presentation/components/dashboard/client-onboarding-checklist'
 import { clientOnboardingProgress } from '@/shared/lib/onboarding-progress'
 import { useOnboardingChecklistVisible } from '@/shared/lib/onboarding-session-limit'
-import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { cn } from '@/shared/lib/utils'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'delivered'])
@@ -82,22 +70,7 @@ export function ClientDashboard() {
   const authReady = !isAuthLoading && isLoggedIn && Boolean(userId)
 
   const { orders, projects, loading, error, loadError, reload } = useDashboardSummary(userId, 'client', authReady)
-  const [freelancers, setFreelancers] = useState<ApiProfilePublic[]>([])
-  const [freelancersLoading, setFreelancersLoading] = useState(true)
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null)
-
-  const loadFreelancers = useCallback(() => {
-    setFreelancersLoading(true)
-    api
-      .listFreelancers()
-      .then(setFreelancers)
-      .catch(() => setFreelancers([]))
-      .finally(() => setFreelancersLoading(false))
-  }, [])
-
-  useAuthedEffect(() => {
-    loadFreelancers()
-  }, [loadFreelancers])
 
   const deliveredForReview = useMemo(
     () => orders.filter((o) => o.status === 'delivered'),
@@ -122,14 +95,6 @@ export function ClientDashboard() {
     [orders]
   )
 
-  const recommendedFreelancers = useMemo(
-    () =>
-      [...freelancers]
-        .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
-        .slice(0, 3),
-    [freelancers]
-  )
-
   const onboardingProgress = useMemo(
     () => clientOnboardingProgress(profile, projects, orders.length > 0),
     [profile, projects, orders.length]
@@ -142,14 +107,6 @@ export function ClientDashboard() {
       : unpaidOrders.length > 0
         ? { label: t('payment_pay_now'), href: dashboardOrderPath(unpaidOrders[0].id) }
         : { label: t('dash_action_browse_services'), href: PATHS.services }
-
-  const postProjectBtn = (
-    <Link href={PATHS.postProject}>
-      <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
-        {t('post_new_project')}
-      </Button>
-    </Link>
-  )
 
   const panelLoading = loading
 
@@ -266,7 +223,7 @@ export function ClientDashboard() {
           )}
         </DashboardPanel>
 
-        <DashboardPanel title={t('my_projects')} action={postProjectBtn}>
+        <DashboardPanel title={t('my_projects')}>
           {panelLoading ? (
             <div className="h-14 animate-pulse rounded-[var(--r-md)] bg-[var(--color-bg-muted)]" />
           ) : projects.length === 0 ? (
@@ -299,47 +256,6 @@ export function ClientDashboard() {
           )}
         </DashboardPanel>
       </div>
-
-      <DashboardPanel title={t('recent_activity')} className="dashboard-panel--secondary">
-        <ActivityTimeline />
-      </DashboardPanel>
-
-      <DashboardPanel title={t('recommended_freelancers')} className="dashboard-panel--secondary">
-        <p className="mb-3 text-[12px] text-[var(--ishbor-text-muted)]">{t('recommended_by_rating')}</p>
-        {freelancersLoading ? (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <SkeletonFreelancerCard key={i} />
-            ))}
-          </div>
-        ) : recommendedFreelancers.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<Search />}
-            title={t('no_freelancers_yet')}
-            description={t('kwork_freelancers_sub')}
-            action={{ label: t('nav_freelancers'), onClick: () => router.push(PATHS.freelancers) }}
-          />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {recommendedFreelancers.map((f) => (
-              <FreelancerCard
-                key={f.id}
-                name={f.full_name ?? t('freelancer')}
-                specialty={f.specialty}
-                region={f.region}
-                rating={f.avg_rating ?? 0}
-                reviewCount={f.review_count ?? 0}
-                isVerified={f.is_verified}
-                trustScore={f.trust_score}
-                variant="grid"
-                onClick={() => router.push(freelancerPath(f))}
-              />
-            ))}
-          </div>
-        )}
-      </DashboardPanel>
-
 
       {reviewOrder && (
         <ReviewModal

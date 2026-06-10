@@ -33,6 +33,18 @@ const ACTION_KEYS: Record<ActionErrorScope, TranslationKey> = {
 
 const I18N_MESSAGE_PREFIXES = ['chat_', 'error_', 'payment_', 'withdrawal_', 'wallet_', 'milestone_', 'stir_'] as const
 
+const GENERIC_SERVER_MESSAGES = new Set([
+  'internal server error',
+  'server xatosi',
+  'server error',
+  'something went wrong',
+])
+
+function hasSpecificApiMessage(message: string | undefined): boolean {
+  if (!message || message.startsWith('[')) return false
+  return !GENERIC_SERVER_MESSAGES.has(message.trim().toLowerCase())
+}
+
 export interface ActionErrorContext {
   scope: ActionErrorScope
   apiPath?: string
@@ -51,9 +63,12 @@ function resolveStatusFallback(
   if (error.status === 401) return t('error_auth_expired')
   if (error.status === 403) return t('error_forbidden')
   if (error.status === 404) return scoped
-  if (error.status === 408 || error.status === 0) return t('error_network')
-  if (error.status >= 500) return t('error_server')
-  if (error.message && !error.message.startsWith('[')) return error.message
+  if (error.status === 408) return t('error_api_timeout')
+  if (error.status === 0) return t('error_network')
+  if (error.status >= 500) {
+    return hasSpecificApiMessage(error.message) ? error.message : t('error_server')
+  }
+  if (hasSpecificApiMessage(error.message)) return error.message
   return scoped
 }
 

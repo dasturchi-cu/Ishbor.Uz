@@ -1,10 +1,15 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiProject, ApiService, ApiUserReputation } from '@/infrastructure/api/types'
-import { clearDashboardSummaryCache } from '@/shared/lib/dashboard-summary-cache'
+import { summaryToHomeData } from '@/shared/lib/dashboard-cache-hydrate'
+import {
+  clearDashboardSummaryCache,
+  readDashboardSummaryCache,
+  readDashboardSummaryCacheUpdatedAt,
+} from '@/shared/lib/dashboard-summary-cache'
 import { queryKeys } from '@/shared/lib/query-keys'
 import { wrapQueryFn } from '@/shared/lib/request-debug'
 
@@ -31,6 +36,18 @@ export function useDashboardHome(
 ) {
   const queryClient = useQueryClient()
 
+  const cachedHome = queryClient.getQueryData<DashboardHomeData>(queryKeys.dashboardHome(role))
+  const cachedSummary = useMemo(
+    () => (userId ? readDashboardSummaryCache(userId, role) : undefined),
+    [userId, role]
+  )
+  const cachedUpdatedAt = useMemo(
+    () => (userId ? readDashboardSummaryCacheUpdatedAt(userId, role) : undefined),
+    [userId, role]
+  )
+  const initialHome = cachedHome ?? (cachedSummary ? summaryToHomeData(cachedSummary) : undefined)
+  const hasWarmCache = cachedHome !== undefined || cachedSummary !== undefined
+
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: queryKeys.dashboardHome(role),
     queryFn: wrapQueryFn(
@@ -48,7 +65,9 @@ export function useDashboardHome(
       },
       { queryKey: `dashboard/home:${role}` }
     ),
-    enabled: enabled && Boolean(userId),
+    enabled: enabled && Boolean(userId) && !hasWarmCache,
+    initialData: initialHome,
+    initialDataUpdatedAt: cachedUpdatedAt,
     staleTime: 60_000,
     refetchOnMount: false,
   })

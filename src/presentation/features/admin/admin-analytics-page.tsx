@@ -8,7 +8,13 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { api } from '@/infrastructure/api/client'
 import type { ApiAdminAnalytics } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
-import { AdminCharts } from '@/presentation/features/admin/admin-charts'
+import dynamic from 'next/dynamic'
+import { LoadingBlock } from '@/presentation/components/ui/loading-block'
+
+const AdminCharts = dynamic(
+  () => import('@/presentation/features/admin/admin-charts').then((m) => m.AdminCharts),
+  { ssr: false, loading: () => <LoadingBlock /> }
+)
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { captureLoadError } from '@/shared/lib/load-error'
 

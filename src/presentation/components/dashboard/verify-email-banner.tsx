@@ -6,6 +6,7 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { toast } from '@/presentation/components/ui/toast'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 export function VerifyEmailBanner() {
   const { t } = useApp()
@@ -23,7 +24,7 @@ export function VerifyEmailBanner() {
         setEmail(user.email)
         setNeedsVerify(!user.email_confirmed_at)
       })
-      .catch(() => undefined)
+      .catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: 'supabase/auth/getUser' }))
   }, [])
 
   if (!needsVerify) return null

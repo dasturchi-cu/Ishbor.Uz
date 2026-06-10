@@ -22,6 +22,8 @@ import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
 import { FileText, Shield, MessageSquare, Phone } from 'lucide-react'
 import { ContractMilestonesSection } from '@/presentation/features/marketplace/contract-milestones-section'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { loadOptional } from '@/shared/lib/ignore-with-log'
 
 const CLIENT_ACTIONS: Record<string, string> = {
   pending_payment: 'fund_escrow',
@@ -44,17 +46,34 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
   const [reviews, setReviews] = useState<ApiProjectReview[]>([])
   const [showReview, setShowReview] = useState(false)
   const [callStarting, setCallStarting] = useState(false)
+  const [partialLoadError, setPartialLoadError] = useState(false)
 
-  const { data, loading, reload } = useProtectedLoader(async () => {
-    const [c, e] = await Promise.all([
-      api.getContract(contractId).catch(() => null),
-      api.listContractEscrow(contractId).catch(() => [] as ApiEscrowTransaction[]),
-    ])
+  const {
+    data,
+    loading,
+    error: contractLoadFailed,
+    loadError: contractFetchError,
+    reload,
+  } = useProtectedLoader(async () => {
+    const c = await api.getContract(contractId)
+    let partialFailed = false
+    const escrowRes = await loadOptional(
+      () => api.listContractEscrow(contractId),
+      [] as ApiEscrowTransaction[],
+      { scope: 'payments', apiPath: `/api/v1/contracts/${contractId}/escrow` }
+    )
+    partialFailed ||= escrowRes.failed
     let rev: ApiProjectReview[] = []
-    if (c?.status === 'completed') {
-      rev = await api.listProjectReviews(contractId).catch(() => [] as ApiProjectReview[])
+    if (c.status === 'completed') {
+      const revRes = await loadOptional(
+        () => api.listProjectReviews(contractId),
+        [] as ApiProjectReview[],
+        { scope: 'reviews', apiPath: `/api/v1/projects/${contractId}/reviews` }
+      )
+      rev = revRes.value
+      partialFailed ||= revRes.failed
     }
-    return { contract: c, escrow: e, reviews: rev }
+    return { contract: c, escrow: escrowRes.value, reviews: rev, partialFailed }
   }, [contractId])
 
   useEffect(() => {
@@ -62,6 +81,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
     setContract(data.contract)
     setEscrow(data.escrow)
     setReviews(data.reviews)
+    setPartialLoadError(data.partialFailed)
   }, [data])
 
   const load = useCallback(() => {
@@ -145,6 +165,18 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
     return <p className="text-muted-foreground p-6">{t('loading_data')}</p>
   }
 
+  if (contractLoadFailed) {
+    return (
+      <div className="p-4 md:p-6">
+        <LoadErrorAlert
+          error={contractFetchError}
+          scope="contracts"
+          onRetry={() => void reload()}
+        />
+      </div>
+    )
+  }
+
   if (!contract) {
     return <Alert variant="error">{t('contract_not_found')}</Alert>
   }
@@ -170,6 +202,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
+      {partialLoadError ? <Alert variant="info">{t('error_section_partial')}</Alert> : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border bg-card p-4 md:col-span-2 space-y-4">

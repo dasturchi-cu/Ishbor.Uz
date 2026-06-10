@@ -10,6 +10,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { Select } from '@/presentation/components/ui/select'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Alert } from '@/presentation/components/ui/alert'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { OrderProgressStepper } from '@/presentation/components/features/order-progress-stepper'
@@ -40,7 +41,8 @@ export function DashboardOrdersPage() {
   const {
     data: ordersData,
     loading,
-    error: loadError,
+    error: ordersLoadFailed,
+    loadError: ordersFetchError,
     reload: loadOrders,
   } = useProtectedLoader(() => api.listOrders(), [])
   const orders = ordersData ?? []
@@ -137,15 +139,13 @@ export function DashboardOrdersPage() {
         </div>
       </div>
 
-      {loadError && (
-        <Alert variant="error" className="mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t('orders_load_failed')}</span>
-            <Button variant="outline" size="sm" onClick={loadOrders}>
-              {t('catalog_retry')}
-            </Button>
-          </div>
-        </Alert>
+      {ordersLoadFailed && (
+        <LoadErrorAlert
+          error={ordersFetchError}
+          scope="orders"
+          onRetry={() => void loadOrders()}
+          className="mb-4"
+        />
       )}
 
       {loading ? (

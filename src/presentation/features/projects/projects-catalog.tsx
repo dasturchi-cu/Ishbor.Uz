@@ -23,6 +23,7 @@ import { Select } from '@/presentation/components/ui/select'
 import { api } from '@/infrastructure/api/client'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { captureLoadError } from '@/shared/lib/load-error'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 import type { ApiProject } from '@/infrastructure/api/types'
 
@@ -187,7 +188,9 @@ export function ProjectsCatalog({
 
   useEffect(() => {
     if (!authed || !debouncedSearch || debouncedSearch.length < 2) return
-    api.trackAnalytics('search', { query: debouncedSearch, surface: 'projects' }).catch(() => undefined)
+    api
+      .trackAnalytics('search', { query: debouncedSearch, surface: 'projects' })
+      .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: '/api/v1/platform/analytics' }))
   }, [authed, debouncedSearch])
 
   useEffect(() => {

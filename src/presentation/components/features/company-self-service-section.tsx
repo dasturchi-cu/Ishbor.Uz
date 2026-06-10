@@ -14,6 +14,7 @@ import { UZ_REGIONS } from '@/domain/constants/regions'
 import { slugifyName } from '@/shared/lib/slug'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 export function CompanySelfServiceSection() {
   const { t } = useApp()
@@ -41,9 +42,12 @@ export function CompanySelfServiceSection() {
           setRegion(c.region ?? '')
         }
       })
-      .catch(() => setCompanies([]))
+      .catch((e) => {
+        setCompanies([])
+        toast.error(captureLoadError(e, { scope: 'companies', apiPath: '/api/v1/companies/mine' }, t))
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   useAuthedEffect(() => {
     load()

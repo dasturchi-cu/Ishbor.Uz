@@ -22,9 +22,20 @@
         "reveal": "always",
         "panel": "dedicated",
         "group": "ishbor-dev"
+      }
+    },
+    {
+      "label": "IshBor: Dev Stop",
+      "type": "shell",
+      "command": "pnpm dev:stop",
+      "options": {
+        "cwd": "${workspaceFolder}"
       },
-      "runOptions": {
-        "runOn": "folderOpen"
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "ishbor-dev"
       }
     },
     {

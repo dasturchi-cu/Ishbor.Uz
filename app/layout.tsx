@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/application/providers/app-provider'
 import { QueryProvider } from '@/application/providers/query-provider'
@@ -12,6 +12,14 @@ const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  preload: true,
+})
+
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: '--font-plus-jakarta-sans',
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
   display: 'swap',
   preload: true,
 })
@@ -58,7 +66,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="uz" className={`${inter.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="uz" className={`${inter.variable} ${plusJakarta.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{

@@ -17,6 +17,7 @@ import {
   Download,
 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
+import { captureLoadError } from '@/shared/lib/load-error'
 import { Card } from '@/presentation/components/ui/card'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
@@ -27,7 +28,12 @@ import { PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { AdminLayout } from '@/presentation/features/admin/admin-layout'
-import { AdminCharts } from '@/presentation/features/admin/admin-charts'
+import dynamic from 'next/dynamic'
+
+const AdminCharts = dynamic(
+  () => import('@/presentation/features/admin/admin-charts').then((m) => m.AdminCharts),
+  { ssr: false, loading: () => <LoadingBlock /> }
+)
 import { AdminHealthPanel } from '@/presentation/features/admin/admin-health-panel'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
@@ -67,7 +73,7 @@ export function AdminDashboard() {
       setAuditLogs(overview.audit_logs)
       setActivityFeed(overview.activity_feed ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('admin_load_stats_failed'))
+      setError(captureLoadError(e, { scope: 'admin', apiPath: '/api/v1/admin/overview' }, t))
     } finally {
       setLoading(false)
       setRefreshing(false)

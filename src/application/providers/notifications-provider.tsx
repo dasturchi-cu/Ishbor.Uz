@@ -19,6 +19,7 @@ import { applyReadState } from '@/shared/lib/notification-reads'
 import { useNotificationsRealtime } from '@/shared/lib/use-notifications-realtime'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { wrapQueryFn } from '@/shared/lib/request-debug'
+import { isRetryableQueryError } from '@/shared/lib/load-error'
 import { trackSupabaseRequest } from '@/shared/lib/supabase-request-debug'
 
 type NotificationsContextValue = {
@@ -66,8 +67,10 @@ export function NotificationsProvider({
       component: 'notifications-provider',
       kind: 'invalidate',
     })
-    void queryClient.invalidateQueries({ queryKey: queryKeys.notifications })
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardBadges })
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardBadges }),
+    ])
   }, [queryClient])
 
   useNotificationsRealtime(isLoggedIn ? userId : null, invalidate)
@@ -81,6 +84,7 @@ export function NotificationsProvider({
     enabled: canFetch,
     staleTime: 60_000,
     refetchOnMount: false,
+    retry: (failureCount, err) => isRetryableQueryError(err) && failureCount < 2,
   })
 
   const ensureLoaded = useCallback(() => {
@@ -92,17 +96,19 @@ export function NotificationsProvider({
     setForced(true)
   }, [isLoggedIn])
 
+  const { data, isLoading, isError, error, refetch } = query
+
   const value = useMemo<NotificationsContextValue>(
     () => ({
-      notifications: query.data ?? [],
-      loading: canFetch && query.isLoading,
-      error: query.isError,
-      loadError: query.error ?? null,
+      notifications: data ?? [],
+      loading: canFetch && isLoading,
+      error: isError,
+      loadError: error ?? null,
       ensureLoaded,
       refresh: invalidate,
-      refetch: () => void query.refetch(),
+      refetch: () => void refetch(),
     }),
-    [query.data, query.isLoading, query.isError, query.error, canFetch, ensureLoaded, invalidate, query]
+    [data, isLoading, isError, error, canFetch, ensureLoaded, invalidate, refetch]
   )
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>

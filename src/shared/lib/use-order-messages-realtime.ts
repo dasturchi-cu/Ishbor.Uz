@@ -1,14 +1,26 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { ApiMessage } from '@/infrastructure/api/types'
+import { logRealtimeSubscriptionError } from '@/shared/lib/realtime-error'
 
 export function useOrderMessagesRealtime(
   orderId: string | null,
   onInsert: (message: ApiMessage) => void,
   onUpdate?: (message: ApiMessage) => void,
 ) {
+  const onInsertRef = useRef(onInsert)
+  const onUpdateRef = useRef(onUpdate)
+
+  useEffect(() => {
+    onInsertRef.current = onInsert
+  }, [onInsert])
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate
+  }, [onUpdate])
+
   useEffect(() => {
     if (!orderId || !isSupabaseConfigured()) return
 
@@ -24,7 +36,7 @@ export function useOrderMessagesRealtime(
           filter: `order_id=eq.${orderId}`,
         },
         (payload) => {
-          onInsert(payload.new as ApiMessage)
+          onInsertRef.current(payload.new as ApiMessage)
         },
       )
       .on(
@@ -36,17 +48,20 @@ export function useOrderMessagesRealtime(
           filter: `order_id=eq.${orderId}`,
         },
         (payload) => {
-          if (onUpdate) onUpdate(payload.new as ApiMessage)
+          onUpdateRef.current?.(payload.new as ApiMessage)
         },
       )
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[realtime] messages subscription failed:', status)
+          logRealtimeSubscriptionError(`order-messages-${orderId}`, status, {
+            table: 'messages',
+            filter: `order_id=eq.${orderId}`,
+          })
         }
       })
 
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [orderId, onInsert, onUpdate])
+  }, [orderId])
 }

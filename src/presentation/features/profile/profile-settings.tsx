@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -21,18 +21,17 @@ import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { uploadAvatar, uploadPortfolioImage } from '@/infrastructure/supabase/storage'
+import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { updatePassword } from '@/infrastructure/auth/password'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { toast } from '@/presentation/components/ui/toast'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/shared/lib/notification-prefs'
 import { profileUpdateSchema } from '@/domain/validators/profile'
-import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
 import { NotificationChannelStatus } from '@/presentation/components/layout/notification-channel-status'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
-import { TrustScoreBreakdown } from '@/presentation/components/features/trust-score-breakdown'
 import { CompanyStirSection } from '@/presentation/components/features/company-stir-section'
 import { CompanySelfServiceSection } from '@/presentation/components/features/company-self-service-section'
 import { TotpSettingsSection } from '@/presentation/components/auth/totp-settings-section'
@@ -40,6 +39,10 @@ import { PhoneVerifySection } from '@/presentation/components/auth/phone-verify-
 import { EmailChangeSection } from '@/presentation/components/auth/email-change-section'
 import { ActiveSessionsSection } from '@/presentation/components/auth/active-sessions-section'
 import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { captureLoadError } from '@/shared/lib/load-error'
+import { captureActionError } from '@/shared/lib/action-error'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 const VERIFICATION_TYPE_KEYS: Record<string, TranslationKey> = {
   employer: 'verification_type_employer',
@@ -213,22 +216,37 @@ export function ProfileSettings() {
   const telegramHintShown = useRef(false)
   const [verifications, setVerifications] = useState<ApiVerification[]>([])
   const [verificationsLoading, setVerificationsLoading] = useState(false)
+  const [verificationsLoadError, setVerificationsLoadError] = useState<unknown>(null)
+
+  const loadVerifications = () => {
+    setVerificationsLoading(true)
+    setVerificationsLoadError(null)
+    api
+      .listMyVerifications()
+      .then((rows) => {
+        setVerifications(rows)
+        setVerificationsLoadError(null)
+      })
+      .catch((e) => {
+        setVerifications([])
+        setVerificationsLoadError(e)
+      })
+      .finally(() => setVerificationsLoading(false))
+  }
 
   useAuthedEffect(() => {
     if (activeTab !== 'security') return
-    setVerificationsLoading(true)
-    api
-      .listMyVerifications()
-      .then(setVerifications)
-      .catch(() => setVerifications([]))
-      .finally(() => setVerificationsLoading(false))
+    loadVerifications()
   }, [activeTab])
 
   useEffect(() => {
     api
       .getNotificationPrefs()
       .then(setSimpleNotif)
-      .catch(() => setSimpleNotif(loadNotificationPrefs()))
+      .catch((e) => {
+        ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/notifications/prefs' })
+        setSimpleNotif(loadNotificationPrefs())
+      })
     api
       .notificationChannels()
       .then((c) =>
@@ -239,8 +257,10 @@ export function ProfileSettings() {
           telegram_bot_username: c.telegram_bot_username,
         })
       )
-      .catch(() => undefined)
-  }, [])
+      .catch((e) => {
+        toast.error(captureLoadError(e, { scope: 'notifications', apiPath: '/api/v1/notifications/channels' }, t))
+      })
+  }, [t])
 
   useEffect(() => {
     if (
@@ -254,14 +274,19 @@ export function ProfileSettings() {
     }
   }, [profile?.telegram_chat_id, notifChannels.telegram, simpleNotif.telegramConnect, t])
 
-  const updateNotifPref = <K extends keyof typeof simpleNotif>(key: K, value: boolean) => {
-    setSimpleNotif((prev) => {
-      const next = { ...prev, [key]: value }
-      saveNotificationPrefs(next)
-      api.updateNotificationPrefs({ [key]: value }).catch(() => undefined)
+  const updateNotifPref = async <K extends keyof typeof simpleNotif>(key: K, value: boolean) => {
+    const prev = simpleNotif
+    const next = { ...prev, [key]: value }
+    setSimpleNotif(next)
+    saveNotificationPrefs(next)
+    try {
+      await api.updateNotificationPrefs({ [key]: value })
       toast.success(t('save_success'))
-      return next
-    })
+    } catch (e) {
+      setSimpleNotif(prev)
+      saveNotificationPrefs(prev)
+      toast.error(captureActionError(e, { scope: 'generic', action: 'update_notification_prefs' }, t))
+    }
   }
 
   const [formData, setFormData] = useState({
@@ -323,10 +348,13 @@ export function ProfileSettings() {
       api
         .checkUsername(slug)
         .then((r) => setUsernameStatus(r.available ? 'ok' : 'taken'))
-        .catch(() => setUsernameStatus('idle'))
+        .catch((e) => {
+          setUsernameStatus('idle')
+          toast.error(captureLoadError(e, { scope: 'profile', apiPath: '/api/v1/profiles/check-username' }, t))
+        })
     }, 400)
     return () => clearTimeout(id)
-  }, [username, profile?.username])
+  }, [username, profile?.username, t])
 
   const profileLink =
     userId && typeof window !== 'undefined'
@@ -532,14 +560,6 @@ export function ProfileSettings() {
                   <Button variant="primary" onClick={handleSave} loading={saving}>
                     {t('settings_save')}
                   </Button>
-                  <button
-                    type="button"
-                    className="settings-link-action inline-flex items-center gap-1"
-                    onClick={() => setActiveTab('profile')}
-                  >
-                    {t('settings_link_phone')}
-                    <HelpCircle className="h-3.5 w-3.5 opacity-60" />
-                  </button>
                 </div>
               </>
             )}
@@ -624,7 +644,7 @@ export function ProfileSettings() {
                         setMessage('')
                         try {
                           const url = await uploadAvatar(files[0], userId)
-                          await api.updateProfile({ avatar_url: url })
+                          await persistProfilePatch(userId, { avatar_url: url })
                           await refreshProfile()
                           setMessage(t('save_success'))
                           return [url]
@@ -898,8 +918,9 @@ export function ProfileSettings() {
                           profile?.role === 'freelancer' ? 'freelancer' : 'employer'
                         await api.requestVerification({ verification_type: vType })
                         toast.success(t('verification_submitted'))
-                        const list = await api.listMyVerifications().catch(() => [])
+                        const list = await api.listMyVerifications()
                         setVerifications(list)
+                        setVerificationsLoadError(null)
                       } catch (e) {
                         toast.error(e instanceof Error ? e.message : t('error_required'))
                       }
@@ -907,7 +928,15 @@ export function ProfileSettings() {
                   >
                     {t('verification_submit')}
                   </Button>
-                  {(verificationsLoading || verifications.length > 0) && (
+                  {verificationsLoadError ? (
+                    <LoadErrorAlert
+                      error={verificationsLoadError}
+                      scope="profile"
+                      onRetry={loadVerifications}
+                      className="mt-4"
+                    />
+                  ) : null}
+                  {(verificationsLoading || verifications.length > 0) && !verificationsLoadError && (
                     <div className="mt-5">
                       <h3 className="text-[13px] font-semibold text-[var(--ishbor-text)]">
                         {t('verification_history')}
@@ -939,10 +968,6 @@ export function ProfileSettings() {
                       )}
                     </div>
                   )}
-                </div>
-
-                <div className="settings-security-block">
-                  <TrustScoreBreakdown />
                 </div>
 
                 <div className="settings-security-block">
@@ -1005,17 +1030,11 @@ export function ProfileSettings() {
                   </div>
                 </div>
 
-                <div className="settings-footer !justify-start">
-                  <Button variant="primary" disabled className="opacity-50">
-                    {t('settings_save')}
-                  </Button>
-                </div>
               </>
             )}
 
             {activeTab === 'account' && (
               <>
-                <ReferralBanner className="mb-5" />
                 <div className="settings-delete-card">
                   <h2 className="settings-delete-card__title">
                     {t('delete_account_section')}

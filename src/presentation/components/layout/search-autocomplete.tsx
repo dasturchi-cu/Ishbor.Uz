@@ -8,6 +8,7 @@ import { api } from '@/infrastructure/api/client'
 import { PATHS, servicePath } from '@/domain/constants/routes'
 import { getSearchHistory, pushSearchHistory } from '@/shared/lib/search-history'
 import { cn } from '@/shared/lib/utils'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 interface SearchAutocompleteProps {
   value: string
@@ -49,7 +50,10 @@ export function SearchAutocomplete({
       api
         .listServices({ search: q, limit: 5, offset: 0 })
         .then((res) => setSuggestions(res.items.map((s) => ({ id: s.id, title: s.title }))))
-        .catch(() => setSuggestions([]))
+        .catch((e) => {
+          ignoreWithLog(e, { scope: 'services', apiPath: '/api/v1/services' })
+          setSuggestions([])
+        })
     }, 250)
     return () => clearTimeout(id)
   }, [value])

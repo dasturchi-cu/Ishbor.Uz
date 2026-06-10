@@ -1,6 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { trackMiddlewareSupabaseRequest } from '@/infrastructure/supabase/middleware-request-debug'
+import {
+  readProfileCache,
+  writeProfileCache,
+  type CachedProfile,
+} from '@/infrastructure/supabase/middleware-profile-cache'
 
 const PROTECTED_PREFIXES = [
   '/dashboard',
@@ -12,11 +17,31 @@ const PROTECTED_PREFIXES = [
   '/services/create',
 ]
 const AUTH_PATHS = new Set(['/login', '/register'])
+const MIDDLEWARE_AUTH_TIMEOUT_MS = 8_000
 
 function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   )
+}
+
+function isPublicPath(pathname: string): boolean {
+  return !isProtected(pathname) && !AUTH_PATHS.has(pathname)
+}
+
+async function getUserWithTimeout(
+  supabase: ReturnType<typeof createServerClient>,
+): Promise<{ data: { user: { id: string } | null } }> {
+  try {
+    return await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('middleware auth timeout')), MIDDLEWARE_AUTH_TIMEOUT_MS)
+      }),
+    ])
+  } catch {
+    return { data: { user: null } }
+  }
 }
 
 export async function updateSession(request: NextRequest) {
@@ -39,6 +64,10 @@ export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
   const { pathname } = request.nextUrl
 
+  if (isPublicPath(pathname)) {
+    return NextResponse.next({ request })
+  }
+
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
@@ -56,7 +85,7 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await getUserWithTimeout(supabase)
 
   trackMiddlewareSupabaseRequest({
     queryName: 'auth.getUser',
@@ -71,44 +100,61 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  if (user && AUTH_PATHS.has(pathname)) {
+  let profileFresh: CachedProfile | null = null
+
+  async function resolveProfileFlags(): Promise<CachedProfile | null> {
+    const cached = await readProfileCache(request, user!.id)
+    if (cached) return cached
+
     trackMiddlewareSupabaseRequest({
       queryName: 'profiles.select',
       pathname,
-      component: 'proxy.ts/auth-redirect',
+      component: 'proxy.ts/profile-flags',
     })
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_admin, onboarding_completed')
-      .eq('id', user.id)
+      .select('is_banned, onboarding_completed, is_admin')
+      .eq('id', user!.id)
       .maybeSingle()
+
+    if (!profile) return null
+
+    const flags: CachedProfile = {
+      is_banned: Boolean(profile.is_banned),
+      is_admin: Boolean(profile.is_admin),
+      onboarding_completed: Boolean(profile.onboarding_completed),
+    }
+    profileFresh = flags
+    return flags
+  }
+
+  async function withProfileCache(res: NextResponse): Promise<NextResponse> {
+    if (user && profileFresh) {
+      await writeProfileCache(res, user.id, profileFresh)
+    }
+    return res
+  }
+
+  if (user && AUTH_PATHS.has(pathname)) {
+    const profile = await resolveProfileFlags()
 
     const dest =
       profile?.onboarding_completed === false && !profile?.is_admin
         ? '/onboarding'
         : '/dashboard'
-    return NextResponse.redirect(new URL(dest, request.url))
+    return withProfileCache(NextResponse.redirect(new URL(dest, request.url)))
   }
 
   const onAdmin = pathname === '/admin' || pathname.startsWith('/admin/')
 
   if (user && isProtected(pathname)) {
-    trackMiddlewareSupabaseRequest({
-      queryName: 'profiles.select',
-      pathname,
-      component: 'proxy.ts/protected-guard',
-    })
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_banned, onboarding_completed, is_admin')
-      .eq('id', user.id)
-      .maybeSingle()
+    const profile = await resolveProfileFlags()
 
     if (onAdmin && !profile?.is_admin) {
       const deniedUrl = request.nextUrl.clone()
       deniedUrl.pathname = '/dashboard'
       deniedUrl.searchParams.set('admin_denied', '1')
-      return NextResponse.redirect(deniedUrl)
+      return withProfileCache(NextResponse.redirect(deniedUrl))
     }
 
     if (profile?.is_banned) {
@@ -116,7 +162,7 @@ export async function updateSession(request: NextRequest) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       loginUrl.searchParams.set('banned', '1')
-      return NextResponse.redirect(loginUrl)
+      return withProfileCache(NextResponse.redirect(loginUrl))
     }
 
     const onDashboard =
@@ -126,13 +172,13 @@ export async function updateSession(request: NextRequest) {
     if (onDashboard && profile && profile.onboarding_completed === false && !profile.is_admin) {
       const onboardingUrl = request.nextUrl.clone()
       onboardingUrl.pathname = '/onboarding'
-      return NextResponse.redirect(onboardingUrl)
+      return withProfileCache(NextResponse.redirect(onboardingUrl))
     }
 
     if (onOnboarding && profile?.onboarding_completed === true) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return withProfileCache(NextResponse.redirect(new URL('/', request.url)))
     }
   }
 
-  return response
+  return withProfileCache(response)
 }

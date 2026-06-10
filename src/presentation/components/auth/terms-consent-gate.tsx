@@ -10,6 +10,7 @@ import { PATHS } from '@/domain/constants/routes'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
+import { logClientError } from '@/shared/lib/log-client-error'
 
 const SKIP_PREFIXES = [PATHS.login, PATHS.register, PATHS.terms, PATHS.privacy, '/auth']
 
@@ -32,7 +33,10 @@ export function TermsConsentGate({ children }: { children: React.ReactNode }) {
     api
       .getTermsConsentStatus()
       .then((status) => setPending(status.requires_consent ? status.pending : []))
-      .catch(() => setPending([]))
+      .catch((e) => {
+        logClientError(e, { scope: 'profile', apiPath: '/api/v1/platform/terms/consent-status' })
+        setPending([])
+      })
       .finally(() => setChecking(false))
   }, [authed, skip])
 

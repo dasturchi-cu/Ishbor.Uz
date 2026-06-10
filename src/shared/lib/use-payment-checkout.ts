@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/infrastructure/api/client'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { ApiOrder } from '@/infrastructure/api/types'
 import {
   clearPaymentCheckoutSession,
@@ -70,7 +71,10 @@ export function usePaymentCheckout({
       try {
         const [freshOrder, intent] = await Promise.all([
           api.getOrder(orderId),
-          api.getOrderPaymentIntent(orderId).catch(() => null),
+          api.getOrderPaymentIntent(orderId).catch((e) => {
+            ignoreWithLog(e, { scope: 'payments', apiPath: `/api/v1/orders/${orderId}/payment-intent` })
+            return null
+          }),
         ])
 
         if (resolveFromOrder(freshOrder)) return
@@ -87,8 +91,8 @@ export function usePaymentCheckout({
         if (intentPhase === 'processing' || intentPhase === 'redirecting') {
           setPhase('processing')
         }
-      } catch {
-        // Keep polling — webhook may still be in flight.
+      } catch (e) {
+        ignoreWithLog(e, { scope: 'payments', apiPath: `/api/v1/orders/${orderId}/payment-status` })
       }
     },
     [onError, resolveFromOrder, stopPolling],

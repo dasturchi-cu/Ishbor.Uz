@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Package,
@@ -35,6 +35,7 @@ import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
 import { useAdminDeniedToast } from '@/shared/lib/use-admin-denied-toast'
 import { VerifyEmailBanner } from '@/presentation/components/dashboard/verify-email-banner'
+import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 import { SuspendedBanner } from '@/presentation/components/layout/suspended-banner'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatDashboardHeaderDate } from '@/shared/lib/format-date'
@@ -182,7 +183,6 @@ function applyBadges(
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const router = useRouter()
   const { t, profile, signOut } = useApp()
   const role = useDashboardRole()
   const isClient = role === 'client'
@@ -208,8 +208,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const handleLogout = async () => {
     await signOut()
-    router.push(PATHS.home)
     onNavigate?.()
+    window.location.assign(PATHS.home)
   }
 
   return (
@@ -301,7 +301,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { t, language, profile } = useApp()
+  const { t, language } = useApp()
   const role = useDashboardRole()
   useAdminDeniedToast()
   useSessionIdleTimeout()
@@ -311,8 +311,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const isHome =
     pathname === PATHS.dashboardFreelancer || pathname === PATHS.dashboardClient
   const isClient = role === 'client'
-  const completion = profileCompletionPercent(profile, isClient ? 'client' : 'freelancer')
-
   useEscapeClose(mobileOpen, () => setMobileOpen(false))
   useFocusTrap(mobileOpen, mobileDrawerRef)
   useBodyScrollLock(mobileOpen)
@@ -333,7 +331,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   return (
-    <div className="min-h-[calc(100vh-var(--ishbor-header-total))] bg-[var(--body-bg)]">
+    <div className="min-h-[calc(100vh-var(--ishbor-header-total))] bg-[var(--body-bg-muted)]">
       <div className="flex">
         <aside className="dashboard-sidebar hide-mobile sticky top-[var(--ishbor-header-total)] hidden h-[calc(100vh-var(--ishbor-header-total))] w-[260px] shrink-0 md:flex md:flex-col">
           <SidebarContent />
@@ -352,39 +350,29 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 <Menu className="h-5 w-5" />
               </Button>
               <div className="dashboard-subheader__title-block min-w-0">
-                <h1 className="dashboard-page-title truncate">{t(pageTitle)}</h1>
-                <time
-                  className="dashboard-subheader__date hide-mobile"
-                  dateTime={today.toISOString().slice(0, 10)}
-                >
-                  {formattedDate}
-                </time>
+                {isHome ? (
+                  <h1 className="dashboard-page-title truncate show-mobile md:hidden">{t('nav_dashboard')}</h1>
+                ) : (
+                  <>
+                    <h1 className="dashboard-page-title truncate">{t(pageTitle)}</h1>
+                    <time
+                      className="dashboard-subheader__date hide-mobile"
+                      dateTime={today.toISOString().slice(0, 10)}
+                    >
+                      {formattedDate}
+                    </time>
+                  </>
+                )}
               </div>
             </div>
-            {isHome && profile && (
-              <div className="hide-mobile flex shrink-0 items-center gap-2">
-                {completion < 100 && (
-                  <span className="dash-header-chip dash-header-chip--progress">
-                    {t('profile_completion').replace('{n}', String(completion))}
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    'dash-header-chip',
-                    profile.is_verified ? 'dash-header-chip--verified' : 'dash-header-chip--muted'
-                  )}
-                >
-                  {profile.is_verified ? t('badge_verified') : t('dash_verify_pending')}
-                </span>
-              </div>
-            )}
           </header>
 
-          <div className="dashboard-main flex-1 overflow-y-auto p-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
+          <div className="dashboard-main flex-1 overflow-y-auto bg-[var(--neutral-0)] p-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
             <div className="mx-auto max-w-[1280px]">
-              {breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} className="mb-4" />}
+              {!isHome && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} className="mb-4" />}
               <SuspendedBanner />
               <VerifyEmailBanner />
+              {isHome && <ReferralBanner className="mb-4" />}
               {children}
             </div>
           </div>

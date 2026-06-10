@@ -20,6 +20,7 @@ import { loginPath } from '@/shared/lib/auth-redirect'
 import { formatPrice } from '@/shared/lib/format'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import type { TranslationKey } from '@/infrastructure/i18n'
 
 const EMPLOYMENT_KEYS: Record<string, TranslationKey> = {
@@ -34,6 +35,7 @@ export function VacanciesCatalog() {
   const router = useRouter()
   const [vacancies, setVacancies] = useState<ApiVacancy[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [title, setTitle] = useState('')
@@ -46,10 +48,17 @@ export function VacanciesCatalog() {
 
   const loadVacancies = useCallback(() => {
     setLoading(true)
+    setLoadError(null)
     api
       .listVacancies({ limit: 24 })
-      .then(setVacancies)
-      .catch(() => setVacancies([]))
+      .then((rows) => {
+        setVacancies(rows)
+        setLoadError(null)
+      })
+      .catch((e) => {
+        setVacancies([])
+        setLoadError(e)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -185,9 +194,13 @@ export function VacanciesCatalog() {
         </Card>
       )}
 
+      {loadError ? (
+        <LoadErrorAlert error={loadError} scope="vacancies" onRetry={loadVacancies} className="mb-4" />
+      ) : null}
+
       {loading ? (
         <LoadingBlock className="py-16" />
-      ) : vacancies.length === 0 ? (
+      ) : loadError ? null : vacancies.length === 0 ? (
         <EmptyState icon={<Briefcase className="h-14 w-14" />} title={t('vacancies_empty')} />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

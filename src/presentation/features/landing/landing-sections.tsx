@@ -17,13 +17,12 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
-import { EscrowSteps } from '@/presentation/components/layout/escrow-steps'
 import { PATHS, freelancerPath } from '@/domain/constants/routes'
 import type { ApiPublicStats, ApiPublicReview } from '@/infrastructure/api/types'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { Button } from '@/presentation/components/ui/button'
-import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { api } from '@/infrastructure/api/client'
 
@@ -122,16 +121,10 @@ export function LandingHowItWorks() {
             </div>
           ))}
         </div>
-        <EscrowSteps className="mt-10" />
-        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href={PATHS.register}>
+        <div className="mt-10 flex justify-center">
+          <Link href={PATHS.services}>
             <Button variant="primary" size="lg" className="landing-cta-btn min-w-[200px]">
-              {t('start_now')}
-            </Button>
-          </Link>
-          <Link href={PATHS.projects}>
-            <Button variant="outline" size="lg" className="landing-cta-btn landing-cta-btn--outline min-w-[200px]">
-              {t('cta_find_work')}
+              {t('browse_services')}
             </Button>
           </Link>
         </div>
@@ -240,23 +233,19 @@ export function LandingTestimonials() {
           setItems([])
         }
       })
-      .catch(() => setItems([]))
+      .catch((e) => {
+        ignoreWithLog(e, { scope: 'reviews', apiPath: '/api/v1/reviews/public' })
+        setItems([])
+      })
       .finally(() => setReady(true))
   }, [])
 
-  if (!ready) return null
+  if (!ready || items.length === 0) return null
 
   return (
-    <section className="landing-testimonials-section animate-fadeInUp">
+    <section className="landing-testimonials-section">
       <div className="layout-container max-w-[1280px]">
         <h2 className="landing-section-heading">{t('clients_say')}</h2>
-        {items.length === 0 ? (
-          <EmptyState
-            icon={<Star className="h-8 w-8" />}
-            title={t('landing_testimonials_empty_title')}
-            description={t('landing_testimonials_empty_desc')}
-          />
-        ) : (
         <div className="landing-testimonials-grid">
           {items.map((item, idx) => (
             <article key={idx} className="landing-testimonial-card">
@@ -278,7 +267,6 @@ export function LandingTestimonials() {
             </article>
           ))}
         </div>
-        )}
       </div>
     </section>
   )
@@ -292,13 +280,10 @@ export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
   if (freelancers.length === 0) return null
 
   return (
-    <section className="page-section animate-fadeInUp">
+    <section className="page-section">
       <div className="layout-container max-w-[1280px]">
-        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="landing-section-heading mb-1 text-left">{t('featured_freelancers')}</h2>
-            <p className="text-[14px] text-[var(--ishbor-text-muted)]">{t('landing_top_freelancers_sub')}</p>
-          </div>
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="landing-section-heading mb-0 text-left">{t('featured_freelancers')}</h2>
           <Link
             href={PATHS.freelancers}
             className="flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
@@ -397,24 +382,14 @@ export function LandingCtaBanner() {
             <h2 className="landing-cta-banner-title">{t('cta_banner_title')}</h2>
             <p className="landing-cta-banner-sub">{t('cta_banner_sub')}</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:shrink-0">
-            <Button
-              variant="secondary"
-              size="lg"
-              className="rounded-full bg-[var(--neutral-0)] font-bold text-[var(--color-primary)] hover:bg-[var(--brand-50)]"
-              onClick={() => router.push(PATHS.register)}
-            >
-              {t('cta_be_freelancer')}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="rounded-full border-2 border-[color-mix(in_srgb,var(--neutral-0)_70%,transparent)] bg-transparent font-bold text-[var(--color-on-primary)] hover:border-[var(--neutral-0)] hover:bg-[color-mix(in_srgb,var(--neutral-0)_10%,transparent)]"
-              onClick={() => router.push(PATHS.projects)}
-            >
-              {t('cta_find_work')}
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="shrink-0 rounded-[var(--r-md)] bg-[var(--neutral-0)] font-semibold text-[var(--color-primary)] hover:bg-[var(--brand-50)]"
+            onClick={() => router.push(PATHS.services)}
+          >
+            {t('browse_services')}
+          </Button>
         </div>
       </div>
     </section>

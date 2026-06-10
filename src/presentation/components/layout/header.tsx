@@ -125,6 +125,12 @@ export function Header() {
 
             {showAuthNav && (
               <div className="header-auth-cluster">
+                <Link
+                  href={dashboardHref}
+                  className="hide-mobile rounded-full border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-4 py-2 text-[13px] font-semibold text-[var(--ishbor-text)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                >
+                  {t('nav_dashboard')}
+                </Link>
                 <NotificationDropdown />
                 <HeaderWalletPill compact className="show-mobile" />
                 <HeaderWalletPill />

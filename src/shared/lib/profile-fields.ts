@@ -1,6 +1,6 @@
-import { api, ApiError } from '@/infrastructure/api/client'
 import { uploadAvatar } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
+import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
 
 export interface ProfileFieldValues {
   full_name: string
@@ -32,16 +32,5 @@ export async function saveProfileFields(
     ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
   }
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      await api.updateProfile(payload)
-      return
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 503 && attempt < 2) {
-        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
-        continue
-      }
-      throw e
-    }
-  }
+  await persistProfilePatch(userId, payload)
 }

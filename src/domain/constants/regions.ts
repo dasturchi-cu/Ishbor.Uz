@@ -17,3 +17,15 @@ export const UZ_REGIONS = [
 ] as const
 
 export type UzRegion = (typeof UZ_REGIONS)[number]
+
+export function regionSlug(region: string): string {
+  return region
+    .toLowerCase()
+    .replace(/'/g, '')
+    .replace(/\s+/g, '-')
+}
+
+export function regionFromSlug(slug: string): UzRegion | undefined {
+  const normalized = slug.toLowerCase()
+  return UZ_REGIONS.find((r) => regionSlug(r) === normalized)
+}

@@ -12,7 +12,7 @@ export async function ensureProfileRole(
     return { ok: true, profile }
   }
   try {
-    const updated = await api.updateProfile({ role: desired })
+    const updated = await api.updateProfileRole(desired)
     if (updated.role === desired) {
       return { ok: true, profile: { ...updated, role: desired } }
     }

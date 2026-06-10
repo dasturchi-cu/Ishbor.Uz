@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.postgrest_embed import SERVICE_FREELANCER_PROFILE
-from app.review_stats import batch_min_service_prices, batch_review_stats
+from app.review_stats import batch_min_service_prices, batch_review_stats, batch_trust_scores
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -120,7 +120,7 @@ def public_stats():
 
     top_freelancers = run_query(
         lambda: supabase.table("profiles")
-        .select("id, full_name, specialty, region, role, is_verified, trust_score")
+        .select("id, full_name, specialty, region, role, is_verified")
         .eq("role", "freelancer")
         .eq("is_banned", False)
         .order("created_at", desc=True)
@@ -132,6 +132,7 @@ def public_stats():
     freelancer_ids = [f["id"] for f in freelancer_rows]
     review_stats = batch_review_stats(supabase, freelancer_ids)
     min_prices = batch_min_service_prices(supabase, freelancer_ids)
+    trust_scores = batch_trust_scores(supabase, freelancer_ids)
 
     enriched_freelancers = []
     for f in freelancer_rows:
@@ -143,6 +144,7 @@ def public_stats():
                 "avg_rating": avg,
                 "review_count": count,
                 "min_price": min_prices.get(fid, 0),
+                "trust_score": trust_scores.get(fid, 0),
             }
         )
 

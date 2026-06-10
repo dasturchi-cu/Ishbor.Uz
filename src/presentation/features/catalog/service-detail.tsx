@@ -37,6 +37,8 @@ import { initialsFromName } from '@/shared/lib/avatar'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
+import { captureActionError } from '@/shared/lib/action-error'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
   web: 'cat_web',
@@ -59,8 +61,10 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const [activePackage, setActivePackage] = useState<'basic' | 'standard' | 'premium'>('basic')
   const [activeThumb, setActiveThumb] = useState(0)
   const [reviews, setReviews] = useState<ApiReview[]>([])
+  const [reviewsLoadError, setReviewsLoadError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
   const [related, setRelated] = useState<ApiService[]>([])
+  const [relatedLoadError, setRelatedLoadError] = useState<unknown>(null)
   const [orderModalOpen, setOrderModalOpen] = useState(false)
   const [orderNotes, setOrderNotes] = useState('')
   const orderModalRef = useRef<HTMLDivElement>(null)
@@ -84,29 +88,53 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
   useEffect(() => {
     loadService()
-    api.recordServiceView(serviceId).catch(() => undefined)
+    api
+      .recordServiceView(serviceId)
+      .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: `/api/v1/services/${serviceId}/view` }))
   }, [loadService, serviceId])
 
-  useEffect(() => {
+  const loadReviews = useCallback(() => {
     if (!service?.freelancer_id) return
+    setReviewsLoadError(null)
     api
       .listServiceReviews(serviceId)
-      .then(setReviews)
-      .catch(() => setReviews([]))
+      .then((rows) => {
+        setReviews(rows)
+        setReviewsLoadError(null)
+      })
+      .catch((e) => {
+        setReviews([])
+        setReviewsLoadError(e)
+      })
   }, [serviceId, service?.freelancer_id])
+
+  useEffect(() => {
+    loadReviews()
+  }, [loadReviews])
 
   useEffect(() => {
     if (isAuthLoading || !isLoggedIn) return
     syncSavedServicesFromApi().then(() => setSaved(isServiceSaved(serviceId)))
   }, [isAuthLoading, isLoggedIn, serviceId])
 
-  useEffect(() => {
+  const loadRelated = useCallback(() => {
     if (!service) return
+    setRelatedLoadError(null)
     api
       .listServices({ category: service.category })
-      .then((res) => setRelated(res.items.filter((s) => s.id !== service.id).slice(0, 4)))
-      .catch(() => setRelated([]))
+      .then((res) => {
+        setRelated(res.items.filter((s) => s.id !== service.id).slice(0, 4))
+        setRelatedLoadError(null)
+      })
+      .catch((e) => {
+        setRelated([])
+        setRelatedLoadError(e)
+      })
   }, [service])
+
+  useEffect(() => {
+    loadRelated()
+  }, [loadRelated])
 
   const deliveryDays = service?.delivery_days && service.delivery_days > 0 ? service.delivery_days : null
 
@@ -147,9 +175,13 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       router.push(loginPath(`/services/${serviceId}`))
       return
     }
-    const next = await toggleSavedService(serviceId)
-    setSaved(next)
-    toast.success(next ? t('saved') : t('unsave'))
+    try {
+      const next = await toggleSavedService(serviceId)
+      setSaved(next)
+      toast.success(next ? t('saved') : t('unsave'))
+    } catch (e) {
+      toast.error(captureActionError(e, { scope: 'generic', action: 'save_item' }, t))
+    }
   }
 
   const handleContact = async () => {
@@ -157,7 +189,10 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       router.push(loginPath(`/services/${serviceId}`))
       return
     }
-    const orders = await api.listOrders().catch(() => [])
+    const orders = await api.listOrders().catch((e) => {
+      ignoreWithLog(e, { scope: 'orders', apiPath: '/api/v1/orders' })
+      return []
+    })
     const existing = orders.find(
       (o) =>
         o.freelancer_id === service?.freelancer_id &&
@@ -203,8 +238,10 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       toast.success(t('order_created_success'))
       router.push(dashboardOrderPath(created.id))
     } catch (e) {
-      const msg = e instanceof Error ? e.message : t('error_required')
-      setError(msg.includes('faol buyurtma') ? t('order_duplicate_error') : msg)
+      const msg = captureActionError(e, { scope: 'generic', action: 'create_order' }, t)
+      setError(msg.includes('faol buyurtma') || msg.toLowerCase().includes('active order')
+        ? t('order_duplicate_error')
+        : msg)
     } finally {
       setOrdering(false)
     }
@@ -282,7 +319,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
     if (!isLoggedIn) {
       return (
-        <div className="service-order-card__cta space-y-2">
+        <div className="service-order-card__cta">
           <Button
             variant="primary"
             size={size}
@@ -290,14 +327,6 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
             onClick={() => router.push(loginPath(`/services/${serviceId}`))}
           >
             {t('order_secure_cta')}
-          </Button>
-          <Button
-            variant="outline"
-            size={size}
-            className="w-full"
-            onClick={() => router.push(PATHS.register)}
-          >
-            {t('register')}
           </Button>
         </div>
       )
@@ -521,7 +550,15 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
             <section id="service-reviews" className="service-detail-section">
               <h2 className="mb-4 text-[16px] font-semibold text-[var(--ishbor-text)]">{t('service_reviews_title')}</h2>
-              {reviews.length > 0 ? (
+              {reviewsLoadError ? (
+                <LoadErrorAlert
+                  error={reviewsLoadError}
+                  scope="reviews"
+                  onRetry={loadReviews}
+                  className="mb-3"
+                />
+              ) : null}
+              {!reviewsLoadError && reviews.length > 0 ? (
                 <div className="space-y-4">
                   {reviews.slice(0, 6).map((r) => (
                     <div key={r.id} className="border-b border-[var(--ishbor-border)] pb-4 last:border-0 last:pb-0">
@@ -533,9 +570,9 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : !reviewsLoadError ? (
                 <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('service_reviews_empty_desc')}</p>
-              )}
+              ) : null}
             </section>
           </div>
 
@@ -560,7 +597,9 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                 </div>
               )}
               <div className="service-order-card__body">
-                <p className="service-order-card__label">{t('starting_at')}</p>
+                <p className="service-order-card__label">
+                  {packages.length > 1 ? t(selectedPackage.labelKey) : t('package_basic')}
+                </p>
                 <p className="service-price-lg">
                   {formatPrice(selectedPackage?.price ?? service.price)}
                 </p>
@@ -631,35 +670,23 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   </Button>
                 </div>
               )}
-              {!isLoggedIn && !isOwnService && (
-                <div className="service-seller-contact space-y-2">
-                  <Button
-                    variant="primary"
-                    size="md"
-                    className="min-h-11 w-full"
-                    onClick={() => router.push(loginPath(`/services/${serviceId}`))}
-                  >
-                    {t('login')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="md"
-                    className="min-h-11 w-full"
-                    onClick={() => router.push(PATHS.register)}
-                  >
-                    {t('register')}
-                  </Button>
-                </div>
-              )}
             </div>
           </aside>
         </div>
 
-        {related.length > 0 && (
+        {(related.length > 0 || relatedLoadError != null) && (
           <section className="related-services-section">
             <div className="related-services-section__head">
               <h2 className="related-services-section__title">{t('related_services_title')}</h2>
             </div>
+            {relatedLoadError ? (
+              <LoadErrorAlert
+                error={relatedLoadError}
+                scope="services"
+                onRetry={loadRelated}
+                className="mb-4"
+              />
+            ) : null}
             <div className="related-services-grid">
               {related.map((svc) => (
                 <ServiceCard
@@ -696,26 +723,17 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       />
 
       <div className="mobile-sticky-cta show-mobile">
-        <button
-          type="button"
-          onClick={() => router.push(freelancerPath(service.freelancer_id))}
-          className="flex min-w-0 max-w-[40%] items-center gap-2 text-left"
-        >
-          <Avatar name={freelancerName} size={36} verified={service.profiles?.is_verified} />
-          <div className="min-w-0">
-            <p className="truncate text-[12px] font-semibold text-[var(--ishbor-text)]">{freelancerName}</p>
-            {serviceReviews > 0 && <RatingStars rating={serviceRating} size="sm" />}
-          </div>
-        </button>
-        <div className="flex shrink-0 flex-col items-end">
-          <span className="text-[11px] text-[var(--ishbor-text-muted)]">{t('starting_at')}</span>
-          <span className="text-[16px] font-bold tabular-nums text-[var(--ishbor-text)]">
+        <div className="service-mobile-bar__price">
+          <span className="service-mobile-bar__label">
+            {packages.length > 1 ? t(selectedPackage.labelKey) : t('package_basic')}
+          </span>
+          <span className="service-mobile-bar__amount">
             {formatPrice(selectedPackage?.price ?? service.price)}
           </span>
         </div>
         {isOwnService ? (
-          <Link href={PATHS.dashboardServiceEdit(service.id)} className="shrink-0">
-            <Button variant="primary" size="md" className="ishbor-order-cta !w-auto px-5">
+          <Link href={PATHS.dashboardServiceEdit(service.id)} className="service-mobile-bar__cta">
+            <Button variant="primary" size="md" className="ishbor-order-cta w-full">
               {t('edit_service')}
             </Button>
           </Link>
@@ -726,7 +744,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
             onClick={handleOrder}
             disabled={ordering}
             loading={ordering}
-            className="ishbor-order-cta shrink-0 !w-auto px-5"
+            className="ishbor-order-cta service-mobile-bar__cta"
           >
             {t('order_secure_cta')}
           </Button>

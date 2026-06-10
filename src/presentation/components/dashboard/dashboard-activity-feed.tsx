@@ -11,6 +11,7 @@ import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { useMergedActivityFeed, type FeedKind } from '@/shared/lib/use-merged-activity-feed'
 import { PATHS } from '@/domain/constants/routes'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 
 const KIND_ICON: Record<FeedKind, LucideIcon> = {
   activity: Package,
@@ -29,7 +30,18 @@ const KIND_CLASS: Record<FeedKind, string> = {
 export function DashboardActivityFeed({ className, limit = 10 }: { className?: string; limit?: number }) {
   const { t, language } = useApp()
   const router = useRouter()
-  const { items, loading } = useMergedActivityFeed(t, limit)
+  const { items, loading, error, loadError, reload } = useMergedActivityFeed(t, limit)
+
+  if (error) {
+    return (
+      <LoadErrorAlert
+        error={loadError}
+        scope="dashboard"
+        onRetry={reload}
+        className={className}
+      />
+    )
+  }
 
   if (loading) {
     return (

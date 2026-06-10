@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import { t, type Language, type TranslationKey } from '@/infrastructure/i18n'
@@ -6,6 +6,7 @@ import { isSupabaseConfigured, getSupabase } from '@/infrastructure/supabase/cli
 import { clearAuthCache, getCachedSession, updateCachedSessionToken } from '@/infrastructure/auth/session-cache'
 import { clearCachedProfile, readCachedProfile, writeCachedProfile } from '@/infrastructure/auth/profile-cache'
 import { api } from '@/infrastructure/api/client'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { ApiProfile } from '@/infrastructure/api/types'
 
 type UserRole = 'freelancer' | 'client'
@@ -26,7 +27,7 @@ function roleFromProfile(profile: ApiProfile | null | undefined): UserRole {
 }
 export interface AppContextType {
   currentUserRole: 'freelancer' | 'client'
-  setCurrentUserRole: (role: 'freelancer' | 'client') => void
+  setCurrentUserRole: (role: 'freelancer' | 'client') => Promise<void>
   theme: 'light' | 'dark'
   setTheme: (theme: 'light' | 'dark') => void
   language: Language
@@ -119,15 +120,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     clearAuthCache()
-    const [{ clearDashboardHomeCache }, { clearMergedActivityFeedCache }, { clearDashboardSummaryCache }] =
-      await Promise.all([
-        import('@/shared/lib/use-dashboard-home'),
-        import('@/shared/lib/use-merged-activity-feed'),
-        import('@/shared/lib/dashboard-summary-cache'),
-      ])
-    clearDashboardHomeCache(userId ?? undefined)
-    clearDashboardSummaryCache()
-    clearMergedActivityFeedCache()
+    try {
+      const [{ clearDashboardHomeCache }, { clearMergedActivityFeedCache }, { clearDashboardSummaryCache }] =
+        await Promise.all([
+          import('@/shared/lib/use-dashboard-home'),
+          import('@/shared/lib/use-merged-activity-feed'),
+          import('@/shared/lib/dashboard-summary-cache'),
+        ])
+      clearDashboardHomeCache(userId ?? undefined)
+      clearDashboardSummaryCache()
+      clearMergedActivityFeedCache()
+    } catch {
+      /* cache tozalash xatosi chiqishni bloklamasin */
+    }
     clearCachedProfile()
     if (isSupabaseConfigured()) {
       const supabase = getSupabase()
@@ -171,6 +176,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const supabase = getSupabase()
 
     const syncSession = async () => {
+      const authTimeout = window.setTimeout(() => {
+        setIsAuthLoading(false)
+      }, 10_000)
+
       try {
         const session = await getCachedSession()
         if (session) {
@@ -178,7 +187,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setUserId(session.userId)
           if (!profileRef.current) {
             setTimeout(() => {
-              refreshProfile().catch(() => {})
+              refreshProfile().catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }))
             }, 0)
           }
         } else {
@@ -189,6 +198,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsLoggedIn(false)
         setUserId(null)
       } finally {
+        window.clearTimeout(authTimeout)
         setIsAuthLoading(false)
       }
     }
@@ -196,16 +206,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     syncSession()
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'TOKEN_REFRESHED') {
-        if (session?.access_token && session.user) {
-          updateCachedSessionToken(
-            session.access_token,
-            session.expires_at ?? 0,
-            session.user.id,
-          )
-        }
-        return
+      if (session?.access_token && session.user) {
+        updateCachedSessionToken(
+          session.access_token,
+          session.expires_at ?? 0,
+          session.user.id,
+        )
       }
+
+      if (event === 'TOKEN_REFRESHED') return
 
       setIsLoggedIn(Boolean(session))
       setUserId(session?.user.id ?? null)
@@ -218,13 +227,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (shouldRefresh) {
         if (event === 'SIGNED_IN') {
-          clearAuthCache()
           import('@/infrastructure/api/client').then(({ api }) => {
-            api.auditLogin().catch(() => undefined)
+            api.auditLogin().catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: '/api/v1/platform/audit/login' }))
           })
         }
         setTimeout(() => {
-          refreshProfile().catch(() => {})
+          refreshProfile().catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }))
         }, 0)
       } else if (!session) {
         clearAuthCache()
@@ -245,24 +253,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.remove('dark')
     }
     if (userId) {
-      api.updateUiPreferences({ theme: newTheme }).catch(() => undefined)
+      api.updateUiPreferences({ theme: newTheme }).catch((e) =>
+        ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/ui-preferences' })
+      )
     }
   }, [userId])
 
   const setRole = useCallback(
-    (role: UserRole) => {
+    async (role: UserRole) => {
       if (role === activeRoleRef.current) return
+      const previous = activeRoleRef.current
+      if (!userId) {
+        persistRole(role)
+        setProfile((prev) => (prev ? { ...prev, role } : prev))
+        return
+      }
       persistRole(role)
       setProfile((prev) => (prev ? { ...prev, role } : prev))
-      if (!userId) return
-      void api
-        .updateProfileRole(role)
-        .then((updated) => {
-          setProfile({ ...updated, role })
-        })
-        .catch(() => {
-          // UI roli saqlanadi — client action oldidan ensureProfileRole qayta sinxronlaydi
-        })
+      try {
+        const updated = await api.updateProfileRole(role)
+        setProfile({ ...updated, role })
+      } catch (e) {
+        persistRole(previous)
+        setProfile((prev) => (prev ? { ...prev, role: previous } : prev))
+        ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/role' })
+        throw e
+      }
     },
     [persistRole, userId],
   )
@@ -271,7 +287,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLanguage(lang)
     localStorage.setItem('language', lang)
     if (userId) {
-      api.updateUiPreferences({ language: lang }).catch(() => undefined)
+      api.updateUiPreferences({ language: lang }).catch((e) =>
+        ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/ui-preferences' })
+      )
     }
   }, [userId])
 

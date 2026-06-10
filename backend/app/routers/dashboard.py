@@ -1,5 +1,7 @@
 """Dashboard batch endpointlar — HTTP va DB so'rovlarini kamaytirish."""
 
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase_admin
@@ -30,17 +32,23 @@ def _notification_unread_count(supabase, user_id: str) -> int:
 
 
 def _build_badges(supabase, user_id: str) -> dict:
-    msg_result = run_query(
-        lambda: supabase.table("messages")
-        .select("id", count="exact")
-        .eq("receiver_id", user_id)
-        .is_("read_at", "null")
-        .execute()
-    )
-    return {
-        "message_unread": int(msg_result.count or 0),
-        "notification_unread": _notification_unread_count(supabase, user_id),
-    }
+    def _message_unread() -> int:
+        result = run_query(
+            lambda: supabase.table("messages")
+            .select("id", count="exact")
+            .eq("receiver_id", user_id)
+            .is_("read_at", "null")
+            .execute()
+        )
+        return int(result.count or 0)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        msg_future = pool.submit(_message_unread)
+        notif_future = pool.submit(_notification_unread_count, supabase, user_id)
+        return {
+            "message_unread": msg_future.result(),
+            "notification_unread": notif_future.result(),
+        }
 
 
 def _build_badges_auth(auth: UserAuthDep) -> dict:
@@ -51,30 +59,33 @@ def _build_home(auth: UserAuthDep, role: str) -> dict:
     user_id = auth.user_id
     supabase = auth.supabase
 
-    orders_result = run_query(
-        lambda: supabase.table("orders")
-        .select("*, services(title, category)")
-        .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
-        .order("created_at", desc=True)
-        .limit(50)
-        .execute()
-    )
-    orders = orders_result.data or []
+    def _orders() -> list[dict]:
+        result = run_query(
+            lambda: supabase.table("orders")
+            .select("*, services(title, category)")
+            .or_(f"client_id.eq.{user_id},freelancer_id.eq.{user_id}")
+            .order("created_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+        return result.data or []
 
-    services: list[dict] = []
-    if role == "freelancer":
-        svc_result = run_query(
+    def _services() -> list[dict]:
+        if role != "freelancer":
+            return []
+        result = run_query(
             lambda: supabase.table("services")
             .select("*")
             .eq("freelancer_id", user_id)
             .order("created_at", desc=True)
             .execute()
         )
-        services = svc_result.data or []
+        return result.data or []
 
-    projects: list[dict] = []
-    if role == "client":
-        proj_result = run_query(
+    def _projects() -> list[dict]:
+        if role != "client":
+            return []
+        result = run_query(
             lambda: supabase.table("projects")
             .select("*")
             .eq("client_id", user_id)
@@ -82,22 +93,34 @@ def _build_home(auth: UserAuthDep, role: str) -> dict:
             .limit(50)
             .execute()
         )
-        projects = proj_result.data or []
+        return result.data or []
+
+    def _reputation() -> dict | None:
+        result = run_query(
+            lambda: supabase.table("user_reputation")
+            .select("*")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        orders_future = pool.submit(_orders)
+        role_data_future = pool.submit(_services if role == "freelancer" else _projects)
+        reputation_future = pool.submit(_reputation)
+        orders = orders_future.result()
+        role_data = role_data_future.result()
+        reputation = reputation_future.result()
+
+    services = role_data if role == "freelancer" else []
+    projects = role_data if role == "client" else []
 
     review_stats = {"average": 0.0, "count": 0}
     if role == "freelancer":
         stats_map = batch_review_stats(supabase, [user_id])
         avg, count = stats_map.get(user_id, (0.0, 0))
         review_stats = {"average": avg, "count": count}
-
-    rep_result = run_query(
-        lambda: supabase.table("user_reputation")
-        .select("*")
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
-    reputation = rep_result.data[0] if rep_result.data else None
 
     return {
         "orders": orders,
@@ -146,8 +169,11 @@ def dashboard_summary(
 ):
     """Bitta so'rov: profil, wallet, home stats, badge countlar, review stats."""
     profile = auth.profile
-    home = _build_home(auth, role)
-    badges = _build_badges(auth.supabase, auth.user_id)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        home_future = pool.submit(_build_home, auth, role)
+        badges_future = pool.submit(_build_badges, auth.supabase, auth.user_id)
+        home = home_future.result()
+        badges = badges_future.result()
     return {
         "profile": profile,
         "wallet_balance": profile.get("wallet_balance") or 0,

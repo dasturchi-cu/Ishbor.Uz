@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { api } from '@/infrastructure/api/client'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { useFormDraft } from '@/shared/lib/use-form-draft'
 
 /** Hybrid draft: localStorage (instant) + Supabase (cross-device recovery) */
@@ -41,14 +42,16 @@ export function useServerDraft<T extends object>(
         }
         onRemoteRestoreRef.current?.(remote.payload as T)
       })
-      .catch(() => undefined)
+      .catch((e) => ignoreWithLog(e, { scope: 'generic', apiPath: `/api/v1/platform/drafts/${draftKey}` }))
   }, [draftKey, enabled])
 
   useEffect(() => {
     if (!enabled) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      api.saveDraft(draftKey, value as Record<string, unknown>).catch(() => undefined)
+      api
+        .saveDraft(draftKey, value as Record<string, unknown>)
+        .catch((e) => ignoreWithLog(e, { scope: 'generic', apiPath: `/api/v1/platform/drafts/${draftKey}` }))
     }, 1500)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -57,7 +60,9 @@ export function useServerDraft<T extends object>(
 
   const clear = useCallback(() => {
     local.clear()
-    api.deleteDraft(draftKey).catch(() => undefined)
+    api
+      .deleteDraft(draftKey)
+      .catch((e) => ignoreWithLog(e, { scope: 'generic', apiPath: `/api/v1/platform/drafts/${draftKey}` }))
   }, [draftKey, local])
 
   return { hydrate, clear }

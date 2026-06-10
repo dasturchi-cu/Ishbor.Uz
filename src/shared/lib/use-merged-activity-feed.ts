@@ -164,7 +164,7 @@ export function useMergedActivityFeed(t: (key: TranslationKey) => string, limit 
 
     queryFn: wrapQueryFn(
       'activity-feed',
-      () => api.getActivityFeed(limit).catch(() => []),
+      () => api.getActivityFeed(limit),
       { queryKey: `activity-feed:${limit}` }
     ),
     enabled: ready && authed && Boolean(userId),
@@ -189,6 +189,10 @@ export function useMergedActivityFeed(t: (key: TranslationKey) => string, limit 
     items,
 
     loading: query.isLoading,
+
+    error: query.isError,
+
+    loadError: query.error ?? null,
 
     reload: () => void query.refetch(),
 

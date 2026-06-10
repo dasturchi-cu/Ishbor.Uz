@@ -6,6 +6,7 @@ import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import { parseChatStorageRef } from '@/shared/lib/chat-storage-ref'
 import { isAllowedExternalUrl } from '@/shared/lib/safe-url'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 function messageAttachmentUrl(content: string): string | null {
   const match = content.match(/https?:\/\/\S+/i)
@@ -42,7 +43,8 @@ export function ChatAttachmentContent({ content }: { content: string }) {
       .then((res) => {
         if (!cancelled) setResolvedUrl(res.url)
       })
-      .catch(() => {
+      .catch((e) => {
+        ignoreWithLog(e, { scope: 'messages', apiPath: '/api/v1/storage/signed-url' })
         if (!cancelled) setResolvedUrl(null)
       })
       .finally(() => {

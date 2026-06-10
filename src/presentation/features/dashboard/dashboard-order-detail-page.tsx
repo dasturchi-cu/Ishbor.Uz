@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -13,7 +13,6 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { OrderProgressStepper } from '@/presentation/components/features/order-progress-stepper'
-import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { ReviewModal } from '@/presentation/components/features/review-modal'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { api } from '@/infrastructure/api/client'
@@ -24,14 +23,16 @@ import { dashboardDispute, PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { PaymentCheckoutFlow } from '@/presentation/components/features/payment-checkout-flow'
 import { usePaymentCheckout } from '@/shared/lib/use-payment-checkout'
-import type { TranslationKey } from '@/infrastructure/i18n'
+import type { Language, TranslationKey } from '@/infrastructure/i18n'
 import { formatDate } from '@/shared/lib/format-date'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 import { toast } from '@/presentation/components/ui/toast'
-import { MessageCircle, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, MessageCircle, Shield, ShoppingBag } from 'lucide-react'
 import { orderNextStepHintKey } from '@/shared/lib/order-next-step'
 import { OrderReceiptCard } from '@/presentation/components/features/order-receipt-card'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { ignoreWithLog, loadOptional } from '@/shared/lib/ignore-with-log'
+import { captureActionError } from '@/shared/lib/action-error'
 
 const NEXT_STATUS: Record<string, Record<string, string>> = {
   freelancer: { pending: 'active', active: 'delivered' },
@@ -52,15 +53,194 @@ const DISPUTE_STATUS_KEYS: Record<string, TranslationKey> = {
   closed: 'dispute_status_closed',
 }
 
+type OrderRole = 'client' | 'freelancer'
+
 function disputeStatusLabel(status: string, t: (key: TranslationKey) => string): string {
   const key = DISPUTE_STATUS_KEYS[status]
   return key ? t(key) : status
+}
+
+function packageLabelFor(order: ApiOrder, t: (key: TranslationKey) => string): string {
+  if (order.package_id === 'premium') return t('package_premium')
+  if (order.package_id === 'standard') return t('package_standard')
+  return t('package_basic')
+}
+
+function OrderDetailSkeleton() {
+  return (
+    <div className="od-page">
+      <div className="h-5 w-32 animate-pulse rounded bg-[var(--color-bg-muted)]" />
+      <div className="mt-4 h-8 w-2/3 max-w-md animate-pulse rounded bg-[var(--color-bg-muted)]" />
+      <div className="mt-2 h-4 w-40 animate-pulse rounded bg-[var(--color-bg-muted)]" />
+      <div className="mt-6 h-14 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+      <div className="od-grid mt-6">
+        <div className="space-y-4">
+          <div className="h-40 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+          <div className="h-28 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+        </div>
+        <div className="hide-mobile h-64 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+      </div>
+    </div>
+  )
+}
+
+function OrderDetailBack({ t }: { t: (key: TranslationKey) => string }) {
+  return (
+    <Link href={PATHS.dashboardOrders} className="od-back">
+      <ArrowLeft className="h-4 w-4" aria-hidden />
+      {t('nav_orders')}
+    </Link>
+  )
+}
+
+function OrderDetailHeader({
+  order,
+  language,
+  t,
+}: {
+  order: ApiOrder
+  language: Language
+  t: (key: TranslationKey) => string
+}) {
+  const serviceTitle = order.services?.title ?? t('nav_orders')
+
+  return (
+    <header className="od-header">
+      <div className="od-header__main">
+        <h1 className="od-header__title">{serviceTitle}</h1>
+        <p className="od-header__meta">
+          {t('order_number').replace('{n}', order.id.slice(0, 8))}
+          {order.created_at ? ` · ${formatDate(order.created_at, language)}` : ''}
+        </p>
+      </div>
+      <div className="od-header__badges">
+        <OrderStatusBadge status={order.status} />
+        <PaymentStatusBadge status={order.payment_status} />
+      </div>
+    </header>
+  )
+}
+
+const OrderDetailFocus = forwardRef<
+  HTMLElement,
+  {
+    id?: string
+    headline: string
+    amount?: string
+    meta?: string
+    children: ReactNode
+    footer?: ReactNode
+  }
+>(function OrderDetailFocus({ id, headline, amount, meta, children, footer }, ref) {
+  return (
+    <section ref={ref} id={id} className="od-focus" aria-live="polite">
+      <p className="od-focus__headline">{headline}</p>
+      {amount ? <p className="od-focus__amount">{amount}</p> : null}
+      {meta ? <p className="od-focus__meta">{meta}</p> : null}
+      <div className="od-focus__body">{children}</div>
+      {footer ? <div className="od-focus__footer">{footer}</div> : null}
+    </section>
+  )
+})
+
+function OrderDetailAside({
+  order,
+  role,
+  otherName,
+  packageLabel,
+  transactions,
+  orderDispute,
+  t,
+}: {
+  order: ApiOrder
+  role: OrderRole
+  otherName: string
+  packageLabel: string
+  transactions: ApiTransaction[]
+  orderDispute: ApiDispute | null
+  t: (key: TranslationKey) => string
+}) {
+  const escrowNote =
+    process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true'
+      ? t('commission_escrow_note')
+      : t('payment_protected_note')
+
+  return (
+    <aside className="od-aside">
+      <div className="od-aside-card">
+        <p className="od-aside-label">{role === 'client' ? t('freelancer') : t('role_client_label')}</p>
+        <div className="od-aside-person">
+          <Avatar name={otherName} size={48} />
+          <p className="od-aside-person__name">{otherName}</p>
+        </div>
+        <Link href={`${PATHS.dashboardMessages}?order=${order.id}`} className="mt-3 block">
+          <Button variant="outline" fullWidth size="sm" leftIcon={<MessageCircle className="h-4 w-4" />}>
+            {t('send_message')}
+          </Button>
+        </Link>
+      </div>
+
+      <div className="od-aside-card od-aside-card--summary">
+        <p className="od-aside-label">{t('project_budget')}</p>
+        <p className="od-aside-price">{formatPrice(order.amount)}</p>
+        <p className="od-aside-meta">{packageLabel}</p>
+        {order.payment_status === 'held' && (
+          <p className="od-aside-escrow">
+            <Shield className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {t('why_escrow')}
+          </p>
+        )}
+      </div>
+
+      {order.payment_status === 'held' && (
+        <div className="od-aside-card od-aside-card--trust">
+          <p className="od-aside-trust__title">{t('landing_buyer_protection')}</p>
+          <p className="od-aside-trust__text">{escrowNote}</p>
+          <Link href={PATHS.buyerProtection} className="od-aside-trust__link">
+            {t('landing_buyer_protection')} →
+          </Link>
+        </div>
+      )}
+
+      {transactions.length > 0 && (
+        <div className="od-aside-card">
+          <p className="od-aside-label">{t('payment_timeline')}</p>
+          <ul className="od-timeline">
+            {transactions.map((tx) => (
+              <li key={tx.id} className="od-timeline__row">
+                <span>{transactionTypeLabel(tx.type, t)}</span>
+                <span>{formatPrice(tx.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {order.status === 'disputed' && orderDispute && (
+        <div className="od-aside-card">
+          <p className="od-aside-label">{t('dispute_progress_label')}</p>
+          <p className="text-[13px] font-medium text-[var(--ishbor-text)]">
+            {disputeStatusLabel(orderDispute.status, t)}
+          </p>
+          <Link href={dashboardDispute(orderDispute.id)} className="od-aside-trust__link mt-2">
+            {t('dispute_view_details')} →
+          </Link>
+        </div>
+      )}
+
+      {(order.payment_status === 'held' || order.payment_status === 'released') && role === 'client' && (
+        <OrderReceiptCard orderId={order.id} />
+      )}
+    </aside>
+  )
 }
 
 export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   const { t, language, profile, refreshProfile } = useApp()
   const role = useDashboardRole()
   const router = useRouter()
+  const focusRef = useRef<HTMLElement>(null)
+
   const [order, setOrder] = useState<ApiOrder | null>(null)
   const [updating, setUpdating] = useState(false)
   const [walletPaying, setWalletPaying] = useState(false)
@@ -73,6 +253,7 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   const [transactions, setTransactions] = useState<ApiTransaction[]>([])
   const [orderReview, setOrderReview] = useState<ApiReview | null>(null)
   const [orderDispute, setOrderDispute] = useState<ApiDispute | null>(null)
+  const [partialLoadError, setPartialLoadError] = useState(false)
   const disputeDialogRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(disputeOpen, disputeDialogRef)
@@ -85,19 +266,41 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
     loadError: orderFetchError,
     reload: reloadOrder,
   } = useProtectedLoader(async () => {
-    const [ord, tx] = await Promise.all([
-      api.getOrder(orderId).catch(() => null),
-      api.listOrderTransactions(orderId).catch(() => [] as ApiTransaction[]),
-    ])
+    const ord = await api.getOrder(orderId)
+    let partialFailed = false
+    const txRes = await loadOptional(
+      () => api.listOrderTransactions(orderId),
+      [] as ApiTransaction[],
+      { scope: 'payments', apiPath: `/api/v1/orders/${orderId}/transactions` }
+    )
+    partialFailed ||= txRes.failed
     let review: ApiReview | null = null
-    if (ord?.status === 'completed' && role === 'client') {
-      review = await api.getReviewForOrder(orderId).catch(() => null)
+    if (ord.status === 'completed' && role === 'client') {
+      const reviewRes = await loadOptional(
+        () => api.getReviewForOrder(orderId),
+        null,
+        { scope: 'reviews', apiPath: `/api/v1/reviews/order/${orderId}` }
+      )
+      review = reviewRes.value
+      partialFailed ||= reviewRes.failed
     }
     let dispute: ApiDispute | null = null
-    if (ord?.status === 'disputed') {
-      dispute = await api.getDisputeForOrder(orderId).catch(() => null)
+    if (ord.status === 'disputed') {
+      const disputeRes = await loadOptional(
+        () => api.getDisputeForOrder(orderId),
+        null,
+        { scope: 'orders', apiPath: `/api/v1/disputes/order/${orderId}` }
+      )
+      dispute = disputeRes.value
+      partialFailed ||= disputeRes.failed
     }
-    return { order: ord, transactions: tx, orderReview: review, orderDispute: dispute }
+    return {
+      order: ord,
+      transactions: txRes.value,
+      orderReview: review,
+      orderDispute: dispute,
+      partialFailed,
+    }
   }, [orderId, role])
 
   useEffect(() => {
@@ -106,15 +309,8 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
     setTransactions(orderData.transactions)
     setOrderReview(orderData.orderReview)
     setOrderDispute(orderData.orderDispute)
+    setPartialLoadError(orderData.partialFailed)
   }, [orderData])
-
-  const otherName =
-    role === 'freelancer'
-      ? order?.client_profile?.full_name ?? t('value_not_available')
-      : order?.freelancer_profile?.full_name ?? t('value_not_available')
-
-  const nextStatus = order ? NEXT_STATUS[role]?.[order.status] : undefined
-  const actionKey = order ? ACTION_LABEL[role]?.[order.status] : undefined
 
   const resolveCheckoutError = (msg: string) => {
     if (!msg) return ''
@@ -147,13 +343,18 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
     try {
       const updated = await api.updateOrderStatus(order.id, 'disputed', { disputeReason: reason })
       setOrder(updated)
-      const dispute = await api.getDisputeForOrder(order.id).catch(() => null)
-      setOrderDispute(dispute)
+      const disputeRes = await loadOptional(
+        () => api.getDisputeForOrder(order.id),
+        null,
+        { scope: 'orders', apiPath: `/api/v1/disputes/order/${order.id}` }
+      )
+      setOrderDispute(disputeRes.value)
+      if (disputeRes.failed) setPartialLoadError(true)
       setDisputeOpen(false)
       setDisputeReason('')
       toast.success(t('dispute_opened'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('error_required'))
+      setError(captureActionError(e, { scope: 'generic', action: 'open_dispute' }, t))
     } finally {
       setDisputing(false)
     }
@@ -172,7 +373,9 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
   }
 
   const handleStatus = async () => {
-    if (!order || !nextStatus) return
+    if (!order) return
+    const nextStatus = NEXT_STATUS[role]?.[order.status]
+    if (!nextStatus) return
     setUpdating(true)
     setError('')
     try {
@@ -230,16 +433,12 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
     }
   }
 
-  const walletBalance = profile?.wallet_balance ?? 0
-  const canPayFromWallet =
-    role === 'client' &&
-    order != null &&
-    order.status === 'pending' &&
-    order.payment_status !== 'held' &&
-    walletBalance >= order.amount
+  const scrollToFocus = () => {
+    focusRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   if (loading) {
-    return <div className="h-48 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+    return <OrderDetailSkeleton />
   }
 
   if (orderLoadFailed && !order) {
@@ -265,284 +464,292 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
     )
   }
 
-  const packageLabel =
-    order.package_id === 'premium'
-      ? t('package_premium')
-      : order.package_id === 'standard'
-        ? t('package_standard')
-        : t('package_basic')
+  const otherName =
+    role === 'freelancer'
+      ? order.client_profile?.full_name ?? t('value_not_available')
+      : order.freelancer_profile?.full_name ?? t('value_not_available')
+
+  const packageLabel = packageLabelFor(order, t)
+  const hintKey = orderNextStepHintKey(role, order.status, order.payment_status)
+  const headline = hintKey ? t(hintKey) : t('nav_orders')
+  const serviceTitle = order.services?.title ?? t('nav_orders')
+  const amountLabel = formatPrice(order.amount)
+  const metaLine = `${serviceTitle} · ${packageLabel}`
+
+  const needsPayment =
+    role === 'client' && order.status === 'pending' && order.payment_status !== 'held'
+  const walletBalance = profile?.wallet_balance ?? 0
+  const canPayFromWallet = needsPayment && walletBalance >= order.amount
+
+  const actionKey = ACTION_LABEL[role]?.[order.status]
+  const showStatusAction =
+    Boolean(actionKey) &&
+    !(role === 'freelancer' && order.status === 'active') &&
+    !(role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held') &&
+    !(role === 'client' && order.status === 'pending' && order.payment_status === 'held')
+
+  const isDeliverPhase = role === 'freelancer' && order.status === 'active'
+  const isWaitPaymentFreelancer =
+    role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held'
+  const showReviewCta = role === 'client' && order.status === 'completed' && !orderReview
+
+  const renderFocusPrimary = (fullWidth: boolean) => {
+    if (needsPayment) {
+      if (canPayFromWallet) {
+        return (
+          <Button
+            variant="primary"
+            fullWidth={fullWidth}
+            size="lg"
+            loading={walletPaying}
+            onClick={() => void handlePayFromWallet()}
+          >
+            {t('pay_from_wallet')} · {amountLabel}
+          </Button>
+        )
+      }
+      return (
+        <PaymentCheckoutFlow
+          phase={checkoutPhase}
+          provider={checkoutProvider}
+          isBusy={paying}
+          amountLabel={amountLabel}
+          onPay={handlePay}
+          onRetry={retryCheckout}
+        />
+      )
+    }
+
+    if (isDeliverPhase) {
+      return (
+        <Button variant="primary" fullWidth={fullWidth} size="lg" loading={updating} onClick={() => void handleStatus()}>
+          {t('mark_delivered')}
+        </Button>
+      )
+    }
+
+    if (showReviewCta) {
+      return (
+        <Button variant="primary" fullWidth={fullWidth} size="lg" onClick={() => setShowReview(true)}>
+          {t('leave_review')}
+        </Button>
+      )
+    }
+
+    if (showStatusAction && actionKey) {
+      return (
+        <Button variant="primary" fullWidth={fullWidth} size="lg" loading={updating} onClick={() => void handleStatus()}>
+          {t(actionKey)}
+        </Button>
+      )
+    }
+
+    return null
+  }
+
+  const focusPrimary = renderFocusPrimary(true)
+  const showFocusCard =
+    Boolean(focusPrimary) ||
+    isWaitPaymentFreelancer ||
+    needsPayment ||
+    isDeliverPhase ||
+    showReviewCta ||
+    showStatusAction ||
+    (Boolean(hintKey) && order.status === 'pending' && order.payment_status === 'held' && role === 'client')
+
+  const renderMobilePrimary = () => {
+    if (needsPayment && canPayFromWallet) {
+      return (
+        <Button variant="primary" className="flex-1" size="md" loading={walletPaying} onClick={() => void handlePayFromWallet()}>
+          {t('payment_pay_now')}
+        </Button>
+      )
+    }
+    if (needsPayment) {
+      return (
+        <Button variant="primary" className="flex-1" size="md" onClick={scrollToFocus}>
+          {t('payment_pay_now')}
+        </Button>
+      )
+    }
+    if (isDeliverPhase) {
+      return (
+        <Button variant="primary" className="flex-1" size="md" loading={updating} onClick={() => void handleStatus()}>
+          {t('mark_delivered')}
+        </Button>
+      )
+    }
+    if (showReviewCta) {
+      return (
+        <Button variant="primary" className="flex-1" size="md" onClick={() => setShowReview(true)}>
+          {t('leave_review')}
+        </Button>
+      )
+    }
+    if (showStatusAction && actionKey) {
+      return (
+        <Button variant="primary" className="flex-1" size="md" loading={updating} onClick={() => void handleStatus()}>
+          {t(actionKey)}
+        </Button>
+      )
+    }
+    return null
+  }
+
+  const mobilePrimary = renderMobilePrimary()
+
+  const focusFooter =
+    needsPayment && !canPayFromWallet && walletBalance < order.amount ? (
+      <p className="od-focus__wallet-hint">
+        {t('payment_insufficient_balance')}{' '}
+        <Link href={PATHS.dashboardWallet}>{t('nav_wallet')}</Link>
+      </p>
+    ) : role === 'client' && order.status === 'delivered' ? (
+      <div className="od-focus__links">
+        <button type="button" className="od-text-link" disabled={updating} onClick={() => void handleRequestRevision()}>
+          {t('order_request_revision')}
+        </button>
+        <span className="od-focus__sep" aria-hidden>
+          ·
+        </span>
+        <button type="button" className="od-text-link" onClick={() => setDisputeOpen(true)}>
+          {t('open_dispute')}
+        </button>
+      </div>
+    ) : role === 'client' && order.status === 'completed' && orderReview ? (
+      <div className="od-focus__links">
+        <button type="button" className="od-text-link" onClick={() => setShowReview(true)}>
+          {t('review_edit')}
+        </button>
+        <span className="od-focus__sep" aria-hidden>
+          ·
+        </span>
+        <button type="button" className="od-text-link" onClick={() => void handleDeleteReview()}>
+          {t('review_delete')}
+        </button>
+      </div>
+    ) : undefined
 
   return (
-    <div className="grid gap-5 pb-20 md:pb-0 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="dashboard-page-title">{t('order_number').replace('{n}', order.id.slice(0, 8))}</h2>
-            <p className="text-[13px] text-[var(--ishbor-text-muted)]">
-              {order.created_at && formatDate(order.created_at, language)}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <OrderStatusBadge status={order.status} />
-            <PaymentStatusBadge status={order.payment_status} />
-          </div>
-        </div>
+    <div className="od-page">
+      <OrderDetailBack t={t} />
+      <OrderDetailHeader order={order} language={language} t={t} />
 
-        <div className="space-y-3">
-          <OrderProgressStepper status={order.status} paymentStatus={order.payment_status} />
-          <IshborProtectionStrip compact />
-        </div>
+      <div className="od-progress-wrap">
+        <OrderProgressStepper status={order.status} paymentStatus={order.payment_status} />
+      </div>
 
-        {(() => {
-          const hintKey = orderNextStepHintKey(role, order.status, order.payment_status)
-          if (!hintKey) return null
-          return (
-            <div className="rounded-xl border border-[var(--color-primary)]/25 bg-[var(--color-primary-light)]/30 px-4 py-3">
-              <p className="text-[13px] font-medium text-[var(--ishbor-text)]">{t(hintKey)}</p>
-            </div>
-          )
-        })()}
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {partialLoadError ? (
+        <Alert variant="info">{t('error_section_partial')}</Alert>
+      ) : null}
 
-        {error && <Alert variant="error">{error}</Alert>}
+      <div className="od-grid">
+        <div className="od-main">
+          {showFocusCard ? (
+            <OrderDetailFocus
+              ref={focusRef}
+              id="od-focus"
+              headline={isWaitPaymentFreelancer ? t('payment_waiting_freelancer') : headline}
+              amount={needsPayment || isDeliverPhase || showStatusAction || showReviewCta ? amountLabel : undefined}
+              meta={needsPayment || isDeliverPhase ? metaLine : undefined}
+              footer={focusFooter}
+            >
+              {isDeliverPhase ? (
+                <Textarea
+                  rows={4}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={t('deliver_notes_ph')}
+                />
+              ) : null}
+              {focusPrimary}
+            </OrderDetailFocus>
+          ) : null}
 
-        <div className="surface-panel p-4">
-          <p className="font-bold text-[var(--ishbor-text)]">{order.services?.title ?? t('nav_orders')}</p>
-          <p className="mt-2 text-[14px] font-semibold">{formatPrice(order.amount)}</p>
-          <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{packageLabel}</p>
-          {order.notes && (
-            <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
-              <span className="font-semibold text-[var(--ishbor-text)]">{t('order_notes_label')}: </span>
-              {order.notes}
-            </p>
-          )}
-          {order.delivery_notes && (
-            <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
-              <span className="font-semibold text-[var(--ishbor-text)]">{t('deliver_work')}: </span>
-              {order.delivery_notes}
-            </p>
-          )}
-          {role === 'client' && order.status === 'pending' && order.payment_status !== 'held' && (
-            <div className="mt-4 space-y-2 border-t border-[var(--ishbor-border)] pt-4">
-              <p className="text-[13px] text-[var(--ishbor-text-muted)]">{t('payment_required_hint')}</p>
-              <p className="text-[13px] font-medium text-[var(--ishbor-text)]">{t('payment_checkout_summary')}</p>
-              <Link
-                href={PATHS.buyerProtection}
-                className="inline-block text-[12px] font-semibold text-[var(--color-primary)] hover:underline"
-              >
-                {t('landing_buyer_protection')} →
-              </Link>
-              {canPayFromWallet && (
-                <div className="space-y-2 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary-light)]/20 p-3">
-                  <p className="text-[12px] text-[var(--ishbor-text-muted)]">
-                    {t('pay_from_wallet_hint')
-                      .replace('{balance}', formatPrice(walletBalance))
-                      .replace('{amount}', formatPrice(order.amount))}
-                  </p>
-                  <Button variant="primary" loading={walletPaying} onClick={() => void handlePayFromWallet()}>
-                    {t('pay_from_wallet')}
-                  </Button>
+          {(order.notes || order.delivery_notes) && (
+            <section className="od-details">
+              <h2 className="od-details__title">{t('order_notes_label')}</h2>
+              {order.notes ? (
+                <div className="od-details__block">
+                  <p className="od-details__label">{t('project_description')}</p>
+                  <p className="od-details__text">{order.notes}</p>
                 </div>
-              )}
-              {role === 'client' &&
-                order.status === 'pending' &&
-                order.payment_status !== 'held' &&
-                walletBalance < order.amount && (
-                  <p className="text-[12px] text-[var(--ishbor-text-muted)]">
-                    {t('payment_insufficient_balance')}{' '}
-                    <Link href={PATHS.dashboardWallet} className="font-medium text-primary hover:underline">
-                      {t('nav_wallet')}
-                    </Link>
-                  </p>
-                )}
-              <PaymentCheckoutFlow
-                phase={checkoutPhase}
-                provider={checkoutProvider}
-                isBusy={paying}
-                amountLabel={formatPrice(order.amount)}
-                onPay={handlePay}
-                onRetry={retryCheckout}
-              />
-            </div>
+              ) : null}
+              {order.delivery_notes ? (
+                <div className="od-details__block">
+                  <p className="od-details__label">{t('deliver_work')}</p>
+                  <p className="od-details__text">{order.delivery_notes}</p>
+                </div>
+              ) : null}
+            </section>
+          )}
+
+          {order.status === 'disputed' && (
+            <Alert variant="info">
+              <p className="font-semibold">{t('disputed')}</p>
+              {order.dispute_reason ? <p className="mt-1 text-[13px]">{order.dispute_reason}</p> : null}
+              <p className="mt-2 text-[12px] text-[var(--ishbor-text-muted)]">{t('dispute_under_review')}</p>
+            </Alert>
           )}
         </div>
 
-        {role === 'freelancer' && order.status === 'active' && (
-          <div className="surface-panel p-4">
-            <h3 className="text-[14px] font-bold">{t('deliver_work')}</h3>
-            <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('deliver_work_hint')}</p>
+        <OrderDetailAside
+          order={order}
+          role={role}
+          otherName={otherName}
+          packageLabel={packageLabel}
+          transactions={transactions}
+          orderDispute={orderDispute}
+          t={t}
+        />
+      </div>
+
+      {mobilePrimary ? (
+        <div className="od-mobile show-mobile">
+          <Link href={`${PATHS.dashboardMessages}?order=${order.id}`}>
+            <Button variant="outline" size="md" className="od-mobile__msg" aria-label={t('send_message')}>
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+          </Link>
+          {mobilePrimary}
+        </div>
+      ) : null}
+
+      {disputeOpen ? (
+        <div className="od-modal-backdrop" onClick={() => setDisputeOpen(false)}>
+          <div
+            ref={disputeDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dispute-modal-title"
+            className="od-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="dispute-modal-title" className="od-modal__title">
+              {t('open_dispute')}
+            </h3>
+            <p className="od-modal__desc">{t('dispute_reason_hint')}</p>
             <Textarea
               className="mt-3"
               rows={4}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={t('deliver_notes_ph')}
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              placeholder={t('dispute_reason_ph')}
             />
-            <Button variant="primary" className="mt-4" loading={updating} onClick={handleStatus}>
-              {t('mark_delivered')}
-            </Button>
-          </div>
-        )}
-
-        {role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held' && (
-          <Alert variant="info">{t('payment_waiting_freelancer')}</Alert>
-        )}
-
-        {actionKey &&
-          !(role === 'freelancer' && order.status === 'active') &&
-          !(role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held') && (
-          <Button variant="primary" loading={updating} onClick={handleStatus}>
-            {t(actionKey)}
-          </Button>
-        )}
-
-        {order.status === 'disputed' && (
-          <Alert variant="info">
-            <p className="text-[13px] font-semibold">{t('disputed')}</p>
-            {order.dispute_reason && <p className="mt-1 text-[13px]">{order.dispute_reason}</p>}
-            {orderDispute && (
-              <p className="mt-2 text-[13px] font-medium text-[var(--ishbor-text)]">
-                {t('dispute_progress_label')}: {disputeStatusLabel(orderDispute.status, t)}
-              </p>
-            )}
-            <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('dispute_under_review')}</p>
-            {orderDispute && (
-              <Link
-                href={dashboardDispute(orderDispute.id)}
-                className="mt-2 inline-block text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
-              >
-                {t('dispute_view_details')} →
-              </Link>
-            )}
-          </Alert>
-        )}
-
-        {role === 'client' && order.status === 'delivered' && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" loading={updating} onClick={handleRequestRevision}>
-              {t('order_request_revision')}
-            </Button>
-            <Button variant="outline" onClick={() => setDisputeOpen(true)}>
-              {t('open_dispute')}
-            </Button>
-          </div>
-        )}
-
-        {role === 'client' && order.status === 'completed' && (
-          <div className="flex flex-wrap gap-2">
-            {orderReview ? (
-              <>
-                <Button variant="outline" onClick={() => setShowReview(true)}>
-                  {t('review_edit')}
-                </Button>
-                <Button variant="outline" onClick={handleDeleteReview}>
-                  {t('review_delete')}
-                </Button>
-              </>
-            ) : (
-              <Button variant="primary" onClick={() => setShowReview(true)}>
-                {t('leave_review')}
+            <div className="od-modal__actions">
+              <Button variant="primary" loading={disputing} onClick={() => void handleDispute()}>
+                {t('confirm')}
               </Button>
-            )}
-          </div>
-        )}
-
-        {disputeOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDisputeOpen(false)}>
-            <div
-              ref={disputeDialogRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="dispute-modal-title"
-              className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 id="dispute-modal-title" className="text-[16px] font-bold">{t('open_dispute')}</h3>
-              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('dispute_reason_hint')}</p>
-              <Textarea
-                className="mt-3"
-                rows={4}
-                value={disputeReason}
-                onChange={(e) => setDisputeReason(e.target.value)}
-                placeholder={t('dispute_reason_ph')}
-              />
-              <div className="mt-4 flex gap-2">
-                <Button variant="primary" loading={disputing} onClick={handleDispute}>
-                  {t('confirm')}
-                </Button>
-                <Button variant="outline" onClick={() => setDisputeOpen(false)}>
-                  {t('cancel')}
-                </Button>
-              </div>
+              <Button variant="outline" onClick={() => setDisputeOpen(false)}>
+                {t('cancel')}
+              </Button>
             </div>
           </div>
-        )}
-      </div>
-
-      <aside className="space-y-4">
-        <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4">
-          <div className="flex items-center gap-3">
-            <Avatar name={otherName} size={40} />
-            <div>
-              <p className="font-bold">{otherName}</p>
-            </div>
-          </div>
-          <Link href={`${PATHS.dashboardMessages}?order=${order.id}`}>
-            <Button variant="outline" fullWidth className="mt-4">
-              {t('send_message')}
-            </Button>
-          </Link>
         </div>
-        {transactions.length > 0 && (
-          <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-4">
-            <p className="text-[13px] font-bold text-[var(--ishbor-text)]">{t('payment_timeline')}</p>
-            <ul className="mt-3 space-y-2">
-              {transactions.map((tx) => (
-                <li key={tx.id} className="flex items-center justify-between gap-2 text-[12px]">
-                  <span className="text-[var(--ishbor-text-muted)]">
-                    {transactionTypeLabel(tx.type, t)}
-                  </span>
-                  <span className="font-semibold">{formatPrice(tx.amount)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {order.payment_status === 'held' && (
-          <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--color-primary-light)]/30 p-4">
-            <p className="text-[13px] font-bold text-[var(--ishbor-text)]">{t('why_escrow')}</p>
-            <p className="mt-2 text-[12px] leading-relaxed text-[var(--ishbor-text-muted)]">
-              {process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true'
-                ? t('commission_escrow_note')
-                : t('payment_protected_note')}
-            </p>
-          </div>
-        )}
-        {(order.payment_status === 'held' || order.payment_status === 'released') && role === 'client' && (
-          <OrderReceiptCard orderId={order.id} />
-        )}
-        <Button variant="outline" fullWidth onClick={() => router.push(PATHS.dashboardOrders)}>
-          {t('back')}
-        </Button>
-      </aside>
+      ) : null}
 
-      <div className="order-detail-mobile-bar show-mobile fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-[var(--ishbor-border)] bg-[var(--neutral-0)]/95 p-3 backdrop-blur-md md:hidden">
-        <div className="mx-auto flex max-w-[1280px] gap-2">
-          <Link href={`${PATHS.dashboardMessages}?order=${order.id}`} className="flex-1">
-            <Button variant="outline" fullWidth size="md" leftIcon={<MessageCircle className="h-4 w-4" />}>
-              {t('send_message')}
-            </Button>
-          </Link>
-          {actionKey &&
-            !(role === 'freelancer' && order.status === 'active') &&
-            !(role === 'freelancer' && order.status === 'pending' && order.payment_status !== 'held') && (
-              <Button variant="primary" className="flex-1" size="md" loading={updating} onClick={handleStatus}>
-                {t(actionKey)}
-              </Button>
-            )}
-        </div>
-      </div>
-
-      {showReview && (
+      {showReview ? (
         <ReviewModal
           orderId={order.id}
           serviceTitle={order.services?.title}
@@ -553,10 +760,16 @@ export function DashboardOrderDetailPage({ orderId }: { orderId: string }) {
           }
           onClose={() => setShowReview(false)}
           onSubmitted={() => {
-            api.getReviewForOrder(order.id).then(setOrderReview).catch(() => setOrderReview(null))
+            void api
+              .getReviewForOrder(order.id)
+              .then(setOrderReview)
+              .catch((e) => {
+                ignoreWithLog(e, { scope: 'reviews', apiPath: `/api/v1/reviews/order/${order.id}` })
+                setOrderReview(null)
+              })
           }}
         />
-      )}
+      ) : null}
     </div>
   )
 }

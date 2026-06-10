@@ -95,7 +95,8 @@ export function MarketplacePulse({
   }, [items.length])
 
   const current = items[activeIdx] ?? items[0]
-  if (!current) return null
+  const isPlaceholderOnly = items.length === 1 && items[0]?.id === 'growing'
+  if (!current || isPlaceholderOnly) return null
 
   return (
     <div className={cn('marketplace-pulse', className)} role="status" aria-live="polite">

@@ -5,12 +5,13 @@ import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import { Receipt } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
-import { api } from '@/infrastructure/api/client'
+import { api, ApiError } from '@/infrastructure/api/client'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatPrice } from '@/shared/lib/format'
 import { formatDate } from '@/shared/lib/format-date'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureLoadError } from '@/shared/lib/load-error'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 
 const PROVIDER_KEYS: Record<string, TranslationKey> = {
   wallet: 'receipt_provider_wallet',
@@ -21,11 +22,21 @@ export function OrderReceiptCard({ orderId }: { orderId: string }) {
   const { t, language } = useApp()
   const [downloading, setDownloading] = useState(false)
 
-  const { data: receipt, loading } = useProtectedLoader(
-    () => api.getOrderReceipt(orderId).catch(() => null),
-    [orderId]
-  )
-  const missing = !loading && !receipt
+  const {
+    data: receipt,
+    loading,
+    error: receiptLoadFailed,
+    loadError: receiptFetchError,
+    reload,
+  } = useProtectedLoader(async () => {
+    try {
+      return await api.getOrderReceipt(orderId)
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null
+      throw e
+    }
+  }, [orderId])
+  const missing = !loading && !receiptLoadFailed && !receipt
 
   const providerLabel = (provider: string) => {
     const key = PROVIDER_KEYS[provider]
@@ -47,6 +58,16 @@ export function OrderReceiptCard({ orderId }: { orderId: string }) {
     } finally {
       setDownloading(false)
     }
+  }
+
+  if (receiptLoadFailed) {
+    return (
+      <LoadErrorAlert
+        error={receiptFetchError}
+        scope="orders"
+        onRetry={() => void reload()}
+      />
+    )
   }
 
   if (loading) {

@@ -1,6 +1,9 @@
 # Build artifacts
 tsconfig.tsbuildinfo
 .next/
+.dev-backend.log
+.dev-frontend.log
+.dev-pids.json
 
 # v0 sandbox internal files
 __v0_runtime_loader.js
@@ -32,6 +35,7 @@ test-results/
 playwright-report/
 blob-report/
 coverage/
+.lighthouseci/
 
 # Legacy empty dirs at repo root (Windows lock residue)
 /components/

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { UZ_REGIONS, regionSlug } from '@/domain/constants/regions'
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ishbor.uz'
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8002'
@@ -23,13 +24,17 @@ const STATIC_ROUTES = [
 
 const BLOG_SLUGS = ['freelance-boshlash', 'click-payme', 'escrow-nima']
 
+const SITEMAP_FETCH_TIMEOUT_MS = 8_000
+const SITEMAP_MAX_PAGES = 3
+
 async function fetchPaginatedIds(path: string, pageSize = 50): Promise<string[]> {
   const ids: string[] = []
   let offset = 0
-  for (let page = 0; page < 10; page += 1) {
+  for (let page = 0; page < SITEMAP_MAX_PAGES; page += 1) {
     try {
       const res = await fetch(`${API_URL}${path}?limit=${pageSize}&offset=${offset}`, {
         next: { revalidate: 3600 },
+        signal: AbortSignal.timeout(SITEMAP_FETCH_TIMEOUT_MS),
       })
       if (!res.ok) break
       const data = (await res.json()) as Array<{ id?: string }>
@@ -61,7 +66,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   async function fetchCompanySlugs(): Promise<string[]> {
     try {
-      const res = await fetch(`${API_URL}/api/v1/companies?limit=100`, { next: { revalidate: 3600 } })
+      const res = await fetch(`${API_URL}/api/v1/companies?limit=100`, {
+        next: { revalidate: 3600 },
+        signal: AbortSignal.timeout(SITEMAP_FETCH_TIMEOUT_MS),
+      })
       if (!res.ok) return []
       const data = (await res.json()) as Array<{ slug?: string }>
       return data.map((c) => c.slug).filter((slug): slug is string => Boolean(slug))
@@ -105,5 +113,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.65,
   }))
 
-  return [...staticEntries, ...blogEntries, ...serviceEntries, ...freelancerEntries, ...projectEntries, ...companyEntries]
+  const regionEntries = UZ_REGIONS.map((region) => ({
+    url: `${BASE}/regions/${regionSlug(region)}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.72,
+  }))
+
+  return [
+    ...staticEntries,
+    ...blogEntries,
+    ...regionEntries,
+    ...serviceEntries,
+    ...freelancerEntries,
+    ...projectEntries,
+    ...companyEntries,
+  ]
 }

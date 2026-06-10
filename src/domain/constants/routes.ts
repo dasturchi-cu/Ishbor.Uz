@@ -7,6 +7,8 @@ export const PATHS = {
   onboarding: '/onboarding',
   authRole: '/auth/role',
   services: '/services',
+  regions: '/regions',
+  regionLanding: (slug: string) => `/regions/${slug}`,
   createService: '/services/create',
   dashboardFreelancer: '/dashboard',
   dashboardClient: '/dashboard/client',

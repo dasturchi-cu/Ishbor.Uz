@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useApp } from '@/application/providers/app-provider'
 import { queryKeys } from '@/shared/lib/query-keys'
@@ -11,7 +12,7 @@ export function InboxRealtimeBridge() {
   const { userId, isLoggedIn } = useApp()
   const queryClient = useQueryClient()
 
-  useInboxRealtime(isLoggedIn ? userId : null, () => {
+  const onInboxChange = useCallback(() => {
     trackSupabaseRequest({
       queryName: 'invalidate:inbox-badges+messages',
       component: 'inbox-realtime-bridge',
@@ -19,7 +20,9 @@ export function InboxRealtimeBridge() {
     })
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardBadges })
     void queryClient.invalidateQueries({ queryKey: queryKeys.messagesInbox })
-  })
+  }, [queryClient])
+
+  useInboxRealtime(isLoggedIn ? userId : null, onInboxChange)
 
   return null
 }

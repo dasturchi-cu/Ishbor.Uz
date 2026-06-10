@@ -1,10 +1,11 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiProject, ApiService, ApiUserReputation } from '@/infrastructure/api/types'
+import { summaryToHomeData } from '@/shared/lib/dashboard-cache-hydrate'
 import {
   readDashboardSummaryCache,
   readDashboardSummaryCacheUpdatedAt,
@@ -27,7 +28,7 @@ export function useDashboardSummary(
   role: 'freelancer' | 'client',
   enabled = true
 ) {
-  const { mergeProfile } = useApp()
+  const { mergeProfile, profile } = useApp()
   const queryClient = useQueryClient()
 
   const cachedSummary = useMemo(
@@ -47,14 +48,7 @@ export function useDashboardSummary(
         const summary = await api.getDashboardSummary(role)
         if (userId) writeDashboardSummaryCache(userId, role, summary)
         queryClient.setQueryData(queryKeys.dashboardBadges, summary.badges)
-        queryClient.setQueryData(queryKeys.dashboardHome(role), {
-          orders: summary.orders,
-          services: summary.services,
-          projects: summary.projects,
-          reviewStats: summary.review_stats,
-          reputation: summary.reputation,
-        } satisfies DashboardHomeData)
-        mergeProfile(summary.profile)
+        queryClient.setQueryData(queryKeys.dashboardHome(role), summaryToHomeData(summary))
         return summary
       },
       { queryKey: `dashboard/summary:${role}` }
@@ -63,9 +57,17 @@ export function useDashboardSummary(
     initialData: cachedSummary,
     initialDataUpdatedAt: cachedUpdatedAt,
     staleTime: 60_000,
-    refetchOnMount: true,
+    refetchOnMount: false,
     retry: 1,
   })
+
+  useEffect(() => {
+    const wallet = data?.profile?.wallet_balance
+    if (wallet === undefined || wallet === null) return
+    if (profile?.wallet_balance !== wallet) {
+      mergeProfile({ wallet_balance: wallet })
+    }
+  }, [data?.profile?.wallet_balance, profile?.wallet_balance, mergeProfile])
 
   const invalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardSummary(role) })

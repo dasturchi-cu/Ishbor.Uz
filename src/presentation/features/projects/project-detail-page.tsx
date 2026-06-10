@@ -18,6 +18,7 @@ import { PATHS, projectPath } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { loginPath } from '@/shared/lib/auth-redirect'
 import { toast } from '@/presentation/components/ui/toast'
+import { captureActionError } from '@/shared/lib/action-error'
 import { formatDate } from '@/shared/lib/format-date'
 import { Bookmark, Briefcase } from 'lucide-react'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
@@ -99,9 +100,13 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
       router.push(loginPath(projectPath(projectId)))
       return
     }
-    const next = await toggleSavedProject(projectId)
-    setSaved(next)
-    toast.success(next ? t('saved') : t('unsave'))
+    try {
+      const next = await toggleSavedProject(projectId)
+      setSaved(next)
+      toast.success(next ? t('saved') : t('unsave'))
+    } catch (e) {
+      toast.error(captureActionError(e, { scope: 'generic', action: 'save_item' }, t))
+    }
   }
 
   const handleApply = async () => {

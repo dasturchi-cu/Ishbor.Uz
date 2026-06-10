@@ -1,5 +1,6 @@
 import { getCachedAccessToken, refreshCachedSession } from '@/infrastructure/auth/session-cache'
 import { trackRequest } from '@/shared/lib/request-debug'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { NotificationPrefs } from '@/shared/lib/notification-prefs'
 import type {
   ApiAdminStats,
@@ -42,10 +43,19 @@ import type {
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8002'
 const FETCH_TIMEOUT_MS = 20_000
+const QUICK_FETCH_TIMEOUT_MS = 18_000
 
-/** Brauzerda Next.js proxy (/api/v1 → backend) — CORS yo'q */
+type ApiFetchConfig = {
+  timeoutMs?: number
+  maxAttempts?: number
+}
+
+/**
+ * To'g'ridan FastAPI URL (NEXT_PUBLIC_API_URL).
+ * Next.js rewrite /api/v1 Turbopack dev da osilib qoladi — backend logiga so'rov tushmaydi, 408 timeout.
+ * Backend CORS dev uchun localhost:3000 ga ochiq (main.py).
+ */
 function resolveApiUrl(): string {
-  if (typeof window !== 'undefined') return ''
   return DEFAULT_API_URL
 }
 
@@ -84,7 +94,7 @@ function paymentIdempotencyHeaders(): Record<string, string> {
 }
 
 const RETRYABLE_GET_STATUSES = new Set([0, 408, 429, 503])
-const MAX_GET_ATTEMPTS = 3
+const MAX_GET_ATTEMPTS = 2
 
 async function parseApiError(res: Response, path: string): Promise<ApiError> {
   let detail = res.statusText
@@ -94,26 +104,21 @@ async function parseApiError(res: Response, path: string): Promise<ApiError> {
   } catch {
     // ignore
   }
-  if (detail === 'Internal Server Error' && res.status >= 500) {
+  if (
+    res.status >= 500 &&
+    (detail === 'Internal Server Error' || !detail || detail === res.statusText)
+  ) {
     detail = "Server xatosi. Sahifani yangilab qayta urinib ko'ring."
   }
   return new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail), res.status, path)
-}
-
-async function retryGet<T>(
-  path: string,
-  options: RequestInit,
-  attempt: number,
-  refreshAuth: boolean
-): Promise<T> {
-  return apiFetch<T>(path, options, attempt, refreshAuth)
 }
 
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
   attempt = 0,
-  refreshAuth = false
+  refreshAuth = false,
+  config: ApiFetchConfig = {},
 ): Promise<T> {
   const authHeader = await getAuthHeader(refreshAuth)
   const headers: HeadersInit = {
@@ -122,33 +127,38 @@ export async function apiFetch<T>(
     ...(options.headers ?? {}),
   }
 
+  const timeoutMs = config.timeoutMs ?? FETCH_TIMEOUT_MS
+  const maxAttempts = config.maxAttempts ?? MAX_GET_ATTEMPTS
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   const method = (options.method ?? 'GET').toUpperCase()
   const isGet = method === 'GET'
-  const canRetry = isGet && attempt < MAX_GET_ATTEMPTS - 1
+  const canRetryGet = isGet && attempt < maxAttempts - 1
+  const canRetry401 = !refreshAuth && attempt === 0
 
   trackRequest(`${method} ${path}`, { method, path })
 
   try {
+    const signal =
+      options.signal && typeof AbortSignal !== 'undefined' && 'any' in AbortSignal
+        ? AbortSignal.any([controller.signal, options.signal])
+        : options.signal ?? controller.signal
+
     const res = await fetch(`${resolveApiUrl()}${path}`, {
       ...options,
       headers,
-      signal: controller.signal,
+      signal,
     })
 
     if (!res.ok) {
       const err = await parseApiError(res, path)
-      if (canRetry) {
-        if (err.status === 401 && !refreshAuth) {
-          await refreshCachedSession()
-          await new Promise((r) => setTimeout(r, 200))
-          return retryGet<T>(path, options, attempt + 1, true)
-        }
-        if (RETRYABLE_GET_STATUSES.has(err.status)) {
-          await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
-          return retryGet<T>(path, options, attempt + 1, refreshAuth)
-        }
+      if (err.status === 401 && canRetry401) {
+        await refreshCachedSession()
+        return apiFetch<T>(path, options, attempt + 1, true, config)
+      }
+      if (canRetryGet && RETRYABLE_GET_STATUSES.has(err.status)) {
+        await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
+        return apiFetch<T>(path, options, attempt + 1, refreshAuth, config)
       }
       throw err
     }
@@ -158,18 +168,21 @@ export async function apiFetch<T>(
   } catch (e) {
     if (e instanceof ApiError) throw e
     if (e instanceof DOMException && e.name === 'AbortError') {
+      if (options.signal?.aborted && !controller.signal.aborted) {
+        throw new ApiError('Bekor qilindi', 499, path)
+      }
       const err = new ApiError("Server javob bermadi. Qayta urinib ko'ring.", 408, path)
-      if (canRetry) {
+      if (canRetryGet) {
         await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
-        return retryGet<T>(path, options, attempt + 1, refreshAuth)
+        return apiFetch<T>(path, options, attempt + 1, refreshAuth, config)
       }
       throw err
     }
     if (e instanceof TypeError && e.message.toLowerCase().includes('fetch')) {
-      const err = new ApiError('Backend ishlamayapti. Terminalda: pnpm dev:api (port 8002)', 0, path)
-      if (canRetry) {
+      const err = new ApiError('Backend ishlamayapti. Terminalda: pnpm dev:start', 0, path)
+      if (canRetryGet) {
         await new Promise((r) => setTimeout(r, 350 * (attempt + 1)))
-        return retryGet<T>(path, options, attempt + 1, refreshAuth)
+        return apiFetch<T>(path, options, attempt + 1, refreshAuth, config)
       }
       throw err
     }
@@ -221,9 +234,13 @@ export const api = {
       body: JSON.stringify({ referrer_id: referrerId }),
     }),
   getReferralStats: () => apiFetch<ApiReferralStats>('/api/v1/profiles/me/referral-stats'),
-  checkUsername: (username: string) =>
+  checkUsername: (username: string, signal?: AbortSignal) =>
     apiFetch<{ available: boolean }>(
-      `/api/v1/profiles/check-username?username=${encodeURIComponent(username)}`
+      `/api/v1/profiles/check-username?username=${encodeURIComponent(username)}`,
+      { signal },
+      0,
+      false,
+      { timeoutMs: QUICK_FETCH_TIMEOUT_MS, maxAttempts: 2 },
     ),
   getNotificationPrefs: () => apiFetch<NotificationPrefs>('/api/v1/profiles/me/notification-prefs'),
   updateNotificationPrefs: (prefs: Partial<NotificationPrefs>) =>
@@ -699,7 +716,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
-  getDisputeForOrder: (orderId: string) => apiFetch<ApiDispute>(`/api/v1/disputes/order/${orderId}`),
+  getDisputeForOrder: (orderId: string) => apiFetch<ApiDispute | null>(`/api/v1/disputes/order/${orderId}`),
   getDispute: (id: string) => apiFetch<ApiDispute>(`/api/v1/disputes/${id}`),
   listDisputeMessages: (id: string) =>
     apiFetch<ApiDisputeMessage[]>(`/api/v1/disputes/${id}/messages`),
@@ -854,7 +871,7 @@ export const api = {
     apiFetch<void>('/api/v1/platform/analytics/track', {
       method: 'POST',
       body: JSON.stringify({ event_name, properties, session_id }),
-    }).catch(() => undefined),
+    }).catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: '/api/v1/platform/analytics/track' })),
   listFeatureFlags: () => apiFetch<import('./types').ApiFeatureFlag[]>('/api/v1/platform/feature-flags'),
   getStorageSignedUrl: (bucket: string, path: string) =>
     apiFetch<{ url: string }>('/api/v1/platform/storage/signed-url', {
@@ -877,7 +894,7 @@ export const api = {
     apiFetch<void>('/api/v1/security/audit/login', {
       method: 'POST',
       body: JSON.stringify({ success, email, captcha_token }),
-    }).catch(() => undefined),
+    }).catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: '/api/v1/security/audit/login' })),
   listMySecurityEvents: (limit = 20) =>
     apiFetch<import('./types').ApiSecurityEvent[]>(`/api/v1/security/events/me?limit=${limit}`),
 

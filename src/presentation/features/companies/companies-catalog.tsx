@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Building2 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
@@ -10,18 +10,33 @@ import { isSafeExternalWebsiteUrl } from '@/shared/lib/safe-url'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { Card } from '@/presentation/components/ui/card'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+
 export function CompaniesCatalog() {
   const { t } = useApp()
   const [companies, setCompanies] = useState<ApiCompany[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
 
-  useEffect(() => {
+  const loadCompanies = useCallback(() => {
+    setLoading(true)
+    setLoadError(null)
     api
       .listCompanies({ limit: 24, featured: true })
-      .then(setCompanies)
-      .catch(() => setCompanies([]))
+      .then((rows) => {
+        setCompanies(rows)
+        setLoadError(null)
+      })
+      .catch((e) => {
+        setCompanies([])
+        setLoadError(e)
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadCompanies()
+  }, [loadCompanies])
 
   return (
     <PageWrapper>
@@ -29,9 +44,13 @@ export function CompaniesCatalog() {
         <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('companies_catalog_title')}</h1>
         <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">{t('companies_catalog_subtitle')}</p>
       </div>
+      {loadError ? (
+        <LoadErrorAlert error={loadError} scope="companies" onRetry={loadCompanies} className="mb-4" />
+      ) : null}
+
       {loading ? (
         <LoadingBlock className="py-16" />
-      ) : companies.length === 0 ? (
+      ) : loadError ? null : companies.length === 0 ? (
         <EmptyState icon={<Building2 className="h-14 w-14" />} title={t('admin_companies_empty')} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

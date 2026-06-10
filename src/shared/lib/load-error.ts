@@ -18,7 +18,23 @@ export type LoadErrorScope =
   | 'saved'
   | 'admin'
   | 'catalog'
+  | 'vacancies'
+  | 'companies'
+  | 'landing'
+  | 'contracts'
   | 'generic'
+
+const GENERIC_SERVER_MESSAGES = new Set([
+  'internal server error',
+  'server xatosi',
+  'server error',
+  'something went wrong',
+])
+
+function hasSpecificApiMessage(message: string | undefined): boolean {
+  if (!message || message.startsWith('[')) return false
+  return !GENERIC_SERVER_MESSAGES.has(message.trim().toLowerCase())
+}
 
 const SCOPE_KEYS: Record<LoadErrorScope, TranslationKey> = {
   dashboard: 'error_load_dashboard',
@@ -36,6 +52,10 @@ const SCOPE_KEYS: Record<LoadErrorScope, TranslationKey> = {
   saved: 'error_load_saved',
   admin: 'error_load_admin',
   catalog: 'error_load_catalog',
+  vacancies: 'error_load_vacancies',
+  companies: 'error_load_companies',
+  landing: 'error_load_landing',
+  contracts: 'error_load_contracts',
   generic: 'error_load_generic',
 }
 
@@ -62,9 +82,15 @@ export function resolveLoadError(
       if (scope === 'orders') return t('order_not_found_desc')
       return scoped
     }
-    if (error.status === 408 || error.status === 0) return t('error_network')
-    if (error.status >= 500) return t('error_server')
-    if (error.message && !error.message.startsWith('[')) return error.message
+    if (error.status === 408) return t('error_api_timeout')
+    if (error.status === 0) {
+      return hasSpecificApiMessage(error.message) ? error.message : t('error_network')
+    }
+    if (error.status === 400 && hasSpecificApiMessage(error.message)) return error.message
+    if (error.status >= 500) {
+      return hasSpecificApiMessage(error.message) ? error.message : t('error_server')
+    }
+    if (hasSpecificApiMessage(error.message)) return error.message
   }
 
   if (error instanceof DOMException && error.name === 'AbortError') {

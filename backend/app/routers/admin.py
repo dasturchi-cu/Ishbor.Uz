@@ -10,6 +10,8 @@ from app.schemas_pagination import PaginatedResponse
 
 from app.database import get_supabase_admin
 from app.db_utils import run_query
+from app.auth_profile_cache import invalidate_profile_guard
+from app.admin_rbac import invalidate_admin_cache
 from app.admin_enrichment import enrich_admin_users, user_ids_for_preset
 from app.deps import CurrentUserId
 from app.supabase_rpc import map_rpc_error, rpc_row
@@ -679,6 +681,8 @@ def admin_update_user(target_id: str, body: AdminUserUpdate, user_id: CurrentUse
             entity_type="user",
             entity_id=target_id,
         )
+    if "is_banned" in updates:
+        invalidate_profile_guard(target_id)
     return result.data[0]
 
 
@@ -735,6 +739,8 @@ def admin_bulk_users(body: AdminBulkUserAction, user_id: CurrentUserId):
                 entity_type="user",
                 entity_id=row["id"],
             )
+        if "is_banned" in updates or "is_suspended" in updates:
+            invalidate_profile_guard(row["id"])
     return {"updated": len(updated), "user_ids": [row["id"] for row in updated]}
 
 
@@ -1500,6 +1506,7 @@ def admin_suspend_user(target_user_id: str, body: AdminSuspendUser, user_id: Cur
         entity_type="user",
         entity_id=target_user_id,
     )
+    invalidate_profile_guard(target_user_id)
     return result.data[0]
 
 

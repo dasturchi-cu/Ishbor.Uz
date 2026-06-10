@@ -40,3 +40,8 @@ def validate_production_settings() -> None:
 
     if not settings.click_enabled and not settings.payme_enabled:
         logger.warning("Production: neither Click nor Payme is configured — checkout will fail")
+
+    if not settings.redis_url.strip():
+        logger.warning(
+            "Production: REDIS_URL is empty — rate limiting uses Postgres fallback (slower under load)"
+        )

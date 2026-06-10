@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -8,28 +8,29 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { Select } from '@/presentation/components/ui/select'
-import { Textarea } from '@/presentation/components/ui/textarea'
-import { ArrowLeft, Check, Briefcase, Users } from 'lucide-react'
+import { ArrowLeft, Briefcase, Users } from 'lucide-react'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { api } from '@/infrastructure/api/client'
 import { PATHS, dashboardPathForRole } from '@/domain/constants/routes'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
-import { cn } from '@/shared/lib/utils'
 import { signInWithGoogle } from '@/infrastructure/auth/oauth'
 import { isGoogleAuthEnabled } from '@/infrastructure/auth/google-auth'
 import { storeReferralRef, consumeReferralRef } from '@/shared/lib/referral'
 import { registerStep2Schema } from '@/domain/validators/auth'
-import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
 import { AuthBrandPanel, AuthMobileTrust } from '@/presentation/components/auth/auth-brand-panel'
+import { AuthRoleCard } from '@/presentation/components/auth/auth-role-card'
 import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallback'
 import { pickAvailableUsername } from '@/shared/lib/username'
+import { cn } from '@/shared/lib/utils'
+import { toast } from '@/presentation/components/ui/toast'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 function RegisterPageContent() {
   const { t, setCurrentUserRole, refreshProfile } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [step, setStep] = useState<1 | 2>(1)
   const [role, setRole] = useState<'freelancer' | 'client' | null>(null)
   const [formData, setFormData] = useState({
     fullName: '',
@@ -53,10 +54,6 @@ function RegisterPageContent() {
   }, [searchParams])
 
   const regionOptions = UZ_REGIONS.map((r) => ({ value: r, label: r }))
-  const specialtyOptions = KWORK_CATEGORY_ITEMS.map((item) => ({
-    value: item.cat,
-    label: t(item.labelKey),
-  }))
 
   const handleRoleSelect = (selectedRole: 'freelancer' | 'client') => {
     setRole(selectedRole)
@@ -115,26 +112,13 @@ function RegisterPageContent() {
     return false
   }
 
-  const handleNextStep = () => {
+  const handleRegisterSubmit = async () => {
     setSuccessMessage(null)
-    if (validateStep2()) setStep(3)
-  }
-
-  const validateStep3 = () => {
-    const next: Record<string, string> = {}
-    if (!formData.city.trim()) next.city = t('error_required')
-    if (role === 'freelancer' && !formData.specialty.trim()) next.specialty = t('error_required')
-    if (Object.keys(next).length > 0) {
-      setErrors(next)
-      return false
+    if (!validateStep2()) return
+    if (!formData.city.trim()) {
+      setErrors({ city: t('error_required') })
+      return
     }
-    setErrors({})
-    return true
-  }
-
-  const handleRegister = async () => {
-    setSuccessMessage(null)
-    if (!validateStep3()) return
     if (!formData.agreeTerms) {
       setErrors({ agreeTerms: t('error_agree_terms') })
       return
@@ -195,21 +179,38 @@ function RegisterPageContent() {
           if (selectedRole === 'client' && !updated.onboarding_completed) {
             destination = PATHS.onboarding
           }
-        } catch {
+        } catch (profileErr) {
           destination = PATHS.onboarding
-          await refreshProfile().catch(() => undefined)
+          toast.error(
+            profileErr instanceof Error
+              ? mapAuthErrorMessage(profileErr.message, t)
+              : t('error_profile_sync_failed')
+          )
+          await refreshProfile().catch((e) =>
+            ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' })
+          )
         }
         const ref = consumeReferralRef() ?? searchParams.get('ref')
         if (ref) {
-          await api.applyReferral(ref).catch(() => {})
+          await api.applyReferral(ref).catch((e) =>
+            ignoreWithLog(e, { scope: 'generic', apiPath: '/api/v1/profiles/me/referral' })
+          )
         }
         if (formData.city.trim()) {
           sessionStorage.setItem('ishbor-register-region', formData.city.trim())
         }
-        api.auditRegister().catch(() => undefined)
+        api
+          .auditRegister()
+          .catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: '/api/v1/platform/audit/register' }))
         Promise.all([
-          api.getCurrentTerms('terms').then((doc) => api.acceptTermsConsent('terms', doc.version)).catch(() => undefined),
-          api.getCurrentTerms('privacy').then((doc) => api.acceptTermsConsent('privacy', doc.version)).catch(() => undefined),
+          api
+            .getCurrentTerms('terms')
+            .then((doc) => api.acceptTermsConsent('terms', doc.version))
+            .catch((e) => ignoreWithLog(e, { scope: 'generic', apiPath: '/api/v1/trust/terms/consent' })),
+          api
+            .getCurrentTerms('privacy')
+            .then((doc) => api.acceptTermsConsent('privacy', doc.version))
+            .catch((e) => ignoreWithLog(e, { scope: 'generic', apiPath: '/api/v1/trust/terms/consent' })),
         ])
         router.push(destination)
       } else {
@@ -268,7 +269,7 @@ function RegisterPageContent() {
               <AuthMobileTrust />
               <header className="auth-form-header">
                 <span className="auth-step-badge">
-                  {t('register_step_label').replace('{n}', '1').replace('{total}', '3')}
+                  {t('register_step_label').replace('{n}', '1').replace('{total}', '2')}
                 </span>
                 <h1>{t('register_role_title')}</h1>
                 <p>{t('register_role_subtitle')}</p>
@@ -276,18 +277,18 @@ function RegisterPageContent() {
 
           <div className="auth-form-fields">
           <div className="auth-role-grid">
-            <RoleCard
+            <AuthRoleCard
               selected={role === 'freelancer'}
-              icon={<Briefcase className="h-8 w-8 text-[var(--color-primary)]" />}
+              icon={<Briefcase className="h-6 w-6 text-[var(--color-primary)]" />}
               title={t('register_seeker_title')}
               subtitle={t('freelancer_desc')}
               bullets={[t('register_freelancer_bullet_1'), t('register_freelancer_bullet_2'), t('register_freelancer_bullet_3')]}
               onSelect={() => handleRoleSelect('freelancer')}
             />
-            <RoleCard
+            <AuthRoleCard
               selected={role === 'client'}
-              icon={<Users className="h-8 w-8 text-[var(--success)]" />}
-              iconBg="var(--success-bg)"
+              icon={<Users className="h-6 w-6 text-[var(--color-primary)]" />}
+              iconBg="color-mix(in srgb, var(--color-primary) 10%, var(--neutral-0))"
               title={t('register_employer_title')}
               subtitle={t('client_desc')}
               bullets={[t('register_client_bullet_1'), t('register_client_bullet_2'), t('register_client_bullet_3')]}
@@ -357,10 +358,10 @@ function RegisterPageContent() {
             <AuthMobileTrust />
             <header className="auth-form-header">
               <span className="auth-step-badge">
-                {t('register_step_label').replace('{n}', String(step)).replace('{total}', '3')}
+                {t('register_step_label').replace('{n}', String(step)).replace('{total}', '2')}
               </span>
-              <h1>{step === 2 ? t('your_info') : t('create_profile_title')}</h1>
-              <p>{step === 2 ? t('account_info_desc') : t('initial_setup')}</p>
+              <h1>{t('your_info')}</h1>
+              <p>{t('account_info_desc')}</p>
             </header>
 
           <div className="auth-form-fields">
@@ -456,19 +457,23 @@ function RegisterPageContent() {
                   {errors.agreeTerms}
                 </Alert>
               )}
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
-                  {t('back')}
-                </Button>
-                <Button variant="primary" onClick={handleNextStep} className="flex-1">
-                  {t('continue')} →
-                </Button>
-              </div>
-            </>
-          )}
-
-          {step === 3 && role && (
-            <>
+              {role === 'client' && (
+                <Input
+                  label={t('company_optional')}
+                  placeholder={t('company_name')}
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                />
+              )}
+              <Select
+                label={t('region')}
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder={t('select')}
+                options={regionOptions}
+                error={errors.city}
+                inputSize="lg"
+              />
               {successMessage && (
                 <Alert variant="success">
                   <p>{successMessage}</p>
@@ -477,71 +482,21 @@ function RegisterPageContent() {
                   </Link>
                 </Alert>
               )}
-
               {errors.submit && <Alert variant="error">{errors.submit}</Alert>}
-
-              {!successMessage && role === 'freelancer' ? (
-                <>
-                  <Select
-                    label={t('specialty')}
-                    value={formData.specialty}
-                    onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                    placeholder={t('select')}
-                    options={specialtyOptions}
-                    error={errors.specialty}
-                    inputSize="lg"
-                  />
-                  <Select
-                    label={t('region')}
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder={t('select')}
-                    options={regionOptions}
-                    error={errors.city}
-                    inputSize="lg"
-                  />
-                  <Textarea
-                    label={t('bio')}
-                    value={formData.bio}
-                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                    placeholder={t('describe_yourself')}
-                  />
-                </>
-              ) : !successMessage ? (
-                <>
-                  <Input
-                    label={t('company_optional')}
-                    placeholder={t('company_name')}
-                    value={formData.company}
-                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  />
-                  <Select
-                    label={t('region')}
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder={t('select')}
-                    options={regionOptions}
-                    error={errors.city}
-                    inputSize="lg"
-                  />
-                </>
-              ) : null}
-
               {!successMessage && (
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
-                  {t('back')}
-                </Button>
-                <Button
-                  variant="primary"
-                  loading={loading}
-                  disabled={Boolean(successMessage)}
-                  onClick={handleRegister}
-                  className="flex-1"
-                >
-                  {t('sign_up')}
-                </Button>
-              </div>
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                    {t('back')}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    loading={loading}
+                    onClick={() => void handleRegisterSubmit()}
+                    className="flex-1"
+                  >
+                    {t('sign_up')}
+                  </Button>
+                </div>
               )}
             </>
           )}
@@ -555,54 +510,6 @@ function RegisterPageContent() {
         </div>
       </div>
     </div>
-  )
-}
-
-function RoleCard({
-  selected,
-  icon,
-  iconBg,
-  title,
-  subtitle,
-  bullets,
-  onSelect,
-}: {
-  selected: boolean
-  icon: React.ReactNode
-  iconBg?: string
-  title: string
-  subtitle: string
-  bullets: string[]
-  onSelect: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn('auth-role-card', selected && 'auth-role-card--selected')}
-    >
-      {selected && (
-        <span className="auth-role-card__check">
-          <Check className="h-3.5 w-3.5" />
-        </span>
-      )}
-      <div
-        className="mb-3 flex h-11 w-11 items-center justify-center rounded-[var(--r-md)]"
-        style={{ backgroundColor: iconBg ?? 'var(--color-primary-light)' }}
-      >
-        {icon}
-      </div>
-      <h3 className="text-[16px] font-bold text-[var(--ishbor-text)]">{title}</h3>
-      <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{subtitle}</p>
-      <ul className="mt-3 space-y-1.5">
-        {bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2 text-[12px] text-[var(--ishbor-text-muted)]">
-            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--ishbor-text-muted)]" />
-            {b}
-          </li>
-        ))}
-      </ul>
-    </button>
   )
 }
 

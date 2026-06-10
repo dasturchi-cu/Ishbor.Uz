@@ -1,6 +1,6 @@
 import { ServiceDetailPage } from '@/presentation/features/catalog/service-detail'
 import { fetchServiceForMeta } from '@/infrastructure/api/server-fetch'
-import { ogImageUrls, ogImages, pageAlternates, pageUrl } from '@/shared/lib/seo'
+import { pageAlternates, pageUrl } from '@/shared/lib/seo'
 import type { Metadata } from 'next'
 
 type Props = { params: Promise<{ id: string }> }
@@ -20,13 +20,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: pageUrl(`/services/${id}`),
       type: 'website',
-      images: ogImages(service?.image_urls?.[0]),
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: ogImageUrls(service?.image_urls?.[0]),
     },
   }
 }

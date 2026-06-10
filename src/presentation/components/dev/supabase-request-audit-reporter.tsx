@@ -39,12 +39,16 @@ export function SupabaseRequestAuditReporter() {
     document.addEventListener('visibilitychange', onVisibility)
 
     const interval = window.setInterval(() => {
+      const events = exportSupabaseRequestBatch()
+      if (events.length === 0) return
       dumpSupabaseRequestTop10()
+      const controller = new AbortController()
+      const timeout = window.setTimeout(() => controller.abort(), 5000)
       void fetch('/api/v1/platform/request-audit/client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          events: exportSupabaseRequestBatch().map((row) => ({
+          events: events.map((row) => ({
             query_name: row.queryName,
             endpoint: row.endpoint,
             component: row.component,
@@ -54,7 +58,10 @@ export function SupabaseRequestAuditReporter() {
           })),
         }),
         keepalive: true,
-      }).catch(() => undefined)
+        signal: controller.signal,
+      })
+        .catch(() => undefined)
+        .finally(() => window.clearTimeout(timeout))
     }, REPORT_INTERVAL_MS)
 
     return () => {

@@ -4,26 +4,41 @@ import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { useDashboardRole } from '@/presentation/components/auth/role-guard'
 import { api } from '@/infrastructure/api/client'
-import type { ApiContract } from '@/infrastructure/api/types'
 import { dashboardContract } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { FileSignature } from 'lucide-react'
 import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 
 export function ContractsListPage() {
   const { t } = useApp()
   const role = useDashboardRole()
-  const { data: contracts, loading } = useProtectedLoader(
-    () =>
-      api
-        .listContracts({ role: role === 'client' ? 'client' : 'freelancer' })
-        .catch(() => [] as ApiContract[]),
+  const {
+    data: contracts,
+    loading,
+    error: contractsLoadFailed,
+    loadError: contractsFetchError,
+    reload,
+  } = useProtectedLoader(
+    () => api.listContracts({ role: role === 'client' ? 'client' : 'freelancer' }),
     [role]
   )
   const list = contracts ?? []
 
   if (loading) return <p className="p-6 text-muted-foreground">{t('loading_data')}</p>
+
+  if (contractsLoadFailed) {
+    return (
+      <div className="mx-auto max-w-4xl p-4 md:p-6">
+        <LoadErrorAlert
+          error={contractsFetchError}
+          scope="contracts"
+          onRetry={() => void reload()}
+        />
+      </div>
+    )
+  }
 
   if (!list.length) {
     return (

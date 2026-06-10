@@ -11,6 +11,7 @@ import {
   resolveAvailableProviders,
 } from '@/domain/constants/payment-checkout'
 import { api } from '@/infrastructure/api/client'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { ApiPaymentsConfig } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 import { CreditCard, Loader2 } from 'lucide-react'
@@ -58,7 +59,7 @@ export function PaymentCheckoutFlow({
     let cancelled = false
     api.paymentsConfig().then((cfg) => {
       if (!cancelled) setPaymentsConfig(cfg)
-    }).catch(() => {})
+    }).catch((e) => ignoreWithLog(e, { scope: 'payments', apiPath: '/api/v1/payments/config' }))
     return () => {
       cancelled = true
     }

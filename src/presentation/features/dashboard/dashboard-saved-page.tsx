@@ -14,6 +14,8 @@ import { SkeletonCard } from '@/presentation/components/ui/skeleton'
 import { api } from '@/infrastructure/api/client'
 import type { ApiProject } from '@/infrastructure/api/types'
 import { toggleSavedFreelancer } from '@/shared/lib/saved-items'
+import { toast } from '@/presentation/components/ui/toast'
+import { captureActionError } from '@/shared/lib/action-error'
 import { PATHS, servicePath, freelancerPath, projectPath } from '@/domain/constants/routes'
 import { initialsFromName } from '@/shared/lib/avatar'
 import { formatPrice } from '@/shared/lib/format'
@@ -182,8 +184,13 @@ export function DashboardSavedPage() {
                 className="absolute right-3 top-3 rounded-full bg-[var(--neutral-0)] px-2 py-1 text-[11px] font-medium text-[var(--color-primary)] shadow-sm"
                 onClick={async (e) => {
                   e.stopPropagation()
-                  await toggleSavedFreelancer(f.id)
-                  void loadSaved()
+                  try {
+                    await toggleSavedFreelancer(f.id)
+                    toast.success(t('unsave'))
+                    void loadSaved()
+                  } catch (err) {
+                    toast.error(captureActionError(err, { scope: 'generic', action: 'save_item' }, t))
+                  }
                 }}
               >
                 {t('unsave')}

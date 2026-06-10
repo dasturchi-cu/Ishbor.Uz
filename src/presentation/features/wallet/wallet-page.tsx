@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
-import { ChevronRight, Receipt, Shield, Wallet } from 'lucide-react'
+import { ArrowLeft, Receipt, Shield } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
 import type {
   ApiBankAccount,
@@ -26,19 +26,32 @@ import { Alert } from '@/presentation/components/ui/alert'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { formatDate } from '@/shared/lib/format-date'
 import { withdrawalSchema } from '@/domain/validators/withdrawal'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { transactionTypeLabel } from '@/shared/lib/transaction-label'
 import { WalletTopupModal } from '@/presentation/features/wallet/wallet-topup-modal'
 import { BankAccountsSection } from '@/presentation/features/wallet/bank-accounts-section'
-import { useSearchParams } from 'next/navigation'
 import {
   isWalletTopupComplete,
   isWalletTopupFailed,
   isWalletTopupIntentId,
   pollWalletTopupUntilDone,
 } from '@/shared/lib/wallet-topup-poll'
+import {
+  ProductAsideCard,
+  ProductBtn,
+  ProductBtnLink,
+  ProductFocus,
+  ProductHero,
+  ProductPage,
+  ProductPageHeader,
+  ProductPanel,
+  ProductSplit,
+  ProductTextLink,
+  ProductTextLinkAnchor,
+} from '@/presentation/components/product'
 
 const WITHDRAWAL_ERROR_KEYS = new Set<TranslationKey>([
   'withdrawal_bank_required',
@@ -46,9 +59,34 @@ const WITHDRAWAL_ERROR_KEYS = new Set<TranslationKey>([
   'withdrawal_bank_not_found',
 ])
 
+type LedgerRow = {
+  id: string
+  label: string
+  date: string | null | undefined
+  amount: number
+  status: string
+  fromLedger: boolean
+}
+
 function resolveWithdrawalError(msg: string, t: (key: TranslationKey) => string): string {
   if (WITHDRAWAL_ERROR_KEYS.has(msg as TranslationKey)) return t(msg as TranslationKey)
   return msg || t('error_required')
+}
+
+function WalletSkeleton() {
+  return (
+    <ProductPage>
+      <div className="h-8 w-48 animate-pulse rounded bg-[var(--color-bg-muted)]" />
+      <ProductHero className="mt-5">
+        <div className="h-4 w-32 animate-pulse rounded bg-[var(--color-bg-muted)]" />
+        <div className="mt-3 h-10 w-40 animate-pulse rounded bg-[var(--color-bg-muted)]" />
+      </ProductHero>
+      <div className="ps-split mt-6">
+        <div className="h-64 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+        <div className="hide-mobile h-48 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+      </div>
+    </ProductPage>
+  )
 }
 
 export function WalletPage() {
@@ -56,13 +94,18 @@ export function WalletPage() {
   const pathname = usePathname()
   const router = useRouter()
   const inDashboard = pathname.startsWith('/dashboard')
+  const searchParams = useSearchParams()
+
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawNote, setWithdrawNote] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
-  const [clientWithdrawHint, setClientWithdrawHint] = useState(false)
   const [partialLoadError, setPartialLoadError] = useState(false)
   const [topupOpen, setTopupOpen] = useState(false)
-  const searchParams = useSearchParams()
+
+  const isClient = currentUserRole === 'client'
+  const isFreelancer = currentUserRole === 'freelancer'
+  const ordersHref = PATHS.dashboardOrders
 
   const {
     data: walletData,
@@ -73,28 +116,37 @@ export function WalletPage() {
   } = useProtectedLoader(async () => {
     setPartialLoadError(false)
     const [ord, ledgerRes, tx] = await Promise.all([
-      api.listOrders().catch(() => {
+      api.listOrders().catch((e) => {
+        ignoreWithLog(e, { scope: 'orders', apiPath: '/api/v1/orders' })
         setPartialLoadError(true)
         return [] as ApiOrder[]
       }),
-      api.listLedgerEntries(50).catch(() => {
+      api.listLedgerEntries(50).catch((e) => {
+        ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/wallet/ledger' })
         setPartialLoadError(true)
         return { items: [] as ApiLedgerEntry[] }
       }),
-      api.listTransactions().catch(() => {
+      api.listTransactions().catch((e) => {
+        ignoreWithLog(e, { scope: 'payments', apiPath: '/api/v1/transactions' })
         setPartialLoadError(true)
         return [] as ApiTransaction[]
       }),
     ])
-    await refreshProfile().catch(() => undefined)
-    const withdrawals =
-      currentUserRole === 'freelancer'
-        ? await api.listWithdrawals().catch(() => [] as ApiWithdrawalRequest[])
-        : ([] as ApiWithdrawalRequest[])
-    const bankAccounts =
-      currentUserRole === 'freelancer'
-        ? await api.listBankAccounts().catch(() => [] as ApiBankAccount[])
-        : ([] as ApiBankAccount[])
+    await refreshProfile().catch((e) =>
+      ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' })
+    )
+    const withdrawals = isFreelancer
+      ? await api.listWithdrawals().catch((e) => {
+          ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/withdrawals' })
+          return [] as ApiWithdrawalRequest[]
+        })
+      : ([] as ApiWithdrawalRequest[])
+    const bankAccounts = isFreelancer
+      ? await api.listBankAccounts().catch((e) => {
+          ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/bank-accounts' })
+          return [] as ApiBankAccount[]
+        })
+      : ([] as ApiBankAccount[])
     return {
       orders: ord,
       ledgerEntries: ledgerRes.items ?? [],
@@ -102,14 +154,12 @@ export function WalletPage() {
       withdrawals,
       bankAccounts,
     }
-  }, [currentUserRole, refreshProfile])
+  }, [currentUserRole, refreshProfile, isFreelancer])
 
   const withdrawals = walletData?.withdrawals ?? []
   const bankAccounts = walletData?.bankAccounts ?? []
   const hasVerifiedBank = bankAccounts.some((a) => a.is_verified)
   const hasPendingBank = bankAccounts.length > 0 && !hasVerifiedBank
-  const loadError = loaderError
-  const walletError = walletFetchError
 
   useEffect(() => {
     const topup = searchParams.get('topup')
@@ -125,7 +175,7 @@ export function WalletPage() {
     if (!isWalletTopupIntentId(topup)) return
 
     let cancelled = false
-    ;(async () => {
+    void (async () => {
       toast.info(t('wallet_topup_polling'))
       try {
         const result = await pollWalletTopupUntilDone(topup)
@@ -152,38 +202,41 @@ export function WalletPage() {
     }
   }, [searchParams, t, loadWallet, refreshProfile, router, pathname])
 
-  const { completed, active, pending, balance } = useMemo(() => {
+  const { active, pending, balance } = useMemo(() => {
     const orders = walletData?.orders ?? []
-    let completed = 0
-    let active = 0
-    let pending = 0
+    let completedSum = 0
+    let activeSum = 0
+    let pendingSum = 0
     for (const o of orders) {
-      if (o.status === 'completed') completed += o.amount
-      else if (o.status === 'active' || o.status === 'delivered') active += o.amount
-      else if (o.status === 'pending') pending += o.amount
+      if (o.status === 'completed') completedSum += o.amount
+      else if (o.status === 'active' || o.status === 'delivered') activeSum += o.amount
+      else if (o.status === 'pending') pendingSum += o.amount
     }
-    const computed =
-      currentUserRole === 'freelancer' ? completed : completed + active + pending
+    const computed = isFreelancer ? completedSum : completedSum + activeSum + pendingSum
     const dbBalance = profile?.wallet_balance
-    const balance =
-      currentUserRole === 'freelancer'
+    const resolved =
+      isFreelancer
         ? dbBalance != null
           ? dbBalance
           : computed
         : dbBalance != null && dbBalance > 0
           ? dbBalance
           : computed
-    return { completed, active, pending, balance }
-  }, [walletData, currentUserRole, profile?.wallet_balance])
+    return { active: activeSum, pending: pendingSum, balance: resolved }
+  }, [walletData, isFreelancer, profile?.wallet_balance])
 
-  const recentTx = useMemo(() => {
+  const displayBalance = isClient ? (profile?.wallet_balance ?? balance) : balance
+  const escrowTotal = active + pending
+
+  const recentTx = useMemo((): LedgerRow[] => {
     const orders = walletData?.orders ?? []
     const ledgerEntries = walletData?.ledgerEntries ?? []
     const ledger = walletData?.transactions ?? []
+
     if (ledgerEntries.length > 0) {
       return [...ledgerEntries]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 6)
+        .slice(0, 12)
         .map((entry) => ({
           id: entry.id,
           label: entry.description?.trim() || entry.account_code,
@@ -193,22 +246,24 @@ export function WalletPage() {
           fromLedger: true,
         }))
     }
+
     if (ledger.length > 0) {
       return ledger
         .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-        .slice(0, 6)
+        .slice(0, 12)
         .map((tx) => ({
           id: tx.id,
           label: transactionTypeLabel(tx.type, t),
           date: tx.created_at,
           amount: tx.type === 'withdrawal' ? -tx.amount : tx.amount,
-          status: tx.status,
+          status: tx.status ?? '',
           fromLedger: false,
         }))
     }
+
     return [...orders]
       .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-      .slice(0, 6)
+      .slice(0, 12)
       .map((o) => ({
         id: o.id,
         label: o.services?.title ?? o.id.slice(0, 8),
@@ -219,139 +274,115 @@ export function WalletPage() {
       }))
   }, [walletData, t])
 
-  const ordersHref = PATHS.dashboardOrders
-
   const protectedOrders = useMemo(() => {
     const orders = walletData?.orders ?? []
     return [...orders]
       .filter(
         (o) =>
           o.payment_status === 'held' ||
-          (['pending', 'active', 'delivered'].includes(o.status) && o.payment_status !== 'released')
+          (['pending', 'active', 'delivered'].includes(o.status) && o.payment_status !== 'released'),
       )
       .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+      .slice(0, 5)
+  }, [walletData?.orders])
+
+  const unpaidOrder = useMemo(() => {
+    const orders = walletData?.orders ?? []
+    return orders.find((o) => o.status === 'pending' && o.payment_status !== 'held')
   }, [walletData?.orders])
 
   useEffect(() => {
     if (searchParams.get('tab') !== 'protected') return
-    const el = document.getElementById('wallet-protected-section')
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    document.getElementById('wl-protected')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [searchParams, loading])
 
-  return (
-    <div className="wallet-layout">
-      <div className="wallet-intro">
-        {!inDashboard && (
+  const openWithdraw = () => {
+    if (!hasVerifiedBank) {
+      toast.error(t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_required'))
+      document.getElementById('wl-bank')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    setWithdrawAmount(balance > 0 ? String(balance) : '')
+    setWithdrawNote('')
+    setWithdrawOpen(true)
+    requestAnimationFrame(() => {
+      document.getElementById('wl-withdraw')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
+  const submitWithdraw = async () => {
+    const amount = parseInt(withdrawAmount, 10) || 0
+    const parsed = withdrawalSchema.safeParse({
+      amount,
+      note: withdrawNote.trim() || undefined,
+    })
+    if (!parsed.success || amount > balance) {
+      toast.error(t('error_required'))
+      return
+    }
+    if (!hasVerifiedBank) {
+      toast.error(t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_required'))
+      return
+    }
+    setWithdrawing(true)
+    try {
+      await api.requestWithdrawal(amount, withdrawNote.trim() || undefined)
+      toast.success(t('withdrawal_request_submitted'))
+      setWithdrawOpen(false)
+      setWithdrawAmount('')
+      setWithdrawNote('')
+      await refreshProfile()
+      void loadWallet()
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : ''
+      toast.error(resolveWithdrawalError(raw, t))
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
+  const heroActions = (
+    <div className="ps-hero__actions">
+      {isClient ? (
+        unpaidOrder ? (
+          <ProductTextLink onClick={() => setTopupOpen(true)}>{t('top_up')}</ProductTextLink>
+        ) : (
           <>
-            <Breadcrumb
-              className="mb-3"
-              items={[
-                { label: t('home'), href: PATHS.home },
-                { label: t('nav_dashboard'), href: dashboardPathForRole(currentUserRole) },
-                { label: t('wallet') },
-              ]}
-            />
-            <h1 className="dashboard-page-title mb-2">{t('wallet')}</h1>
+            <ProductBtn onClick={() => setTopupOpen(true)}>{t('top_up')}</ProductBtn>
+            <ProductTextLinkAnchor href={ordersHref}>{t('nav_orders')}</ProductTextLinkAnchor>
           </>
-        )}
-        <p className="wallet-intro-desc">{t('wallet_desc')}</p>
-        {loadError && (
-          <LoadErrorAlert
-            error={walletError}
-            scope="wallet"
-            onRetry={() => void loadWallet()}
-            className="mt-3"
-          />
-        )}
-        {partialLoadError && !loadError && (
-          <Alert variant="info" className="mt-3">
-            {t('error_load_generic')}
-          </Alert>
-        )}
-        <span className="wallet-intro-note">
-          <Shield className="h-3 w-3" />
-          {t('wallet_payment_note')}
-        </span>
-      </div>
+        )
+      ) : withdrawOpen ? null : (
+        <ProductBtn onClick={openWithdraw}>{t('withdraw_funds')}</ProductBtn>
+      )}
+    </div>
+  )
 
-      <div className="wallet-balance-card">
-        <div className="wallet-balance-top">
-          <div>
-            <p className="wallet-balance-label">
-              <Wallet className="h-4 w-4" />
-              {currentUserRole === 'client' ? t('client_wallet_spent') : t('available_balance')}
-            </p>
-            <div className="wallet-balance-value">
-              {loading ? (
-                <Skeleton className="h-9 w-36" />
-              ) : (
-                formatPrice(currentUserRole === 'client' ? completed : balance)
-              )}
-            </div>
-            <div className="wallet-balance-escrow">
-              <Shield className="h-3.5 w-3.5" />
-              {t('protected_payment_label')} —{' '}
-              {loading ? <Skeleton className="inline-block h-4 w-24 align-middle" /> : formatPrice(active + pending)}{' '}
-              {currentUserRole === 'client' ? t('client_wallet_escrow_note') : t('protected_in_escrow')}
-            </div>
-          </div>
-          <div className="wallet-balance-actions">
-            {currentUserRole === 'client' && (
-              <button type="button" className="wallet-balance-btn" onClick={() => setTopupOpen(true)}>
-                {t('top_up')}
-              </button>
-            )}
-            {currentUserRole === 'client' && (
-              <Link href={PATHS.dashboardOrders} className="wallet-balance-btn">
-                {t('payment_pay_now')}
-              </Link>
-            )}
-            <button
-              type="button"
-              className="wallet-balance-btn wallet-balance-btn--primary"
-              onClick={() => {
-                if (currentUserRole !== 'freelancer') {
-                  setClientWithdrawHint(true)
-                  return
-                }
-                setClientWithdrawHint(false)
-                if (!hasVerifiedBank) {
-                  toast.error(
-                    t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_required')
-                  )
-                  return
-                }
-                setWithdrawAmount(String(balance > 0 ? balance : ''))
-              }}
-            >
-              {t('withdraw_funds')}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {clientWithdrawHint && currentUserRole !== 'freelancer' && (
-        <Alert variant="info" className="mb-4">
-          {t('client_withdraw_unavailable')}
-        </Alert>
+  const mainContent = (
+    <>
+      {isClient && unpaidOrder && (
+        <ProductFocus>
+          <p className="ps-focus__headline">{t('order_hint_client_pay')}</p>
+          <p className="ps-focus__amount">{formatPrice(unpaidOrder.amount)}</p>
+          <p className="ps-focus__meta">
+            {unpaidOrder.services?.title ?? unpaidOrder.projects?.title ?? t('order_label')}
+          </p>
+          <ProductBtnLink
+            href={dashboardOrderPath(unpaidOrder.id)}
+            className="mt-3.5 w-full text-center"
+          >
+            {t('payment_pay_now')}
+          </ProductBtnLink>
+        </ProductFocus>
       )}
 
-      {currentUserRole === 'freelancer' && (
-        <div className="mb-5">
-          <BankAccountsSection />
-        </div>
-      )}
-
-      {currentUserRole === 'freelancer' && !hasVerifiedBank && (
-        <Alert variant="info" className="mb-4">
-          {t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_hint')}
-        </Alert>
-      )}
-
-      {withdrawAmount !== '' && currentUserRole === 'freelancer' && (
-        <section className="surface-panel mb-5 p-4">
-          <h3 className="settings-section-title">{t('withdraw_funds')}</h3>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      {isFreelancer && withdrawOpen && (
+        <ProductFocus id="wl-withdraw">
+          <p className="ps-focus__headline">{t('withdraw_funds')}</p>
+          <p className="ps-focus__meta">
+            {t('available_balance')}: {formatPrice(balance)}
+          </p>
+          <div className="wl-focus__form">
             <Input
               label={t('withdraw_amount_label')}
               value={withdrawAmount}
@@ -365,128 +396,107 @@ export function WalletPage() {
               placeholder={t('withdraw_note_ph')}
             />
           </div>
-          <div className="mt-4 flex gap-2">
-            <Button variant="outline" onClick={() => { setWithdrawAmount(''); setWithdrawNote('') }}>
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              loading={withdrawing}
-              onClick={async () => {
-                const amount = parseInt(withdrawAmount, 10) || 0
-                const parsed = withdrawalSchema.safeParse({
-                  amount,
-                  note: withdrawNote.trim() || undefined,
-                })
-                if (!parsed.success || amount > balance) {
-                  toast.error(t('error_required'))
-                  return
-                }
-                if (!hasVerifiedBank) {
-                  toast.error(
-                    t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_required')
-                  )
-                  return
-                }
-                setWithdrawing(true)
-                try {
-                  await api.requestWithdrawal(amount, withdrawNote.trim() || undefined)
-                  toast.success(t('withdrawal_request_submitted'))
-                  setWithdrawAmount('')
-                  setWithdrawNote('')
-                  await refreshProfile()
-                  loadWallet()
-                } catch (e) {
-                  const raw = e instanceof Error ? e.message : ''
-                  toast.error(resolveWithdrawalError(raw, t))
-                } finally {
-                  setWithdrawing(false)
-                }
-              }}
-            >
+          <div className="wl-focus__actions">
+            <Button variant="primary" size="lg" fullWidth loading={withdrawing} onClick={() => void submitWithdraw()}>
               {t('withdraw_funds')}
             </Button>
+            <ProductTextLink
+              onClick={() => {
+                setWithdrawOpen(false)
+                setWithdrawAmount('')
+                setWithdrawNote('')
+              }}
+            >
+              {t('cancel')}
+            </ProductTextLink>
           </div>
-        </section>
+        </ProductFocus>
       )}
 
-      {currentUserRole === 'freelancer' && (
-        <section className="surface-panel mb-5 p-4">
-          <h3 className="settings-section-title">{t('withdrawal_pending_title')}</h3>
-          {loading ? (
-            <div className="mt-2 space-y-2">
-              <Skeleton className="h-4 w-full max-w-md" />
-              <Skeleton className="h-4 w-2/3 max-w-sm" />
-            </div>
-          ) : withdrawals.length === 0 ? (
-            <p className="mt-2 text-sm text-[var(--ishbor-text-muted)]">{t('withdrawal_pending_empty')}</p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {withdrawals.map((w) => (
-                <div
-                  key={w.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ishbor-border)] py-2 text-sm last:border-0"
-                >
-                  <div>
-                    <p className="font-medium">{formatPrice(w.amount)}</p>
-                    {w.note && <p className="text-[12px] text-[var(--ishbor-text-muted)]">{w.note}</p>}
-                    {w.created_at && (
-                      <p className="text-[11px] text-[var(--ishbor-text-muted)]">
-                        {formatDate(w.created_at, language)}
-                      </p>
-                    )}
-                  </div>
-                  <span className="rounded-full bg-[var(--color-bg-muted)] px-2 py-0.5 text-[11px] font-semibold">
-                    {w.status === 'pending'
-                      ? t('withdrawal_status_pending')
-                      : w.status === 'approved'
-                        ? t('withdrawal_status_approved')
-                        : t('withdrawal_status_rejected')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      <section id="wallet-protected-section" className="surface-panel mb-5 p-4 sm:p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-[15px] font-bold text-[var(--ishbor-text)]">{t('wallet_protected_section_title')}</h2>
-            <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('wallet_protected_section_desc')}</p>
-          </div>
-          <Shield className="h-5 w-5 shrink-0 text-[var(--color-primary)]" aria-hidden />
-        </div>
+      <ProductPanel
+        title={t('transaction_history')}
+        aria-label={t('transaction_history')}
+        link={
+          <Link href={ordersHref} className="ps-panel__link">
+            {t('view_all_orders')}
+            <ArrowLeft className="ps-icon ps-icon--sm ml-1 inline rotate-180" aria-hidden />
+          </Link>
+        }
+      >
         {loading ? (
-          <div className="space-y-2">
-            {[0, 1].map((i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          <div className="ps-panel__list">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="ps-list-row">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-16" />
+              </div>
             ))}
           </div>
-        ) : protectedOrders.length === 0 ? (
+        ) : recentTx.length === 0 ? (
           <EmptyState
             compact
-            icon={<Shield />}
-            title={t('wallet_protected_empty_title')}
-            description={t('wallet_protected_empty_desc')}
+            icon={<Receipt />}
+            title={t('no_orders_yet')}
+            description={t('wallet_desc')}
             action={{ label: t('nav_orders'), onClick: () => router.push(ordersHref) }}
           />
         ) : (
-          <ul className="divide-y divide-[var(--ishbor-border)]">
+          <ul className="ps-panel__list">
+            {recentTx.map((tx) => (
+              <li key={tx.id} className="ps-list-row">
+                <div className="ps-list-row__main">
+                  <p className="ps-list-row__label">{tx.label}</p>
+                  <p className="ps-list-row__meta">
+                    {tx.date ? formatDate(tx.date, language) : '—'}
+                    {!tx.fromLedger && (
+                      <>
+                        {' · '}
+                        <OrderStatusBadge status={tx.status as ApiOrder['status']} />
+                      </>
+                    )}
+                  </p>
+                </div>
+                <span
+                  className={
+                    tx.amount < 0 ? 'ps-list-row__amount ps-list-row__amount--out' : 'ps-list-row__amount'
+                  }
+                >
+                  {tx.amount < 0 ? '−' : '+'}
+                  {formatPrice(Math.abs(tx.amount))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ProductPanel>
+    </>
+  )
+
+  const asideContent = (
+    <>
+      <ProductAsideCard
+        id="wl-protected"
+        title={t('wallet_protected_section_title')}
+        icon={<Shield className="ps-icon text-[var(--color-primary)]" aria-hidden />}
+      >
+        <p className="ps-aside-card__desc">{t('wallet_protected_section_desc')}</p>
+        {loading ? (
+          <div className="mt-3 space-y-2">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+        ) : protectedOrders.length === 0 ? (
+          <p className="wl-aside-empty">{t('wallet_protected_empty_desc')}</p>
+        ) : (
+          <ul className="wl-protected-list">
             {protectedOrders.map((order) => (
               <li key={order.id}>
-                <Link
-                  href={dashboardOrderPath(order.id)}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3 transition hover:text-[var(--color-primary)]"
-                >
+                <Link href={dashboardOrderPath(order.id)} className="wl-protected-item">
                   <div className="min-w-0">
-                    <p className="truncate text-[14px] font-semibold text-[var(--ishbor-text)]">
+                    <p className="wl-protected-item__title">
                       {order.services?.title ?? order.projects?.title ?? t('order_label')}
                     </p>
-                    <p className="mt-0.5 text-[12px] text-[var(--ishbor-text-muted)]">
-                      {t('wallet_held_amount').replace('{amount}', formatPrice(order.amount))}
-                    </p>
+                    <p className="wl-protected-item__meta">{formatPrice(order.amount)}</p>
                   </div>
                   <OrderStatusBadge status={order.status} />
                 </Link>
@@ -494,59 +504,106 @@ export function WalletPage() {
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="wallet-tx-card">
-        <div className="wallet-tx-header">
-          <h2 className="wallet-tx-title">{t('transaction_history')}</h2>
-          <Link href={ordersHref} className="wallet-tx-link">
-            {t('view_all_orders')}
-            <ChevronRight className="ml-0.5 inline h-3.5 w-3.5" />
+        {protectedOrders.length > 0 && (
+          <Link href={`${ordersHref}?tab=protected`} className="ps-aside-card__link">
+            {t('nav_orders')} →
           </Link>
-        </div>
-
-        {loading ? (
-          <div className="wallet-tx-list">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="px-4 py-3">
-                <div className="h-4 w-40 animate-pulse rounded bg-[var(--color-bg-muted)]" />
-                <div className="mt-2 h-3 w-24 animate-pulse rounded bg-[var(--color-bg-muted)]" />
-              </div>
-            ))}
-          </div>
-        ) : recentTx.length === 0 ? (
-          <div className="p-4">
-            <EmptyState
-              compact
-              icon={<Receipt />}
-              title={t('no_orders_yet')}
-              description={t('wallet_desc')}
-              action={{ label: t('nav_orders'), onClick: () => router.push(ordersHref) }}
-            />
-          </div>
-        ) : (
-          <div className="wallet-tx-list">
-            {recentTx.map((tx) => (
-              <div key={tx.id} className="wallet-tx-row">
-                <div className="wallet-tx-main">
-                  <p className="wallet-tx-name">{tx.label}</p>
-                  <div className="wallet-tx-meta flex flex-wrap items-center gap-1.5">
-                    <span>{tx.date ? formatDate(tx.date, language) : '—'}</span>
-                    {!tx.fromLedger && <OrderStatusBadge status={tx.status as ApiOrder['status']} />}
-                  </div>
-                </div>
-                <p className="wallet-tx-amount">{formatPrice(Math.abs(tx.amount))}</p>
-              </div>
-            ))}
-          </div>
         )}
-      </section>
+      </ProductAsideCard>
+
+      {isFreelancer && (
+        <div id="wl-bank" className="ps-aside-card ps-aside-card--flat">
+          {!hasVerifiedBank && (
+            <Alert variant="info" className="mb-3">
+              {t(hasPendingBank ? 'withdrawal_bank_pending' : 'withdrawal_bank_hint')}
+            </Alert>
+          )}
+          <BankAccountsSection />
+        </div>
+      )}
+
+      {isFreelancer && withdrawals.length > 0 && (
+        <ProductAsideCard title={t('withdrawal_pending_title')}>
+          <ul className="wl-withdraw-list">
+            {withdrawals.map((w) => (
+              <li key={w.id} className="wl-withdraw-item">
+                <div>
+                  <p className="wl-withdraw-item__amount">{formatPrice(w.amount)}</p>
+                  {w.note ? <p className="wl-withdraw-item__note">{w.note}</p> : null}
+                  {w.created_at ? (
+                    <p className="wl-withdraw-item__date">{formatDate(w.created_at, language)}</p>
+                  ) : null}
+                </div>
+                <span className="wl-withdraw-item__status">
+                  {w.status === 'pending'
+                    ? t('withdrawal_status_pending')
+                    : w.status === 'approved'
+                      ? t('withdrawal_status_approved')
+                      : t('withdrawal_status_rejected')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </ProductAsideCard>
+      )}
+    </>
+  )
+
+  if (loading && !walletData) {
+    return <WalletSkeleton />
+  }
+
+  return (
+    <ProductPage>
+      {!inDashboard && (
+        <Breadcrumb
+          className="mb-3"
+          items={[
+            { label: t('home'), href: PATHS.home },
+            { label: t('nav_dashboard'), href: dashboardPathForRole(currentUserRole) },
+            { label: t('wallet') },
+          ]}
+        />
+      )}
+
+      <ProductPageHeader title={t('wallet')} description={t('wallet_desc')} />
+
+      {loaderError && (
+        <LoadErrorAlert
+          error={walletFetchError}
+          scope="wallet"
+          onRetry={() => void loadWallet()}
+          className="mt-4"
+        />
+      )}
+      {partialLoadError && !loaderError && (
+        <Alert variant="info" className="mt-4">
+          {t('error_wallet_partial_load')}
+        </Alert>
+      )}
+
+      <ProductHero aria-label={t('available_balance')}>
+        <p className="ps-overline">{t('available_balance')}</p>
+        <p className="ps-hero__amount">
+          {loading ? <Skeleton className="inline-block h-10 w-44" /> : formatPrice(displayBalance)}
+        </p>
+        {escrowTotal > 0 || loading ? (
+          <p className="ps-hero__meta">
+            <Shield className="ps-icon ps-icon--sm" aria-hidden />
+            {t('protected_payment_label')}:{' '}
+            {loading ? <Skeleton className="inline-block h-4 w-24 align-middle" /> : formatPrice(escrowTotal)}
+          </p>
+        ) : null}
+        {heroActions}
+      </ProductHero>
+
+      <ProductSplit main={mainContent} aside={asideContent} />
 
       <WalletTopupModal
         open={topupOpen}
         onClose={() => setTopupOpen(false)}
         onSuccess={() => void loadWallet()}
       />
-    </div>
+    </ProductPage>
   )
 }

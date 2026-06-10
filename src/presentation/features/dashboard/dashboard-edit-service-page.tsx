@@ -12,6 +12,7 @@ import { PATHS } from '@/domain/constants/routes'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { api } from '@/infrastructure/api/client'
 import { toast } from '@/presentation/components/ui/toast'
+import { captureLoadError } from '@/shared/lib/load-error'
 import { FileUploadZone } from '@/presentation/components/dashboard/file-upload-zone'
 import { uploadServiceImages } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
@@ -129,7 +130,7 @@ export function DashboardEditServicePage({ serviceId }: { serviceId: string }) {
           }
         }
       })
-      .catch(() => toast.error(t('error_required')))
+      .catch((e) => toast.error(captureLoadError(e, { scope: 'services', apiPath: `/api/v1/services/${serviceId}` }, t)))
       .finally(() => setLoading(false))
   }, [serviceId, t, draft])
 

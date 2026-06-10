@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
-import type { ApiContract, ApiMilestone } from '@/infrastructure/api/types'
 import { PATHS } from '@/domain/constants/routes'
 import { formatPrice } from '@/shared/lib/format'
 import { Shield, Layers } from 'lucide-react'
@@ -12,16 +11,16 @@ import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import { PaymentStatusBadge } from '@/presentation/components/features/payment-status-badge'
 import { MilestoneStatusBadge } from '@/presentation/components/features/milestone-status-badge'
 import { ContractStatusBadge } from '@/presentation/components/features/contract-status-badge'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 
 export function EscrowDashboardPage() {
   const { t } = useApp()
-  const { data, loading } = useProtectedLoader(async () => {
-    const list = await api.listContracts().catch(() => [] as ApiContract[])
-    const all = await Promise.all(
-      list.map((c) => api.listContractMilestones(c.id).catch(() => [] as ApiMilestone[]))
-    )
-    return { contracts: list, milestones: all.flat() }
-  }, [])
+  const { data, loading, error: escrowLoadFailed, loadError: escrowFetchError, reload } =
+    useProtectedLoader(async () => {
+      const list = await api.listContracts()
+      const all = await Promise.all(list.map((c) => api.listContractMilestones(c.id)))
+      return { contracts: list, milestones: all.flat() }
+    }, [])
   const contracts = data?.contracts ?? []
 
   const contractHeld = useMemo(() => {
@@ -43,6 +42,18 @@ export function EscrowDashboardPage() {
 
   if (loading) {
     return <p className="p-6 text-muted-foreground">{t('loading_data')}</p>
+  }
+
+  if (escrowLoadFailed) {
+    return (
+      <div className="mx-auto max-w-4xl p-4 md:p-6">
+        <LoadErrorAlert
+          error={escrowFetchError}
+          scope="payments"
+          onRetry={() => void reload()}
+        />
+      </div>
+    )
   }
 
   return (

@@ -1,8 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sprout, TrendingUp, Award, Briefcase, Search, X } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
@@ -10,24 +9,16 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 import { Select } from '@/presentation/components/ui/select'
 import { FileUploadZone } from '@/presentation/components/dashboard/file-upload-zone'
 import { UZ_REGIONS } from '@/domain/constants/regions'
-import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
-import { POPULAR_SKILLS } from '@/domain/constants/skills'
 import { dashboardPathForRole, PATHS } from '@/domain/constants/routes'
 import { api, ApiError } from '@/infrastructure/api/client'
-import { cn } from '@/shared/lib/utils'
 import { uploadAvatar } from '@/infrastructure/supabase/storage'
+import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
-import { pickAvailableUsername } from '@/shared/lib/username'
-import { serviceCreateSchema } from '@/domain/validators/service'
-import { parseServiceIncludesText } from '@/shared/lib/service-includes'
-import {
-  normalizeExpLevel,
-  normalizeLanguages,
-  parseSpecialtySkillExtras,
-  parseSpecialtyTitle,
-  type OnboardingExpLevel,
-} from '@/shared/lib/onboarding-profile'
+import { normalizeUsername, pickAvailableUsername } from '@/shared/lib/username'
+import { useAuthReady } from '@/shared/lib/use-auth-ready'
+import { parseSpecialtyTitle } from '@/shared/lib/onboarding-profile'
 import { toast } from '@/presentation/components/ui/toast'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 const ONBOARDING_STEP_KEY = 'ishbor-onboarding-step'
 const REGISTER_REGION_KEY = 'ishbor-register-region'
@@ -38,7 +29,48 @@ function readStoredRegion(): string {
   return saved && (UZ_REGIONS as readonly string[]).includes(saved) ? saved : ''
 }
 
-type ExpLevel = OnboardingExpLevel
+function OnboardingShell({
+  step,
+  totalSteps,
+  title,
+  children,
+  footer,
+}: {
+  step: number
+  totalSteps: number
+  title: string
+  children: ReactNode
+  footer?: ReactNode
+}) {
+  const { t } = useApp()
+  const progress = Math.round((step / totalSteps) * 100)
+
+  return (
+    <div className="onboarding-page min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--body-bg)] px-4 py-8">
+      <div className="onboarding-shell">
+        <div className="onboarding-shell__progress">
+          <div
+            className="onboarding-shell__bar"
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span style={{ width: `${progress}%` }} />
+          </div>
+          <p className="onboarding-shell__step">
+            {t('step_n_of_total').replace('{n}', String(step)).replace('{total}', String(totalSteps))}
+          </p>
+        </div>
+        <div className="onboarding-shell__card">
+          <h1 className="onboarding-shell__title">{title}</h1>
+          {children}
+          {footer}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function OnboardingPage() {
   const { t, profile, currentUserRole, refreshProfile, mergeProfile, userId } = useApp()
@@ -46,7 +78,7 @@ export function OnboardingPage() {
   const [saving, setSaving] = useState(false)
   const router = useRouter()
   const isClient = currentUserRole === 'client'
-  const totalSteps = isClient ? 2 : 3
+  const totalSteps = 2
   const [step, setStep] = useState(1)
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '')
@@ -55,23 +87,18 @@ export function OnboardingPage() {
   const [bio, setBio] = useState('')
   const [city, setCity] = useState(readStoredRegion)
   const [company, setCompany] = useState('')
-  const [skills, setSkills] = useState<string[]>([])
-  const [skillInput, setSkillInput] = useState('')
-  const [expLevel, setExpLevel] = useState<ExpLevel>('mid')
-  const [hourlyRate, setHourlyRate] = useState('')
-  const [languages, setLanguages] = useState([{ lang: 'uz', level: 'fluent' }])
-  const [serviceTitle, setServiceTitle] = useState('')
-  const [serviceCategory, setServiceCategory] = useState('')
-  const [serviceDesc, setServiceDesc] = useState('')
-  const [serviceIncludesText, setServiceIncludesText] = useState('')
-  const [packagePrice, setPackagePrice] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'error'>('idle')
+  const [usernameCheckHint, setUsernameCheckHint] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastAutoSavedRef = useRef<string>('')
   const autoSavingRef = useRef(false)
   const profileHydratedRef = useRef(false)
   const skipAutoSaveUntilRef = useRef(0)
+  const userEditedUsernameRef = useRef(false)
+  const usernamePickGenRef = useRef(0)
+  const usernameCheckSeqRef = useRef(0)
+  const { ready: authReady } = useAuthReady()
 
   const clearFieldError = (field: string) => {
     setFieldErrors((prev) => {
@@ -81,8 +108,6 @@ export function OnboardingPage() {
       return next
     })
   }
-
-  const progress = Math.round((step / totalSteps) * 100)
 
   useEffect(() => {
     if (profile?.onboarding_completed) {
@@ -104,7 +129,8 @@ export function OnboardingPage() {
   }, [step])
 
   useEffect(() => {
-    if (username.trim().length >= 3 || profile?.username) return
+    if (userEditedUsernameRef.current || profile?.username) return
+    const pickGen = usernamePickGenRef.current
     let cancelled = false
     void (async () => {
       let email = profile?.email
@@ -115,20 +141,20 @@ export function OnboardingPage() {
       if (!email) return
       try {
         const slug = await pickAvailableUsername(email, profile?.full_name ?? fullName)
-        if (!cancelled) {
+        if (!cancelled && pickGen === usernamePickGenRef.current && !userEditedUsernameRef.current) {
           setUsername(slug)
           setUsernameStatus('ok')
         }
       } catch {
-        if (!cancelled && fullName.trim().length > 1) {
+        if (!cancelled && pickGen === usernamePickGenRef.current && !userEditedUsernameRef.current && fullName.trim().length > 1) {
           try {
             const slug = await pickAvailableUsername(`${fullName.replace(/\s/g, '')}@local.dev`, fullName)
-            if (!cancelled) {
+            if (!cancelled && pickGen === usernamePickGenRef.current && !userEditedUsernameRef.current) {
               setUsername(slug)
               setUsernameStatus('ok')
             }
           } catch {
-            /* user will enter manually */
+            /* manual */
           }
         }
       }
@@ -136,13 +162,12 @@ export function OnboardingPage() {
     return () => {
       cancelled = true
     }
-  }, [profile?.id, profile?.email, profile?.full_name, profile?.username, fullName, username])
+  }, [profile?.id, profile?.email, profile?.full_name, profile?.username, fullName])
 
   useEffect(() => {
     if (!profile?.id || profileHydratedRef.current) return
     profileHydratedRef.current = true
     skipAutoSaveUntilRef.current = Date.now() + 1500
-
     setFullName(profile.full_name || '')
     if (profile.username) {
       setUsername(profile.username)
@@ -154,18 +179,6 @@ export function OnboardingPage() {
     } else {
       setBio(profile.bio || '')
       setTitle(parseSpecialtyTitle(profile.specialty))
-      if (profile.skills?.length) {
-        setSkills(profile.skills)
-      } else {
-        setSkills(parseSpecialtySkillExtras(profile.specialty))
-      }
-      if (profile.experience_level) {
-        setExpLevel(normalizeExpLevel(profile.experience_level))
-      }
-      if (profile.hourly_rate) {
-        setHourlyRate(String(profile.hourly_rate))
-      }
-      setLanguages(normalizeLanguages(profile.languages))
     }
   }, [profile?.id, profile, isClient])
 
@@ -183,7 +196,7 @@ export function OnboardingPage() {
           setCity(fromMeta.trim())
         }
       })
-      .catch(() => undefined)
+      .catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: 'supabase/user-metadata/region' }))
   }, [city])
 
   useEffect(() => {
@@ -196,29 +209,51 @@ export function OnboardingPage() {
           setCompany(fromMeta.trim())
         }
       })
-      .catch(() => undefined)
+      .catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: 'supabase/user-metadata/company' }))
   }, [isClient, company])
 
   useEffect(() => {
-    const slug = username.trim().toLowerCase().replace(/^@/, '')
+    if (!authReady) return
+
+    const slug = normalizeUsername(username)
     if (slug.length < 3) {
       setUsernameStatus('idle')
+      setUsernameCheckHint('')
       return
     }
-    const ownSlug = profile?.username?.toLowerCase()
+    const ownSlug = profile?.username ? normalizeUsername(profile.username) : ''
     if (ownSlug && slug === ownSlug) {
       setUsernameStatus('ok')
       return
     }
+
     setUsernameStatus('checking')
+    setUsernameCheckHint('')
+    const seq = ++usernameCheckSeqRef.current
+    const abort = new AbortController()
     const id = setTimeout(() => {
-      api
-        .checkUsername(slug)
-        .then((r) => setUsernameStatus(r.available ? 'ok' : 'taken'))
-        .catch(() => setUsernameStatus('error'))
-    }, 400)
-    return () => clearTimeout(id)
-  }, [username, profile?.username])
+      void api
+        .checkUsername(slug, abort.signal)
+        .then((r) => {
+          if (abort.signal.aborted || seq !== usernameCheckSeqRef.current) return
+          setUsernameStatus(r.available ? 'ok' : 'taken')
+          setUsernameCheckHint('')
+        })
+        .catch((e) => {
+          if (abort.signal.aborted || seq !== usernameCheckSeqRef.current) return
+          if (e instanceof ApiError && (e.status === 499 || e.status === 408)) return
+          setUsernameStatus('error')
+          setUsernameCheckHint(
+            e instanceof ApiError && e.message ? e.message : t('username_check_failed'),
+          )
+        })
+    }, 300)
+
+    return () => {
+      clearTimeout(id)
+      abort.abort()
+    }
+  }, [username, profile?.username, authReady, t])
 
   const step1Valid = useMemo(() => {
     const base =
@@ -231,40 +266,26 @@ export function OnboardingPage() {
   }, [fullName, username, usernameStatus, city, title, bio, isClient])
 
   const profilePayload = useCallback(
-    (complete: boolean) => {
+    (complete: boolean, usernameOverride?: string) => {
+      const resolvedUsername = (usernameOverride ?? username).trim().replace(/^@/, '')
       const specialtyValue = !isClient ? title.trim() || undefined : company.trim() || undefined
       const bioValue = !isClient
         ? bio.trim() || undefined
         : company.trim()
-          ? `${company.trim()}${bio.trim() ? ` — ${bio.trim()}` : ''}`
+          ? `${company.trim()}${bio.trim() ? ` - ${bio.trim()}` : ''}`
           : bio.trim() || undefined
 
       return {
         full_name: fullName.trim() || undefined,
-        username: username.trim().replace(/^@/, '') || undefined,
+        username: resolvedUsername.length >= 3 ? resolvedUsername : undefined,
         region: city.trim() || undefined,
         specialty: specialtyValue,
         bio: bioValue,
-        skills: !isClient ? skills : undefined,
-        hourly_rate: !isClient && hourlyRate ? Number(hourlyRate.replace(/\D/g, '')) || undefined : undefined,
-        experience_level: !isClient ? expLevel : undefined,
-        languages: !isClient ? languages : undefined,
+        experience_level: !isClient ? ('mid' as const) : undefined,
         ...(complete ? { onboarding_completed: true as const } : {}),
       }
     },
-    [
-      isClient,
-      title,
-      company,
-      bio,
-      fullName,
-      username,
-      city,
-      skills,
-      hourlyRate,
-      expLevel,
-      languages,
-    ],
+    [isClient, title, company, bio, fullName, username, city],
   )
 
   const persistProfile = useCallback(
@@ -282,13 +303,14 @@ export function OnboardingPage() {
           setUsernameStatus('ok')
         }
       }
-      const updated = await api.updateProfile(profilePayload(complete))
+      const payload = profilePayload(complete, finalUsername)
+      const updated = await api.updateProfile(payload)
       const withRole =
         updated.role === currentUserRole
           ? updated
           : await api.updateProfileRole(currentUserRole)
       mergeProfile({ ...withRole, role: currentUserRole })
-      lastAutoSavedRef.current = JSON.stringify(profilePayload(complete))
+      lastAutoSavedRef.current = JSON.stringify(payload)
       sessionStorage.removeItem(REGISTER_REGION_KEY)
       return updated
     },
@@ -298,23 +320,21 @@ export function OnboardingPage() {
   const canAutoSave = useMemo(() => {
     if (!profile?.id || profile.onboarding_completed) return false
     if (fullName.trim().length <= 1 || !city.trim()) return false
-    if (username.trim().length >= 3 && usernameStatus === 'taken') return false
-    if (username.trim().length >= 3 && usernameStatus === 'checking') return false
-    if (!isClient && username.trim().length >= 3 && usernameStatus === 'error') return false
+    if (username.trim().length >= 3 && usernameStatus !== 'ok') return false
+    if (username.trim().length > 0 && username.trim().length < 3) return false
     return true
-  }, [profile?.id, profile?.onboarding_completed, fullName, city, username, usernameStatus, isClient])
+  }, [profile?.id, profile?.onboarding_completed, fullName, city, username, usernameStatus])
 
   const runAutoSave = useCallback(async () => {
     if (!canAutoSave || autoSavingRef.current || saving) return
     if (Date.now() < skipAutoSaveUntilRef.current) return
-    const payload = profilePayload(false)
-    const key = JSON.stringify(payload)
+    const key = JSON.stringify(profilePayload(false))
     if (key === lastAutoSavedRef.current) return
     autoSavingRef.current = true
     try {
       await persistProfile(false)
     } catch {
-      /* keyingi urinishda yoki Davom etishda xabar chiqadi */
+      /* silent */
     } finally {
       autoSavingRef.current = false
     }
@@ -329,33 +349,19 @@ export function OnboardingPage() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     }
-  }, [canAutoSave, runAutoSave, fullName, username, title, bio, city, company, skills, expLevel, hourlyRate, languages, currentUserRole])
+  }, [canAutoSave, runAutoSave, fullName, username, title, bio, city, company, currentUserRole])
 
   const validateStep1 = () => {
     const errs: Record<string, string> = {}
-    if (!fullName.trim() || fullName.trim().length <= 1) {
-      errs.fullName = t('onboarding_err_full_name')
-    }
-    if (username.trim().length < 3) {
-      errs.username = t('onboarding_err_username')
-    }
-    if (!city.trim()) {
-      errs.city = t('onboarding_err_region')
-    }
+    if (!fullName.trim() || fullName.trim().length <= 1) errs.fullName = t('onboarding_err_full_name')
+    if (username.trim().length < 3) errs.username = t('onboarding_err_username')
+    if (!city.trim()) errs.city = t('onboarding_err_region')
     if (usernameStatus === 'checking') return null
-    if (usernameStatus === 'taken') {
-      errs.username = t('username_taken')
-    }
-    if (usernameStatus !== 'ok' && username.trim().length >= 3) {
-      errs.username = t('username_check_failed')
-    }
+    if (usernameStatus === 'taken') errs.username = t('username_taken')
+    if (usernameStatus !== 'ok' && username.trim().length >= 3) errs.username = t('username_check_failed')
     if (!isClient) {
-      if (title.trim().length <= 2) {
-        errs.title = t('onboarding_err_title')
-      }
-      if (bio.trim().length < 10) {
-        errs.bio = t('onboarding_err_bio')
-      }
+      if (title.trim().length <= 2) errs.title = t('onboarding_err_title')
+      if (bio.trim().length < 10) errs.bio = t('onboarding_err_bio')
     }
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs)
@@ -370,10 +376,6 @@ export function OnboardingPage() {
     setSaving(true)
     try {
       await persistProfile(false)
-      if (isClient) {
-        setStep(2)
-        return
-      }
       setStep(2)
     } catch (e) {
       const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
@@ -383,56 +385,7 @@ export function OnboardingPage() {
     }
   }
 
-  const addSkill = (skill: string) => {
-    const s = skill.trim()
-    if (!s || skills.length >= 10 || skills.includes(s)) return
-    setSkills((prev) => [...prev, s])
-    setSkillInput('')
-  }
-
-  const finish = async (skipService = false): Promise<boolean> => {
-    if (!validateStep1()) {
-      toast.error(t('onboarding_required_fields'))
-      return false
-    }
-
-    let servicePayload: {
-      title: string
-      description: string
-      category: string
-      region: string
-      price: number
-      delivery_days: number
-      includes: string[]
-    } | null = null
-
-    if (!isClient && !skipService && serviceTitle.trim() && serviceCategory && serviceDesc.trim()) {
-      const price = Number(packagePrice.replace(/\s/g, '')) || 0
-      const region = city.trim() || profile?.region || UZ_REGIONS[0]
-      const parsed = serviceCreateSchema.safeParse({
-        title: serviceTitle.trim(),
-        description: serviceDesc.trim(),
-        category: serviceCategory,
-        region,
-        price,
-        delivery_days: 5,
-        includes: parseServiceIncludesText(serviceIncludesText),
-      })
-      if (!parsed.success || price <= 0) {
-        toast.error(t('onboarding_service_error'))
-        return false
-      }
-      servicePayload = {
-        title: parsed.data.title,
-        description: parsed.data.description,
-        category: parsed.data.category,
-        region: parsed.data.region,
-        price: parsed.data.price,
-        delivery_days: parsed.data.delivery_days ?? 5,
-        includes: parsed.data.includes,
-      }
-    }
-
+  const finish = async (): Promise<boolean> => {
     setSaving(true)
     try {
       await persistProfile(true)
@@ -443,22 +396,9 @@ export function OnboardingPage() {
     } finally {
       setSaving(false)
     }
-
-    let serviceCreated = false
-    if (servicePayload) {
-      try {
-        await api.createService(servicePayload)
-        serviceCreated = true
-      } catch {
-        toast.error(t('onboarding_service_error'))
-      }
-    }
-
     await refreshProfile()
     sessionStorage.removeItem(ONBOARDING_STEP_KEY)
     toast.success(t('onboarding_complete_success'))
-    const dashboardPath = dashboardPathForRole(currentUserRole)
-    router.push(serviceCreated ? `${dashboardPath}?created=1` : dashboardPath)
     return true
   }
 
@@ -467,383 +407,237 @@ export function OnboardingPage() {
       router.push(href)
       return
     }
-    const ok = await finish(true)
+    const ok = await finish()
     if (ok) router.push(href)
   }
 
-  const renderProgress = () => (
-    <div className="mb-6">
-      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--ishbor-border)]">
-        <div className="h-full rounded-full bg-[var(--color-primary)] transition-all" style={{ width: `${progress}%` }} />
-      </div>
-      <p className="mt-2 text-center text-[13px] text-[var(--ishbor-text-muted)]">
-        {t('step_n_of_total').replace('{n}', String(step)).replace('{total}', String(totalSteps))}
-      </p>
-    </div>
-  )
+  const completeAndGoDashboard = async () => {
+    if (profile?.onboarding_completed) {
+      router.push(dashboardPathForRole(currentUserRole))
+      return
+    }
+    const ok = await finish()
+    if (ok) router.push(dashboardPathForRole(currentUserRole))
+  }
 
   if (step === 1) {
     return (
-      <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-        <div className="surface-panel form-shell p-6 sm:p-8">
-          {renderProgress()}
-          <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">
-            {isClient ? t('onboarding_client_profile_title') : t('onboarding_profile_title')}
-          </h1>
-          <div className="mt-6 space-y-5">
-            <FileUploadZone
-              circular
-              maxFiles={1}
-              disabled={avatarUploading || !userId}
-              initialUrls={profile?.avatar_url ? [profile.avatar_url] : []}
-              onUpload={async (files) => {
-                if (!userId || !files[0]) {
-                  toast.error(t('upload_error'))
-                  return []
-                }
-                if (!isSupabaseConfigured()) {
-                  toast.error(t('auth_supabase_not_configured'))
-                  return []
-                }
-                setAvatarUploading(true)
-                try {
-                  const url = await uploadAvatar(files[0], userId)
-                  await api.updateProfile({ avatar_url: url })
-                  await refreshProfile()
-                  return [url]
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : t('upload_error'))
-                  return []
-                } finally {
-                  setAvatarUploading(false)
-                }
-              }}
-            />
-            <Input
-              label={t('full_name')}
-              value={fullName}
-              onChange={(e) => {
-                setFullName(e.target.value)
-                clearFieldError('fullName')
-              }}
-              error={fieldErrors.fullName}
-            />
-            <div>
-              <Input
-                label={t('username')}
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value)
-                  clearFieldError('username')
-                }}
-                placeholder={t('username_ph')}
-                error={fieldErrors.username}
-              />
-              {usernameStatus === 'checking' && (
-                <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('username_checking')}</p>
-              )}
-              {usernameStatus === 'ok' && (
-                <p className="mt-1 text-[12px] text-[var(--success-dark)]">{t('username_available')}</p>
-              )}
-              {usernameStatus === 'taken' && (
-                <p className="mt-1 text-[12px] text-[var(--error)]">{t('username_taken')}</p>
-              )}
-              {usernameStatus === 'error' && (
-                <p className="mt-1 text-[12px] text-[var(--error)]">{t('username_check_failed')}</p>
-              )}
-            </div>
-            {!isClient && (
-              <>
-                <Input
-                  label={t('professional_title')}
-                  value={title}
-                  onChange={(e) => {
-                    setTitle(e.target.value)
-                    clearFieldError('title')
-                  }}
-                  placeholder={t('professional_title_ph')}
-                  error={fieldErrors.title}
-                />
-                <div>
-                  <Textarea
-                    label={t('bio')}
-                    value={bio}
-                    onChange={(e) => {
-                      setBio(e.target.value)
-                      clearFieldError('bio')
-                    }}
-                    placeholder={t('bio_ph')}
-                    rows={4}
-                    error={fieldErrors.bio}
-                  />
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[var(--ishbor-text-muted)]">
-                    <span>{t('onboarding_bio_hint')}</span>
-                    <span className="shrink-0">
-                      {t('char_counter').replace('{n}', String(bio.length)).replace('{max}', '500')}
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
+      <OnboardingShell
+        step={step}
+        totalSteps={totalSteps}
+        title={isClient ? t('onboarding_client_profile_title') : t('onboarding_profile_title')}
+        footer={
+          <>
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={!step1Valid || saving}
+              loading={saving}
+              className="mt-8"
+              onClick={() => void goToStep2()}
+            >
+              {t('continue_btn')}
+            </Button>
+            <button
+              type="button"
+              disabled={!step1Valid || saving}
+              onClick={() => void completeAndGoDashboard()}
+              className="onboarding-skip"
+            >
+              {t('skip')}
+            </button>
             {isClient && (
-              <Input
-                label={t('company_name')}
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                placeholder={t('company_optional')}
-              />
+              <p className="mt-6 text-center text-[12px] text-[var(--ishbor-text-muted)]">
+                {t('client_find_freelancer_hint')}
+              </p>
             )}
-            <Select
-              label={t('city')}
-              value={city}
-              onChange={(e) => {
-                setCity(e.target.value)
-                clearFieldError('city')
-              }}
-              placeholder={t('select')}
-              options={UZ_REGIONS.map((r) => ({ value: r, label: r }))}
-              className="catalog-control"
-              error={fieldErrors.city}
-            />
-          </div>
-          <Button
-            variant="primary"
-            fullWidth
-            disabled={!step1Valid || saving}
-            loading={saving}
-            className="mt-8"
-            onClick={() => void goToStep2()}
-          >
-            {t('continue_btn')} →
-          </Button>
-          <button
-            type="button"
-            disabled={!step1Valid || saving}
-            onClick={() => void finish(true)}
-            className="mt-4 block w-full text-center text-[13px] text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t('skip')}
-          </button>
-          {isClient && (
-            <p className="mt-6 text-center text-[12px] text-[var(--ishbor-text-muted)]">{t('client_find_freelancer_hint')}</p>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  if (isClient && step === 2) {
-    return (
-      <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-        <div className="surface-panel form-shell p-6 sm:p-8">
-          {renderProgress()}
-          <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">{t('onboarding_client_project_title')}</h1>
-          <div className="mt-6 space-y-4">
-            <button
-              type="button"
-              onClick={() => void completeAndGo(PATHS.postProject)}
-              className="block w-full rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
-            >
-              <Briefcase className="h-12 w-12 text-[var(--color-primary)]" />
-              <h3 className="mt-4 text-[16px] font-bold text-[var(--ishbor-text)]">{t('post_project_now')}</h3>
-              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('post_project_now_desc')}</p>
-              <Button variant="primary" size="sm" className="mt-4 pointer-events-none">{t('post_project_btn')}</Button>
-            </button>
-            <button
-              type="button"
-              onClick={() => void completeAndGo(PATHS.services)}
-              className="block w-full rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-6 text-left transition hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-md)]"
-            >
-              <Search className="h-12 w-12 text-[var(--color-primary)]" />
-              <h3 className="mt-4 text-[16px] font-bold text-[var(--ishbor-text)]">{t('browse_catalog_title')}</h3>
-              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('browse_catalog_desc')}</p>
-              <Button variant="outline" size="sm" className="mt-4 pointer-events-none">{t('go_to_catalog')}</Button>
-            </button>
-          </div>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void finish(true)}
-            className="mt-8 block w-full text-center text-[13px] text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)] disabled:opacity-50"
-          >
-            {t('decide_later')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isClient && step === 2) {
-    return (
-      <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-        <div className="surface-panel form-shell p-6 sm:p-8">
-          {renderProgress()}
-          <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">{t('onboarding_skills_title')}</h1>
-          <div className="mt-6 space-y-5">
-            <div>
-              <Input
-                label={t('skills')}
-                value={skillInput}
-                onChange={(e) => setSkillInput(e.target.value)}
-                placeholder={t('skills_placeholder')}
-                className="catalog-control !h-[42px] border-[var(--ishbor-border)] bg-[var(--neutral-0)] shadow-[var(--shadow-xs)]"
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill(skillInput))}
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
-                {skills.map((s) => (
-                  <span key={s} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-light)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-primary)]">
-                    {s}
-                    <button type="button" onClick={() => setSkills((p) => p.filter((x) => x !== s))}><X className="h-3 w-3" /></button>
-                  </span>
-                ))}
-              </div>
-              <p className="mt-3 text-[12px] font-medium text-[var(--ishbor-text-muted)]">{t('popular_skills')}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {POPULAR_SKILLS.map((s) => (
-                  <button key={s} type="button" onClick={() => addSkill(s)} className="rounded-full border border-[var(--ishbor-border)] px-3 py-1 text-[12px] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              {([
-                { id: 'junior' as const, icon: Sprout, title: t('exp_junior'), desc: t('exp_junior_desc'), sub: t('exp_junior_sub'), color: 'var(--success)' },
-                { id: 'mid' as const, icon: TrendingUp, title: t('exp_mid'), desc: t('exp_mid_desc'), sub: t('exp_mid_sub'), color: 'var(--color-primary)' },
-                { id: 'expert' as const, icon: Award, title: t('exp_expert'), desc: t('exp_expert_desc'), sub: t('exp_expert_sub'), color: 'var(--warning)' },
-              ]).map((card) => {
-                const Icon = card.icon
-                const active = expLevel === card.id
-                return (
-                  <button
-                    key={card.id}
-                    type="button"
-                    onClick={() => setExpLevel(card.id)}
-                    className={cn(
-                      'rounded-xl border p-4 text-left transition',
-                      active ? 'border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'border-[var(--ishbor-border)] bg-[var(--neutral-0)] hover:bg-[var(--color-primary-light)]/50'
-                    )}
-                  >
-                    <Icon className="h-6 w-6" style={{ color: card.color }} />
-                    <p className="mt-2 text-[14px] font-bold text-[var(--ishbor-text)]">{card.title}</p>
-                    <p className="text-[12px] text-[var(--ishbor-text-muted)]">{card.desc}</p>
-                    <p className="mt-1 text-[11px] text-[var(--ishbor-text-muted)]">{card.sub}</p>
-                  </button>
-                )
-              })}
-            </div>
-
-            <Input
-              label={t('hourly_rate_label')}
-              value={hourlyRate}
-              onChange={(e) => setHourlyRate(e.target.value)}
-              placeholder={t('price_placeholder')}
-            />
-
-            {languages.map((row, i) => (
-              <div key={i} className="grid min-w-0 gap-3 sm:grid-cols-2">
-                <Select
-                  wrapperClassName="min-w-0"
-                  value={row.lang}
-                  onChange={(e) => setLanguages((p) => p.map((l, j) => (j === i ? { ...l, lang: e.target.value } : l)))}
-                  options={[
-                    { value: 'uz', label: t('lang_uzbek') },
-                    { value: 'ru', label: t('lang_russian') },
-                    { value: 'en', label: t('lang_english') },
-                  ]}
-                  className="catalog-control"
-                />
-                <Select
-                  wrapperClassName="min-w-0"
-                  value={row.level}
-                  onChange={(e) => setLanguages((p) => p.map((l, j) => (j === i ? { ...l, level: e.target.value } : l)))}
-                  options={[
-                    { value: 'beginner', label: t('lang_level_beginner') },
-                    { value: 'intermediate', label: t('lang_level_intermediate') },
-                    { value: 'fluent', label: t('lang_level_fluent') },
-                    { value: 'native', label: t('lang_level_native') },
-                  ]}
-                  className="catalog-control"
-                />
-              </div>
-            ))}
-            {languages.length < 3 && (
-              <Button variant="ghost" size="sm" onClick={() => setLanguages((p) => [...p, { lang: 'ru', level: 'intermediate' }])}>
-                + {t('add_language')}
-              </Button>
-            )}
-          </div>
-          <Button
-            variant="primary"
-            fullWidth
-            className="mt-8"
-            loading={saving}
-            onClick={async () => {
-              setSaving(true)
+          </>
+        }
+      >
+        <div className="onboarding-fields">
+          <FileUploadZone
+            circular
+            maxFiles={1}
+            disabled={avatarUploading || !userId}
+            initialUrls={profile?.avatar_url ? [profile.avatar_url] : []}
+            onUpload={async (files) => {
+              if (!userId || !files[0]) {
+                toast.error(t('upload_error'))
+                return []
+              }
+              if (!isSupabaseConfigured()) {
+                toast.error(t('auth_supabase_not_configured'))
+                return []
+              }
+              setAvatarUploading(true)
               try {
-                await persistProfile(false)
-                setStep(3)
+                const url = await uploadAvatar(files[0], userId)
+                await persistProfilePatch(userId, { avatar_url: url })
+                await refreshProfile()
+                return [url]
               } catch (e) {
-                const detail = e instanceof ApiError ? e.message : t('onboarding_save_error')
-                toast.error(detail || t('onboarding_save_error'))
+                toast.error(e instanceof Error ? e.message : t('upload_error'))
+                return []
               } finally {
-                setSaving(false)
+                setAvatarUploading(false)
               }
             }}
-          >
-            {t('continue_btn')} →
-          </Button>
+          />
+          <Input
+            label={t('full_name')}
+            value={fullName}
+            onChange={(e) => {
+              setFullName(e.target.value)
+              clearFieldError('fullName')
+            }}
+            error={fieldErrors.fullName}
+          />
+          <div>
+            <Input
+              label={t('username')}
+              value={username}
+              onChange={(e) => {
+                userEditedUsernameRef.current = true
+                usernamePickGenRef.current += 1
+                setUsername(e.target.value)
+                clearFieldError('username')
+              }}
+              placeholder={t('username_ph')}
+              error={fieldErrors.username}
+            />
+            {usernameStatus === 'checking' && (
+              <p className="mt-1 text-[12px] text-[var(--ishbor-text-muted)]">{t('username_checking')}</p>
+            )}
+            {usernameStatus === 'ok' && (
+              <p className="mt-1 text-[12px] text-[var(--success-dark)]">{t('username_available')}</p>
+            )}
+            {usernameStatus === 'taken' && (
+              <p className="mt-1 text-[12px] text-[var(--error)]">{t('username_taken')}</p>
+            )}
+            {usernameStatus === 'error' && (
+              <p className="mt-1 text-[12px] text-[var(--error)]">
+                {usernameCheckHint || t('username_check_failed')}
+              </p>
+            )}
+          </div>
+          {!isClient && (
+            <>
+              <Input
+                label={t('professional_title')}
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value)
+                  clearFieldError('title')
+                }}
+                placeholder={t('professional_title_ph')}
+                error={fieldErrors.title}
+              />
+              <div>
+                <Textarea
+                  label={t('bio')}
+                  value={bio}
+                  onChange={(e) => {
+                    setBio(e.target.value)
+                    clearFieldError('bio')
+                  }}
+                  placeholder={t('bio_ph')}
+                  rows={4}
+                  error={fieldErrors.bio}
+                />
+                <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[var(--ishbor-text-muted)]">
+                  <span>{t('onboarding_bio_hint')}</span>
+                  <span className="shrink-0">
+                    {t('char_counter').replace('{n}', String(bio.length)).replace('{max}', '500')}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+          {isClient && (
+            <Input
+              label={t('company_name')}
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              placeholder={t('company_optional')}
+            />
+          )}
+          <Select
+            label={t('city')}
+            value={city}
+            onChange={(e) => {
+              setCity(e.target.value)
+              clearFieldError('city')
+            }}
+            placeholder={t('select')}
+            options={UZ_REGIONS.map((r) => ({ value: r, label: r }))}
+            className="catalog-control"
+            error={fieldErrors.city}
+          />
         </div>
-      </div>
+      </OnboardingShell>
     )
   }
 
   return (
-    <div className="min-h-[calc(100vh-var(--ishbor-header-h))] bg-[var(--neutral-50)] px-4 py-8">
-      <div className="surface-panel form-shell p-6 sm:p-8">
-        {renderProgress()}
-        <h1 className="text-[22px] font-bold text-[var(--ishbor-text)]">{t('onboarding_first_service_title')}</h1>
-        <div className="mt-6 space-y-5">
-          <Input label={t('service_title')} value={serviceTitle} onChange={(e) => setServiceTitle(e.target.value)} placeholder={t('service_title_ph')} />
-          <Select
-            label={t('category')}
-            value={serviceCategory}
-            onChange={(e) => setServiceCategory(e.target.value)}
-            placeholder={t('select')}
-            options={KWORK_CATEGORY_ITEMS.map((c) => ({ value: c.cat, label: t(c.labelKey) }))}
-            className="catalog-control"
-          />
-          <Textarea
-            label={t('description')}
-            value={serviceDesc}
-            onChange={(e) => setServiceDesc(e.target.value)}
-            rows={6}
-            hint={t('onboarding_service_desc_hint')}
-          />
-          <Textarea
-            label={t('service_includes_title')}
-            value={serviceIncludesText}
-            onChange={(e) => setServiceIncludesText(e.target.value)}
-            rows={4}
-            hint={t('service_includes_hint')}
-            placeholder={t('service_includes_ph')}
-          />
-          <Input
-            label={t('col_price')}
-            value={packagePrice}
-            onChange={(e) => setPackagePrice(e.target.value)}
-            placeholder={t('price_placeholder')}
-          />
-          <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('onboarding_single_package_hint')}</p>
-        </div>
-        <Button variant="primary" fullWidth size="lg" className="mt-8" onClick={() => finish()}>
-          {t('finish_profile')}
-        </Button>
-        <button type="button" onClick={() => finish(true)} className="mt-4 block w-full text-center text-[13px] text-[var(--ishbor-text-muted)] hover:text-[var(--color-primary)]">
-          {t('add_later')}
+    <OnboardingShell
+      step={step}
+      totalSteps={totalSteps}
+      title={isClient ? t('onboarding_client_project_title') : t('onboarding_first_service_title')}
+      footer={
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void completeAndGoDashboard()}
+          className="onboarding-skip mt-6"
+        >
+          {t('decide_later')}
         </button>
+      }
+    >
+      <p className="onboarding-next-desc">
+        {isClient ? t('post_project_now_desc') : t('create_service_desc')}
+      </p>
+      <div className="onboarding-next-actions">
+        {isClient ? (
+          <>
+            <Button
+              variant="primary"
+              fullWidth
+              loading={saving}
+              onClick={() => void completeAndGo(PATHS.postProject)}
+            >
+              {t('post_project_btn')}
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              disabled={saving}
+              onClick={() => void completeAndGo(PATHS.services)}
+            >
+              {t('go_to_catalog')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="primary"
+              fullWidth
+              loading={saving}
+              onClick={() => void completeAndGo(PATHS.dashboardServicesNew)}
+            >
+              {t('btn_create_service')}
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              disabled={saving}
+              onClick={() => void completeAndGoDashboard()}
+            >
+              {t('nav_dashboard')}
+            </Button>
+          </>
+        )}
       </div>
-    </div>
+    </OnboardingShell>
   )
 }

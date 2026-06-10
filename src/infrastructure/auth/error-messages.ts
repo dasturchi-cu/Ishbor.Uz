@@ -25,7 +25,7 @@ export function mapAuthErrorMessage(
     return t('error_invalid_token')
   }
   if (lower.includes('failed to fetch') || lower.includes('network')) {
-    return 'Supabase serveriga ulanib bo\'lmadi. Internet va .env.local sozlamalarini tekshiring.'
+    return t('error_supabase_unreachable')
   }
 
   return message

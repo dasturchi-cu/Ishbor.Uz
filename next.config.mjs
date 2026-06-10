@@ -1,5 +1,13 @@
+import bundleAnalyzer from '@next/bundle-analyzer'
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+})
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // HMR: brauzer 127.0.0.1 orqali ochilganda cross-origin bloklanmasin
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
   serverExternalPackages: ['@sentry/nextjs'],
   typescript: {
     ignoreBuildErrors: false,
@@ -43,6 +51,14 @@ const nextConfig = {
       'https://www.google-analytics.com',
       'https://va.vercel-scripts.com',
     ].join(' ')
+    const connectSrc = [
+      "'self'",
+      'https://*.supabase.co',
+      'wss://*.supabase.co',
+      'https://www.google-analytics.com',
+      'https://vitals.vercel-insights.com',
+      ...(isProd ? [] : ['ws://localhost:3000', 'ws://127.0.0.1:3000', 'http://127.0.0.1:8002', 'http://localhost:8002']),
+    ].join(' ')
     const securityHeaders = [
       { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
       { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -57,7 +73,7 @@ const nextConfig = {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https://*.supabase.co https://www.google-analytics.com",
           "font-src 'self' data:",
-          "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://vitals.vercel-insights.com",
+          `connect-src ${connectSrc}`,
           "frame-ancestors 'self'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -79,4 +95,4 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+export default withBundleAnalyzer(nextConfig)

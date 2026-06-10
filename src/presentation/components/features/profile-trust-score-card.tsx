@@ -11,6 +11,7 @@ import { PATHS } from '@/domain/constants/routes'
 import { ReputationBadge } from '@/presentation/components/features/reputation-badge'
 import { VerifiedBadge } from '@/presentation/components/features/verified-badge'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 export function ProfileTrustScoreCard() {
   const { t } = useApp()
@@ -28,7 +29,10 @@ export function ProfileTrustScoreCard() {
     api
       .getMyTrustBreakdown()
       .then(setData)
-      .catch(() => setData(null))
+      .catch((e) => {
+        ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/trust/me' })
+        setData(null)
+      })
       .finally(() => setLoading(false))
   }, [ready, authed])
 

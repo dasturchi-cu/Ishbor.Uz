@@ -13,7 +13,6 @@ import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/cli
 import { api } from '@/infrastructure/api/client'
 import { PATHS } from '@/domain/constants/routes'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
-import { clearAuthCache } from '@/infrastructure/auth/session-cache'
 import { toast } from '@/presentation/components/ui/toast'
 import { resolvePostAuthDestination } from '@/shared/lib/auth-redirect'
 import { signInWithGoogle } from '@/infrastructure/auth/oauth'
@@ -23,6 +22,7 @@ import { AuthPageFallback } from '@/presentation/components/auth/auth-page-fallb
 import { loginSchema } from '@/domain/validators/auth'
 import { needsMfaChallenge, verifyTotpLogin } from '@/infrastructure/auth/mfa-totp'
 import { TurnstileWidget, isTurnstileEnabled } from '@/presentation/components/auth/turnstile-widget'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 function LoginPageContent() {
   const { t, refreshProfile, isLoggedIn, isAuthLoading, currentUserRole, profile } = useApp()
@@ -132,9 +132,17 @@ function LoginPageContent() {
   }
 
   const completeLogin = async () => {
-    clearAuthCache()
-    await refreshProfile()
-    const me = await api.getProfile().catch(() => null)
+    try {
+      await refreshProfile()
+    } catch (e) {
+      toast.error(captureLoadError(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }, t))
+    }
+    let me = null
+    try {
+      me = await api.getProfile()
+    } catch (e) {
+      toast.error(captureLoadError(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }, t))
+    }
     const role = me?.role === 'client' ? 'client' : 'freelancer'
     const name = me?.full_name ?? profile?.full_name ?? email.split('@')[0]
     toast.success(`${t('login_title')}, ${name}!`)

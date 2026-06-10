@@ -10,11 +10,12 @@ const DEBOUNCE_MS = 400
 export function useInboxRealtime(userId: string | null | undefined, onRefresh: () => void) {
   const onRefreshRef = useRef(onRefresh)
   const listenerId = useId().replace(/:/g, '')
-  const component = `use-inbox-realtime:${listenerId}`
 
   useEffect(() => {
     onRefreshRef.current = onRefresh
   }, [onRefresh])
+
+  const component = `use-inbox-realtime:${listenerId}`
 
   useEffect(() => {
     if (!userId || !isSupabaseConfigured()) return
@@ -49,5 +50,5 @@ export function useInboxRealtime(userId: string | null | undefined, onRefresh: (
       if (timer) clearTimeout(timer)
       void supabase.removeChannel(channel)
     }
-  }, [userId, listenerId])
+  }, [userId, listenerId, component])
 }

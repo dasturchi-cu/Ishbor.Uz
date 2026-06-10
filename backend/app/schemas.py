@@ -230,6 +230,8 @@ class ServiceResponse(BaseModel):
     includes: list[str] = Field(default_factory=list)
     faq: list[dict] = Field(default_factory=list)
     view_count: int = 0
+    is_hidden: bool = False
+    moderation_status: str = "approved"
     created_at: datetime | None = None
     profiles: dict | None = None
 
@@ -247,6 +249,10 @@ class ServiceResponse(BaseModel):
                 data["faq"] = []
             if data.get("view_count") is None:
                 data["view_count"] = 0
+            if data.get("is_hidden") is None:
+                data["is_hidden"] = False
+            if data.get("moderation_status") is None:
+                data["moderation_status"] = "approved"
         return data
 
 

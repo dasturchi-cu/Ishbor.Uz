@@ -23,6 +23,7 @@ import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { useNotificationsFeed } from '@/application/providers/notifications-provider'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/shared/lib/query-keys'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 interface NotifItem {
   id: string
@@ -81,12 +82,12 @@ export function NotificationDropdown() {
   const markAllRead = () => {
     void markAllNotifsRead()
       .then(() => patchCache((rows) => rows.map((n) => ({ ...n, unread: false }))))
-      .catch(() => undefined)
+      .catch((e) => ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/notifications/read-all' }))
   }
   const markOneRead = (id: string) => {
     void markNotifRead(id)
       .then(() => patchCache((rows) => rows.map((n) => (n.id === id ? { ...n, unread: false } : n))))
-      .catch(() => undefined)
+      .catch((e) => ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/notifications/read' }))
   }
 
   return (

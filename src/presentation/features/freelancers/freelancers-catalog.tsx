@@ -16,6 +16,8 @@ import { UZ_REGIONS } from '@/domain/constants/regions'
 import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
 import { PATHS } from '@/domain/constants/routes'
 import type { TranslationKey } from '@/infrastructure/i18n'
+import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 interface FreelancersCatalogProps {
   titleKey?: TranslationKey
@@ -37,9 +39,15 @@ export function FreelancersCatalog({
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [reloadTick, setReloadTick] = useState(0)
   const pageSize = 24
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const reg = params.get('region')
+    if (reg) setRegion(reg)
+  }, [])
 
   useEffect(() => {
     setOffset(0)
@@ -48,7 +56,7 @@ export function FreelancersCatalog({
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(true)
-      setLoadError(false)
+      setLoadError(null)
       api
         .listFreelancers({
           q: search.trim() || undefined,
@@ -62,9 +70,9 @@ export function FreelancersCatalog({
           setFreelancers((prev) => (offset === 0 ? rows : [...prev, ...rows]))
           setHasMore(rows.length >= pageSize)
         })
-        .catch(() => {
+        .catch((e) => {
           if (offset === 0) setFreelancers([])
-          setLoadError(true)
+          setLoadError(e)
         })
         .finally(() => setLoading(false))
     }, search ? 300 : 0)
@@ -85,7 +93,10 @@ export function FreelancersCatalog({
       api
         .listFreelancers({ q, limit: 5, offset: 0, sort: sortBy })
         .then(setSuggestions)
-        .catch(() => setSuggestions([]))
+        .catch((e) => {
+          ignoreWithLog(e, { scope: 'catalog', apiPath: '/api/v1/profiles/freelancers' })
+          setSuggestions([])
+        })
     }, 300)
     return () => clearTimeout(id)
   }, [search, sortBy])
@@ -209,10 +220,11 @@ export function FreelancersCatalog({
       <p id="freelancer-results" className="mb-4 px-0.5 text-[13px] text-[var(--ishbor-text-muted)]">{countLabel}</p>
 
       {loadError && offset === 0 ? (
-        <EmptyState
-          icon={<Users />}
-          title={t('catalog_load_error')}
-          action={{ label: t('catalog_retry'), onClick: () => setReloadTick((n) => n + 1) }}
+        <LoadErrorAlert
+          error={loadError}
+          scope="catalog"
+          onRetry={() => setReloadTick((n) => n + 1)}
+          className="mb-4"
         />
       ) : loading && offset === 0 ? (
         <div className="freelancer-grid">

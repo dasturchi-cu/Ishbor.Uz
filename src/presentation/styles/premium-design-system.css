@@ -22,24 +22,13 @@
 }
 
 /* ─── Surfaces ─── */
-.ishbor-card,
-.ishbor-service-card,
-.ishbor-freelancer-card,
+/* ishbor-* cards → product-system.css */
+
 .dashboard-stat-card,
 .dashboard-panel,
 .dashboard-welcome {
   border-color: color-mix(in srgb, var(--ishbor-border) 85%, transparent);
   box-shadow: var(--shadow-card);
-}
-
-.ishbor-service-card:hover {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
-}
-
-.ishbor-freelancer-card:hover,
-.ishbor-card:hover {
-  box-shadow: var(--shadow-card-hover);
 }
 
 .dashboard-stat-card:hover {
@@ -91,8 +80,8 @@
 }
 
 .ishbor-site-header__nav {
-  background: color-mix(in srgb, var(--neutral-50) 80%, var(--neutral-0));
-  border-top-color: color-mix(in srgb, var(--ishbor-border) 60%, transparent);
+  background: var(--neutral-0);
+  border-top-color: color-mix(in srgb, var(--ishbor-border) 55%, transparent);
   box-shadow: none;
 }
 
@@ -291,12 +280,7 @@
   box-shadow: var(--shadow-card-hover);
 }
 
-.surface-premium {
-  background: var(--neutral-0);
-  border: 1px solid color-mix(in srgb, var(--ishbor-border) 80%, transparent);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-card);
-}
+/* .surface-premium → product-system.css (.ps-card) */
 
 .text-display {
   font-size: var(--text-display);
@@ -313,15 +297,7 @@
   color: var(--ishbor-text-muted);
 }
 
-/* ─── Dashboard hero — Stripe-style focal widget ─── */
-.dash-hero {
-  border-color: color-mix(in srgb, var(--ishbor-border) 75%, transparent);
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--color-primary-light) 50%, var(--neutral-0)) 0%,
-    var(--neutral-0) 60%
-  );
-}
+/* .dash-hero shell → product-system.css */
 
 .dash-hero__title {
   font-weight: 700;
@@ -340,11 +316,7 @@
   background: color-mix(in srgb, var(--color-primary-light) 30%, var(--neutral-0));
 }
 
-/* ─── Surface panels (landing, forms, checkout) ─── */
-.surface-panel {
-  border-color: color-mix(in srgb, var(--ishbor-border) 80%, transparent);
-  box-shadow: var(--shadow-card);
-}
+/* .surface-panel → product-system.css (.ps-card) */
 
 .surface-section-tint {
   background: linear-gradient(180deg, color-mix(in srgb, var(--brand-50) 60%, var(--neutral-0)) 0%, var(--neutral-0) 80%);

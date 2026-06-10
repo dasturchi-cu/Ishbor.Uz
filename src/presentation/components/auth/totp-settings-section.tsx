@@ -20,6 +20,7 @@ import {
 import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useEscapeClose } from '@/shared/lib/use-escape-close'
+import { captureLoadError } from '@/shared/lib/load-error'
 
 export function TotpSettingsSection() {
   const { t } = useApp()
@@ -47,9 +48,12 @@ export function TotpSettingsSection() {
     setLoading(true)
     listVerifiedTotpFactors()
       .then(setFactors)
-      .catch(() => setFactors([]))
+      .catch((e) => {
+        setFactors([])
+        toast.error(captureLoadError(e, { scope: 'profile', apiPath: 'supabase/mfa' }, t))
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   useAuthedEffect(() => {
     refreshFactors()
