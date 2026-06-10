@@ -96,15 +96,10 @@
   box-shadow: var(--shadow-focus);
 }
 
-/* ─── Landing hero — focused, premium ─── */
+/* ─── Landing hero — clean, marketplace-first ─── */
 .ishbor-landing-hero {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-primary-light) 40%, var(--neutral-0)) 0%,
-    var(--neutral-0) 55%,
-    var(--body-bg) 100%
-  );
-  border-bottom-color: color-mix(in srgb, var(--ishbor-border) 50%, transparent);
+  background: var(--neutral-0);
+  border-bottom: 1px solid color-mix(in srgb, var(--ishbor-border) 60%, transparent);
 }
 
 .ishbor-landing-hero::before,
