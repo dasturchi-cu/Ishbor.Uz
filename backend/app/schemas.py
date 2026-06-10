@@ -102,6 +102,7 @@ class ProfileUpdate(BaseModel):
     experience_level: str | None = None
     languages: list[dict] | None = None
     portfolio_urls: list[str] | None = None
+    role: Literal["freelancer", "client"] | None = None
 
 
 class UiPreferencesUpdate(BaseModel):

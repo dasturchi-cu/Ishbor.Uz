@@ -1,6 +1,6 @@
 """Security endpoints: phone OTP, login audit, security events."""
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.captcha_service import captcha_required, verify_turnstile
@@ -60,12 +60,13 @@ def my_security_events(auth: UserAuthDep, limit: int = 20):
 
 
 @router.post("/audit/login", status_code=status.HTTP_204_NO_CONTENT)
-def audit_login_event(body: LoginAudit, request: Request):
+def audit_login_event(body: LoginAudit, request: Request, background_tasks: BackgroundTasks):
     if captcha_required() and not verify_turnstile(body.captcha_token, client_ip(request)):
         log_security_event("captcha_failed", severity="medium", metadata={"email": body.email}, request=request)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="captcha_failed")
 
-    record_login_attempt(
+    background_tasks.add_task(
+        record_login_attempt,
         success=body.success,
         user_id=None,
         email=body.email,

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from 'react'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { trackSupabaseRequest } from '@/shared/lib/supabase-request-debug'
+import { logRealtimeSubscriptionError } from '@/shared/lib/realtime-error'
 
 const DEBOUNCE_MS = 400
 
@@ -44,7 +45,14 @@ export function useInboxRealtime(userId: string | null | undefined, onRefresh: (
         },
         scheduleRefresh
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          logRealtimeSubscriptionError(`inbox-${userId}`, status, {
+            table: 'messages',
+            filter: `receiver_id=eq.${userId}`,
+          })
+        }
+      })
 
     return () => {
       if (timer) clearTimeout(timer)

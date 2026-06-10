@@ -27,7 +27,8 @@ type Entry = {
 }
 
 const HOUR_MS = 60 * 60 * 1000
-const MAX_TIMESTAMPS = 5000
+const MAX_TIMESTAMPS = 500
+const MAX_ENTRIES = 500
 const entries = new Map<string, Entry>()
 
 export function isSupabaseRequestDebugEnabled(): boolean {
@@ -76,6 +77,10 @@ export function trackSupabaseRequest(meta: SupabaseRequestMeta): void {
 
   let entry = entries.get(key)
   if (!entry) {
+    if (entries.size >= MAX_ENTRIES) {
+      const oldest = entries.keys().next().value
+      if (oldest) entries.delete(oldest)
+    }
     entry = {
       queryName: meta.queryName,
       endpoint,

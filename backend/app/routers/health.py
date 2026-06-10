@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.config import settings
 from app.database import get_supabase_admin
 from app.db_utils import run_query
+from app.migration_checks import verify_launch_readiness
 
 router = APIRouter()
 
@@ -38,9 +39,12 @@ def health_ready():
             detail="Database unavailable",
         ) from exc
 
+    migrations_ok, migration_details = verify_launch_readiness()
+
     return {
-        "status": "ready",
+        "status": "ready" if migrations_ok else "degraded",
         "database": "ok",
+        "migrations": migration_details,
         "payments": {
             "click": settings.click_enabled,
             "payme": settings.payme_enabled,

@@ -1,16 +1,15 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
 import { useApp } from '@/application/providers/app-provider'
-import { api } from '@/infrastructure/api/client'
 import type { ApiOrder, ApiProject, ApiService, ApiUserReputation } from '@/infrastructure/api/types'
-import { summaryToHomeData } from '@/shared/lib/dashboard-cache-hydrate'
+import { hydrateDashboardCaches, summaryToHomeData } from '@/shared/lib/dashboard-cache-hydrate'
 import {
   readDashboardSummaryCache,
   readDashboardSummaryCacheUpdatedAt,
-  writeDashboardSummaryCache,
 } from '@/shared/lib/dashboard-summary-cache'
+import { fetchDashboardSummary } from '@/shared/lib/prefetch-dashboard-summary'
 import { queryKeys } from '@/shared/lib/query-keys'
 import { wrapQueryFn } from '@/shared/lib/request-debug'
 import type { DashboardHomeData } from '@/shared/lib/use-dashboard-home'
@@ -40,13 +39,17 @@ export function useDashboardSummary(
     [userId, role]
   )
 
+  useLayoutEffect(() => {
+    if (!userId) return
+    hydrateDashboardCaches(queryClient, userId, role)
+  }, [queryClient, userId, role])
+
   const { data, isPending, isFetching, isError, error, refetch } = useQuery({
     queryKey: queryKeys.dashboardSummary(role),
     queryFn: wrapQueryFn(
       `dashboard/summary:${role}`,
       async () => {
-        const summary = await api.getDashboardSummary(role)
-        if (userId) writeDashboardSummaryCache(userId, role, summary)
+        const summary = await fetchDashboardSummary(userId!, role)
         queryClient.setQueryData(queryKeys.dashboardBadges, summary.badges)
         queryClient.setQueryData(queryKeys.dashboardHome(role), summaryToHomeData(summary))
         return summary
@@ -62,12 +65,12 @@ export function useDashboardSummary(
   })
 
   useEffect(() => {
-    const wallet = data?.profile?.wallet_balance
-    if (wallet === undefined || wallet === null) return
-    if (profile?.wallet_balance !== wallet) {
+    if (!data?.profile) return
+    const wallet = data.profile.wallet_balance
+    if (wallet !== undefined && wallet !== null && profile?.wallet_balance !== wallet) {
       mergeProfile({ wallet_balance: wallet })
     }
-  }, [data?.profile?.wallet_balance, profile?.wallet_balance, mergeProfile])
+  }, [data?.profile, profile?.wallet_balance, mergeProfile])
 
   const invalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardSummary(role) })

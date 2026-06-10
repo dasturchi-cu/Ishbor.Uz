@@ -24,7 +24,7 @@ export function getWaitlistEmails(): string[] {
   }
 }
 
-/** API + localStorage fallback */
+/** API saqlash; muvaffaqiyat faqat server 204 qaytarganda. */
 export async function saveWaitlistEmail(email: string, source = 'general'): Promise<boolean> {
   const normalized = email.trim().toLowerCase()
   if (!normalized) return false
@@ -33,7 +33,6 @@ export async function saveWaitlistEmail(email: string, source = 'general'): Prom
     saveWaitlistEmailLocal(normalized)
     return true
   } catch {
-    saveWaitlistEmailLocal(normalized)
     return false
   }
 }

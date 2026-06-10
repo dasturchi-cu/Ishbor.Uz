@@ -33,7 +33,7 @@ export function ComingSoonPage({ titleKey, descKey }: ComingSoonPageProps) {
       toast.success(t('newsletter_thanks'))
       setEmail('')
     } else {
-      toast.info(t('waitlist_saved_local'))
+      toast.error(t('newsletter_save_failed'))
     }
   }
 

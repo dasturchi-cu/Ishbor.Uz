@@ -1,56 +1,80 @@
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "IshBor: Dev Full Stack",
-      "type": "shell",
-      "command": "pnpm dev:start",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "ishbor-dev",
-        "pattern": { "regexp": "^.*$" },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": ".",
-          "endsPattern": "Ready in|started server|Application startup complete|Uvicorn running"
-        }
-      },
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "group": "ishbor-dev"
-      }
-    },
-    {
-      "label": "IshBor: Dev Stop",
-      "type": "shell",
-      "command": "pnpm dev:stop",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared",
-        "group": "ishbor-dev"
-      }
-    },
-    {
-      "label": "IshBor: Dev (manual)",
-      "type": "shell",
-      "command": "pnpm dev:all",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "isBackground": true,
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated"
-      }
-    }
-  ]
-}
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "IshBor: Backend (8002)",
+      "type": "shell",
+      "command": "pnpm dev:api",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "ishbor-backend",
+        "pattern": { "regexp": "^.*$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Application startup complete|Uvicorn running"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "ishbor-dev"
+      }
+    },
+    {
+      "label": "IshBor: Frontend (3000)",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "ishbor-frontend",
+        "pattern": { "regexp": "^.*$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Ready in"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "ishbor-dev"
+      }
+    },
+    {
+      "label": "IshBor: Dev Prepare",
+      "type": "shell",
+      "command": "pnpm dev:prepare",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "ishbor-dev"
+      }
+    },
+    {
+      "label": "IshBor: Dev Stop",
+      "type": "shell",
+      "command": "pnpm dev:stop",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "ishbor-dev"
+      }
+    }
+  ]
+}
+

@@ -16,7 +16,7 @@ import { checkUsernameRemote } from '@/shared/lib/check-username-remote'
 import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
 import { uploadAvatar, formatStorageUploadError } from '@/infrastructure/supabase/storage'
 import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/client'
-import { normalizeUsername, pickAvailableUsername } from '@/shared/lib/username'
+import { normalizeUsername, pickAvailableUsername, prepareUsernameForSubmit, USERNAME_MAX_LENGTH, isUsernameLengthValid } from '@/shared/lib/username'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { parseSpecialtyTitle } from '@/shared/lib/onboarding-profile'
 import { toast } from '@/presentation/components/ui/toast'
@@ -223,6 +223,11 @@ export function OnboardingPage() {
       setUsernameCheckHint('')
       return
     }
+    if (slug.length > USERNAME_MAX_LENGTH) {
+      setUsernameStatus('error')
+      setUsernameCheckHint(t('onboarding_err_username_long'))
+      return
+    }
     const ownSlug = profile?.username ? normalizeUsername(profile.username) : ''
     if (ownSlug && slug === ownSlug) {
       setUsernameStatus('ok')
@@ -257,7 +262,7 @@ export function OnboardingPage() {
   const step1Valid = useMemo(() => {
     const base =
       fullName.trim().length > 1 &&
-      username.trim().length > 2 &&
+      isUsernameLengthValid(username) &&
       usernameStatus === 'ok' &&
       city.trim().length > 0
     if (isClient) return base
@@ -266,7 +271,7 @@ export function OnboardingPage() {
 
   const profilePayload = useCallback(
     (complete: boolean, usernameOverride?: string) => {
-      const resolvedUsername = (usernameOverride ?? username).trim().replace(/^@/, '')
+      const resolvedUsername = prepareUsernameForSubmit(usernameOverride ?? username)
       const specialtyValue = !isClient ? title.trim() || undefined : company.trim() || undefined
       const bioValue = !isClient
         ? bio.trim() || undefined
@@ -276,7 +281,7 @@ export function OnboardingPage() {
 
       return {
         full_name: fullName.trim() || undefined,
-        username: resolvedUsername.length >= 3 ? resolvedUsername : undefined,
+        username: resolvedUsername,
         region: city.trim() || undefined,
         specialty: specialtyValue,
         bio: bioValue,
@@ -317,6 +322,7 @@ export function OnboardingPage() {
     const errs: Record<string, string> = {}
     if (!fullName.trim() || fullName.trim().length <= 1) errs.fullName = t('onboarding_err_full_name')
     if (username.trim().length < 3) errs.username = t('onboarding_err_username')
+    else if (!isUsernameLengthValid(username)) errs.username = t('onboarding_err_username_long')
     if (!city.trim()) errs.city = t('onboarding_err_region')
     if (usernameStatus === 'checking') return null
     if (usernameStatus === 'taken') errs.username = t('username_taken')
@@ -467,10 +473,11 @@ export function OnboardingPage() {
             <Input
               label={t('username')}
               value={username}
+              maxLength={USERNAME_MAX_LENGTH}
               onChange={(e) => {
                 userEditedUsernameRef.current = true
                 usernamePickGenRef.current += 1
-                setUsername(e.target.value)
+                setUsername(e.target.value.slice(0, USERNAME_MAX_LENGTH))
                 clearFieldError('username')
               }}
               placeholder={t('username_ph')}

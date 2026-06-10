@@ -22,6 +22,7 @@ import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { uploadAvatar, uploadPortfolioImage } from '@/infrastructure/supabase/storage'
 import { checkUsernameRemote } from '@/shared/lib/check-username-remote'
+import { normalizeUsername, prepareUsernameForSubmit, USERNAME_MAX_LENGTH } from '@/shared/lib/username'
 import { persistProfilePatch } from '@/shared/lib/persist-profile-patch'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { updatePassword } from '@/infrastructure/auth/password'
@@ -350,7 +351,7 @@ export function ProfileSettings() {
   }
 
   useEffect(() => {
-    const slug = username.trim().replace(/^@/, '')
+    const slug = normalizeUsername(username)
     if (slug.length < 3) {
       setUsernameStatus('idle')
       return
@@ -427,7 +428,7 @@ export function ProfileSettings() {
     }
     const parsed = profileUpdateSchema.safeParse({
       full_name: formData.name,
-      username: username.trim() || undefined,
+      username: prepareUsernameForSubmit(username),
       bio,
       region: formData.city,
       phone: formData.phone,
@@ -529,7 +530,8 @@ export function ProfileSettings() {
                     <label className="settings-field-label">{t('username')}</label>
                     <Input
                       value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      maxLength={USERNAME_MAX_LENGTH}
+                      onChange={(e) => setUsername(e.target.value.slice(0, USERNAME_MAX_LENGTH))}
                       className="catalog-control !h-[42px]"
                     />
                     {usernameStatus === 'checking' && (

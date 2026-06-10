@@ -4,18 +4,22 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
-import { api } from '@/infrastructure/api/client'
 import { Button } from '@/presentation/components/ui/button'
 import { PATHS } from '@/domain/constants/routes'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
 import { logClientError } from '@/shared/lib/log-client-error'
+import {
+  acceptTermsConsentRemote,
+  fetchCurrentTerms,
+  fetchTermsConsentStatus,
+} from '@/shared/lib/terms-consent-remote'
 
-const SKIP_PREFIXES = [PATHS.login, PATHS.register, PATHS.terms, PATHS.privacy, '/auth']
+const SKIP_PREFIXES = [PATHS.login, PATHS.register, PATHS.onboarding, PATHS.terms, PATHS.privacy, '/auth']
 
 export function TermsConsentGate({ children }: { children: React.ReactNode }) {
-  const { t } = useApp()
+  const { t, userId } = useApp()
   const pathname = usePathname()
   const { ready, authed } = useAuthReady()
   const [pending, setPending] = useState<string[]>([])
@@ -25,20 +29,19 @@ export function TermsConsentGate({ children }: { children: React.ReactNode }) {
   const skip = SKIP_PREFIXES.some((p) => pathname.startsWith(p))
 
   const refresh = useCallback(() => {
-    if (!authed || skip) {
+    if (!authed || !userId || skip) {
       setPending([])
       return
     }
     setChecking(true)
-    api
-      .getTermsConsentStatus()
+    fetchTermsConsentStatus(userId)
       .then((status) => setPending(status.requires_consent ? status.pending : []))
       .catch((e) => {
         logClientError(e, { scope: 'profile', apiPath: '/api/v1/platform/terms/consent-status' })
         setPending([])
       })
       .finally(() => setChecking(false))
-  }, [authed, skip])
+  }, [authed, skip, userId])
 
   useEffect(() => {
     if (!ready) return
@@ -46,14 +49,14 @@ export function TermsConsentGate({ children }: { children: React.ReactNode }) {
   }, [ready, refresh])
 
   const acceptAll = async () => {
-    if (pending.length === 0) return
+    if (pending.length === 0 || !userId) return
     setAccepting(true)
     try {
       await Promise.all(
         pending.map(async (docType) => {
-          const doc = await api.getCurrentTerms(docType as 'terms' | 'privacy' | 'buyer_protection')
-          await api.acceptTermsConsent(docType as 'terms' | 'privacy' | 'buyer_protection', doc.version)
-        })
+          const doc = await fetchCurrentTerms(docType as 'terms' | 'privacy' | 'buyer_protection')
+          await acceptTermsConsentRemote(userId, docType as 'terms' | 'privacy' | 'buyer_protection', doc.version)
+        }),
       )
       setPending([])
       toast.success(t('terms_consent_accept'))

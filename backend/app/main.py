@@ -1,4 +1,6 @@
 import httpx
+import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -42,8 +44,11 @@ from app.routers import (
     security,
 )
 from app.supabase_errors import supabase_api_error_handler
+from app.timing_log import is_timing_enabled
 
 init_sentry()
+
+_timing_logger = logging.getLogger("ishbor.timing")
 
 from app.startup_checks import validate_production_settings
 
@@ -130,8 +135,19 @@ _WEBHOOK_PATH_PREFIX = "/api/v1/payments/webhooks"
 @app.middleware("http")
 async def supabase_request_audit(request: Request, call_next):
     token = set_request_route(request.method, request.url.path)
+    t0 = time.perf_counter() if is_timing_enabled() else 0.0
     try:
-        return await call_next(request)
+        response = await call_next(request)
+        if is_timing_enabled():
+            ms = (time.perf_counter() - t0) * 1000.0
+            _timing_logger.info(
+                "timing op=http.total ms=%.1f method=%s path=%s status=%s",
+                ms,
+                request.method,
+                request.url.path,
+                response.status_code,
+            )
+        return response
     finally:
         reset_request_route(token)
 

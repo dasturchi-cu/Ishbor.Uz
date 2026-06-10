@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -20,6 +21,7 @@ import { useNotificationsRealtime } from '@/shared/lib/use-notifications-realtim
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { wrapQueryFn } from '@/shared/lib/request-debug'
 import { isRetryableQueryError } from '@/shared/lib/load-error'
+import { debouncedInvalidateQueries } from '@/shared/lib/query-invalidate-debounce'
 import { trackSupabaseRequest } from '@/shared/lib/supabase-request-debug'
 
 type NotificationsContextValue = {
@@ -60,17 +62,23 @@ export function NotificationsProvider({
     (isLoggedIn && browserNotifWantsFeed())
 
   const canFetch = isLoggedIn && ready && authed && Boolean(userId) && shouldLoad
+  const shouldLoadRef = useRef(shouldLoad)
+  useEffect(() => {
+    shouldLoadRef.current = shouldLoad
+  }, [shouldLoad])
 
   const invalidate = useCallback(() => {
     trackSupabaseRequest({
-      queryName: 'invalidate:notifications+badges',
+      queryName: shouldLoadRef.current
+        ? 'invalidate:notifications+badges'
+        : 'invalidate:badges-only',
       component: 'notifications-provider',
       kind: 'invalidate',
     })
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardBadges }),
-    ])
+    debouncedInvalidateQueries(queryClient, queryKeys.dashboardBadges)
+    if (shouldLoadRef.current) {
+      debouncedInvalidateQueries(queryClient, queryKeys.notifications)
+    }
   }, [queryClient])
 
   useNotificationsRealtime(isLoggedIn ? userId : null, invalidate)

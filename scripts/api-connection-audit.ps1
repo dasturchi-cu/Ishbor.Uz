@@ -1,5 +1,10 @@
 # IshBor.uz — API ulanish audit (dev)
-$Base = if ($env:NEXT_PUBLIC_API_URL) { $env:NEXT_PUBLIC_API_URL } else { 'http://127.0.0.1:8002' }
+$ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'lib\dev-lib.ps1')
+
+$Base = Get-DevApiBaseUrl
+Assert-DevBackendReady -MaxWaitSec 25 -BaseUrl $Base
+
 $paths = @(
   '/api/v1/health',
   '/api/v1/health/ready',

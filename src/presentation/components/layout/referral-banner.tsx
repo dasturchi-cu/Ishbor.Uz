@@ -19,15 +19,24 @@ export function ReferralBanner({ className }: { className?: string }) {
   const [statsLoading, setStatsLoading] = useState(true)
 
   useAuthedEffect(() => {
-    setStatsLoading(true)
-    api
-      .getReferralStats()
-      .then((s) => {
-        setReferralCount(s.count)
-        setBonusEarned(s.bonus_earned ?? 0)
-      })
-      .catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/referral' }))
-      .finally(() => setStatsLoading(false))
+    const load = () => {
+      setStatsLoading(true)
+      api
+        .getReferralStats()
+        .then((s) => {
+          setReferralCount(s.count)
+          setBonusEarned(s.bonus_earned ?? 0)
+        })
+        .catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me/referral' }))
+        .finally(() => setStatsLoading(false))
+    }
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(load, { timeout: 2500 })
+      return () => cancelIdleCallback(id)
+    }
+    const timer = window.setTimeout(load, 1200)
+    return () => window.clearTimeout(timer)
   }, [])
 
   if (!userId) return null

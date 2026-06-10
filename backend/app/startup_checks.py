@@ -33,6 +33,15 @@ def validate_production_settings() -> None:
         logger.error(msg)
         raise RuntimeError(msg)
 
+    anon = settings.supabase_anon_key.strip()
+    if not (anon.startswith("eyJ") and len(anon) > 80):
+        msg = (
+            "Production requires SUPABASE_ANON_KEY as legacy JWT (eyJ...) "
+            "for RLS-scoped user requests"
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+
     if settings.docs_enabled:
         msg = "Production must not expose API docs (set DOCS_ENABLED=false)"
         logger.error(msg)

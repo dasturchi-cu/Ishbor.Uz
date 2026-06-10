@@ -7,7 +7,13 @@ from supabase import Client
 
 from app.auth.jwt_verify import verify_supabase_token
 from app.auth_profile_cache import fetch_profile_guard_deduped, get_cached_profile_guard, store_profile_guard
-from app.database import UserSupabaseMisconfiguredError, create_supabase_user_client, get_supabase_admin
+from app.config import settings
+from app.database import (
+    UserSupabaseMisconfiguredError,
+    _is_jwt_supabase_key,
+    create_supabase_user_client,
+    get_supabase_admin,
+)
 from app.db_utils import run_query
 from app.supabase_instrumentation import reset_request_component, set_request_component
 from app.timing_log import timed
@@ -15,17 +21,43 @@ from app.timing_log import timed
 security = HTTPBearer(auto_error=False)
 
 
-@dataclass(frozen=True)
+@dataclass
 class UserAuth:
     user_id: str
-    supabase: Client
+    _token: str
+    _supabase: Client | None = None
+
+    @property
+    def supabase(self) -> Client:
+        if self._supabase is None:
+            try:
+                self._supabase = create_supabase_user_client(self._token)
+            except UserSupabaseMisconfiguredError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=str(exc),
+                ) from exc
+        return self._supabase
 
 
-@dataclass(frozen=True)
+@dataclass
 class UserAuthWithProfile:
     user_id: str
-    supabase: Client
+    _token: str
     profile: dict
+    _supabase: Client | None = None
+
+    @property
+    def supabase(self) -> Client:
+        if self._supabase is None:
+            try:
+                self._supabase = create_supabase_user_client(self._token)
+            except UserSupabaseMisconfiguredError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=str(exc),
+                ) from exc
+        return self._supabase
 
 
 def _enforce_profile_guard(guard) -> None:
@@ -85,19 +117,17 @@ def require_user_auth(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
 
-    try:
-        with timed("auth.create_user_client"):
-            supabase = create_supabase_user_client(token)
-    except UserSupabaseMisconfiguredError as exc:
+    if not settings.supabase_url.strip() or not _is_jwt_supabase_key(settings.supabase_anon_key.strip()):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        ) from exc
+            detail="SUPABASE_ANON_KEY legacy JWT (eyJ...) bo'lishi kerak.",
+        )
+
     with timed("auth.profile_guard_deduped", user_id=user_id):
         guard = fetch_profile_guard_deduped(user_id, lambda: _fetch_guard_row(user_id))
     _enforce_profile_guard(guard)
 
-    return UserAuth(user_id=user_id, supabase=supabase)
+    return UserAuth(user_id=user_id, _token=token)
 
 
 def require_user_auth_with_profile(
@@ -114,14 +144,12 @@ def require_user_auth_with_profile(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
 
-    try:
-        with timed("auth.create_user_client"):
-            supabase = create_supabase_user_client(token)
-    except UserSupabaseMisconfiguredError as exc:
+    if not settings.supabase_url.strip() or not _is_jwt_supabase_key(settings.supabase_anon_key.strip()):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        ) from exc
+            detail="SUPABASE_ANON_KEY legacy JWT (eyJ...) bo'lishi kerak.",
+        )
+
     comp_token = set_request_component("auth_summary_profile")
     try:
         with timed("auth.summary_profile_fetch", user_id=user_id):
@@ -146,7 +174,7 @@ def require_user_auth_with_profile(
     )
     _enforce_profile_guard(guard)
 
-    return UserAuthWithProfile(user_id=user_id, supabase=supabase, profile=profile)
+    return UserAuthWithProfile(user_id=user_id, _token=token, profile=profile)
 
 
 UserAuthDep = Annotated[UserAuth, Depends(require_user_auth)]

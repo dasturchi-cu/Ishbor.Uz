@@ -41,7 +41,7 @@ pnpm dev:all
 
 - **Frontend** kod o'zgasa → Next.js HMR avtomatik yangilaydi (restart yo'q)
 - **Backend** kod o'zgasa → uvicorn `--reload` avtomatik qayta yuklaydi (restart yo'q)
-- Cursor/VS Code loyihani ochganda **IshBor: Dev Full Stack** task avtomatik ishga tushishi mumkin
+- Serverlar **faqat siz** `pnpm dev` / `pnpm dev:api` / `pnpm dev:all` yozganingizda ishga tushadi (avtomatik start yo'q)
 
 ### Ikkita alohida terminal (ixtiyoriy)
 
@@ -88,14 +88,20 @@ Ctrl + C
 }
 ```
 
-### Usul 3 — Barcha dev jarayonlarni to‘xtatish
+### Usul 3 — Barcha IshBor dev serverlari (tavsiya)
 
 ```powershell
-taskkill /F /IM node.exe
-taskkill /F /IM python.exe
+pnpm dev:stop
 ```
 
-> **Diqqat:** bu buyruq kompyuterdagi boshqa Node/Python loyihalarini ham to‘xtatishi mumkin. Faqat IshBor dev serverlari uchun **Usul 1** yoki **Usul 2** ni ishlating.
+### Usul 4 — `taskkill /IM node.exe` (ishlatmang)
+
+```powershell
+# NOTO'G'RI — Cursor/VS Code o'z node jarayonlarini ham o'ldiradi va qayta tiklanadi
+taskkill /F /IM node.exe
+```
+
+> **Diqqat:** `taskkill /F /IM node.exe` Cursor IDE ni ham buzadi va node jarayonlari qayta paydo bo'lib ko'rinadi. IshBor uchun faqat `pnpm dev:stop` yoki **Usul 1/2** ishlating.
 
 ---
 

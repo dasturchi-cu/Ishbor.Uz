@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Card } from '@/presentation/components/ui/card'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
@@ -139,19 +140,19 @@ export function NotificationsPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 py-16 text-center">
-            <Bell className="h-10 w-10 text-[var(--ishbor-text-muted)]" />
-            <p className="text-[14px] text-[var(--ishbor-text-muted)]">
-              {filter === 'unread' && items.length > 0
+          <EmptyState
+            icon={<Bell />}
+            title={
+              filter === 'unread' && items.length > 0
                 ? t('notifications_empty_unread')
-                : t('notifications_empty')}
-            </p>
-            {!(filter === 'unread' && items.length > 0) && (
-              <Button variant="primary" size="sm" onClick={() => router.push(PATHS.services)}>
-                {t('notifications_browse_cta')}
-              </Button>
-            )}
-          </div>
+                : t('notifications_empty')
+            }
+            action={
+              !(filter === 'unread' && items.length > 0)
+                ? { label: t('notifications_browse_cta'), onClick: () => router.push(PATHS.services) }
+                : undefined
+            }
+          />
         ) : (
           <ul className="divide-y divide-[var(--ishbor-border)]">
             {filtered.map((item) => {
@@ -174,7 +175,8 @@ export function NotificationsPage() {
                           'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
                           item.type === 'order' && 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
                           item.type === 'message' && 'bg-[var(--success-bg)] text-[var(--success-text)]',
-                          item.type === 'review' && 'bg-[var(--warning-bg)] text-[var(--warning-text)]'
+                          item.type === 'review' && 'bg-[var(--warning-bg)] text-[var(--warning-text)]',
+                          item.type === 'broadcast' && 'bg-[var(--color-accent-light)] text-[var(--color-accent-text)]'
                         )}
                       >
                         <Icon className="h-4 w-4" />

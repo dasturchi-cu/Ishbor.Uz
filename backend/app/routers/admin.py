@@ -18,6 +18,7 @@ from app.supabase_rpc import map_rpc_error, rpc_row
 from app.notification_service import notify_order_status
 from app.contract_escrow_service import refund_contract_escrow, release_contract_escrow
 from app.payment_service import refund_escrow, release_escrow
+from app.order_transitions import validate_admin_order_transition
 from app.schemas_marketplace import DisputeResolve
 from app.supabase_errors import map_supabase_error
 from app.platform_services import broadcast_notification, build_admin_analytics, log_audit, log_moderation
@@ -1631,6 +1632,13 @@ def admin_bulk_orders(body: AdminBulkOrderAction, user_id: CurrentUserId):
     orders = existing.data or []
     if not orders:
         return {"updated": 0, "order_ids": []}
+
+    for order in orders:
+        validate_admin_order_transition(
+            order["status"],
+            body.status,
+            order.get("payment_status"),
+        )
 
     updated_rows: list[dict] = []
     for order in orders:

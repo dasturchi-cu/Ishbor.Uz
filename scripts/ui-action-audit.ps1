@@ -1,7 +1,12 @@
 # IshBor.uz - UI action / API ulanish audit
 # Backend :8002 da ishlashi kerak. Frontend ixtiyoriy (sahifa testlari Playwright da).
 
-$base = if ($env:API_BASE) { $env:API_BASE } else { "http://127.0.0.1:8002" }
+$ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'lib\dev-lib.ps1')
+
+$base = Get-DevApiBaseUrl
+Assert-DevBackendReady -MaxWaitSec 25 -BaseUrl $base
+
 $fail = 0
 $warn = 0
 

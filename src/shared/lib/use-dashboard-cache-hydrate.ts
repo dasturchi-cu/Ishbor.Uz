@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useLayoutEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { hydrateDashboardCaches } from '@/shared/lib/dashboard-cache-hydrate'
 
@@ -11,7 +11,7 @@ export function useDashboardCacheHydrate(
 ) {
   const queryClient = useQueryClient()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!userId) return
     hydrateDashboardCaches(queryClient, userId, role)
   }, [queryClient, userId, role])

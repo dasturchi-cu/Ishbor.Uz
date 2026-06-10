@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api } from '@/infrastructure/api/client'
+import { checkUsernameRemote } from '@/shared/lib/check-username-remote'
 import Link from 'next/link'
 import { Camera, ChevronRight, ExternalLink } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
@@ -71,8 +71,7 @@ export function DashboardProfilePage() {
       return
     }
     const id = setTimeout(() => {
-      api
-        .checkUsername(slug)
+      checkUsernameRemote(slug, { excludeUserId: profile?.id ?? userId })
         .then((r) => setUsernameStatus(r.available ? 'ok' : 'taken'))
         .catch((e) => {
           setUsernameStatus('idle')
@@ -80,7 +79,7 @@ export function DashboardProfilePage() {
         })
     }, 400)
     return () => clearTimeout(id)
-  }, [username, profile?.username, ready, authed, t])
+  }, [username, profile?.username, profile?.id, userId, ready, authed, t])
 
   const handleAvatarChange = (file: File | undefined) => {
     if (!file) return

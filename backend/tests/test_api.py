@@ -210,7 +210,7 @@ def test_list_notifications_serializes_broadcast(monkeypatch, client):
         "href": None,
         "unread": True,
     }
-    auth = UserAuth(user_id="u1", supabase=object())
+    auth = UserAuth(user_id="u1", _token="test-token", _supabase=object())
 
     monkeypatch.setattr(
         "app.routers.notifications._db_notifications",

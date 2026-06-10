@@ -78,3 +78,25 @@ def test_active_disputed_client_only():
     with pytest.raises(HTTPException) as exc:
         validate_order_transition("active", "disputed", FREELANCER, CLIENT, FREELANCER)
     assert exc.value.status_code == 403
+
+
+def test_admin_rejects_invalid_transition():
+    from app.order_transitions import validate_admin_order_transition
+
+    with pytest.raises(HTTPException) as exc:
+        validate_admin_order_transition("completed", "active")
+    assert exc.value.status_code == 400
+
+
+def test_admin_pending_to_active_requires_held_payment():
+    from app.order_transitions import validate_admin_order_transition
+
+    with pytest.raises(HTTPException) as exc:
+        validate_admin_order_transition("pending", "active", payment_status="unpaid")
+    assert exc.value.status_code == 400
+
+
+def test_admin_disputed_to_completed_allowed():
+    from app.order_transitions import validate_admin_order_transition
+
+    validate_admin_order_transition("disputed", "completed", payment_status="held")

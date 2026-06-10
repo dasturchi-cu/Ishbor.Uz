@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { getApiBaseUrl } from '@/infrastructure/api/client'
 import {
   attachSupabaseDebugGlobals,
   dumpSupabaseRequestTop10,
@@ -44,7 +45,9 @@ export function SupabaseRequestAuditReporter() {
       dumpSupabaseRequestTop10()
       const controller = new AbortController()
       const timeout = window.setTimeout(() => controller.abort(), 5000)
-      void fetch('/api/v1/platform/request-audit/client', {
+      const base = getApiBaseUrl()
+      if (!base) return
+      void fetch(`${base}/api/v1/platform/request-audit/client`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

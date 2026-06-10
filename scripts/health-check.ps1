@@ -1,11 +1,19 @@
 # Tezkor health tekshiruv (PowerShell)
 param(
-  [string]$ApiUrl = "http://127.0.0.1:8002",
-  [string]$WebUrl = "http://127.0.0.1:3000"
+  [string]$ApiUrl = '',
+  [string]$WebUrl = ''
 )
 
-$ErrorActionPreference = "Continue"
-Write-Host "=== IshBor health check ===" -ForegroundColor Cyan
+$ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'lib\dev-lib.ps1')
+
+if (-not $ApiUrl) { $ApiUrl = Get-DevApiBaseUrl }
+if (-not $WebUrl) { $WebUrl = Get-DevFrontendUrl }
+
+Write-Host '=== IshBor health check ===' -ForegroundColor Cyan
+Write-Host ''
+
+Assert-DevBackendReady -MaxWaitSec 15 -BaseUrl $ApiUrl
 
 try {
   $h = Invoke-RestMethod "$ApiUrl/api/v1/health" -TimeoutSec 5
@@ -21,20 +29,22 @@ try {
     Write-Host "  notifications: email=$($r.notifications.email) sms=$($r.notifications.sms) telegram=$($r.notifications.telegram)" -ForegroundColor Gray
   }
 } catch {
-  Write-Host "API ready: FAIL (backend/.env to'ldirilganmi?)" -ForegroundColor Yellow
+  Write-Host "API ready: FAIL - backend/.env to'ldirilganmi?" -ForegroundColor Yellow
 }
 
 try {
   $c = Invoke-RestMethod "$ApiUrl/api/v1/notifications/channels" -TimeoutSec 5
   Write-Host "Channels: email=$($c.email) sms=$($c.sms) telegram=$($c.telegram) redis=$($c.redis)" -ForegroundColor Gray
 } catch {
-  Write-Host "Channels: skip" -ForegroundColor Gray
+  Write-Host 'Channels: skip' -ForegroundColor Gray
 }
 
-try {
-  $w = Invoke-WebRequest "$WebUrl" -TimeoutSec 5 -UseBasicParsing
-  if ($w.StatusCode -eq 200) { Write-Host "Frontend: OK ($WebUrl)" -ForegroundColor Green }
-} catch {
+Write-Host ''
+if (Wait-DevFrontendHealth -WebUrl $WebUrl -MaxWaitSec 10) {
+  Write-Host "Frontend: OK ($WebUrl)" -ForegroundColor Green
+} elseif (Test-DevPortInUse -Port $Script:DevFrontendPort) {
+  Write-Host "Frontend: port band, lekin javob bermadi ($WebUrl)" -ForegroundColor Yellow
+} else {
   Write-Host "Frontend: not running ($WebUrl) — pnpm dev" -ForegroundColor Yellow
 }
 

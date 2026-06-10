@@ -1,4 +1,4 @@
-import { ApiError } from '@/infrastructure/api/client'
+import { ApiError, getApiBaseUrl } from '@/infrastructure/api/client'
 import type { LoadErrorContext } from '@/shared/lib/load-error'
 
 export type ClientErrorContext = Omit<LoadErrorContext, 'scope'> & { scope: string }
@@ -36,12 +36,20 @@ function buildPayload(error: unknown, context: ClientErrorContext): ClientErrorP
 }
 
 const loggedKeys = new Set<string>()
+const MAX_LOGGED_KEYS = 200
+
+/** Next rewrite orqali emas — to'g'ridan FastAPI (node proxy tsiklini oldini oladi) */
+const REMOTE_SKIP_STATUSES = new Set([0, 408, 499, 503])
 
 export function logClientError(error: unknown, context: ClientErrorContext): void {
   const payload = buildPayload(error, context)
   const dedupeKey = `${payload.scope}:${payload.status}:${payload.api_path}:${payload.message.slice(0, 80)}`
   if (loggedKeys.has(dedupeKey)) return
   loggedKeys.add(dedupeKey)
+  if (loggedKeys.size > MAX_LOGGED_KEYS) {
+    const first = loggedKeys.values().next().value
+    if (first) loggedKeys.delete(first)
+  }
 
   if (process.env.NODE_ENV === 'development') {
     console.warn('[IshBor client error]', payload)
@@ -50,11 +58,20 @@ export function logClientError(error: unknown, context: ClientErrorContext): voi
   }
 
   if (typeof window === 'undefined') return
+  if (REMOTE_SKIP_STATUSES.has(payload.status)) return
 
-  void fetch('/api/v1/platform/client-errors', {
+  const base = getApiBaseUrl()
+  if (!base) return
+
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 5000)
+  void fetch(`${base}/api/v1/platform/client-errors`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     keepalive: true,
-  }).catch(() => undefined)
+    signal: controller.signal,
+  })
+    .catch(() => undefined)
+    .finally(() => window.clearTimeout(timeout))
 }

@@ -50,3 +50,23 @@ def validate_order_transition(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz qayta ishlash so'raydi")
     if current == "active" and new == "disputed" and not is_client:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz nizo ochadi")
+
+
+def validate_admin_order_transition(
+    current: str,
+    new: str,
+    payment_status: str | None = None,
+) -> None:
+    """Admin bulk/status yangilash — faqat ruxsat etilgan o'tishlar, rol tekshiruvsiz."""
+    allowed = ALLOWED_TRANSITIONS.get(current, set())
+    if new not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{current}' dan '{new}' ga o'tish mumkin emas",
+        )
+
+    if current == "pending" and new == "active" and payment_status != "held":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="To'lov ushlanmaguncha buyurtmani active qilib bo'lmaydi",
+        )

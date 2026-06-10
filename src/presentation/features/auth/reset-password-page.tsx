@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
+import { AuthPageBrand } from '@/presentation/components/layout/brand-logo'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
@@ -110,12 +111,7 @@ function ResetPasswordContent() {
       <AuthBrandPanel />
       <div className="auth-page-panel">
         <div className="auth-page-inner">
-          <div className="auth-page-brand">
-            <Link href={PATHS.home} className="auth-page-brand__logo">
-              <span className="auth-page-brand__mark" aria-hidden />
-              ISH<span>BOR</span>
-            </Link>
-          </div>
+          <AuthPageBrand href={PATHS.home} />
 
           <div className="auth-form-card">
             <header className="auth-form-header">

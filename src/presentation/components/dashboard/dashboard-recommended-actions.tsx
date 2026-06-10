@@ -23,6 +23,7 @@ interface DashboardRecommendedActionsProps {
   projects: ApiProject[]
   orders: ApiOrder[]
   messageUnread: number
+  hidePaymentRecommendation?: boolean
 }
 
 export function DashboardRecommendedActions({
@@ -31,6 +32,7 @@ export function DashboardRecommendedActions({
   projects,
   orders,
   messageUnread,
+  hidePaymentRecommendation = false,
 }: DashboardRecommendedActionsProps) {
   const { t, profile } = useApp()
   const completion = profileCompletionPercent(profile, role)
@@ -82,7 +84,7 @@ export function DashboardRecommendedActions({
     })
   }
 
-  if (unpaid.length > 0) {
+  if (unpaid.length > 0 && !hidePaymentRecommendation) {
     items.push({
       id: 'pay',
       icon: CreditCard,

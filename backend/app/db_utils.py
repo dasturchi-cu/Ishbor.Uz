@@ -4,6 +4,8 @@ from typing import TypeVar
 
 import httpx
 
+from app.timing_log import timed
+
 T = TypeVar("T")
 
 _RETRYABLE: tuple[type[Exception], ...] = (
@@ -11,7 +13,6 @@ _RETRYABLE: tuple[type[Exception], ...] = (
     httpx.ReadError,
     httpx.ConnectError,
     httpx.WriteError,
-    httpx.ReadTimeout,
     httpx.ConnectTimeout,
     httpx.PoolTimeout,
     httpx.NetworkError,
@@ -19,13 +20,14 @@ _RETRYABLE: tuple[type[Exception], ...] = (
 )
 
 
-def run_query(fn: Callable[[], T], retries: int = 5) -> T:
+def run_query(fn: Callable[[], T], retries: int = 3, *, op: str = "db.query") -> T:
     """Supabase HTTP uzilishlarida qayta urinish."""
     last_exc: Exception | None = None
 
     for attempt in range(retries):
         try:
-            return fn()
+            with timed(op, attempt=attempt + 1):
+                return fn()
         except _RETRYABLE as exc:
             last_exc = exc
             if attempt >= retries - 1:

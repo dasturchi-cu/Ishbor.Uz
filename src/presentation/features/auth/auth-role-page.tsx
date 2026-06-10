@@ -11,6 +11,7 @@ import { PATHS } from '@/domain/constants/routes'
 import { resolvePostAuthDestination } from '@/shared/lib/auth-redirect'
 import { AuthBrandPanel, AuthMobileTrust } from '@/presentation/components/auth/auth-brand-panel'
 import { AuthRoleCard } from '@/presentation/components/auth/auth-role-card'
+import { AuthPageBrand } from '@/presentation/components/layout/brand-logo'
 import { toast } from '@/presentation/components/ui/toast'
 import { ApiError } from '@/infrastructure/api/client'
 
@@ -50,12 +51,7 @@ export function AuthRolePage() {
             <ArrowLeft className="h-4 w-4" />
             {t('nav_home')}
           </Link>
-          <div className="auth-page-brand">
-            <Link href={PATHS.home} className="auth-page-brand__logo">
-              <span className="auth-page-brand__mark" aria-hidden />
-              ISH<span>BOR</span>
-            </Link>
-          </div>
+          <AuthPageBrand href={PATHS.home} />
           <div id="auth-role-form" className="auth-form-card">
             <AuthMobileTrust />
             <header className="auth-form-header auth-form-header--role">

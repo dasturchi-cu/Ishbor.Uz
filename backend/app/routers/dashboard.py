@@ -1,11 +1,9 @@
 """Dashboard batch endpointlar — HTTP va DB so'rovlarini kamaytirish."""
 
-from concurrent.futures import ThreadPoolExecutor
-
 from fastapi import APIRouter, HTTPException, Query, status
 from supabase import Client
 
-from app.database import create_supabase_admin_client, get_supabase_admin
+from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import UserAuthDep, UserAuthWithProfileDep
 from app.review_stats import batch_review_stats
@@ -152,19 +150,8 @@ def dashboard_summary(
     """Bitta so'rov: profil, wallet, home stats, badge countlar, review stats."""
     with timed("dashboard.summary", user_id=auth.user_id, role=role):
         profile = auth.profile
-
-        def _home_task() -> dict:
-            return _build_home(auth, role, supabase=create_supabase_admin_client())
-
-        def _badges_task() -> dict:
-            return _build_badges(create_supabase_admin_client(), auth.user_id)
-
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            home_future = pool.submit(_home_task)
-            badges_future = pool.submit(_badges_task)
-            home = home_future.result()
-            badges = badges_future.result()
-
+        home = _build_home(auth, role)
+        badges = _build_badges(get_supabase_admin(), auth.user_id)
         return {
             "profile": profile,
             "wallet_balance": profile.get("wallet_balance") or 0,
