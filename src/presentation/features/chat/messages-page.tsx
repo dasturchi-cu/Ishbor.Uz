@@ -19,7 +19,7 @@ import { buildInboxFromBundle, stableThreadKey } from '@/shared/lib/unified-chat
 import { uploadChatImage } from '@/infrastructure/supabase/storage'
 import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import type { Language, TranslationKey } from '@/infrastructure/i18n'
-import { Skeleton, SkeletonAvatar } from '@/presentation/components/ui/skeleton'
+import { Skeleton, SkeletonAvatar, SkeletonChatPanel } from '@/presentation/components/ui/skeleton'
 import { OrderStatusBadge } from '@/presentation/components/features/order-status-badge'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Button } from '@/presentation/components/ui/button'
@@ -122,6 +122,7 @@ export function MessagesPage() {
   const [peerTyping, setPeerTyping] = useState(false)
   const [callStarting, setCallStarting] = useState(false)
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const threadLoadSeqRef = useRef(0)
 
   useEffect(() => {
     if (conversationFromUrl) {
@@ -157,7 +158,7 @@ export function MessagesPage() {
         setMuted(prefs.chatMuted)
       })
       .catch((e) => {
-        ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/notifications/prefs' })
+        ignoreWithLog(e, { scope: 'notifications', apiPath: '/api/v1/profiles/me/notification-prefs' })
       })
   }, [])
 
@@ -209,30 +210,41 @@ export function MessagesPage() {
 
   const sendTyping = useOrderTyping(activeThread?.orderId ?? null, userId, setPeerTyping)
 
+  const activeThreadKey = activeThread?.key ?? null
+
   useEffect(() => {
-    if (!ready || !authed || !activeThread) return
+    if (!ready || !authed || !activeThread || !activeThreadKey) {
+      if (!activeThread) setMessages([])
+      return
+    }
+    const seq = ++threadLoadSeqRef.current
+    const thread = activeThread
     setMessagesLoading(true)
     setMessagesLoadError(null)
-    void loadThreadMessages(activeThread)
+    void loadThreadMessages(thread)
       .then((rows) => {
+        if (threadLoadSeqRef.current !== seq) return
         setMessages(rows)
-        if (activeThread.conversationId) {
+        if (thread.conversationId) {
           void api
-            .markConversationRead(activeThread.conversationId)
+            .markConversationRead(thread.conversationId)
             .catch((e) =>
               ignoreWithLog(e, {
                 scope: 'messages',
-                apiPath: `/api/v1/conversations/${activeThread.conversationId}/read`,
+                apiPath: `/api/v1/conversations/${thread.conversationId}/read`,
               })
             )
         }
       })
       .catch((e) => {
+        if (threadLoadSeqRef.current !== seq) return
         setMessages([])
         setMessagesLoadError(e)
       })
-      .finally(() => setMessagesLoading(false))
-  }, [activeThread, ready, authed])
+      .finally(() => {
+        if (threadLoadSeqRef.current === seq) setMessagesLoading(false)
+      })
+  }, [activeThreadKey, ready, authed, activeThread])
 
   const handleAttach = async (file: File) => {
     if (!activeThread || !userId) return
@@ -413,13 +425,13 @@ export function MessagesPage() {
             </div>
           )}
           {!loading && !inboxLoadError && filtered.length === 0 && (
-            <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-              <p className="chat-list-empty">{t('messages_no_conversations')}</p>
-              <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('messages_empty_hint')}</p>
-              <Button variant="primary" size="sm" onClick={() => router.push(PATHS.services)}>
-                {t('messages_browse_cta')}
-              </Button>
-            </div>
+            <EmptyState
+              compact
+              icon={<Search className="h-8 w-8" />}
+              title={t('messages_no_conversations')}
+              description={t('messages_empty_hint')}
+              action={{ label: t('messages_browse_cta'), onClick: () => router.push(PATHS.services), variant: 'primary' }}
+            />
           )}
           {!loading &&
             filtered.map((thread) => {
@@ -643,9 +655,7 @@ export function MessagesPage() {
             </footer>
           </>
         ) : loading ? (
-          <div className="chat-empty">
-            <p className="chat-empty-text">{t('loading_data')}</p>
-          </div>
+          <SkeletonChatPanel />
         ) : conversations.length > 0 ? (
           <ChatEmptyState
             text={t('messages_select_conversation')}

@@ -62,6 +62,10 @@ export function AdminAnalyticsPage() {
         ))}
       </div>
 
+      {loading && !analytics ? (
+        <LoadingBlock className="py-16" />
+      ) : null}
+
       {analytics && (
         <>
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import { PATHS } from '@/domain/constants/routes'
@@ -12,9 +13,12 @@ import { PaymentStatusBadge } from '@/presentation/components/features/payment-s
 import { MilestoneStatusBadge } from '@/presentation/components/features/milestone-status-badge'
 import { ContractStatusBadge } from '@/presentation/components/features/contract-status-badge'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { SkeletonEscrowDashboard } from '@/presentation/components/ui/skeleton'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 
 export function EscrowDashboardPage() {
   const { t } = useApp()
+  const router = useRouter()
   const { data, loading, error: escrowLoadFailed, loadError: escrowFetchError, reload } =
     useProtectedLoader(async () => {
       const list = await api.listContracts()
@@ -41,7 +45,7 @@ export function EscrowDashboardPage() {
   }, [data])
 
   if (loading) {
-    return <p className="p-6 text-muted-foreground">{t('loading_data')}</p>
+    return <SkeletonEscrowDashboard />
   }
 
   if (escrowLoadFailed) {
@@ -58,10 +62,13 @@ export function EscrowDashboardPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
-      <h1 className="flex items-center gap-2 text-2xl font-bold">
-        <Shield className="h-6 w-6 text-primary" />
-        {t('escrow_dashboard')}
-      </h1>
+      <div>
+        <h1 className="flex items-center gap-2 text-2xl font-bold">
+          <Shield className="h-6 w-6 text-primary" />
+          {t('escrow_dashboard')}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('escrow_dashboard_hint')}</p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border bg-card p-6">
@@ -133,8 +140,17 @@ export function EscrowDashboardPage() {
           <tbody>
             {contracts.length === 0 ? (
               <tr>
-                <td colSpan={3} className="p-6 text-center text-muted-foreground">
-                  {t('no_contracts')}
+                <td colSpan={3} className="p-4">
+                  <EmptyState
+                    compact
+                    icon={<Shield className="h-8 w-8" />}
+                    title={t('no_contracts')}
+                    description={t('escrow_empty_contracts_desc')}
+                    action={{
+                      label: t('nav_projects'),
+                      onClick: () => router.push(PATHS.projects),
+                    }}
+                  />
                 </td>
               </tr>
             ) : (

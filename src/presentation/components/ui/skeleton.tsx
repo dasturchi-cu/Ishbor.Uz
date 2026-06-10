@@ -123,3 +123,52 @@ export function SkeletonProfileHero() {
     </div>
   )
 }
+
+/** Marketplace / dashboard detail page (contract, dispute, escrow) */
+export function SkeletonDashboardDetail() {
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6" role="status" aria-live="polite">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-8 w-2/3 max-w-md" />
+        <Skeleton className="h-4 w-48" />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-6 w-20 rounded-full" />
+        <Skeleton className="h-6 w-24 rounded-full" />
+      </div>
+      <Skeleton className="h-28 w-full rounded-xl" />
+      <Skeleton className="h-40 w-full rounded-xl" />
+    </div>
+  )
+}
+
+/** Escrow KPI cards + table placeholder */
+export function SkeletonEscrowDashboard() {
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6" role="status" aria-live="polite">
+      <Skeleton className="h-8 w-48" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+      </div>
+      <Skeleton className="h-64 w-full rounded-xl" />
+    </div>
+  )
+}
+
+/** Chat panel while inbox loads */
+export function SkeletonChatPanel() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6" role="status" aria-live="polite">
+      <div className="w-full max-w-sm space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className={cn('flex gap-2', i % 2 === 1 && 'flex-row-reverse')}>
+            <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+            <Skeleton className={cn('h-12 rounded-2xl', i % 2 === 0 ? 'w-[70%]' : 'w-[55%]')} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

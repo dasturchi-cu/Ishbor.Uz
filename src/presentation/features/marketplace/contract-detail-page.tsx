@@ -23,6 +23,7 @@ import { captureActionError } from '@/shared/lib/action-error'
 import { FileText, Shield, MessageSquare, Phone } from 'lucide-react'
 import { ContractMilestonesSection } from '@/presentation/features/marketplace/contract-milestones-section'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { SkeletonDashboardDetail } from '@/presentation/components/ui/skeleton'
 import { loadOptional } from '@/shared/lib/ignore-with-log'
 
 const CLIENT_ACTIONS: Record<string, string> = {
@@ -162,7 +163,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
   }
 
   if (loading) {
-    return <p className="text-muted-foreground p-6">{t('loading_data')}</p>
+    return <SkeletonDashboardDetail />
   }
 
   if (contractLoadFailed) {

@@ -19,6 +19,7 @@ import { dashboardContract } from '@/domain/constants/routes'
 import { useAdminSavedFilters } from '@/shared/lib/use-admin-saved-filters'
 import { useAuthedEffect } from '@/shared/lib/use-auth-ready'
 import { captureLoadError } from '@/shared/lib/load-error'
+import { toast } from '@/presentation/components/ui/toast'
 
 type DisputeTab = 'all' | 'orders' | 'contracts' | 'resolved'
 type DisputeScope = 'open' | 'resolved' | 'all'
@@ -93,6 +94,7 @@ export function AdminDisputesPage() {
         await api.adminResolveDispute(pending.id, pending.resolution)
         setContractDisputes((prev) => prev.filter((d) => d.id !== pending.id))
       }
+      toast.success(t('admin_dispute_resolved_toast'))
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error_required'))
     } finally {

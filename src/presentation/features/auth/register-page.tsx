@@ -221,6 +221,7 @@ function RegisterPageContent() {
             .then((doc) => api.acceptTermsConsent('privacy', doc.version))
             .catch((e) => ignoreWithLog(e, { scope: 'generic', apiPath: '/api/v1/trust/terms/consent' })),
         ])
+        toast.success(t('register_account_created'))
         router.push(destination)
       } else {
         setSuccessMessage(t('auth_email_confirm_sent'))

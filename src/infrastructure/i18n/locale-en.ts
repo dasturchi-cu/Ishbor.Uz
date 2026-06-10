@@ -763,6 +763,8 @@ export const enLocale = {
       'Early marketplace — reviews appear after the first completed orders. Secure payments with escrow protection.',
     login_title: "Welcome back",
     login_subtitle: "Sign in to your account",
+    login_trust_hint: "Secure sign-in — your data is protected",
+    register_account_created: "Account created — welcome!",
     google_sign_in: "Continue with Google",
     google_sign_up: "Sign up with Google",
     google_auth_setup_hint: "Enable Google under Supabase Dashboard → Authentication → Providers, then set NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true in .env.",

@@ -91,7 +91,13 @@ export function DashboardPaymentsPage() {
           <EmptyState
             icon={<Receipt />}
             title={t('no_orders_yet')}
+            description={t('payments_empty_desc')}
             action={{ label: t('nav_orders'), onClick: () => router.push(PATHS.dashboardOrders) }}
+            secondaryAction={{
+              label: t('nav_services'),
+              onClick: () => router.push(PATHS.services),
+              variant: 'outline',
+            }}
           />
         ) : (
           <>

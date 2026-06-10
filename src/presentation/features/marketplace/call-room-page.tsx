@@ -8,6 +8,7 @@ import type { ApiCallSession } from '@/infrastructure/api/types'
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor } from 'lucide-react'
 import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
+import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { toast } from '@/presentation/components/ui/toast'
 
@@ -197,7 +198,7 @@ export function CallRoomPage({ callId }: { callId: string }) {
   }
 
   if (sessionLoading) {
-    return <p className="p-6 text-muted-foreground">{t('loading_data')}</p>
+    return <LoadingBlock />
   }
 
   if (sessionLoadFailed) {

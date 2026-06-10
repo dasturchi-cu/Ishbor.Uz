@@ -768,6 +768,8 @@ export const translations = {
       "Yangi marketplace — sharhlar birinchi buyurtmalar yakunlangach paydo bo'ladi. Escrow himoyasi bilan xavfsiz to'lov.",
     login_title: "Xush kelibsiz",
     login_subtitle: "Hisobingizga kiring",
+    login_trust_hint: "Xavfsiz kirish — ma'lumotlaringiz himoyalangan",
+    register_account_created: "Hisob yaratildi — xush kelibsiz!",
     google_sign_in: "Google bilan kirish",
     google_sign_up: "Google bilan ro'yxatdan o'tish",
     google_auth_setup_hint: "Google kirish uchun Supabase Dashboard → Authentication → Providers → Google ni yoqing va .env da NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true qiling.",

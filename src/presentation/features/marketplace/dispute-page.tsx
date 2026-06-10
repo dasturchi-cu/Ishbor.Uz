@@ -7,11 +7,15 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 import { api } from '@/infrastructure/api/client'
 import type { ApiDispute, ApiDisputeMessage } from '@/infrastructure/api/types'
 import { Alert } from '@/presentation/components/ui/alert'
-import { Scale } from 'lucide-react'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { Scale, MessageSquare } from 'lucide-react'
 import { useProtectedLoader } from '@/shared/lib/use-protected-loader'
 import Link from 'next/link'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { dashboardOrderPath } from '@/domain/constants/routes'
+import { toast } from '@/presentation/components/ui/toast'
+import { SkeletonDashboardDetail } from '@/presentation/components/ui/skeleton'
+import { captureActionError } from '@/shared/lib/action-error'
 
 const DISPUTE_STATUS_KEYS: Record<string, TranslationKey> = {
   open: 'dispute_status_open',
@@ -28,6 +32,7 @@ export function DisputePage({ disputeId }: { disputeId: string }) {
   const [messages, setMessages] = useState<ApiDisputeMessage[]>([])
   const [reply, setReply] = useState('')
   const [busy, setBusy] = useState(false)
+  const [sendError, setSendError] = useState('')
 
   const { data, loading, reload } = useProtectedLoader(
     () =>
@@ -50,16 +55,20 @@ export function DisputePage({ disputeId }: { disputeId: string }) {
   const sendReply = async () => {
     if (!reply.trim()) return
     setBusy(true)
+    setSendError('')
     try {
       await api.postDisputeMessage(disputeId, reply)
       setReply('')
+      toast.success(t('dispute_message_sent'))
       load()
+    } catch (e) {
+      setSendError(captureActionError(e, { scope: 'message_send' }, t))
     } finally {
       setBusy(false)
     }
   }
 
-  if (loading) return <p className="p-6 text-[var(--ishbor-text-muted)]">{t('loading_data')}</p>
+  if (loading) return <SkeletonDashboardDetail />
   if (!dispute) return <Alert variant="error">{t('dispute_not_found')}</Alert>
 
   return (
@@ -84,15 +93,33 @@ export function DisputePage({ disputeId }: { disputeId: string }) {
         <p className="mt-1">{dispute.reason}</p>
       </div>
       <div className="space-y-3 max-h-96 overflow-y-auto">
-        {messages.map((m) => (
-          <div key={m.id} className="rounded-lg border bg-muted/30 p-3 text-sm">
-            <p>{m.content}</p>
-          </div>
-        ))}
+        {messages.length === 0 ? (
+          <EmptyState
+            compact
+            icon={<MessageSquare className="h-8 w-8" />}
+            title={t('messages_no_messages_yet')}
+            description={t('dispute_messages_empty')}
+          />
+        ) : (
+          messages.map((m) => (
+            <div key={m.id} className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <p>{m.content}</p>
+            </div>
+          ))
+        )}
       </div>
-      <div className="flex gap-2">
-        <Textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder={t('type_message')} rows={2} />
-        <Button onClick={sendReply} disabled={busy}>{t('send_message')}</Button>
+      {sendError && <Alert variant="error">{sendError}</Alert>}
+      <div className="space-y-2">
+        <Textarea
+          value={reply}
+          onChange={(e) => setReply(e.target.value)}
+          placeholder={t('type_message')}
+          hint={t('dispute_reply_hint')}
+          rows={2}
+        />
+        <Button onClick={sendReply} disabled={busy || !reply.trim()} loading={busy}>
+          {t('send_message')}
+        </Button>
       </div>
     </div>
   )

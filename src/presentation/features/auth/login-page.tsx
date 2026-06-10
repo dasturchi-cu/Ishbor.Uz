@@ -211,6 +211,7 @@ function LoginPageContent() {
             <header className="auth-form-header">
               <h1>{t('login_title')}</h1>
               <p>{t('login_subtitle')}</p>
+              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('login_trust_hint')}</p>
             </header>
 
           {error && (

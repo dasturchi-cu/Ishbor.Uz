@@ -763,6 +763,8 @@ export const ruLocale = {
       'Новый маркетплейс — отзывы появятся после первых завершённых заказов. Безопасная оплата через Escrow.',
     login_title: "Добро пожаловать",
     login_subtitle: "Войдите в аккаунт",
+    login_trust_hint: "Безопасный вход — ваши данные защищены",
+    register_account_created: "Аккаунт создан — добро пожаловать!",
     google_sign_in: "Войти через Google",
     google_sign_up: "Регистрация через Google",
     google_auth_setup_hint: "Для входа через Google включите Google в Supabase → Authentication → Providers и установите NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true в .env.",
