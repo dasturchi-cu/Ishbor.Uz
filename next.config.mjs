@@ -29,7 +29,7 @@ const devBackendUrl = readDevBackendUrl()
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts'],
+    optimizePackageImports: ['lucide-react', 'recharts', '@tanstack/react-query'],
   },
   env: {
     NEXT_PUBLIC_API_URL: devBackendUrl,

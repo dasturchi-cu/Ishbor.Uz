@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { t, type Language, type TranslationKey } from '@/infrastructure/i18n'
 import { isLocaleChunkLoaded, loadLocaleChunk } from '@/infrastructure/i18n/locale-loader'
 import { isSupabaseConfigured, getSupabase } from '@/infrastructure/supabase/client'
@@ -47,13 +48,37 @@ export interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
+const AUTH_DEFER_PREFIXES = [
+  '/',
+  '/services',
+  '/projects',
+  '/jobs',
+  '/freelancers',
+  '/companies',
+  '/regions',
+  '/pricing',
+  '/help',
+  '/blog',
+  '/buyer-protection',
+  '/terms',
+  '/privacy',
+]
+
+function shouldDeferAuthSync(pathname: string): boolean {
+  if (pathname === '/') return true
+  return AUTH_DEFER_PREFIXES.some(
+    (prefix) => prefix !== '/' && (pathname === prefix || pathname.startsWith(`${prefix}/`)),
+  )
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [currentUserRole, setCurrentUserRoleState] = useState<UserRole>(readInitialRole)
   const activeRoleRef = useRef<UserRole>(currentUserRole)
   const [theme, setThemeState] = useState<'light' | 'dark'>('light')
   const [language, setLanguage] = useState<'uz' | 'ru' | 'en'>('uz')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured())
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [profile, setProfile] = useState<ApiProfile | null>(() => readCachedProfile())
   const [mounted, setMounted] = useState(false)
@@ -202,71 +227,105 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const supabase = getSupabase()
+    let cancelled = false
+    let idleId: number | undefined
+    let unsubscribe: (() => void) | undefined
 
-    const syncSession = async () => {
-      const authTimeout = window.setTimeout(() => {
-        setIsAuthLoading(false)
-      }, 10_000)
+    const startAuthSync = () => {
+      if (cancelled) return
 
-      try {
-        const session = await getCachedSession()
-        if (session) {
-          setIsLoggedIn(true)
-          setUserId(session.userId)
-          if (!profileRef.current) {
-            setTimeout(() => {
-              refreshProfile().catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }))
-            }, 0)
+      const supabase = getSupabase()
+
+      const syncSession = async () => {
+        const authTimeout = window.setTimeout(() => {
+          setIsAuthLoading(false)
+        }, 10_000)
+
+        setIsAuthLoading(true)
+        try {
+          const session = await getCachedSession()
+          if (session) {
+            setIsLoggedIn(true)
+            setUserId(session.userId)
+            if (!profileRef.current) {
+              setTimeout(() => {
+                refreshProfile().catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }))
+              }, 0)
+            }
+          } else {
+            setIsLoggedIn(false)
+            setUserId(null)
           }
-        } else {
+        } catch {
           setIsLoggedIn(false)
           setUserId(null)
+        } finally {
+          window.clearTimeout(authTimeout)
+          setIsAuthLoading(false)
         }
-      } catch {
-        setIsLoggedIn(false)
-        setUserId(null)
-      } finally {
-        window.clearTimeout(authTimeout)
-        setIsAuthLoading(false)
       }
+
+      void syncSession()
+
+      const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.access_token && session.user) {
+          updateCachedSessionToken(
+            session.access_token,
+            session.expires_at ?? 0,
+            session.user.id,
+          )
+        }
+
+        if (event === 'TOKEN_REFRESHED') return
+
+        setIsLoggedIn(Boolean(session))
+        setUserId(session?.user.id ?? null)
+
+        const shouldRefresh =
+          session &&
+          (event === 'SIGNED_IN' ||
+            event === 'USER_UPDATED' ||
+            (event === 'INITIAL_SESSION' && !profileRef.current))
+
+        if (shouldRefresh) {
+          setTimeout(() => {
+            refreshProfile().catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }))
+          }, 0)
+        } else if (!session) {
+          clearAuthCache()
+          clearCachedProfile()
+          setProfile(null)
+        }
+      })
+
+      unsubscribe = () => listener.subscription.unsubscribe()
     }
 
-    syncSession()
-
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.access_token && session.user) {
-        updateCachedSessionToken(
-          session.access_token,
-          session.expires_at ?? 0,
-          session.user.id,
-        )
+    if (shouldDeferAuthSync(pathname)) {
+      const run = () => {
+        if (!cancelled) startAuthSync()
       }
-
-      if (event === 'TOKEN_REFRESHED') return
-
-      setIsLoggedIn(Boolean(session))
-      setUserId(session?.user.id ?? null)
-
-      const shouldRefresh =
-        session &&
-        (event === 'SIGNED_IN' ||
-          event === 'USER_UPDATED' ||
-          (event === 'INITIAL_SESSION' && !profileRef.current))
-
-      if (shouldRefresh) {
-        setTimeout(() => {
-          refreshProfile().catch((e) => ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' }))
-        }, 0)
-      } else if (!session) {
-        clearAuthCache()
-        clearCachedProfile()
-        setProfile(null)
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(run, { timeout: 2500 })
+      } else {
+        idleId = window.setTimeout(run, 1200)
       }
-    })
+    } else {
+      startAuthSync()
+    }
 
-    return () => listener.subscription.unsubscribe()
-  }, [mounted, refreshProfile])
+    return () => {
+      cancelled = true
+      if (typeof idleId === 'number') {
+        if (typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(idleId)
+        } else {
+          window.clearTimeout(idleId)
+        }
+      }
+      unsubscribe?.()
+    }
+  }, [mounted, pathname, refreshProfile])
 
   const setTheme = useCallback((newTheme: 'light' | 'dark') => {
     setThemeState(newTheme)
@@ -358,10 +417,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setLang,
     ]
   )
-
-  if (!mounted) {
-    return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
-  }
 
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
 }

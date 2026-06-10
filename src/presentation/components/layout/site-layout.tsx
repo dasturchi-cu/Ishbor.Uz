@@ -1,5 +1,6 @@
 'use client'
 
+import '@/presentation/styles/shell-chrome.css'
 import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { Header } from '@/presentation/components/layout/header'
@@ -7,6 +8,7 @@ import { MobileNav } from '@/presentation/components/layout/mobile-nav'
 import { GuestMobileNav } from '@/presentation/components/layout/guest-mobile-nav'
 import { Toaster } from '@/presentation/components/ui/toast'
 import { useApp } from '@/application/providers/app-provider'
+import { QueryProvider } from '@/application/providers/query-provider'
 import { isAdminPath, isDashboardPath, PATHS } from '@/domain/constants/routes'
 import { cn } from '@/shared/lib/utils'
 import { SkipLink } from '@/presentation/components/layout/skip-link'
@@ -55,24 +57,36 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  return (
-    <BadgeCountsProvider>
+  const shell = (
+    <>
       {isLoggedIn ? <DashboardPrefetcher /> : null}
-      <NotificationsProvider userId={userId} isLoggedIn={isLoggedIn}>
-        <div className="flex min-h-screen flex-col bg-[var(--body-bg)]">
-          <SkipLink />
-          <Header />
-          <main id="main-content" tabIndex={-1} className={cn('flex-1 outline-none', showMobileNav && !onDashboard && 'has-mobile-nav')}>
-            {children}
-          </main>
-          {!hideFooter && <Footer />}
-          {isLoggedIn && !onDashboard ? <MobileNav /> : !isLoggedIn ? <GuestMobileNav /> : null}
-          {isLoggedIn ? <InboxRealtimeBridge /> : null}
-          <BrowserNotificationWatcher />
-          <SupabaseRequestAuditReporter />
-          <Toaster />
-        </div>
-      </NotificationsProvider>
-    </BadgeCountsProvider>
+      <div className="flex min-h-screen flex-col bg-[var(--body-bg)]">
+        <SkipLink />
+        <Header />
+        <main id="main-content" tabIndex={-1} className={cn('flex-1 outline-none', showMobileNav && !onDashboard && 'has-mobile-nav')}>
+          {children}
+        </main>
+        {!hideFooter && <Footer />}
+        {isLoggedIn && !onDashboard ? <MobileNav /> : !isLoggedIn ? <GuestMobileNav /> : null}
+        {isLoggedIn ? <InboxRealtimeBridge /> : null}
+        <BrowserNotificationWatcher />
+        <SupabaseRequestAuditReporter />
+        <Toaster />
+      </div>
+    </>
+  )
+
+  return (
+    <QueryProvider>
+      {isLoggedIn ? (
+        <BadgeCountsProvider>
+          <NotificationsProvider userId={userId} isLoggedIn={isLoggedIn}>
+            {shell}
+          </NotificationsProvider>
+        </BadgeCountsProvider>
+      ) : (
+        shell
+      )}
+    </QueryProvider>
   )
 }

@@ -1,5 +1,7 @@
 'use client'
 
+import '@/presentation/styles/route-service-detail.css'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -473,7 +475,15 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                       )}
                     >
                       {'url' in thumb ? (
-                        <Image src={thumb.url} alt="" fill sizes="80px" className="object-cover" />
+                        <Image
+                          src={thumb.url}
+                          alt=""
+                          fill
+                          sizes="80px"
+                          quality={70}
+                          loading="lazy"
+                          className="object-cover"
+                        />
                       ) : (
                         thumb.ch
                       )}

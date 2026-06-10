@@ -1,5 +1,6 @@
 'use client'
 
+import '@/presentation/styles/route-catalog.css'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Briefcase, Plus } from 'lucide-react'

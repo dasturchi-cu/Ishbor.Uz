@@ -3,7 +3,6 @@ import type { Metadata } from 'next'
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/application/providers/app-provider'
-import { QueryProvider } from '@/application/providers/query-provider'
 import { PasswordRecoveryRedirect } from '@/presentation/components/auth/password-recovery-redirect'
 import { JsonLdOrganization } from '@/presentation/components/seo/json-ld'
 import { GoogleAnalytics } from '@/presentation/components/analytics/google-analytics'
@@ -84,10 +83,8 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <AppProvider>
-          <QueryProvider>
-            <PasswordRecoveryRedirect />
-            {children}
-          </QueryProvider>
+          <PasswordRecoveryRedirect />
+          {children}
         </AppProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
         <GoogleAnalytics />

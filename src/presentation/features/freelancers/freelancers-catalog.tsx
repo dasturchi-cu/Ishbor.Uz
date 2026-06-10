@@ -1,5 +1,6 @@
 'use client'
 
+import '@/presentation/styles/route-catalog.css'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'

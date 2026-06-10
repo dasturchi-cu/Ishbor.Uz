@@ -1,5 +1,6 @@
 'use client'
 
+import '@/presentation/styles/route-auth.css'
 import React, { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'

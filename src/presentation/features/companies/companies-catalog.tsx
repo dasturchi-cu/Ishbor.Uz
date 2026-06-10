@@ -1,5 +1,6 @@
 'use client'
 
+import '@/presentation/styles/route-catalog.css'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Building2 } from 'lucide-react'

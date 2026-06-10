@@ -1,5 +1,6 @@
 'use client'
 
+import '@/presentation/styles/route-catalog.css'
 
 
 import { useCallback, useEffect, useRef, useState } from 'react'

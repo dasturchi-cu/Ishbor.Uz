@@ -1,10 +1,12 @@
 ﻿'use client'
 
+import '@/presentation/styles/route-auth.css'
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { useApp } from '@/application/providers/app-provider'
+import { AuthPageBrand } from '@/presentation/components/layout/brand-logo'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
@@ -203,12 +205,7 @@ function LoginPageContent() {
             {t('nav_home')}
           </Link>
 
-          <div className="auth-page-brand">
-            <Link href={PATHS.home} className="auth-page-brand__logo">
-              <span className="auth-page-brand__mark" aria-hidden />
-              ISH<span>BOR</span>
-            </Link>
-          </div>
+          <AuthPageBrand href={PATHS.home} />
 
           <div className="auth-form-card">
             <header className="auth-form-header">

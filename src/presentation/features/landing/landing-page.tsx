@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import '@/presentation/styles/route-landing.css'
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'

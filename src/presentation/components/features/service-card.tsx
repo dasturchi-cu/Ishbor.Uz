@@ -136,6 +136,8 @@ function ServiceThumbnail({
           alt={title}
           fill
           sizes="(max-width: 768px) 100vw, 320px"
+          quality={imagePriority ? 80 : 70}
+          loading={imagePriority ? undefined : 'lazy'}
           className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           priority={imagePriority}
         />

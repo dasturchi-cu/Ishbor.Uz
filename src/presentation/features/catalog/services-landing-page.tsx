@@ -1,5 +1,6 @@
 'use client'
 
+import '@/presentation/styles/route-catalog.css'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { MarketplaceCatalogHero } from '@/presentation/components/layout/marketplace-catalog-hero'
