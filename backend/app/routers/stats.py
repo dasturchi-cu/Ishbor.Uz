@@ -1,3 +1,5 @@
+import time
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
@@ -58,10 +60,23 @@ def _build_public_activity(supabase, limit: int = 6) -> list[dict]:
     return events[:limit]
 
 
+_STATS_CACHE = None
+_STATS_CACHE_AT = 0
+_STATS_TTL = 300  # 5 minut
+
 @router.get("/public")
 def public_stats():
+    global _STATS_CACHE, _STATS_CACHE_AT
+    now = time.time()
+    if _STATS_CACHE and (now - _STATS_CACHE_AT < _STATS_TTL):
+        return JSONResponse(
+            content=_STATS_CACHE,
+            headers={"Cache-Control": f"public, max-age={_STATS_TTL}"},
+        )
+
     supabase = get_supabase_admin()
 
+    # Heavy queries...
     freelancers = run_query(
         lambda: supabase.table("profiles").select("id", count="exact").eq("role", "freelancer").execute()
     )
@@ -83,17 +98,20 @@ def public_stats():
         .execute()
     )
 
-    reviews = run_query(lambda: supabase.table("reviews").select("rating").execute())
-    ratings = [r["rating"] for r in (reviews.data or [])]
-    avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0.0
+    reviews_agg = run_query(lambda: supabase.rpc("get_reviews_aggregate").execute())
+    reviews_payload = reviews_agg.data
+    if isinstance(reviews_payload, list):
+        reviews_payload = reviews_payload[0] if reviews_payload else {}
+    if not isinstance(reviews_payload, dict):
+        reviews_payload = {}
+    avg_rating = float(reviews_payload.get("avg_rating") or 0)
+    review_count = int(reviews_payload.get("count") or 0)
 
-    services_list = run_query(
-        lambda: supabase.table("services").select("category").eq("is_hidden", False).execute()
-    )
-    category_counts: dict[str, int] = {}
-    for row in services_list.data or []:
-        cat = row.get("category") or "other"
-        category_counts[cat] = category_counts.get(cat, 0) + 1
+    category_result = run_query(lambda: supabase.rpc("get_service_category_counts").execute())
+    category_raw = category_result.data
+    if isinstance(category_raw, list):
+        category_raw = category_raw[0] if category_raw else {}
+    category_counts: dict[str, int] = category_raw if isinstance(category_raw, dict) else {}
 
     top_services = run_query(
         lambda: supabase.table("services")
@@ -151,7 +169,7 @@ def public_stats():
     project_total = (projects.count or 0) + (orders.count or 0)
     recent_activity = _build_public_activity(supabase)
 
-    payload = {
+    _STATS_CACHE = {
         "commission_percent": 10,
         "commission_bps": 1000,
         "freelancer_payout_percent": 90,
@@ -161,13 +179,15 @@ def public_stats():
         "services": services.count or 0,
         "completed_orders": completed_orders.count or 0,
         "avg_rating": avg_rating,
-        "review_count": len(ratings),
+        "review_count": review_count,
         "category_counts": category_counts,
         "top_services": enriched_services,
         "recent_activity": recent_activity,
         "featured_freelancers": enriched_freelancers,
     }
+    _STATS_CACHE_AT = now
+
     return JSONResponse(
-        content=payload,
-        headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=600"},
+        content=_STATS_CACHE,
+        headers={"Cache-Control": f"public, max-age={_STATS_TTL}"},
     )

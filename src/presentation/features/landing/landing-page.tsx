@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -23,16 +24,29 @@ import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import {
   LandingCategoryGrid,
   LandingCtaBanner,
-  LandingDarkTrust,
   LandingFeaturedTabs,
   LandingHeroBadge,
-  LandingHowItWorks,
-  LandingRecentActivity,
   LandingStatsRow,
-  LandingTestimonials,
   LandingTopFreelancers,
   filterServicesByTab,
 } from '@/presentation/features/landing/landing-sections'
+
+const LandingRecentActivity = dynamic(
+  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingRecentActivity),
+  { ssr: false }
+)
+const LandingTestimonials = dynamic(
+  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingTestimonials),
+  { ssr: false }
+)
+const LandingHowItWorks = dynamic(
+  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingHowItWorks),
+  { ssr: false }
+)
+const LandingDarkTrust = dynamic(
+  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingDarkTrust),
+  { ssr: false }
+)
 
 const EMPTY_STATS: ApiPublicStats = {
   freelancers: 0,
@@ -301,9 +315,10 @@ export function LandingPage() {
             />
           ) : (
             <div className="ishbor-grid mt-5">
-              {filteredServices.slice(0, 8).map((svc) => (
+              {filteredServices.slice(0, 8).map((svc, index) => (
                 <ServiceCard
                   key={svc.id}
+                  imagePriority={index < 2}
                   title={svc.title}
                   sellerName={(svc.profiles as { full_name?: string } | null)?.full_name ?? t('freelancer')}
                   sellerInitials={initialsFromName(

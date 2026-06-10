@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useMemo } from 'react'
+import { useApp } from '@/application/providers/app-provider'
 import { useDashboardBadges } from '@/shared/lib/use-dashboard-badges'
 
 interface BadgeCounts {
@@ -14,7 +15,8 @@ const BadgeCountsContext = createContext<BadgeCounts>({
 })
 
 export function BadgeCountsProvider({ children }: { children: React.ReactNode }) {
-  const { messageUnread, notificationUnread } = useDashboardBadges(true)
+  const { isLoggedIn } = useApp()
+  const { messageUnread, notificationUnread } = useDashboardBadges(isLoggedIn)
   const value = useMemo(
     () => ({ messageUnread, notificationUnread }),
     [messageUnread, notificationUnread]

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
 from app.database import get_supabase_admin
 from app.db_utils import run_query
@@ -7,6 +7,11 @@ from app.search_utils import sanitize_search_term
 from app.schemas import ServiceCreate, ServiceListResponse, ServiceResponse, ServiceUpdate
 from app.review_stats import batch_review_stats
 from app.service_packages import default_packages
+from app.service_experience import (
+    MAX_EXPERIENCE_SCAN,
+    filter_service_rows_by_experience,
+    parse_experience_param,
+)
 from app.postgrest_embed import SERVICE_FREELANCER_PROFILE
 
 router = APIRouter(prefix="/services", tags=["services"])
@@ -45,6 +50,7 @@ def list_freelancer_services(freelancer_id: str):
 
 @router.get("", response_model=ServiceListResponse)
 def list_services(
+    response: Response,
     category: str | None = Query(default=None),
     region: str | None = Query(default=None),
     search: str | None = Query(default=None),
@@ -52,45 +58,50 @@ def list_services(
     min_price: int | None = Query(default=None, ge=0),
     max_price: int | None = Query(default=None, ge=0),
     max_delivery_days: int | None = Query(default=None, ge=1, le=365),
-    limit: int = Query(default=100, le=200),
+    experience: str | None = Query(default=None, max_length=64),
+    limit: int = Query(default=48, le=200),
     offset: int = Query(default=0, ge=0),
 ):
     supabase = get_supabase_admin()
-    query = (
-        supabase.table("services")
-        .select(f"*, {_FREELANCER_PROFILE}(full_name, specialty, region, is_verified)", count="exact")
-        .eq("is_hidden", False)
-        .eq("moderation_status", "approved")
-    )
+    experience_levels = parse_experience_param(experience)
+    use_experience_filter = bool(experience_levels)
 
-    if category:
-        query = query.eq("category", category)
-    if region:
-        query = query.eq("region", region)
-    safe_search = sanitize_search_term(search)
-    if safe_search:
-        query = query.or_(f"title.ilike.%{safe_search}%,description.ilike.%{safe_search}%")
-    if min_price is not None:
-        query = query.gte("price", min_price)
-    if max_price is not None:
-        query = query.lte("price", max_price)
-    if max_delivery_days is not None:
-        query = query.lte("delivery_days", max_delivery_days)
+    def build_query():
+        query = (
+            supabase.table("services")
+            .select(f"*, {_FREELANCER_PROFILE}(full_name, specialty, region, is_verified)", count="exact")
+            .eq("is_hidden", False)
+            .eq("moderation_status", "approved")
+        )
 
-    if sort in ("price-low", "price_asc"):
-        query = query.order("price", desc=False)
-    elif sort in ("price-high", "price_desc"):
-        query = query.order("price", desc=True)
-    elif sort == "popular":
-        query = query.order("view_count", desc=True)
-    elif sort in ("delivery", "delivery-fast", "delivery_asc"):
-        query = query.order("delivery_days", desc=False)
-    else:
-        query = query.order("created_at", desc=True)
+        if category:
+            query = query.eq("category", category)
+        if region:
+            query = query.eq("region", region)
+        safe_search = sanitize_search_term(search)
+        if safe_search:
+            query = query.or_(f"title.ilike.%{safe_search}%,description.ilike.%{safe_search}%")
+        if min_price is not None:
+            query = query.gte("price", min_price)
+        if max_price is not None:
+            query = query.lte("price", max_price)
+        if max_delivery_days is not None:
+            query = query.lte("delivery_days", max_delivery_days)
 
-    def fetch() -> ServiceListResponse:
-        result = query.range(offset, offset + limit - 1).execute()
-        rows = result.data or []
+        if sort in ("price-low", "price_asc"):
+            query = query.order("price", desc=False)
+        elif sort in ("price-high", "price_desc"):
+            query = query.order("price", desc=True)
+        elif sort == "popular":
+            query = query.order("view_count", desc=True)
+        elif sort in ("delivery", "delivery-fast", "delivery_asc"):
+            query = query.order("delivery_days", desc=False)
+        else:
+            query = query.order("created_at", desc=True)
+
+        return query
+
+    def enrich_rows(rows: list[dict]) -> tuple[list[dict], dict[str, tuple[float, int]]]:
         freelancer_ids = list({r["freelancer_id"] for r in rows if r.get("freelancer_id")})
         stats_map = batch_review_stats(supabase, freelancer_ids)
         for row in rows:
@@ -99,9 +110,36 @@ def list_services(
             if fid and fid in stats_map:
                 avg, count = stats_map[fid]
                 row["profiles"] = {**prof, "avg_rating": avg, "review_count": count}
+        return rows, stats_map
+
+    def fetch() -> ServiceListResponse:
+        if use_experience_filter:
+            query = build_query()
+            result = query.range(0, MAX_EXPERIENCE_SCAN - 1).execute()
+            rows = result.data or []
+            rows, stats_map = enrich_rows(rows)
+            filtered = filter_service_rows_by_experience(rows, stats_map, experience_levels)
+            if sort == "rating":
+                filtered.sort(
+                    key=lambda r: (
+                        -(stats_map.get(r.get("freelancer_id") or "", (0.0, 0))[0]),
+                        -(stats_map.get(r.get("freelancer_id") or "", (0.0, 0))[1]),
+                        r.get("price") or 0,
+                    )
+                )
+            total = len(filtered)
+            page = filtered[offset : offset + limit]
+            return ServiceListResponse(items=page, total=total)
+
+        query = build_query()
+        result = query.range(offset, offset + limit - 1).execute()
+        rows = result.data or []
+        rows, _stats_map = enrich_rows(rows)
         return ServiceListResponse(items=rows, total=result.count or 0)
 
-    return run_query(fetch)
+    result = run_query(fetch)
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=120"
+    return result
 
 
 def _viewer_key(request: Request, user_id: str | None) -> str:

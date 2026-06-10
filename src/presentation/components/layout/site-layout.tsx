@@ -15,6 +15,7 @@ import { BadgeCountsProvider } from '@/application/providers/badge-counts-provid
 import { NotificationsProvider } from '@/application/providers/notifications-provider'
 import { SupabaseRequestAuditReporter } from '@/presentation/components/dev/supabase-request-audit-reporter'
 import { InboxRealtimeBridge } from '@/presentation/components/layout/inbox-realtime-bridge'
+import { DashboardPrefetcher } from '@/presentation/components/dashboard/dashboard-prefetcher'
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -36,6 +37,7 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <BadgeCountsProvider>
+      {isLoggedIn ? <DashboardPrefetcher /> : null}
       <NotificationsProvider userId={userId} isLoggedIn={isLoggedIn}>
         <div className="flex min-h-screen flex-col bg-[var(--body-bg)]">
           <SkipLink />
@@ -45,7 +47,7 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
           </main>
           {!hideFooter && <Footer />}
           {isLoggedIn && !onDashboard ? <MobileNav /> : !isLoggedIn ? <GuestMobileNav /> : null}
-          <InboxRealtimeBridge />
+          {isLoggedIn ? <InboxRealtimeBridge /> : null}
           <BrowserNotificationWatcher />
           <SupabaseRequestAuditReporter />
           <Toaster />
