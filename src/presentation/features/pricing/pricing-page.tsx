@@ -54,7 +54,7 @@ export function PricingPage() {
             className={`surface-panel flex flex-col p-6 sm:p-8 ${plan.highlighted ? 'ring-2 ring-[var(--color-primary)]' : ''}`}
           >
             {plan.highlighted && (
-              <span className="mb-3 inline-flex w-fit rounded-full bg-[var(--color-primary-light)] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-primary)]">
+              <span className="pricing-badge mb-3 inline-flex w-fit rounded-full bg-[var(--color-primary-light)] px-3 py-1 text-[var(--color-primary)]">
                 {t('pricing_popular')}
               </span>
             )}

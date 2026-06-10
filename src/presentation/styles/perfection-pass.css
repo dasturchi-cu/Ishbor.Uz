@@ -1,0 +1,268 @@
+/**
+ * IshBor perfection pass — visual consistency overrides.
+ * Linear / Stripe / LinkedIn discipline: one radius scale, one shadow scale, one motion curve.
+ */
+
+/* ─── Global focus & links ─── */
+a:focus-visible,
+[role='link']:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--r-xs);
+}
+
+/* ─── De-template hover utilities ─── */
+.hover-lift {
+  transition: var(--transition);
+  transform: none;
+  box-shadow: var(--shadow-card);
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.hover-glow,
+.hover-scale {
+  transition: var(--transition);
+}
+
+.hover-glow:hover,
+.hover-scale:hover {
+  transform: none;
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ─── Catalog shells — flat, no gradient wash ─── */
+.catalog-shell-head {
+  background: var(--neutral-0);
+  border-bottom: 1px solid var(--ishbor-border);
+}
+
+.catalog-shell-title {
+  font-size: var(--text-h3);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+@media (min-width: 768px) {
+  .catalog-shell-title {
+    font-size: var(--text-h2);
+  }
+}
+
+.catalog-shell-subtitle,
+.catalog-shell-sub {
+  font-size: var(--text-body-md);
+  color: var(--ishbor-text-muted);
+}
+
+/* ─── Footer section labels — sentence case, not eyebrows ─── */
+.footer-overline,
+.footer-section-title {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ishbor-text);
+}
+
+/* ─── Landing stats — no glass blur ─── */
+.landing-hero-badge {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: var(--r-full);
+  font-weight: 600;
+  font-size: var(--text-body-sm);
+}
+
+.landing-stats-grid {
+  margin-top: 0;
+}
+
+.landing-stats-card {
+  border-radius: var(--r-card);
+  background: var(--neutral-0);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.landing-stats-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.landing-stats-value {
+  font-weight: 700;
+  color: var(--ishbor-text);
+}
+
+/* ─── How it works — timeline, not icon circles ─── */
+.landing-how-steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .landing-how-steps-list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+  }
+}
+
+.landing-how-steps-list__item {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--ishbor-border);
+  border-radius: var(--r-card);
+  background: var(--neutral-0);
+  box-shadow: var(--shadow-card);
+  transition: var(--transition);
+}
+
+.landing-how-steps-list__item:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 18%, var(--ishbor-border));
+  box-shadow: var(--shadow-card-hover);
+}
+
+.landing-how-steps-list__num {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-md);
+  background: var(--color-primary-light);
+  font-size: var(--text-body-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary);
+}
+
+.landing-how-steps-list__title {
+  font-size: var(--text-body-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ishbor-text);
+}
+
+.landing-how-steps-list__desc {
+  margin-top: var(--space-2);
+  font-size: var(--text-body-md);
+  line-height: 1.5;
+  color: var(--ishbor-text-muted);
+}
+
+/* ─── Trust band (replaces dark-trust template) ─── */
+.landing-trust-band {
+  background: var(--neutral-50);
+}
+
+/* Retire unused dark-trust / gradient CTA templates ─── */
+.landing-dark-trust,
+.landing-cta-banner-inner {
+  background: var(--neutral-50);
+  box-shadow: none;
+}
+
+/* ─── Auth panel — no mesh / orbs ─── */
+.auth-brand-panel__mesh,
+.auth-brand-panel__orb {
+  display: none;
+}
+
+.auth-brand-panel {
+  background: linear-gradient(
+    165deg,
+    var(--brand-900) 0%,
+    color-mix(in srgb, var(--brand-800) 85%, var(--neutral-900)) 100%
+  );
+}
+
+/* ─── Trust strip ─── */
+.trust-strip-item {
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  color: var(--ishbor-text-sub);
+}
+
+.trust-strip-item svg {
+  stroke-width: 2;
+}
+
+/* ─── Protection strip ─── */
+.ishbor-protection-strip {
+  border-radius: var(--r-card);
+}
+
+/* ─── Company cards ─── */
+.company-catalog-card {
+  transition: var(--transition);
+}
+
+.company-catalog-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 16%, var(--ishbor-border));
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ─── Mobile nav focus ─── */
+.mobile-bottom-nav-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  border-radius: var(--r-sm);
+}
+
+/* ─── Pricing badge ─── */
+.pricing-badge {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+/* ─── Section tint — flat ─── */
+.surface-section-tint {
+  background: var(--neutral-50);
+}
+
+/* ─── Icon stroke consistency (Lucide) ─── */
+.lucide {
+  stroke-width: 2;
+}
+
+.mobile-bottom-nav-item--active .lucide,
+.mobile-bottom-nav-icon--active .lucide {
+  stroke-width: 2.25;
+}
+
+/* ─── Category nav tabs ─── */
+.mega-tab:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 0 var(--color-primary);
+}
+
+/* ─── Empty state polish ─── */
+.empty-state {
+  border: 1px dashed color-mix(in srgb, var(--ishbor-border) 80%, transparent);
+  border-radius: var(--r-lg);
+  background: var(--neutral-0);
+}
+
+/* ─── Freelancer / service cards ─── */
+.ishbor-service-card,
+.freelancer-card {
+  transition: var(--transition);
+}
+
+.ishbor-service-card:hover,
+.freelancer-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 14%, var(--ishbor-border));
+  box-shadow: var(--shadow-card-hover);
+}

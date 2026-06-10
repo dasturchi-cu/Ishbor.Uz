@@ -4,15 +4,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowRight,
   Award,
-  CheckCircle2,
   ChevronRight,
   CreditCard,
   Headphones,
   Languages,
   Rocket,
-  Search,
   Shield,
   Star,
 } from 'lucide-react'
@@ -28,10 +25,10 @@ import { Button } from '@/presentation/components/ui/button'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { api } from '@/infrastructure/api/client'
 
-const HOW_STEPS: { icon: LucideIcon; titleKey: TranslationKey; descKey: TranslationKey }[] = [
-  { icon: Search, titleKey: 'how_step1_title', descKey: 'how_step1_desc' },
-  { icon: Shield, titleKey: 'how_step2_title', descKey: 'how_step2_desc' },
-  { icon: CheckCircle2, titleKey: 'how_step3_title', descKey: 'how_step3_desc' },
+const HOW_STEPS: { titleKey: TranslationKey; descKey: TranslationKey }[] = [
+  { titleKey: 'how_step1_title', descKey: 'how_step1_desc' },
+  { titleKey: 'how_step2_title', descKey: 'how_step2_desc' },
+  { titleKey: 'how_step3_title', descKey: 'how_step3_desc' },
 ]
 
 const TRUST_ITEMS: { icon: LucideIcon; labelKey: TranslationKey }[] = [
@@ -60,7 +57,7 @@ export function LandingHeroBadge() {
   const { t } = useApp()
   return (
     <span className="landing-hero-badge">
-      <Rocket className="h-3.5 w-3.5" aria-hidden />
+      <Shield className="h-3.5 w-3.5" aria-hidden />
       {t('marketplace_tagline')}
     </span>
   )
@@ -109,23 +106,19 @@ export function LandingHowItWorks() {
     <section className="landing-how-section">
       <div className="layout-container max-w-[1280px]">
         <h2 className="landing-section-heading">{t('how_it_works_title')}</h2>
-        <div className="landing-how-grid">
-          {HOW_STEPS.map((step, i) => {
-            const StepIcon = step.icon
-            return (
-              <div key={step.titleKey} className="landing-how-step">
-                <div className="landing-how-step-circle landing-how-step-circle--icon">
-                  <StepIcon className="h-5 w-5 text-[var(--color-primary)]" aria-hidden />
-                </div>
-                <h3 className="landing-how-step-title">{t(step.titleKey)}</h3>
-                <p className="landing-how-step-desc">{t(step.descKey)}</p>
-                {i < HOW_STEPS.length - 1 && (
-                  <ArrowRight className="landing-how-arrow hide-mobile" aria-hidden />
-                )}
+        <ol className="landing-how-steps-list">
+          {HOW_STEPS.map((step, i) => (
+            <li key={step.titleKey} className="landing-how-steps-list__item">
+              <span className="landing-how-steps-list__num" aria-hidden>
+                {i + 1}
+              </span>
+              <div>
+                <h3 className="landing-how-steps-list__title">{t(step.titleKey)}</h3>
+                <p className="landing-how-steps-list__desc">{t(step.descKey)}</p>
               </div>
-            )
-          })}
-        </div>
+            </li>
+          ))}
+        </ol>
         <div className="mt-10 flex justify-center">
           <Link href={PATHS.services}>
             <Button variant="primary" size="lg" className="landing-cta-btn min-w-[200px]">
@@ -369,7 +362,6 @@ export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
               minPrice={f.min_price}
               isVerified={Boolean(f.is_verified)}
               trustScore={f.trust_score}
-              className="hover-lift"
               onClick={() => router.push(freelancerPath(f.id))}
             />
           ))}

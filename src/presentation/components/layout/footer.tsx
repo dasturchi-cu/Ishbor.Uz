@@ -59,7 +59,7 @@ export function Footer() {
           </div>
 
           <div className="footer-nav">
-            <h4 className="footer-overline">{t('footer_pages')}</h4>
+            <h4 className="footer-section-title">{t('footer_pages')}</h4>
             <ul className="footer-link-list">
               <li>
                 <Link href={PATHS.services} className="text-[var(--ishbor-text-muted)] transition hover:text-[var(--color-primary)]">
@@ -95,7 +95,7 @@ export function Footer() {
           </div>
 
           <div className="footer-trust">
-            <h4 className="footer-overline">{t('landing_buyer_protection')}</h4>
+            <h4 className="footer-section-title">{t('landing_buyer_protection')}</h4>
             <p className="footer-trust-desc">{t('footer_payments_note')}</p>
             <Link href={PATHS.buyerProtection} className="footer-trust-link">
               <Shield className="h-4 w-4 shrink-0" aria-hidden />

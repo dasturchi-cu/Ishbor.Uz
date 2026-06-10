@@ -203,9 +203,9 @@
 }
 
 .dash-nav-section-title {
-  font-size: 10px;
+  font-size: var(--text-caption);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.01em;
   color: var(--ishbor-text-muted);
 }
 
@@ -285,10 +285,9 @@
 }
 
 .text-overline {
-  font-size: var(--text-overline);
+  font-size: var(--text-body-sm);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--ishbor-text-muted);
 }
 
@@ -314,7 +313,7 @@
 /* .surface-panel → product-system.css (.ps-card) */
 
 .surface-section-tint {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--brand-50) 60%, var(--neutral-0)) 0%, var(--neutral-0) 80%);
+  background: var(--neutral-50);
 }
 
 /* ─── Order progress stepper ─── */

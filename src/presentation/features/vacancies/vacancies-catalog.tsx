@@ -7,6 +7,7 @@ import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import type { ApiVacancy } from '@/infrastructure/api/types'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { Card } from '@/presentation/components/ui/card'
@@ -114,16 +115,18 @@ export function VacanciesCatalog() {
   }
 
   return (
-    <PageWrapper>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
+      <div className="catalog-shell-head mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('jobs_catalog_title')}</h1>
-          <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">{t('jobs_catalog_subtitle')}</p>
+          <h1 className="catalog-shell-title">{t('jobs_catalog_title')}</h1>
+          <p className="catalog-shell-subtitle">{t('jobs_catalog_subtitle')}</p>
         </div>
         <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>
           {t('vacancy_create_btn')}
         </Button>
       </div>
+
+      <IshborProtectionStrip compact className="mb-5" />
 
       {showForm && (
         <Card className="mb-6 space-y-4 p-5">

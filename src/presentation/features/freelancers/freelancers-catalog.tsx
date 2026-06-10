@@ -7,6 +7,7 @@ import { FreelancerCard } from '@/presentation/components/features/freelancer-ca
 import { Select } from '@/presentation/components/ui/select'
 import { Button } from '@/presentation/components/ui/button'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Search, Users } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
@@ -107,15 +108,13 @@ export function FreelancersCatalog({
     : `${filtered.length} ${t('stats_freelancers').toLowerCase()}`
 
   return (
-    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
-      <div className="surface-panel mb-4 px-4 py-3.5 sm:px-5 sm:py-4">
-        <h1 className="text-xl font-bold tracking-tight text-[var(--ishbor-text)] sm:text-[22px]">
-          {t(titleKey)}
-        </h1>
-        <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)] sm:text-[14px]">
-          {t(subtitleKey)}
-        </p>
+    <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
+      <div className="catalog-shell-head mb-5">
+        <h1 className="catalog-shell-title">{t(titleKey)}</h1>
+        <p className="catalog-shell-subtitle">{t(subtitleKey)}</p>
       </div>
+
+      <IshborProtectionStrip compact className="mb-5" />
 
       <div className="mb-4">
         <div className="catalog-toolbar">

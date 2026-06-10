@@ -7,6 +7,7 @@ import { useApp } from '@/application/providers/app-provider'
 import { api } from '@/infrastructure/api/client'
 import type { ApiCompany } from '@/infrastructure/api/types'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { isSafeExternalWebsiteUrl } from '@/shared/lib/safe-url'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
@@ -59,10 +60,12 @@ export function CompaniesCatalog() {
 
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
-      <div className="catalog-shell-head mb-6">
+      <div className="catalog-shell-head mb-5">
         <h1 className="catalog-shell-title">{t('companies_catalog_title')}</h1>
         <p className="catalog-shell-subtitle">{t('companies_catalog_subtitle')}</p>
       </div>
+
+      <IshborProtectionStrip compact className="mb-5" />
 
       {loadError ? (
         <LoadErrorAlert error={loadError} scope="companies" onRetry={loadCompanies} className="mb-4" />

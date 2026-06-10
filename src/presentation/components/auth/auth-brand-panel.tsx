@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { Check, Quote } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
+import { BrandLogo } from '@/presentation/components/layout/brand-logo'
 
 const CHECK_KEYS = ['auth_check_1', 'auth_check_2', 'auth_check_3'] as const
 
@@ -26,15 +26,8 @@ export function AuthBrandPanel() {
 
   return (
     <aside className="auth-brand-panel auth-brand-panel--legacy hide-mobile" aria-hidden={false}>
-      <div className="auth-brand-panel__mesh" aria-hidden />
-      <div className="auth-brand-panel__orb auth-brand-panel__orb--1" aria-hidden />
-      <div className="auth-brand-panel__orb auth-brand-panel__orb--2" aria-hidden />
-
       <div className="auth-brand-panel__content">
-        <Link href={PATHS.home} className="auth-brand-logo">
-          <span className="auth-brand-logo__mark" aria-hidden />
-          ISH<span className="auth-brand-logo__accent">BOR</span>
-        </Link>
+        <BrandLogo variant="auth-panel" href={PATHS.home} />
         <p className="auth-brand-tagline">{t('auth_tagline')}</p>
 
         <ul className="auth-brand-checklist">
