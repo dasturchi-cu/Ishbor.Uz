@@ -632,6 +632,10 @@ export interface ApiNotificationChannels {
   redis: boolean
 }
 
+export interface ApiTelegramLinkToken {
+  token: string
+}
+
 
 
 export interface ApiWaitlistEntry {
@@ -1014,6 +1018,12 @@ export interface ApiAdminAnalytics {
   search_events: number
   register_events: number
   conversion_rate: number
+  funnel_cta_clicks?: number
+  funnel_register_views?: number
+  funnel_signup_rate?: number
+  activation_onboarding?: number
+  activation_employer?: number
+  activation_candidate?: number
   users_series?: ApiAdminAnalyticsSeriesPoint[]
   revenue_series?: ApiAdminAnalyticsSeriesPoint[]
   commission_series?: ApiAdminAnalyticsSeriesPoint[]

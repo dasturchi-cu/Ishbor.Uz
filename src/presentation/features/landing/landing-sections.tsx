@@ -24,6 +24,7 @@ import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { Button } from '@/presentation/components/ui/button'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { api } from '@/infrastructure/api/client'
+import { trackFunnelEvent } from '@/shared/lib/funnel-analytics'
 
 const HOW_STEPS: { titleKey: TranslationKey; descKey: TranslationKey }[] = [
   { titleKey: 'how_step1_title', descKey: 'how_step1_desc' },
@@ -450,7 +451,15 @@ export function LandingCtaBanner() {
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
           {!isAuthLoading && !isLoggedIn ? (
-            <Button variant="primary" size="lg" className="min-w-[160px] font-semibold" onClick={() => router.push(PATHS.register)}>
+            <Button
+              variant="primary"
+              size="lg"
+              className="min-w-[160px] font-semibold"
+              onClick={() => {
+                trackFunnelEvent('funnel_landing_cta_click', { intent: 'signup', surface: 'cta_banner' })
+                router.push(PATHS.register)
+              }}
+            >
               {t('register')}
             </Button>
           ) : (

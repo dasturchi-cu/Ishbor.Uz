@@ -19,6 +19,7 @@ import { Avatar } from '@/presentation/components/ui/avatar'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
 import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
+import { trackFunnelEvent } from '@/shared/lib/funnel-analytics'
 import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import {
   LandingCtaBanner,
@@ -221,7 +222,12 @@ export function LandingPage() {
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
     const q = searchQuery.trim()
+    trackFunnelEvent('funnel_browse_catalog', { surface: 'hero_search', query: q || undefined })
     router.push(q ? `${PATHS.services}?q=${encodeURIComponent(q)}` : PATHS.services)
+  }
+
+  const handleLandingCta = (intent: 'signup' | 'browse_catalog', surface: string) => {
+    trackFunnelEvent('funnel_landing_cta_click', { intent, surface })
   }
 
   return (
@@ -249,12 +255,12 @@ export function LandingPage() {
 
               {!isAuthLoading && !isLoggedIn && (
                 <div className="landing-hero-actions mt-5">
-                  <Link href={PATHS.register}>
+                  <Link href={PATHS.register} onClick={() => handleLandingCta('signup', 'hero')}>
                     <Button variant="primary" size="lg" className="min-w-[140px] font-semibold">
                       {t('register')}
                     </Button>
                   </Link>
-                  <Link href={PATHS.services}>
+                  <Link href={PATHS.services} onClick={() => handleLandingCta('browse_catalog', 'hero')}>
                     <Button variant="outline" size="lg" className="font-semibold">
                       {t('browse_services')}
                     </Button>

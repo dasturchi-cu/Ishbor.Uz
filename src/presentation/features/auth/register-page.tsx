@@ -28,6 +28,7 @@ import { pickAvailableUsername } from '@/shared/lib/username'
 import { cn } from '@/shared/lib/utils'
 import { toast } from '@/presentation/components/ui/toast'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
+import { trackFunnelEvent } from '@/shared/lib/funnel-analytics'
 
 function RegisterPageContent() {
   const { t, setCurrentUserRole, refreshProfile } = useApp()
@@ -56,16 +57,22 @@ function RegisterPageContent() {
     storeReferralRef(searchParams.get('ref'))
   }, [searchParams])
 
+  useEffect(() => {
+    trackFunnelEvent('funnel_register_view', { ref: searchParams.get('ref') ?? undefined })
+  }, [searchParams])
+
   const regionOptions = UZ_REGIONS.map((r) => ({ value: r, label: r }))
 
   const handleRoleSelect = (selectedRole: 'freelancer' | 'client') => {
     setRole(selectedRole)
+    trackFunnelEvent('funnel_register_role_select', { role: selectedRole })
   }
 
   const handleRoleContinue = () => {
     if (!role) return
     setCurrentUserRole(role)
     setStep(2)
+    trackFunnelEvent('funnel_register_step2', { role })
   }
 
   function passwordStrengthLevel(pw: string): 0 | 1 | 2 | 3 {

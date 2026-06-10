@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, Response, status
 
 from app.database import get_supabase_admin
 from app.db_utils import run_query
@@ -6,6 +6,7 @@ from app.deps import OptionalUserId, UserAuthDep
 from app.search_utils import sanitize_search_term
 from app.schemas import ServiceCreate, ServiceListResponse, ServiceResponse, ServiceUpdate
 from app.review_stats import batch_review_stats
+from app.platform_services import track_activation_once
 from app.service_packages import default_packages
 from app.service_experience import (
     MAX_EXPERIENCE_SCAN,
@@ -201,7 +202,7 @@ def get_service(service_id: str):
 
 
 @router.post("", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
-def create_service(payload: ServiceCreate, auth: UserAuthDep):
+def create_service(payload: ServiceCreate, auth: UserAuthDep, background_tasks: BackgroundTasks):
     user_id = auth.user_id
     supabase = auth.supabase
 
@@ -226,7 +227,14 @@ def create_service(payload: ServiceCreate, auth: UserAuthDep):
     result = run_query(lambda: supabase.table("services").insert(data).execute())
     if not result.data:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Xizmat yaratilmadi")
-    return result.data[0]
+    created = result.data[0]
+    background_tasks.add_task(
+        track_activation_once,
+        user_id,
+        "candidate_first_listing",
+        properties={"service_id": created.get("id"), "action": "create_service"},
+    )
+    return created
 
 
 @router.patch("/{service_id}", response_model=ServiceResponse)

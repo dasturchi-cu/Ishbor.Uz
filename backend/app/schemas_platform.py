@@ -289,6 +289,12 @@ class AdminAnalyticsResponse(BaseModel):
     search_events: int
     register_events: int
     conversion_rate: float
+    funnel_cta_clicks: int = 0
+    funnel_register_views: int = 0
+    funnel_signup_rate: float = 0.0
+    activation_onboarding: int = 0
+    activation_employer: int = 0
+    activation_candidate: int = 0
     users_series: list[AdminAnalyticsSeriesPoint] = Field(default_factory=list)
     revenue_series: list[AdminAnalyticsSeriesPoint] = Field(default_factory=list)
     commission_series: list[AdminAnalyticsSeriesPoint] = Field(default_factory=list)

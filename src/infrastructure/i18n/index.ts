@@ -764,8 +764,8 @@ export const translations = {
     auth_check_1: "10% komissiya — freelancer 90% oladi",
     auth_check_2: "Mablag' ish qabul qilinmaguncha himoyalanadi",
     auth_check_3: "Escrow himoya tizimi",
-    auth_testimonial_quote: "IshBor.uz orqali 3 oyda 15M so'm ishladim!",
-    auth_testimonial_author: "Akbar K., Frontend Developer",
+    auth_trust_early_note:
+      "Yangi marketplace — sharhlar birinchi buyurtmalar yakunlangach paydo bo'ladi. Escrow himoyasi bilan xavfsiz to'lov.",
     login_title: "Xush kelibsiz",
     login_subtitle: "Hisobingizga kiring",
     google_sign_in: "Google bilan kirish",

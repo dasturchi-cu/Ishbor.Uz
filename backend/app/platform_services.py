@@ -83,6 +83,25 @@ def log_activity(
             pass
 
 
+FUNNEL_EVENTS = frozenset(
+    {
+        "funnel_landing_cta_click",
+        "funnel_register_view",
+        "funnel_register_role_select",
+        "funnel_register_step2",
+        "funnel_browse_catalog",
+    }
+)
+
+ACTIVATION_EVENTS = frozenset(
+    {
+        "onboarding_complete",
+        "candidate_first_listing",
+        "employer_first_action",
+    }
+)
+
+
 def track_analytics_event(
     event_name: str,
     *,
@@ -104,6 +123,34 @@ def track_analytics_event(
         import logging
 
         logging.getLogger("ishbor.analytics").warning("analytics_insert_failed: %s", exc)
+
+
+def track_activation_once(
+    user_id: str,
+    event_name: str,
+    *,
+    properties: dict[str, Any] | None = None,
+) -> bool:
+    """Record first-time activation event per user. Returns True if newly recorded."""
+    if event_name not in ACTIVATION_EVENTS:
+        track_analytics_event(event_name, user_id=user_id, properties=properties)
+        return True
+    admin = get_supabase_admin()
+    try:
+        existing = run_query(
+            lambda: admin.table("analytics_events")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("event_name", event_name)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            return False
+    except Exception:
+        pass
+    track_analytics_event(event_name, user_id=user_id, properties=properties)
+    return True
 
 
 def log_fraud(
@@ -196,6 +243,12 @@ def _empty_admin_analytics(days: int = 30) -> dict[str, Any]:
         "search_events": 0,
         "register_events": 0,
         "conversion_rate": 0.0,
+        "funnel_cta_clicks": 0,
+        "funnel_register_views": 0,
+        "funnel_signup_rate": 0.0,
+        "activation_onboarding": 0,
+        "activation_employer": 0,
+        "activation_candidate": 0,
         "users_series": users_series,
         "revenue_series": revenue_series,
         "commission_series": commission_series,
@@ -250,6 +303,11 @@ def _build_admin_analytics(days: int = 30) -> dict[str, Any]:
 
     searches = _count_events("search")
     signups = _count_events("register")
+    funnel_cta = _count_events("funnel_landing_cta_click")
+    funnel_register_views = _count_events("funnel_register_view")
+    activation_onboarding = _count_events("onboarding_complete")
+    activation_employer = _count_events("employer_first_action")
+    activation_candidate = _count_events("candidate_first_listing")
     top_searches = _top_search_terms(since)
 
     users_by_day: dict[str, int] = defaultdict(int)
@@ -285,6 +343,12 @@ def _build_admin_analytics(days: int = 30) -> dict[str, Any]:
         "search_events": searches,
         "register_events": signups,
         "conversion_rate": round(len(completed) / max(len(order_rows), 1) * 100, 1),
+        "funnel_cta_clicks": funnel_cta,
+        "funnel_register_views": funnel_register_views,
+        "funnel_signup_rate": round(signups / max(funnel_register_views, 1) * 100, 1),
+        "activation_onboarding": activation_onboarding,
+        "activation_employer": activation_employer,
+        "activation_candidate": activation_candidate,
         "users_series": users_series,
         "revenue_series": revenue_series,
         "commission_series": commission_series,

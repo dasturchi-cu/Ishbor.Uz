@@ -759,8 +759,8 @@ export const ruLocale = {
     auth_check_1: "10% комиссия — фрилансер получает 90%",
     auth_check_2: "Средства защищены до приёмки работы",
     auth_check_3: "Защита Escrow",
-    auth_testimonial_quote: "За 3 месяца на IshBor.uz я заработал 15 млн сум!",
-    auth_testimonial_author: "Akbar K., Frontend Developer",
+    auth_trust_early_note:
+      'Новый маркетплейс — отзывы появятся после первых завершённых заказов. Безопасная оплата через Escrow.',
     login_title: "Добро пожаловать",
     login_subtitle: "Войдите в аккаунт",
     google_sign_in: "Войти через Google",

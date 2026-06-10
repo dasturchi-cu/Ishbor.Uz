@@ -7,6 +7,7 @@ import type {
   ApiPaginated,
   ApiPaymentsConfig,
   ApiNotificationChannels,
+  ApiTelegramLinkToken,
   ApiCheckoutResponse,
   ApiConversation,
   ApiMessage,
@@ -53,14 +54,10 @@ type ApiFetchConfig = {
 
 /**
  * To'g'ridan FastAPI URL (NEXT_PUBLIC_API_URL).
- * Next.js rewrite /api/v1 Turbopack dev da osilib qoladi — backend logiga so'rov tushmaydi, 408 timeout.
- * Backend CORS dev uchun localhost:3000 ga ochiq (main.py).
+ * Dev brauzerda same-origin rewrite PATCH/POST da Turbopack osilib qoladi — backend logiga tushmaydi, 408.
+ * Port: next.config `.dev-backend-port` + .env.local; CSP dev da 8002–8010 ruxsat.
  */
 function resolveApiUrl(): string {
-  // Dev brauzer: same-origin /api/v1 → Next rewrite (port drift + CSP muammosiz)
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    return ''
-  }
   return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL
 }
 
@@ -269,6 +266,7 @@ export const api = {
       body: JSON.stringify(prefs),
     }),
   notificationChannels: () => apiFetch<ApiNotificationChannels>('/api/v1/notifications/channels'),
+  telegramLinkToken: () => apiFetch<ApiTelegramLinkToken>('/api/v1/notifications/telegram/link-token'),
 
   listServices: (params?: {
     category?: string
@@ -889,6 +887,17 @@ export const api = {
     }),
   deleteDraft: (draftKey: string) =>
     apiFetch<void>(`/api/v1/platform/drafts/${encodeURIComponent(draftKey)}`, { method: 'DELETE' }),
+  trackFunnel: (event_name: string, properties?: Record<string, unknown>, session_id?: string) =>
+    apiFetch<void>(
+      '/api/v1/platform/analytics/funnel',
+      {
+        method: 'POST',
+        body: JSON.stringify({ event_name, properties, session_id }),
+      },
+      0,
+      false,
+      { maxAttempts: 1, timeoutMs: QUICK_FETCH_TIMEOUT_MS },
+    ).catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: '/api/v1/platform/analytics/funnel' })),
   trackAnalytics: (event_name: string, properties?: Record<string, unknown>, session_id?: string) =>
     apiFetch<void>('/api/v1/platform/analytics/track', {
       method: 'POST',

@@ -74,6 +74,12 @@ export function AdminAnalyticsPage() {
               },
               { label: t('admin_conversion'), value: `${analytics.conversion_rate}%` },
               { label: t('admin_search_events'), value: String(analytics.search_events ?? 0) },
+              { label: t('admin_funnel_cta_clicks'), value: String(analytics.funnel_cta_clicks ?? 0) },
+              { label: t('admin_funnel_register_views'), value: String(analytics.funnel_register_views ?? 0) },
+              { label: t('admin_funnel_signup_rate'), value: `${analytics.funnel_signup_rate ?? 0}%` },
+              { label: t('admin_activation_onboarding'), value: String(analytics.activation_onboarding ?? 0) },
+              { label: t('admin_activation_employer'), value: String(analytics.activation_employer ?? 0) },
+              { label: t('admin_activation_candidate'), value: String(analytics.activation_candidate ?? 0) },
             ].map((item) => (
               <Card key={item.label} className="admin-kpi-card p-4">
                 <p className="text-[11px] uppercase text-[var(--admin-muted)]">{item.label}</p>

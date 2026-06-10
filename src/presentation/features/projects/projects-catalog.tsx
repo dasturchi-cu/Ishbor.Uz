@@ -27,6 +27,7 @@ import { api } from '@/infrastructure/api/client'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { captureLoadError } from '@/shared/lib/load-error'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
+import { trackActivationEvent } from '@/shared/lib/funnel-analytics'
 
 import type { ApiProject } from '@/infrastructure/api/types'
 
@@ -114,7 +115,7 @@ export function ProjectsCatalog({
 
 }: ProjectsCatalogProps = {}) {
 
-  const { t } = useApp()
+  const { t, currentUserRole } = useApp()
   const { authed } = useAuthReady()
 
   const router = useRouter()
@@ -199,6 +200,11 @@ export function ProjectsCatalog({
       .trackAnalytics('search', { query: debouncedSearch, surface: 'projects' })
       .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: '/api/v1/platform/analytics' }))
   }, [authed, debouncedSearch])
+
+  useEffect(() => {
+    if (!authed || currentUserRole !== 'client') return
+    trackActivationEvent('employer_first_action', { action: 'browse_projects' })
+  }, [authed, currentUserRole])
 
   useEffect(() => {
 

@@ -759,8 +759,8 @@ export const enLocale = {
     auth_check_1: "10% commission — freelancers keep 90%",
     auth_check_2: "Funds protected until work is accepted",
     auth_check_3: "Escrow protection system",
-    auth_testimonial_quote: "I earned 15M so'm in 3 months on IshBor.uz!",
-    auth_testimonial_author: "Akbar K., Frontend Developer",
+    auth_trust_early_note:
+      'Early marketplace — reviews appear after the first completed orders. Secure payments with escrow protection.',
     login_title: "Welcome back",
     login_subtitle: "Sign in to your account",
     google_sign_in: "Continue with Google",

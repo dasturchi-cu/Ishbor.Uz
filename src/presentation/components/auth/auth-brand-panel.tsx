@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Quote } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
 import { BrandLogo } from '@/presentation/components/layout/brand-logo'
@@ -41,11 +41,7 @@ export function AuthBrandPanel() {
           ))}
         </ul>
 
-        <blockquote className="auth-brand-testimonial">
-          <Quote className="auth-brand-testimonial__icon h-5 w-5" aria-hidden />
-          <p className="auth-brand-testimonial__quote">&ldquo;{t('auth_testimonial_quote')}&rdquo;</p>
-          <footer className="auth-brand-testimonial__author">{t('auth_testimonial_author')}</footer>
-        </blockquote>
+        <p className="auth-brand-trust-note">{t('auth_trust_early_note')}</p>
       </div>
 
     </aside>

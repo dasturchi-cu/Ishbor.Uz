@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 
 
@@ -8,6 +8,7 @@ from app.db_utils import run_query
 
 from app.deps import OptionalUserId, UserAuthDep
 
+from app.platform_services import track_activation_once
 from app.project_transitions import validate_project_transition
 
 from app.schemas import ProjectCreate, ProjectResponse, ProjectStatusUpdate, ProjectUpdate
@@ -246,7 +247,7 @@ def get_project(project_id: str, user_id: OptionalUserId = None):
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 
-def create_project(payload: ProjectCreate, auth: UserAuthDep):
+def create_project(payload: ProjectCreate, auth: UserAuthDep, background_tasks: BackgroundTasks):
 
     user_id = auth.user_id
 
@@ -290,7 +291,14 @@ def create_project(payload: ProjectCreate, auth: UserAuthDep):
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Loyiha yaratilmadi")
 
-    return result.data[0]
+    created = result.data[0]
+    background_tasks.add_task(
+        track_activation_once,
+        user_id,
+        "employer_first_action",
+        properties={"project_id": created.get("id"), "action": "post_project"},
+    )
+    return created
 
 
 

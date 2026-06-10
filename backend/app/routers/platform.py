@@ -8,10 +8,13 @@ from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import OptionalUserId, UserAuthDep
 from app.platform_services import (
+    FUNNEL_EVENTS,
+    ACTIVATION_EVENTS,
     build_user_activity_feed,
     get_user_reputation,
     log_activity,
     log_audit,
+    track_activation_once,
     track_analytics_event,
 )
 from app.schemas_platform import (
@@ -307,16 +310,34 @@ def delete_draft(draft_key: str, auth: UserAuthDep):
     return None
 
 
-@router.post("/analytics/track", status_code=status.HTTP_204_NO_CONTENT)
-def track_event(payload: AnalyticsTrack, request: Request, user_id: OptionalUserId = None):
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Autentifikatsiya talab qilinadi")
+@router.post("/analytics/funnel", status_code=status.HTTP_204_NO_CONTENT)
+def track_funnel_event(payload: AnalyticsTrack, request: Request, user_id: OptionalUserId = None):
+    if payload.event_name not in FUNNEL_EVENTS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Noto'g'ri funnel hodisasi")
+    if not user_id and not payload.session_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="session_id talab qilinadi")
     track_analytics_event(
         payload.event_name,
         user_id=user_id,
         properties=payload.properties,
         session_id=payload.session_id,
     )
+    return None
+
+
+@router.post("/analytics/track", status_code=status.HTTP_204_NO_CONTENT)
+def track_event(payload: AnalyticsTrack, request: Request, user_id: OptionalUserId = None):
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Autentifikatsiya talab qilinadi")
+    if payload.event_name in ACTIVATION_EVENTS:
+        track_activation_once(user_id, payload.event_name, properties=payload.properties)
+    else:
+        track_analytics_event(
+            payload.event_name,
+            user_id=user_id,
+            properties=payload.properties,
+            session_id=payload.session_id,
+        )
     if payload.event_name == "search" and user_id:
         log_audit(
             actor_id=user_id,
@@ -365,10 +386,13 @@ def _assert_storage_signed_url_access(admin, user_id: str, bucket: str, path: st
 
 @router.post("/storage/signed-url", response_model=StorageSignedUrlResponse)
 def storage_signed_url(payload: StorageSignedUrlRequest, auth: UserAuthDep):
+    from app.timing_log import timed
+
     admin = get_supabase_admin()
     _assert_storage_signed_url_access(admin, auth.user_id, payload.bucket, payload.path)
     try:
-        result = admin.storage.from_(payload.bucket).create_signed_url(payload.path, 3600)
+        with timed("storage.signed_url", user_id=auth.user_id, bucket=payload.bucket):
+            result = admin.storage.from_(payload.bucket).create_signed_url(payload.path, 3600)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
