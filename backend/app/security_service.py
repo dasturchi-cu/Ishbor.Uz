@@ -30,10 +30,9 @@ def _hash_code(code: str) -> str:
 def client_ip(request: Request | None) -> str | None:
     if not request:
         return None
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else None
+    from app.client_ip import get_client_ip
+
+    return get_client_ip(request)
 
 
 def log_security_event(
@@ -74,6 +73,10 @@ def record_login_attempt(
         metadata={"email": email},
         request=request,
     )
+    if success and user_id:
+        from app.platform_services import track_analytics_event
+
+        track_analytics_event("login", user_id=user_id, properties={"email": email})
     if not success and ip:
         _check_suspicious_ip(ip, email)
 

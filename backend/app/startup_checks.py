@@ -18,6 +18,7 @@ def validate_production_settings() -> None:
         "SUPABASE_SERVICE_ROLE_KEY": settings.supabase_service_role_key.strip(),
         "SUPABASE_JWT_SECRET": settings.supabase_jwt_secret.strip(),
         "PAYMENT_WEBHOOK_SECRET": settings.payment_webhook_secret.strip(),
+        "CRON_SECRET": settings.cron_secret.strip(),
     }
     if settings.telegram_enabled:
         required["TELEGRAM_WEBHOOK_SECRET"] = settings.telegram_webhook_secret.strip()
@@ -48,7 +49,10 @@ def validate_production_settings() -> None:
         raise RuntimeError(msg)
 
     if not settings.click_enabled and not settings.payme_enabled:
-        logger.warning("Production: neither Click nor Payme is configured — checkout will fail")
+        logger.info(
+            "Production: live payments deferred by design — "
+            "sandbox/checkout flags only until merchant credentials are configured"
+        )
 
     if not settings.redis_url.strip():
         logger.warning(

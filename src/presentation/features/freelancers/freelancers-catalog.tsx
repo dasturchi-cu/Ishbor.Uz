@@ -1,37 +1,47 @@
 'use client'
 
 import '@/presentation/styles/route-catalog.css'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { Select } from '@/presentation/components/ui/select'
 import { Button } from '@/presentation/components/ui/button'
+import { Badge } from '@/presentation/components/ui/badge'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
 import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
+import { MarketplaceTrustMetrics } from '@/presentation/components/layout/marketplace-trust-metrics'
+import { CategoryIconRow } from '@/presentation/components/layout/category-icon-row'
 import { EmptyState } from '@/presentation/components/ui/empty-state'
-import { Search, Users } from 'lucide-react'
+import { SearchDiscoveryHints } from '@/presentation/components/features/search-discovery-hints'
+import { SkeletonFreelancerCard } from '@/presentation/components/ui/skeleton'
+import { Search, SlidersHorizontal, Users, X } from 'lucide-react'
 import { api } from '@/infrastructure/api/client'
 import type { ApiProfilePublic } from '@/infrastructure/api/types'
-import { freelancerPath } from '@/domain/constants/routes'
+import { freelancerPath, PATHS } from '@/domain/constants/routes'
 import { UZ_REGIONS } from '@/domain/constants/regions'
 import { KWORK_CATEGORY_ITEMS } from '@/presentation/components/layout/category-icon-row'
-import { PATHS } from '@/domain/constants/routes'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
+import { useEscapeClose } from '@/shared/lib/use-escape-close'
+import { useFocusTrap } from '@/shared/lib/use-focus-trap'
+import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 
 interface FreelancersCatalogProps {
+  hideHeader?: boolean
   titleKey?: TranslationKey
   subtitleKey?: TranslationKey
 }
 
 export function FreelancersCatalog({
+  hideHeader = false,
   titleKey = 'nav_freelancers',
   subtitleKey = 'kwork_freelancers_sub',
 }: FreelancersCatalogProps = {}) {
   const { t } = useApp()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [freelancers, setFreelancers] = useState<ApiProfilePublic[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -39,17 +49,24 @@ export function FreelancersCatalog({
   const [specialty, setSpecialty] = useState('')
   const [sortBy, setSortBy] = useState<'rating' | 'reviews' | 'newest'>('rating')
   const [suggestOpen, setSuggestOpen] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [loadError, setLoadError] = useState<unknown>(null)
   const [reloadTick, setReloadTick] = useState(0)
+  const filterDrawerRef = useRef<HTMLDivElement>(null)
   const pageSize = 24
 
+  useEscapeClose(filterOpen, () => setFilterOpen(false))
+  useFocusTrap(filterOpen, filterDrawerRef)
+  useBodyScrollLock(filterOpen)
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const reg = params.get('region')
+    const q = searchParams.get('q')
+    const reg = searchParams.get('region')
+    if (q) setSearch(q)
     if (reg) setRegion(reg)
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
     setOffset(0)
@@ -83,6 +100,7 @@ export function FreelancersCatalog({
 
   const filtered = freelancers
   const hasActiveFilters = search.trim() !== '' || region !== '' || specialty !== ''
+  const activeFilterCount = [region, specialty].filter(Boolean).length
 
   const [suggestions, setSuggestions] = useState<ApiProfilePublic[]>([])
 
@@ -104,18 +122,84 @@ export function FreelancersCatalog({
     return () => clearTimeout(id)
   }, [search, sortBy])
 
-  const countLabel = loading
-    ? t('loading_data')
-    : `${filtered.length} ${t('stats_freelancers').toLowerCase()}`
+  const countLabel = t('catalog_results_freelancers').replace('{n}', String(filtered.length))
+
+  const filterFields = (
+    <>
+      <div className="catalog-toolbar-sort min-w-0 flex-1">
+        <span className="catalog-toolbar-sort-label">{t('sort_by')}</span>
+        <Select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as 'rating' | 'reviews' | 'newest')}
+          options={[
+            { value: 'rating', label: t('average_rating') },
+            { value: 'reviews', label: t('stat_reviews') },
+            { value: 'newest', label: t('sort_newest') },
+          ]}
+          wrapperClassName="min-w-0 flex-1"
+          className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+        />
+      </div>
+      <div className="catalog-toolbar-sort min-w-0 flex-1">
+        <span className="catalog-toolbar-sort-label">{t('region')}</span>
+        <Select
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+          options={[
+            { value: '', label: t('hero_all_regions') },
+            ...UZ_REGIONS.map((r) => ({ value: r, label: r })),
+          ]}
+          wrapperClassName="min-w-0 flex-1"
+          className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+          aria-label={t('region')}
+        />
+      </div>
+      <div className="catalog-toolbar-sort min-w-0 flex-1">
+        <span className="catalog-toolbar-sort-label">{t('specialty')}</span>
+        <Select
+          value={specialty}
+          onChange={(e) => setSpecialty(e.target.value)}
+          options={[
+            { value: '', label: t('filter_all_categories') },
+            ...KWORK_CATEGORY_ITEMS.map((item) => ({
+              value: item.cat,
+              label: t(item.labelKey),
+            })),
+          ]}
+          wrapperClassName="min-w-0 flex-1"
+          className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+          aria-label={t('specialty')}
+        />
+      </div>
+    </>
+  )
+
+  const handleCategorySelect = (cat: string) => {
+    setSpecialty((prev) => (prev === cat ? '' : cat))
+  }
 
   return (
-    <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
-      <div className="catalog-shell-head mb-5">
-        <h1 className="catalog-shell-title">{t(titleKey)}</h1>
-        <p className="catalog-shell-subtitle">{t(subtitleKey)}</p>
+    <PageWrapper
+      id={hideHeader ? 'freelancers-catalog' : undefined}
+      className={hideHeader ? 'bg-[var(--ishbor-bg)] pt-4 md:pt-5' : 'bg-[var(--ishbor-bg)] pt-6 md:pt-8'}
+    >
+      {!hideHeader && (
+        <div className="catalog-shell-head mb-5">
+          <h1 className="catalog-shell-title">{t(titleKey)}</h1>
+          <p className="catalog-shell-subtitle">{t(subtitleKey)}</p>
+        </div>
+      )}
+      <div className="mb-5 space-y-3">
+        <IshborProtectionStrip compact showLearnMore />
+        <MarketplaceTrustMetrics compact />
       </div>
 
-      <IshborProtectionStrip compact className="mb-5" />
+      <div className="catalog-shell-cats mb-4">
+        <CategoryIconRow
+          activeCategory={specialty || null}
+          onCategorySelect={handleCategorySelect}
+        />
+      </div>
 
       <div className="mb-4">
         <div className="catalog-toolbar">
@@ -168,9 +252,10 @@ export function FreelancersCatalog({
             </button>
           </div>
 
-          <div className="catalog-toolbar-actions">
-            <div className="catalog-toolbar-sort min-w-0 flex-1">
-              <span className="catalog-toolbar-sort-label">{t('sort_by')}</span>
+          <div className="hide-mobile catalog-toolbar-actions">{filterFields}</div>
+
+          <div className="show-mobile flex shrink-0 items-center gap-2">
+            <div className="catalog-toolbar-sort min-w-[120px] flex-1">
               <Select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'rating' | 'reviews' | 'newest')}
@@ -179,46 +264,34 @@ export function FreelancersCatalog({
                   { value: 'reviews', label: t('stat_reviews') },
                   { value: 'newest', label: t('sort_newest') },
                 ]}
-                wrapperClassName="min-w-0 flex-1"
-                className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+                aria-label={t('sort_by')}
               />
             </div>
-            <div className="catalog-toolbar-sort min-w-0 flex-1">
-              <span className="catalog-toolbar-sort-label">{t('region')}</span>
-              <Select
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-                options={[
-                  { value: '', label: t('hero_all_regions') },
-                  ...UZ_REGIONS.map((r) => ({ value: r, label: r })),
-                ]}
-                wrapperClassName="min-w-0 flex-1"
-                className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
-                aria-label={t('region')}
-              />
-            </div>
-            <div className="catalog-toolbar-sort min-w-0 flex-1">
-              <span className="catalog-toolbar-sort-label">{t('specialty')}</span>
-              <Select
-                value={specialty}
-                onChange={(e) => setSpecialty(e.target.value)}
-                options={[
-                  { value: '', label: t('filter_all_categories') },
-                  ...KWORK_CATEGORY_ITEMS.map((item) => ({
-                    value: item.cat,
-                    label: t(item.labelKey),
-                  })),
-                ]}
-                wrapperClassName="min-w-0 flex-1"
-                className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
-                aria-label={t('specialty')}
-              />
-            </div>
+            <Button
+              variant="outline"
+              size="md"
+              className="catalog-toolbar-filter-btn shrink-0"
+              onClick={() => setFilterOpen(true)}
+              leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+              aria-label={t('filter')}
+            >
+              {activeFilterCount > 0 ? (
+                <Badge variant="primary" className="ml-0.5">
+                  {activeFilterCount}
+                </Badge>
+              ) : null}
+            </Button>
           </div>
         </div>
       </div>
 
-      <p id="freelancer-results" className="mb-4 px-0.5 text-[13px] text-[var(--ishbor-text-muted)]">{countLabel}</p>
+      <p id="freelancer-results" className="mb-4 min-h-[20px] px-0.5 text-[13px] text-[var(--ishbor-text-sub)]">
+        {loading && offset === 0 ? (
+          <span className="inline-block h-4 w-36 animate-pulse rounded-full bg-[var(--color-bg-muted)]" aria-label={t('loading_data')} />
+        ) : (
+          <span className="catalog-results-count-pill inline-flex">{countLabel}{hasMore ? '+' : ''}</span>
+        )}
+      </p>
 
       {loadError && offset === 0 ? (
         <LoadErrorAlert
@@ -228,36 +301,39 @@ export function FreelancersCatalog({
           className="mb-4"
         />
       ) : loading && offset === 0 ? (
-        <div className="freelancer-grid">
+        <div className="freelancer-grid freelancer-grid--catalog">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="ishbor-card h-36 animate-pulse bg-[var(--color-bg-muted)]" />
+            <SkeletonFreelancerCard key={i} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<Users />}
-          title={hasActiveFilters ? t('no_freelancers_filtered') : t('no_freelancers_yet')}
-          description={hasActiveFilters ? t('no_services_desc') : t('kwork_freelancers_sub')}
-          action={
-            hasActiveFilters
-              ? {
-                  label: t('clear_filters'),
-                  onClick: () => {
-                    setSearch('')
-                    setRegion('')
-                    setSpecialty('')
-                  },
-                }
-              : { label: t('browse_services'), onClick: () => router.push(PATHS.services) }
-          }
-          secondaryAction={
-            hasActiveFilters
-              ? undefined
-              : { label: t('register'), onClick: () => router.push(PATHS.register), variant: 'outline' }
-          }
-        />
+        <div className="mx-auto w-full max-w-lg">
+          <EmptyState
+            icon={<Users />}
+            title={hasActiveFilters ? t('no_freelancers_filtered') : t('no_freelancers_yet')}
+            description={hasActiveFilters ? t('no_freelancers_filtered_desc') : t('kwork_freelancers_sub')}
+            action={
+              hasActiveFilters
+                ? {
+                    label: t('clear_filters'),
+                    onClick: () => {
+                      setSearch('')
+                      setRegion('')
+                      setSpecialty('')
+                    },
+                  }
+                : { label: t('browse_services'), onClick: () => router.push(PATHS.services) }
+            }
+            secondaryAction={
+              hasActiveFilters
+                ? undefined
+                : { label: t('register'), onClick: () => router.push(PATHS.register), variant: 'outline' }
+            }
+          />
+          {search.trim() ? <SearchDiscoveryHints query={search} /> : null}
+        </div>
       ) : (
-        <div className="freelancer-grid">
+        <div className="freelancer-grid freelancer-grid--catalog">
           {filtered.map((f) => (
             <FreelancerCard
               key={f.id}
@@ -266,7 +342,8 @@ export function FreelancersCatalog({
               region={f.region}
               rating={f.avg_rating}
               reviewCount={f.review_count}
-              variant="row"
+              minPrice={f.hourly_rate && f.hourly_rate > 0 ? f.hourly_rate : undefined}
+              variant="grid"
               isVerified={f.is_verified}
               trustScore={f.trust_score}
               onClick={() => router.push(freelancerPath(f))}
@@ -286,6 +363,30 @@ export function FreelancersCatalog({
             {t('show_more')}
           </Button>
         </div>
+      )}
+
+      {filterOpen && (
+        <>
+          <div className="drawer-backdrop show-mobile" onClick={() => setFilterOpen(false)} aria-hidden />
+          <div
+            ref={filterDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('filter')}
+            className="drawer-panel show-mobile fixed inset-y-0 right-0 z-50 overflow-y-auto border-l border-[var(--ishbor-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[16px] font-bold text-[var(--ishbor-text)]">{t('filter')}</h2>
+              <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => setFilterOpen(false)} aria-label={t('close')}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex flex-col gap-4">{filterFields}</div>
+            <Button variant="primary" className="mt-6 w-full" onClick={() => setFilterOpen(false)}>
+              {t('show_search_results')}
+            </Button>
+          </div>
+        </>
       )}
     </PageWrapper>
   )

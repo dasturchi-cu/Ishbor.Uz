@@ -14,13 +14,14 @@ import { PATHS } from '@/domain/constants/routes'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { captureLoadError } from '@/shared/lib/load-error'
+import type { TranslationKey } from '@/infrastructure/i18n'
 
-const TYPE_LABELS: Record<string, string> = {
-  fake_review: 'Fake Reviews',
-  dispute_sla_breach: 'SLA Breach',
-  spam: 'Spam',
-  multiple_accounts: 'Multiple Accounts',
-  off_platform_payment: 'Off-platform Payment',
+const FRAUD_TYPE_KEYS: Record<string, TranslationKey> = {
+  fake_review: 'admin_fraud_type_fake_review',
+  dispute_sla_breach: 'admin_fraud_type_dispute_sla_breach',
+  spam: 'admin_fraud_type_spam',
+  multiple_accounts: 'admin_fraud_type_multiple_accounts',
+  off_platform_payment: 'admin_fraud_type_off_platform_payment',
 }
 
 export function AdminFraudPage() {
@@ -82,7 +83,9 @@ export function AdminFraudPage() {
             {Object.entries(data?.by_type ?? {}).map(([type, items]) => (
               <div key={type} className="rounded-lg border border-[var(--admin-border)] p-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold">{TYPE_LABELS[type] ?? type}</span>
+                  <span className="font-semibold">
+                    {FRAUD_TYPE_KEYS[type] ? t(FRAUD_TYPE_KEYS[type]) : type}
+                  </span>
                   <span className="admin-badge admin-badge--warning">{items.length}</span>
                 </div>
               </div>
@@ -101,7 +104,11 @@ export function AdminFraudPage() {
               return (
                 <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-[13px]">
                   <div>
-                    <p className="font-medium">{TYPE_LABELS[row.fraud_type ?? ''] ?? row.fraud_type}</p>
+                    <p className="font-medium">
+                      {row.fraud_type && FRAUD_TYPE_KEYS[row.fraud_type]
+                        ? t(FRAUD_TYPE_KEYS[row.fraud_type])
+                        : row.fraud_type}
+                    </p>
                     <p className="text-[12px] text-[var(--admin-muted)]">
                       {row.severity} · {row.created_at ? formatRelativeTime(row.created_at, language) : '—'}
                     </p>

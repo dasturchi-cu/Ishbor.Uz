@@ -7,6 +7,7 @@ export type CachedProfile = {
   is_banned: boolean
   is_admin: boolean
   onboarding_completed: boolean
+  is_suspended?: boolean
   role?: 'freelancer' | 'client'
 }
 
@@ -72,6 +73,7 @@ export async function readProfileCache(
       is_banned: Boolean(payload.is_banned),
       is_admin: Boolean(payload.is_admin),
       onboarding_completed: Boolean(payload.onboarding_completed),
+      is_suspended: Boolean(payload.is_suspended),
       role: payload.role === 'client' ? 'client' : payload.role === 'freelancer' ? 'freelancer' : undefined,
     }
   } catch {

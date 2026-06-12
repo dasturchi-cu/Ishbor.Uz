@@ -44,7 +44,7 @@ def run_escrow_auto_release() -> dict[str, Any]:
             create_notification(
                 admin,
                 user_id=order["freelancer_id"],
-                type="payment",
+                type="order",
                 title="Escrow avtomatik chiqarildi",
                 body="Mijoz tasdiqlamagan buyurtma muddati tugadi",
                 href=f"/dashboard/orders/{order['id']}",

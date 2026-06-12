@@ -18,6 +18,7 @@ from app.payment_intent_service import (
     update_intent,
 )
 from app.conversation_service import ensure_order_conversation
+from app.platform_services import track_analytics_event
 from app.payment_service import hold_escrow, pay_order_from_wallet
 from app.wallet_topup_service import create_topup_intent, credit_topup_intent, get_topup_intent
 from app.payments.click import (
@@ -119,16 +120,65 @@ def _payments_providers() -> list[str]:
     return providers
 
 
+def _assert_checkout_provider_available(provider: str) -> None:
+    providers = _payments_providers()
+    if provider not in providers:
+        if not providers:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "To'lov provayderlari hozircha sozlanmagan. "
+                    "Click yoki Payme merchant credential kerak."
+                ),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tanlangan to'lov usuli mavjud emas",
+        )
+
+
 @router.get("/config")
 def payments_config() -> dict[str, Any]:
     providers = _payments_providers()
     return {
         "sandbox_allowed": not settings.is_production,
-        "click_enabled": settings.click_enabled,
-        "payme_enabled": settings.payme_enabled,
-        "live_available": settings.click_enabled or settings.payme_enabled,
-        "providers": providers,
+        "checkout_available": len(providers) > 0,
     }
+
+
+class WalletSummaryResponse(BaseModel):
+    wallet_balance: int
+    recent_ledger: list[dict[str, Any]]
+    recent_transactions_count: int
+
+
+@router.get("/wallet/summary", response_model=WalletSummaryResponse)
+def wallet_summary(auth: UserAuthDep):
+    user_id = auth.user_id
+    supabase = auth.supabase
+    profile = run_query(
+        lambda: supabase.table("profiles")
+        .select("wallet_balance")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    if not profile.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+    from app.ledger_service import list_user_ledger
+
+    ledger = list_user_ledger(user_id, limit=10, offset=0)
+    tx_count = run_query(
+        lambda: supabase.table("transactions")
+        .select("id", count="exact")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return WalletSummaryResponse(
+        wallet_balance=int(profile.data.get("wallet_balance") or 0),
+        recent_ledger=ledger,
+        recent_transactions_count=tx_count.count or 0,
+    )
 
 
 @router.post("/orders/{order_id}/checkout", response_model=CheckoutResponse)
@@ -144,6 +194,18 @@ def checkout_order(order_id: str, body: CheckoutBody, auth: UserAuthDep):
     order = existing.data
     if user_id != order["client_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat mijoz to'lov qiladi")
+
+    track_analytics_event(
+        "payment_attempt",
+        user_id=user_id,
+        properties={
+            "order_id": order_id,
+            "provider": body.provider,
+            "amount": order.get("amount"),
+        },
+    )
+
+    _assert_checkout_provider_available(body.provider)
 
     if body.provider == "sandbox" and settings.is_production:
         raise HTTPException(
@@ -404,6 +466,16 @@ def pay_order_with_wallet(order_id: str, auth: UserAuthDep):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="payment_insufficient_balance",
         )
+
+    track_analytics_event(
+        "payment_attempt",
+        user_id=user_id,
+        properties={
+            "order_id": order_id,
+            "provider": "wallet",
+            "amount": order.get("amount"),
+        },
+    )
 
     held = pay_order_from_wallet(supabase, order, user_id)
     try:

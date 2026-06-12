@@ -1,4 +1,8 @@
 @layer utilities {
+  .ishbor-landing-hero .landing-hero-content {
+    overflow: visible;
+  }
+
   /* Landing sections */
   .landing-hero-badge {
     display: inline-flex;
@@ -60,6 +64,14 @@
     border-color: color-mix(in srgb, var(--color-primary) 28%, var(--ishbor-border));
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+  }
+
+  .landing-stats-card--trust {
+    padding: 16px 12px;
+  }
+
+  .landing-stats-card--trust:hover {
+    transform: none;
   }
 
   .landing-stats-value {
@@ -279,6 +291,8 @@
     border: 1px solid var(--ishbor-border);
     background: var(--neutral-0);
     text-align: left;
+    text-decoration: none;
+    color: inherit;
     box-shadow: var(--shadow-card);
     transition: var(--transition);
   }
@@ -621,15 +635,28 @@
 .jobs-discover-nav__item {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
+  min-height: 44px;
+  padding: 10px 14px;
   border-radius: var(--r-full);
   border: 1px solid var(--ishbor-border);
-  background: var(--neutral-0);
+  background: var(--surface-raised);
   font-size: 13px;
   font-weight: 600;
   color: var(--ishbor-text-sub);
   transition: var(--transition);
+}
+@media (max-width: 389px) {
+  .jobs-discover-nav {
+    gap: 6px;
+  }
+  .jobs-discover-nav__item {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    padding-inline: 10px;
+    font-size: 12px;
+  }
 }
 .jobs-discover-nav__item:hover {
   border-color: color-mix(in srgb, var(--color-primary) 30%, var(--ishbor-border));

@@ -78,7 +78,7 @@ export function DashboardOrdersPage() {
   const isMoreTab = (MORE_TABS as readonly string[]).includes(tab)
   const tabButtonClass = (active: boolean) =>
     cn(
-      'min-h-[44px] shrink-0 border-b-2 px-1 pb-2 pt-1 text-[13px] font-medium sm:min-h-0 sm:rounded-lg sm:border sm:px-3 sm:py-1.5',
+      'min-h-[44px] shrink-0 items-center border-b-2 px-2 pb-3 pt-2 text-[13px] font-medium sm:min-h-0 sm:rounded-lg sm:border sm:px-3 sm:py-1.5',
       active
         ? 'border-[var(--color-primary)] text-[var(--color-primary)] sm:border-[var(--color-primary)] sm:bg-[var(--color-primary-light)]'
         : 'border-transparent text-[var(--ishbor-text-muted)] sm:border-[var(--ishbor-border)]'
@@ -121,7 +121,7 @@ export function DashboardOrdersPage() {
                 type="button"
                 onClick={() => setPaymentFilter(key)}
                 className={cn(
-                  'rounded-full px-3 py-1 text-[12px] font-medium',
+                  'min-h-[44px] rounded-full px-3 py-2 text-[12px] font-medium',
                   paymentFilter === key
                     ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
                     : 'bg-[var(--neutral-0)] text-[var(--ishbor-text-muted)] border border-[var(--ishbor-border)]'

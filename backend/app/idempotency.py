@@ -27,6 +27,8 @@ def _route_key(path: str, method: str) -> str | None:
         return path
     if path == "/api/v1/orders":
         return path
+    if path == "/api/v1/projects":
+        return path
     return None
 
 

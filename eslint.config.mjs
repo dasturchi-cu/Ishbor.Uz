@@ -37,6 +37,8 @@ export default tseslint.config(
       globals: {
         process: 'readonly',
         module: 'readonly',
+        console: 'readonly',
+        Buffer: 'readonly',
       },
     },
   }

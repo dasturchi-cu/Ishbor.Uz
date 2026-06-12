@@ -52,7 +52,6 @@ fs.writeFileSync(
   `${enImports}\nexport const enLocale = {\n${enInner}\n} as const\n`
 )
 
-const beforeTranslations = src.slice(0, src.indexOf('export const translations = {'))
 const headerImports = `import { dashboardI18nUz } from './dashboard-i18n'
 import { settingsI18nUz } from './settings-i18n'
 import { profileI18nUz } from './profile-i18n'

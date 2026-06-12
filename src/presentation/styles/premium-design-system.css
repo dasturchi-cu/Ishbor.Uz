@@ -175,7 +175,7 @@
 
 /* ─── Footer ─── */
 .site-footer {
-  background: var(--neutral-0);
+  background: var(--surface-raised);
   border-top-color: color-mix(in srgb, var(--ishbor-border) 70%, transparent);
 }
 

@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { BadgeCheck, Lock, Shield } from 'lucide-react'
+import { useApp } from '@/application/providers/app-provider'
 import { Button } from '@/presentation/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 
@@ -46,6 +48,8 @@ export function MarketplaceCatalogHero({
   trustLine,
   className,
 }: MarketplaceCatalogHeroProps) {
+  const { t } = useApp()
+
   return (
     <section className={cn('marketplace-catalog-hero', className)}>
       <div className="layout-container max-w-[1280px]">
@@ -60,7 +64,22 @@ export function MarketplaceCatalogHero({
             ) : null}
           </div>
         )}
-        {trustLine ? <p className="marketplace-catalog-hero__trust">{trustLine}</p> : null}
+        {trustLine ? (
+          <div className="marketplace-hero-trust-row" role="list" aria-label={trustLine}>
+            <span className="marketplace-hero-trust-badge" role="listitem">
+              <Shield className="h-3.5 w-3.5" aria-hidden />
+              {trustLine}
+            </span>
+            <span className="marketplace-hero-trust-badge" role="listitem">
+              <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+              {t('trust_item_cert')}
+            </span>
+            <span className="marketplace-hero-trust-badge" role="listitem">
+              <Lock className="h-3.5 w-3.5" aria-hidden />
+              {t('trust_escrow')}
+            </span>
+          </div>
+        ) : null}
       </div>
     </section>
   )

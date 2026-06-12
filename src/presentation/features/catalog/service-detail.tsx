@@ -4,7 +4,7 @@ import '@/presentation/styles/route-service-detail.css'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
@@ -23,11 +23,16 @@ import {
   Bookmark,
 } from 'lucide-react'
 import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
+import { VerifiedBadge } from '@/presentation/components/features/verified-badge'
 import { api, ApiError } from '@/infrastructure/api/client'
 import type { ApiService, ApiReview } from '@/infrastructure/api/types'
 import { formatPrice } from '@/shared/lib/format'
 import { dashboardOrderPath, freelancerPath, PATHS } from '@/domain/constants/routes'
-import { loginPath } from '@/shared/lib/auth-redirect'
+import {
+  loginPath,
+  orderDraftStorageKey,
+  serviceOrderReturnPath,
+} from '@/shared/lib/auth-redirect'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
 import { JsonLdBreadcrumb, JsonLdService } from '@/presentation/components/seo/json-ld'
@@ -41,6 +46,7 @@ import { useFocusTrap } from '@/shared/lib/use-focus-trap'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 import { captureActionError } from '@/shared/lib/action-error'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
+import { trackCheckoutStarted } from '@/shared/lib/product-analytics'
 
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
   web: 'cat_web',
@@ -53,8 +59,9 @@ const CATEGORY_KEYS: Record<string, TranslationKey> = {
 }
 
 export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
-  const { t, isLoggedIn, isAuthLoading, currentUserRole, userId } = useApp()
+  const { t, isLoggedIn, isAuthLoading, currentUserRole, userId, setCurrentUserRole } = useApp()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [service, setService] = useState<ApiService | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<unknown>(null)
@@ -69,7 +76,10 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const [relatedLoadError, setRelatedLoadError] = useState<unknown>(null)
   const [orderModalOpen, setOrderModalOpen] = useState(false)
   const [orderNotes, setOrderNotes] = useState('')
+  const [switchingRole, setSwitchingRole] = useState(false)
   const orderModalRef = useRef<HTMLDivElement>(null)
+  const resumeCheckoutHandled = useRef(false)
+  const checkoutTrackedRef = useRef(false)
 
   useEscapeClose(orderModalOpen, () => setOrderModalOpen(false))
   useFocusTrap(orderModalOpen, orderModalRef)
@@ -78,9 +88,13 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   const loadService = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    api
-      .getService(serviceId)
-      .then(setService)
+    return Promise.all([
+      api.getService(serviceId),
+      api
+        .recordServiceView(serviceId)
+        .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: `/api/v1/services/${serviceId}/view` })),
+    ])
+      .then(([svc]) => setService(svc))
       .catch((e) => {
         setService(null)
         setFetchError(e instanceof ApiError && e.status === 404 ? null : e)
@@ -89,54 +103,59 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   }, [serviceId])
 
   useEffect(() => {
-    loadService()
-    api
-      .recordServiceView(serviceId)
-      .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: `/api/v1/services/${serviceId}/view` }))
-  }, [loadService, serviceId])
+    void loadService()
+  }, [loadService])
 
-  const loadReviews = useCallback(() => {
-    if (!service?.freelancer_id) return
+  const loadSecondaryData = useCallback(() => {
+    if (!service) return
     setReviewsLoadError(null)
-    api
-      .listServiceReviews(serviceId)
-      .then((rows) => {
+    setRelatedLoadError(null)
+    void Promise.all([
+      service.freelancer_id
+        ? api.listServiceReviews(serviceId)
+        : Promise.resolve([] as ApiReview[]),
+      api.listServices({ category: service.category }),
+    ])
+      .then(([rows, res]) => {
         setReviews(rows)
         setReviewsLoadError(null)
+        setRelated(res.items.filter((s) => s.id !== service.id).slice(0, 4))
+        setRelatedLoadError(null)
       })
       .catch((e) => {
         setReviews([])
+        setRelated([])
         setReviewsLoadError(e)
+        setRelatedLoadError(e)
       })
-  }, [serviceId, service?.freelancer_id])
+  }, [service, serviceId])
 
   useEffect(() => {
-    loadReviews()
-  }, [loadReviews])
+    loadSecondaryData()
+  }, [loadSecondaryData])
 
   useEffect(() => {
     if (isAuthLoading || !isLoggedIn) return
     syncSavedServicesFromApi().then(() => setSaved(isServiceSaved(serviceId)))
   }, [isAuthLoading, isLoggedIn, serviceId])
 
-  const loadRelated = useCallback(() => {
-    if (!service) return
-    setRelatedLoadError(null)
-    api
-      .listServices({ category: service.category })
-      .then((res) => {
-        setRelated(res.items.filter((s) => s.id !== service.id).slice(0, 4))
-        setRelatedLoadError(null)
-      })
-      .catch((e) => {
-        setRelated([])
-        setRelatedLoadError(e)
-      })
-  }, [service])
+  useEffect(() => {
+    const pkg = searchParams.get('pkg')
+    if (pkg === 'basic' || pkg === 'standard' || pkg === 'premium') {
+      setActivePackage(pkg)
+    }
+    if (typeof window === 'undefined') return
+    const draft = sessionStorage.getItem(orderDraftStorageKey(serviceId))
+    if (draft) setOrderNotes(draft)
+  }, [searchParams, serviceId])
 
   useEffect(() => {
-    loadRelated()
-  }, [loadRelated])
+    if (resumeCheckoutHandled.current || isAuthLoading || !isLoggedIn || !service) return
+    if (searchParams.get('order') !== '1') return
+    if (currentUserRole !== 'client') return
+    resumeCheckoutHandled.current = true
+    setOrderModalOpen(true)
+  }, [isAuthLoading, isLoggedIn, currentUserRole, searchParams, service])
 
   const deliveryDays = service?.delivery_days && service.delivery_days > 0 ? service.delivery_days : null
 
@@ -213,9 +232,46 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
     setOrderModalOpen(true)
   }
 
+  const checkoutReturnPath = serviceOrderReturnPath(serviceId, {
+    pkg: activePackage,
+    resumeCheckout: true,
+  })
+
+  const persistOrderDraft = () => {
+    if (typeof window === 'undefined') return
+    const key = orderDraftStorageKey(serviceId)
+    const notes = orderNotes.trim()
+    if (notes) sessionStorage.setItem(key, notes)
+    else sessionStorage.removeItem(key)
+  }
+
+  useEffect(() => {
+    if (!orderModalOpen || isLoggedIn) return
+    persistOrderDraft()
+  }, [orderNotes, orderModalOpen, isLoggedIn, serviceId])
+
+  useEffect(() => {
+    if (!orderModalOpen || !service) {
+      checkoutTrackedRef.current = false
+      return
+    }
+    if (checkoutTrackedRef.current) return
+    checkoutTrackedRef.current = true
+    trackCheckoutStarted({
+      surface: 'service_detail',
+      service_id: serviceId,
+      is_guest: !isLoggedIn,
+    })
+  }, [orderModalOpen, service, serviceId, isLoggedIn])
+
+  const openCheckoutPreview = () => {
+    setError('')
+    setOrderModalOpen(true)
+  }
+
   const handleOrder = () => {
     if (!isLoggedIn) {
-      router.push(loginPath(`/services/${serviceId}`))
+      openCheckoutPreview()
       return
     }
     if (currentUserRole !== 'client') {
@@ -224,6 +280,19 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
     }
     setError('')
     setOrderModalOpen(true)
+  }
+
+  const handleSwitchToClientAndOrder = async () => {
+    setSwitchingRole(true)
+    setError('')
+    try {
+      await setCurrentUserRole('client')
+      setOrderModalOpen(true)
+    } catch {
+      setError(t('onboarding_save_error'))
+    } finally {
+      setSwitchingRole(false)
+    }
   }
 
   const submitOrder = async () => {
@@ -237,6 +306,9 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
       )
       setOrderModalOpen(false)
       setOrderNotes('')
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(orderDraftStorageKey(serviceId))
+      }
       toast.success(t('order_created_success'))
       router.push(dashboardOrderPath(created.id))
     } catch (e) {
@@ -252,7 +324,8 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
   if (loading) {
     return (
       <PageWrapper>
-        <div className="animate-pulse space-y-4">
+        <h1 className="sr-only">{t('loading_data')}</h1>
+        <div className="animate-pulse space-y-4" aria-hidden>
           <div className="h-8 w-2/3 rounded bg-[var(--color-bg-muted)]" />
           <div className="h-4 w-1/2 rounded bg-[var(--color-bg-muted)]" />
           <div className="service-detail-layout">
@@ -321,12 +394,13 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
     if (!isLoggedIn) {
       return (
-        <div className="service-order-card__cta">
+        <div className="service-order-card__cta space-y-2">
+          <p className="service-order-card__role-hint">{t('checkout_guest_hint')}</p>
           <Button
             variant="primary"
             size={size}
             className="ishbor-order-cta w-full"
-            onClick={() => router.push(loginPath(`/services/${serviceId}`))}
+            onClick={openCheckoutPreview}
           >
             {t('order_secure_cta')}
           </Button>
@@ -337,15 +411,15 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
     if (currentUserRole !== 'client') {
       return (
         <div className="service-order-card__cta space-y-3">
-          <p className="service-order-card__role-hint">{t('order_as_client_hint')}</p>
+          <p className="service-order-card__role-hint">{t('order_switch_client_hint')}</p>
           <Button
             variant="primary"
             size={size}
             className="ishbor-order-cta w-full"
-            onClick={handleOrder}
-            loading={ordering}
+            onClick={() => void handleSwitchToClientAndOrder()}
+            loading={switchingRole}
           >
-            {t('order_secure_cta')}
+            {t('switch_to_client_order')}
           </Button>
         </div>
       )
@@ -438,6 +512,10 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                 {t('service_delivery_days').replace('{n}', String(deliveryDays))}
               </span>
             )}
+            <span className="service-detail-meta__badge service-detail-meta__badge--escrow">
+              <Shield className="h-3 w-3" aria-hidden />
+              {t('card_escrow_protected')}
+            </span>
           </div>
         </header>
 
@@ -564,7 +642,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                 <LoadErrorAlert
                   error={reviewsLoadError}
                   scope="reviews"
-                  onRetry={loadReviews}
+                  onRetry={loadSecondaryData}
                   className="mb-3"
                 />
               ) : null}
@@ -632,7 +710,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
 
                 {renderOrderCta('lg')}
 
-                <IshborProtectionStrip compact className="mt-4" />
+                <IshborProtectionStrip compact showLearnMore className="mt-4" />
               </div>
             </div>
 
@@ -644,16 +722,32 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                 onClick={() => router.push(freelancerPath(service.freelancer_id))}
                 className="service-seller-profile"
               >
-                <Avatar name={freelancerName} size={48} />
+                <Avatar
+                  name={freelancerName}
+                  size={48}
+                  verified={service.profiles?.is_verified === true}
+                />
                 <div className="service-seller-info">
                   <div className="service-seller-name-row">
                     <p className="service-seller-name">{freelancerName}</p>
+                    {service.profiles?.is_verified ? <VerifiedBadge /> : null}
                   </div>
                   <p className="service-seller-specialty">
                     {service.profiles?.specialty ?? t('role_freelancer')}
                   </p>
-                  {serviceReviews > 0 && (
-                    <RatingStars rating={serviceRating} size="sm" className="mt-2" />
+                  {serviceReviews > 0 ? (
+                    <RatingStars
+                      rating={serviceRating}
+                      size="sm"
+                      showValue
+                      reviewCount={serviceReviews}
+                      reviewLabel={t('reviews_count_short')}
+                      className="mt-2"
+                    />
+                  ) : (
+                    <span className="mt-2 inline-flex text-[11px] font-medium text-[var(--ishbor-text-muted)]">
+                      {t('badge_new_seller')}
+                    </span>
                   )}
                 </div>
               </button>
@@ -693,7 +787,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
               <LoadErrorAlert
                 error={relatedLoadError}
                 scope="services"
-                onRetry={loadRelated}
+                onRetry={loadSecondaryData}
                 className="mb-4"
               />
             ) : null}
@@ -710,6 +804,7 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
                   category={svc.category}
                   thumbnailUrl={svc.image_urls?.[0]}
                   deliveryDays={svc.delivery_days}
+                  isPro={svc.profiles?.is_verified === true}
                   onClick={() => router.push(`/services/${svc.id}`)}
                 />
               ))}
@@ -725,11 +820,15 @@ export function ServiceDetailPage({ serviceId }: { serviceId: string }) {
         deliveryDays={deliveryDays}
         orderNotes={orderNotes}
         onNotesChange={setOrderNotes}
-        onSubmit={submitOrder}
+        onSubmit={() => {
+          persistOrderDraft()
+          void submitOrder()
+        }}
         onClose={() => setOrderModalOpen(false)}
         ordering={ordering}
         error={error}
         modalRef={orderModalRef}
+        guestAuthReturnTo={!isLoggedIn ? checkoutReturnPath : undefined}
       />
 
       <div className="mobile-sticky-cta show-mobile">

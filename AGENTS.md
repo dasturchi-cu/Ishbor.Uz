@@ -2,6 +2,24 @@
 
 O'zbekiston freelance marketplace. Maqsad: Kwork/Upwork mahalliy alternativi.
 
+## Master AI Engineering OS
+
+**Yagona Cursor qoidasi** (har agent, har sessiya — avtomatik):
+
+→ **[`.cursor/rules/ishbor-agent.mdc`](./.cursor/rules/ishbor-agent.mdc)** (`alwaysApply: true`)
+
+| Resurs | Yo'l |
+|--------|------|
+| To'liq OS hujjati | [docs/MASTER_AI_OS.md](./docs/MASTER_AI_OS.md) |
+| Skill | [skills/ishbor-master-os/SKILL.md](./skills/ishbor-master-os/SKILL.md) |
+| Indeks | [.cursor/README.md](./.cursor/README.md) |
+
+Siz hech narsa demasangiz ham: bootstrap, DDD, review gates, post-verify, tools, core qoidalar qo'llanadi.
+
+Fayl-scoped: `react-ui.mdc`, `backend-api.mdc`, `i18n.mdc` — tegishli fayl ochilganda.
+
+---
+
 ## Agent ish boshlash (majburiy)
 
 **Har qanday vazifada kod yozishdan oldin** quyidagilarni o'qi:
@@ -15,7 +33,7 @@ O'zbekiston freelance marketplace. Maqsad: Kwork/Upwork mahalliy alternativi.
 | 5 | Kerak bo'lsa **docs** | [docs/](./docs/) — backlog, audit |
 | 6 | UI bo'lsa **design** | [design/](./design/) — tokenlar, spec |
 
-Cursor avtomatik qoida: [.cursor/rules/agent-bootstrap.mdc](./.cursor/rules/agent-bootstrap.mdc) (`alwaysApply: true`).
+Cursor avtomatik qoida: [.cursor/rules/ishbor-agent.mdc](./.cursor/rules/ishbor-agent.mdc) (`alwaysApply: true`).
 
 To'liq indeks: [.cursor/README.md](./.cursor/README.md)
 
@@ -189,6 +207,7 @@ Skill fayllari: [skills/](./skills/). Review skilllar faqat foydalanuvchi aniq c
 
 | Skill | Fayl | Ishlat |
 |-------|------|--------|
+| **ishbor-master-os** | [skills/ishbor-master-os/SKILL.md](./skills/ishbor-master-os/SKILL.md) | Master OS: DDD workflow, review gates, tool usage, post-task verify |
 | **ishbor-mvp** | [skills/ishbor-mvp/SKILL.md](./skills/ishbor-mvp/SKILL.md) | MVP feature: routing, auth, xizmatlar, buyurtma, to'lov, launch tartibi |
 | **ishbor-backend** | [skills/ishbor-backend/SKILL.md](./skills/ishbor-backend/SKILL.md) | FastAPI, Prisma/DB, JWT, Click/Payme, escrow, API route |
 | **ishbor-i18n** | [skills/ishbor-i18n/SKILL.md](./skills/ishbor-i18n/SKILL.md) | Yangi `TranslationKey`, uz/ru/en tarjima, matn qoidalari |
@@ -239,8 +258,8 @@ Review skilllar bir-birini qoplaydi emas — har biri alohida hisobot shabloni v
 | Performance audit | `skills/ishbor-performance-review/SKILL.md` |
 | Conversion audit | `skills/ishbor-conversion-review/SKILL.md` |
 | Landing / redesign sifati | `taste-skill` (`~/.cursor/skills/taste-skill/SKILL.md`) |
-| Umumiy standart | `.cursor/rules/project-core.mdc` |
-| Har doim o'qish | `.cursor/rules/agent-bootstrap.mdc` |
+| Umumiy standart | `.cursor/rules/ishbor-agent.mdc` |
+| Har doim o'qish | `.cursor/rules/ishbor-agent.mdc` |
 | To'liq skill ro'yxati | [Skill indeksi](#skill-indeksi) |
 
 

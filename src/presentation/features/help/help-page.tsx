@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/presentation/components/ui/button'
+import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Input } from '@/presentation/components/ui/input'
 import { toast } from '@/presentation/components/ui/toast'
 import {
@@ -11,12 +12,15 @@ import {
   Rocket,
   Search,
   ShoppingCart,
+  Shield,
   UserCircle,
   ChevronDown,
+  Briefcase,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Breadcrumb } from '@/presentation/components/layout/breadcrumb'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { PATHS } from '@/domain/constants/routes'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { cn } from '@/shared/lib/utils'
@@ -198,6 +202,28 @@ export function HelpPage() {
         </div>
       </section>
 
+      <section className="help-quick-actions layout-container max-w-[1280px]" aria-label={t('help_quick_links')}>
+        <p className="help-quick-actions-label">{t('help_quick_links')}</p>
+        <div className="help-quick-actions-grid">
+          <Link href={PATHS.services} className="help-quick-action">
+            <ShoppingCart className="h-5 w-5 shrink-0 text-[var(--color-primary)]" strokeWidth={2} />
+            <span>{t('browse_services')}</span>
+          </Link>
+          <Link href={PATHS.postProject} className="help-quick-action">
+            <Briefcase className="h-5 w-5 shrink-0 text-[var(--color-primary)]" strokeWidth={2} />
+            <span>{t('post_project')}</span>
+          </Link>
+          <Link href={PATHS.buyerProtection} className="help-quick-action">
+            <Shield className="h-5 w-5 shrink-0 text-[var(--color-primary)]" strokeWidth={2} />
+            <span>{t('nav_buyer_protection')}</span>
+          </Link>
+        </div>
+      </section>
+
+      <div className="layout-container max-w-[1280px] pb-2">
+        <IshborProtectionStrip compact />
+      </div>
+
       <section className="layout-container max-w-[1280px] py-12 md:py-16">
         <h2 className="text-center text-[22px] font-bold text-[var(--ishbor-text)]">
           {t('help_faq_title')}
@@ -230,9 +256,19 @@ export function HelpPage() {
         {showSections && (
           <div className="mx-auto mt-14 max-w-[760px]">
             {normalizedQuery && filteredArticles.length === 0 && (
-              <p className="text-center text-[14px] text-[var(--ishbor-text-muted)]">
-                {t('help_no_results')}
-              </p>
+              <EmptyState
+                icon={<Search />}
+                title={t('help_search_empty_title')}
+                description={t('help_no_results')}
+                action={{
+                  label: t('clear_filters'),
+                  onClick: () => {
+                    setQuery('')
+                    setActiveCategory(null)
+                  },
+                  variant: 'outline',
+                }}
+              />
             )}
 
             {(activeCategory ? [activeCategory] : ALL_CATEGORIES.map((c) => c.id)).map((catId) => {

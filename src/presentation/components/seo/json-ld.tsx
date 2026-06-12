@@ -19,6 +19,31 @@ export function JsonLdOrganization() {
   )
 }
 
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'IshBor.uz',
+  url: SITE_URL,
+  description: "O'zbekistondagi freelance marketplace platformasi",
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITE_URL}/services?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+}
+
+export function JsonLdWebSite() {
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+    />
+  )
+}
+
 export function JsonLdService({
   id,
   title,

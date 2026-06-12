@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
+import { API_FETCH_TIMEOUT, apiDirectUrl } from './helpers'
 
 const FAKE_UUID = '00000000-0000-4000-8000-000000000099'
 
 test.describe('milestone escrow API', () => {
   test('milestone CRUD and status transitions require auth', async ({ request }) => {
-    const health = await request.get('/api/v1/health')
+    const health = await request.get(apiDirectUrl('/api/v1/health'), { timeout: API_FETCH_TIMEOUT })
     if (!health.ok()) {
       test.skip(true, 'Backend not running')
     }
@@ -27,10 +28,11 @@ test.describe('milestone escrow API', () => {
     ] as const
 
     for (const step of steps) {
-      const res = await request.fetch(step.path, {
+      const res = await request.fetch(apiDirectUrl(step.path), {
         method: step.method,
         data: 'body' in step ? step.body : undefined,
         headers: 'body' in step ? { 'Content-Type': 'application/json' } : undefined,
+        timeout: API_FETCH_TIMEOUT,
       })
       expect(res.status(), `${step.method} ${step.path}`).toBe(401)
     }

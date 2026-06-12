@@ -11,6 +11,7 @@ import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { LoadingBlock } from '@/presentation/components/ui/loading-block'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { toast } from '@/presentation/components/ui/toast'
+import { buildWebRtcIceServers } from '@/shared/lib/webrtc-ice-servers'
 
 type IceList = RTCIceCandidateInit[]
 
@@ -117,7 +118,7 @@ export function CallRoomPage({ callId }: { callId: string }) {
 
     let cancelled = false
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceServers: buildWebRtcIceServers(),
     })
     pcRef.current = pc
 

@@ -1,73 +1,155 @@
-# IshBor.uz — Reja vs Haqiqat (2026-06-09 yangilangan)
+# IshBor.uz — Reja vs Haqiqat (2026-06-12 yangilangan)
 
-> Asosiy reja: [plan.md](./plan.md) | MVP: [mvp.md](./mvp.md) | Agent: [AGENTS.md](./AGENTS.md) | Bootstrap: [.cursor/rules/agent-bootstrap.mdc](./.cursor/rules/agent-bootstrap.mdc)
+
+
+> Asosiy reja: [plan.md](./plan.md) | MVP: [mvp.md](./mvp.md) | Agent: [AGENTS.md](./AGENTS.md) | Qoida: [.cursor/rules/ishbor-agent.mdc](./.cursor/rules/ishbor-agent.mdc)
+
+
 
 ## Hozirgi holat
 
+
+
 | Bo'lim | Holat |
+
 |--------|-------|
-| Frontend UI (11+ sahifa) | ✅ ~90% |
+
+| Frontend UI (11+ sahifa) | ✅ ~95% |
+
 | App Router URL | ✅ `/login`, `/services`, `/dashboard`, ... |
-| Supabase Auth | ✅ register/login + middleware |
+
+| Supabase Auth | ✅ register/login + middleware (API session-flags) |
+
 | FastAPI backend | ✅ profiles, services, orders, projects, messages, reviews, admin, escrow |
+
 | Profil saqlash | ✅ Sozlamalar + API |
+
 | Xizmat yaratish | ✅ `/services/create` |
+
 | Buyurtma flow | ✅ pending → active → delivered → completed / disputed |
+
 | Loyiha joylashtirish | ✅ `/post-project` |
+
 | Freelancer profil | ✅ `/freelancer/[id]` |
+
 | Chat (REST + realtime) | ✅ `/messages`, batch inbox API |
+
 | Sharh/reyting | ✅ tugallangan buyurtmadan keyin |
+
 | Admin panel | ✅ `/admin` (is_admin kerak) |
+
 | Terms + Privacy | ✅ `/terms`, `/privacy` |
-| SEO | ✅ metadata, sitemap, robots |
-| Wallet sandbox | ✅ topup + pay-wallet |
+
+| SEO | ✅ sitemap (kengaytirilgan), OG image, noindex, JSON-LD |
+
+| Wallet sandbox | ✅ topup + pay-wallet + `/payments/wallet/summary` |
+
 | Escrow simulyatsiyasi | ✅ hold/release/refund (sandbox) |
-| To'lov (Click/Payme live) | ⬜ Merchant credential kerak |
-| Deploy production | ⬜ |
 
-**Umumiy:** MVP ~75–80% (live to'lovsiz, sandbox ishlaydi)
+| Security hardening | ✅ rate limits, CAPTCHA register, RLS migrations |
 
-## Recovery sprint holati (2026-06-09)
+| **Click/Payme live** | ⏸️ **Deferred** — merchant credential kerak (kod tayyor) |
+
+| **Deploy production** | ⬜ Final launch qadami |
+
+
+
+**Umumiy:** MVP ~90% (sandbox to'liq; live to'lov credential + deploy qoldi)
+
+
+
+## ⏸️ Deferred: Payment activation (final launch step)
+
+
+
+Click va Payme **kod, webhook, schema, UI tayyor** — faqat merchant credential yo'q.
+
+
+
+| Narsa | Holat |
+
+|-------|-------|
+
+| Sandbox wallet / pay-wallet | ✅ Ishlaydi |
+
+| Click/Payme webhook handlers | ✅ Kod tayyor |
+
+| `payment_intents` schema | ✅ Tayyor |
+
+| Checkout UI (`payment-checkout-flow`) | ✅ Sandbox + "test mode" badge |
+
+| Live provider toggle | ⏸️ `CLICK_*` / `PAYME_*` env bo'lganda yoqiladi |
+
+
+
+**Keyingi qadam (user):** merchant hisob → `.env` → `NEXT_PUBLIC_PAYMENTS_ENABLED=true` → production webhook URL
+
+
+
+## Production audit sprint (2026-06-12)
+
+
 
 | Blok | Holat |
-|------|-------|
-| Backend `run_query` (kritik routerlar) | ✅ ~95% |
-| Auth race (`useAuthReady` / `useProtectedLoader`) | ✅ ~99% |
-| Enterprise security migration | ⚠️ `pnpm db:push` kerak (`includes` + `faq` migratsiyalari ham) |
-| Build + lint | ✅ 0 xato |
-| Click/Payme live | ⬜ scope tashqari |
 
-Batafsil vazifalar: [docs/actionable-backlog.md](./docs/actionable-backlog.md)
+|------|-------|
+
+| DB migrations `20240631170000` + `20240631180000` | ✅ Repo; `pnpm db:push` |
+
+| Middleware → FastAPI session-flags | ✅ |
+
+| Security (rate limit, CAPTCHA, redacted health) | ✅ |
+
+| SEO (sitemap, OG, noindex) | ✅ |
+
+| Performance (wallet summary, landing SSR) | ✅ |
+
+| UX (lang sync, admin i18n, test badge) | ✅ |
+
+
 
 ## Dev serverlar
 
+
+
 ```powershell
+
 pnpm dev:start   # port tozalash + migration + frontend + backend
+
 pnpm dev:all     # faqat frontend (HMR) + backend (--reload)
+
 ```
 
-Kod saqlanganda qo'lda restart shart emas — [agent-bootstrap.mdc](./.cursor/rules/agent-bootstrap.mdc) §6.
 
-## Siz qilishingiz kerak (bir martalik)
 
-1. **Supabase** — yangi migrationlar (`20240629940000`, `20240629960000`, `20240629970000`): `pnpm db:push`
-2. **Admin** (ixtiyoriy):
-   ```sql
-   update profiles set is_admin = true where email = 'sizning@email.com';
-   ```
-3. **Click/Payme live** — merchant credential bo'lganda alohida sprint
+## Siz qilishingiz kerak (launch uchun)
 
-## Keyingi bosqich (MVP tartibi bo'yicha)
 
-1. ~~Chat duplicate thread strategiyasi (P0 #7)~~ ✅
-2. ~~Admin verification UI birlashtirish (P1 #19)~~ ✅
-3. ~~P1 marketplace qolganlari~~ ✅ (hire flow, project status, auto-release)
-4. P2 modullar (vacancies ✅, companies ✅, portfolio ✅, referral ✅, topup poll ✅, birja filter ✅, activity feed ✅, packages CRUD ✅, search analytics ✅, chat inbox ✅, notification dedupe ✅, 2FA ✅, email change ✅, session logout ✅, profile slug ✅) + auth race qolganlari
-5. ~~P3 dashboard UX (#93–100 ✅)~~ — breadcrumbs, forecast, mobile KPI, onboarding progress, empty state
-6. ~~Admin revenue charts + platform health panel (#28–29 ✅)~~
-7. ~~Audit log CSV export (#27 ✅)~~
-8. ~~Video call chat/contract dan (#75 ✅)~~
-9. ~~Backup checkpoint UI (#30 ✅)~~ + enterprise security migration push
-10. ~~Chat attachment private bucket (#90 ✅)~~
-11. Click yoki Payme **live** integratsiyasi
-11. Production deploy (Vercel + Supabase + Railway)
+
+1. **Supabase** — yangi migrationlar: `pnpm db:push` + `pnpm db:verify`
+
+2. **Supabase Dashboard** — [Leaked password protection](https://supabase.com/docs/guides/auth/password-security) yoqing
+
+3. **Admin** (ixtiyoriy): `update profiles set is_admin = true where email = '...'`
+
+4. **Click yoki Payme** — merchant credential → deferred sprint (oxirgi qadam)
+
+5. **Deploy** — Vercel + Supabase + Railway
+
+
+
+## Keyingi bosqich
+
+
+
+1. Production deploy (Vercel + API host) — [docs/LAUNCH_CHECKLIST.md](./docs/LAUNCH_CHECKLIST.md)
+
+2. Click yoki Payme **live** credential (launch day — §3 checklist)
+
+3. Email verification enforcement (`REQUIRE_EMAIL_VERIFIED=true`) — production da
+
+4. Sentry DSN production da
+
+5. Autonomous verification hisobot: [docs/FINAL_AUTONOMOUS_REPORT.md](./docs/FINAL_AUTONOMOUS_REPORT.md) (2026-06-12, E2E 63/63)
+
+

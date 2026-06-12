@@ -1,8 +1,10 @@
 export const helpI18nUz = {
   help_hero_title: 'Qanday yordam bera olamiz?',
+  help_quick_links: 'Tez havolalar',
   help_search_placeholder: 'Maqola qidiring',
   help_faq_title: "Ko'p so'raladigan savollar",
-  help_no_results: 'Hech narsa topilmadi. Boshqa so\'z bilan qidiring.',
+  help_no_results: 'Boshqa kalit so\'z yoki kategoriyani sinab ko\'ring.',
+  help_search_empty_title: 'Natija topilmadi',
   help_contact_support: "Qo'llab-quvvatlash bilan bog'lanish",
   help_form_title: "Savolingiz qoldimi?",
   help_form_name: 'Ismingiz',
@@ -51,9 +53,11 @@ export const helpI18nUz = {
 
 export const helpI18nRu = {
   help_hero_title: 'Чем мы можем помочь?',
+  help_quick_links: 'Быстрые ссылки',
   help_search_placeholder: 'Поиск статьи',
   help_faq_title: 'Часто задаваемые вопросы',
-  help_no_results: 'Ничего не найдено. Попробуйте другой запрос.',
+  help_no_results: 'Попробуйте другой запрос или категорию.',
+  help_search_empty_title: 'Ничего не найдено',
   help_contact_support: 'Связаться с поддержкой',
   help_form_title: 'Остались вопросы?',
   help_form_name: 'Имя',
@@ -102,9 +106,11 @@ export const helpI18nRu = {
 
 export const helpI18nEn = {
   help_hero_title: 'How can we help?',
+  help_quick_links: 'Quick links',
   help_search_placeholder: 'Search for an article',
   help_faq_title: 'Frequently Asked Questions',
-  help_no_results: 'No results found. Try a different search.',
+  help_no_results: 'Try another keyword or category.',
+  help_search_empty_title: 'No results found',
   help_contact_support: 'Contact Support',
   help_form_title: 'Still have questions?',
   help_form_name: 'Name',

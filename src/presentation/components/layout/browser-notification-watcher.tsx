@@ -3,6 +3,8 @@
 import { useEffect, useRef } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { useNotificationsFeed } from '@/application/providers/notifications-provider'
+import { browserNotificationsEnabled } from '@/shared/lib/notification-prefs'
+import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 
 const SEEN_STORAGE_KEY = 'ishbor:browser-notif-seen'
 const MAX_SEEN_IDS = 200
@@ -30,13 +32,14 @@ function persistSeenIds(ids: Set<string>) {
 }
 
 export function BrowserNotificationWatcher() {
-  const { isLoggedIn } = useApp()
+  const { isLoggedIn, t } = useApp()
   const seenRef = useRef<Set<string>>(loadSeenIds())
   const askedRef = useRef(false)
   const { notifications } = useNotificationsFeed()
 
   useEffect(() => {
     if (!isLoggedIn || typeof window === 'undefined' || !('Notification' in window)) return
+    if (!browserNotificationsEnabled()) return
 
     if (!askedRef.current && Notification.permission === 'default') {
       askedRef.current = true
@@ -51,8 +54,8 @@ export function BrowserNotificationWatcher() {
       seenRef.current.add(item.id)
       changed = true
       try {
-        new Notification(item.title, {
-          body: item.body,
+        new Notification(resolveNotifText(item.title, t), {
+          body: resolveNotifText(item.body, t),
           tag: item.id,
           icon: '/icon.svg',
         })
@@ -61,7 +64,7 @@ export function BrowserNotificationWatcher() {
       }
     }
     if (changed) persistSeenIds(seenRef.current)
-  }, [isLoggedIn, notifications])
+  }, [isLoggedIn, notifications, t])
 
   return null
 }

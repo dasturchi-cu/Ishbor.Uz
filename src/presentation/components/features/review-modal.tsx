@@ -59,13 +59,16 @@ export function ReviewModal({ orderId, serviceTitle, existingReview, onClose, on
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
+    <div
+      className="ps-modal-backdrop z-[60] items-end sm:items-center"
+      onClick={onClose}
+    >
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="review-modal-title"
-        className="w-full max-w-[420px] rounded-[var(--r-card)] border border-[var(--ishbor-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
+        className="ps-modal max-w-[420px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">

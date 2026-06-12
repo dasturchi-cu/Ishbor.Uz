@@ -1,0 +1,199 @@
+/**
+ * IshBor dark theme — layered surfaces (GitHub / Telegram / Linear inspired).
+ * No pure #000 backgrounds. Import after tokens.css.
+ * Components should use semantic tokens (--surface-*, --color-*) — not hardcoded hex.
+ */
+
+.dark {
+  color-scheme: dark;
+}
+
+/* ─── Elevated surfaces (cards, header, nav) ─── */
+.dark :is(
+  .ps-card,
+  .surface-panel,
+  .surface-premium,
+  .ishbor-card,
+  .ishbor-service-card,
+  .kwork-card,
+  .freelancer-card,
+  .project-card,
+  .ps-aside-card,
+  .wl-aside-card,
+  .od-aside-card,
+  .auth-form-card,
+  .catalog-toolbar-search,
+  .help-search,
+  .mobile-bottom-nav,
+  .dash-rec,
+  .dash-quick__card,
+  .dash-kpi,
+  .messages-thread,
+  .messages-composer,
+  .wallet-balance-card,
+  .settings-section
+) {
+  background: var(--surface-raised);
+}
+
+/* Modals, drawers, dropdowns — one step above cards */
+.dark :is(
+  .ps-modal,
+  .od-modal,
+  .drawer-panel,
+  .ishbor-order-modal,
+  [role='dialog']:not(.drawer-backdrop)
+) {
+  background: var(--surface-overlay);
+}
+
+.dark .ishbor-site-header,
+.dark .ishbor-site-header__nav {
+  background: var(--surface-raised) !important;
+  border-color: var(--surface-border-subtle) !important;
+}
+
+.dark .catalog-shell-cats {
+  background: var(--surface-sunken);
+  border-color: var(--surface-border-subtle);
+}
+
+.dark .surface-section-tint {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 10%, var(--surface-base)) 0%,
+    var(--surface-canvas) 72%
+  );
+}
+
+/* ─── Interactive states ─── */
+.dark :is(
+  .ps-card--interactive:hover,
+  .ishbor-service-card:hover,
+  .kwork-card:hover,
+  .help-quick-action:hover,
+  .jobs-discover-nav__item:hover
+) {
+  background: var(--surface-hover);
+  border-color: color-mix(in srgb, var(--color-primary) 28%, var(--surface-border));
+}
+
+.dark :is(
+  .jobs-discover-nav__item--active,
+  .category-icon-item--active
+) {
+  background: var(--surface-active);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--surface-border));
+}
+
+/* ─── Forms & inputs ─── */
+.dark :is(
+  .input-field-wrapper,
+  .ishbor-header-search,
+  .select-auth,
+  input:not([type='checkbox']):not([type='radio']),
+  textarea
+) {
+  background-color: var(--surface-sunken);
+  border-color: var(--surface-border);
+  color: var(--color-text);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder,
+.dark .ishbor-search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.dark :is(input, textarea, select):focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+/* ─── Scrim / backdrop ─── */
+.dark :is(
+  .drawer-backdrop,
+  .ps-modal-backdrop,
+  .od-modal-backdrop,
+  .ishbor-order-modal-backdrop
+) {
+  background: var(--scrim);
+}
+
+/* ─── Dashboard dark fixes (remove white cards) ─── */
+.dark .dash-hero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 14%, var(--surface-raised)) 0%,
+    var(--surface-raised) 55%
+  );
+  border-color: var(--surface-border-subtle);
+}
+
+.dark .dash-hero__kpis {
+  background: color-mix(in srgb, var(--surface-overlay) 92%, var(--color-primary));
+}
+
+.dark .dash-kpi:hover {
+  background: var(--surface-hover);
+}
+
+.dark .dash-kpi--warning .dash-kpi__icon {
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  color: color-mix(in srgb, var(--warning) 70%, white);
+}
+
+.dark .dash-header-chip--muted,
+.dark .dash-chip--muted {
+  background: color-mix(in srgb, var(--surface-hover) 80%, transparent);
+  color: var(--color-text-sub);
+}
+
+.dark .dashboard-empty-inline {
+  background: var(--surface-sunken);
+  border-color: color-mix(in srgb, var(--surface-border) 85%, var(--color-primary));
+}
+
+/* ─── Auth brand panel ─── */
+.dark .auth-brand-panel--legacy {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--color-primary) 22%, var(--surface-base)) 0%,
+    var(--surface-canvas) 100%
+  );
+}
+
+/* ─── Marketplace catalog hero (keep gradient readable) ─── */
+.dark .marketplace-catalog-hero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 28%, var(--surface-base)) 0%,
+    color-mix(in srgb, var(--brand-800) 40%, var(--surface-canvas)) 100%
+  );
+}
+
+.dark .help-hero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 35%, var(--surface-base)) 0%,
+    color-mix(in srgb, var(--brand-800) 45%, var(--surface-canvas)) 100%
+  );
+}
+
+/* ─── Icons & muted UI ─── */
+.dark .mobile-bottom-nav-icon--active {
+  background: var(--color-primary-light);
+}
+
+.dark .mobile-bottom-nav {
+  background: var(--surface-raised);
+  border-color: var(--surface-border-subtle);
+}
+
+.dark svg:not([class*='text-']) {
+  color: inherit;
+}
+
+.dark .text-\[var\(--ishbor-text-muted\)\] {
+  color: var(--color-text-muted);
+}

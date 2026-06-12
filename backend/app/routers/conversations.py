@@ -12,6 +12,7 @@ from app.db_utils import run_query
 from app.deps import UserAuthDep
 
 from app.notification_service import create_notification
+from app.platform_services import track_analytics_event
 
 from app.schemas_marketplace import (
 
@@ -350,7 +351,14 @@ def send_message(conversation_id: str, payload: ConversationMessageCreate, auth:
 
         insert_data["order_id"] = conversation["order_id"]
 
-
+    prior_messages = run_query(
+        lambda: supabase.table("messages")
+        .select("id", count="exact")
+        .eq("conversation_id", conversation_id)
+        .limit(1)
+        .execute()
+    )
+    is_first_message = (prior_messages.count or 0) == 0
 
     result = run_query(lambda: supabase.table("messages").insert(insert_data).execute())
 
@@ -389,6 +397,16 @@ def send_message(conversation_id: str, payload: ConversationMessageCreate, auth:
         href=f"/dashboard/messages?conversation={conversation_id}",
 
     )
+
+    if is_first_message:
+        track_analytics_event(
+            "message_started",
+            user_id=user_id,
+            properties={
+                "conversation_id": conversation_id,
+                "order_id": conversation.get("order_id"),
+            },
+        )
 
     return result.data[0]
 

@@ -48,11 +48,11 @@ export function CategoryNav() {
 
   return (
     <nav
-      className="border-b border-[var(--ishbor-border)] bg-[var(--neutral-0)]"
+      className="category-nav-bar hide-mobile border-b border-[var(--ishbor-border)] bg-[var(--surface-raised)]"
       aria-label={t('categories_title')}
     >
       <div className="layout-container max-w-[1280px]">
-        <div className="flex min-h-[var(--ishbor-nav-h)] items-stretch overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-h-[var(--ishbor-nav-h)] items-stretch gap-0 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MAIN_LINKS.map((link) => (
             <Link
               key={link.href}

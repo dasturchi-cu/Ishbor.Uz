@@ -16,6 +16,7 @@ import { CategoryIconRow } from '@/presentation/components/layout/category-icon-
 import { ServiceCard } from '@/presentation/components/features/service-card'
 import { Search, X, SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SearchAutocomplete } from '@/presentation/components/layout/search-autocomplete'
+import { SearchDiscoveryHints } from '@/presentation/components/features/search-discovery-hints'
 import { api } from '@/infrastructure/api/client'
 import type { ApiService } from '@/infrastructure/api/types'
 import { servicePath } from '@/domain/constants/routes'
@@ -32,6 +33,7 @@ import { toast } from '@/presentation/components/ui/toast'
 import { captureActionError } from '@/shared/lib/action-error'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
+import { MarketplaceTrustMetrics } from '@/presentation/components/layout/marketplace-trust-metrics'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import {
   PriceRangeSlider,
@@ -51,6 +53,7 @@ type CatalogService = {
   reviewCount: number
   thumbnailUrl?: string
   deliveryDays?: number
+  sellerVerified?: boolean
 }
 
 const CATEGORY_KEYS: Record<string, TranslationKey> = {
@@ -76,6 +79,7 @@ function mapApiService(s: ApiService, freelancerFallback: string): CatalogServic
     reviewCount: s.profiles?.review_count ?? 0,
     thumbnailUrl: s.image_urls?.[0],
     deliveryDays: s.delivery_days && s.delivery_days > 0 ? s.delivery_days : undefined,
+    sellerVerified: s.profiles?.is_verified === true,
   }
 }
 
@@ -136,7 +140,7 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
   const router = useRouter()
   const [services, setServices] = useState<CatalogService[]>([])
   const [loading, setLoading] = useState(true)
-  const showSkeleton = useDelayedShow(loading)
+  const showSkeleton = useDelayedShow(loading && services.length > 0)
   const [filterOpen, setFilterOpen] = useState(false)
   const filterDrawerRef = useRef<HTMLDivElement>(null)
 
@@ -159,6 +163,8 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
   const [priceCeiling, setPriceCeiling] = useState(5_000_000)
   const priceCeilingRef = useRef(5_000_000)
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5_000_000])
+  /** Bumped only when the user adjusts the slider — avoids refetch loop on ceiling init. */
+  const [priceFilterTick, setPriceFilterTick] = useState(0)
   const [savedTick, setSavedTick] = useState(0)
   const [loadError, setLoadError] = useState<unknown>(null)
   const [reloadTick, setReloadTick] = useState(0)
@@ -214,23 +220,33 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
   const experienceParam =
     experienceFilters.length > 0 ? experienceFilters.join(',') : undefined
 
+  const handlePriceRangeChange = useCallback((range: [number, number]) => {
+    setPriceRange(range)
+    setPriceFilterTick((n) => n + 1)
+  }, [])
+
   useEffect(() => {
+    const controller = new AbortController()
     setLoading(true)
     setLoadError(null)
     api
-      .listServices({
-        search: debouncedSearch || undefined,
-        category: selectedCategory !== 'all' ? selectedCategory : undefined,
-        region: selectedRegion || undefined,
-        sort: sortBy,
-        min_price: minPrice > 0 ? minPrice : undefined,
-        max_price: maxPrice < priceCeilingRef.current ? maxPrice : undefined,
-        max_delivery_days: maxDeliveryDays > 0 ? maxDeliveryDays : undefined,
-        experience: experienceParam,
-        limit: PAGE_SIZE,
-        offset: (currentPage - 1) * PAGE_SIZE,
-      })
+      .listServices(
+        {
+          search: debouncedSearch || undefined,
+          category: selectedCategory !== 'all' ? selectedCategory : undefined,
+          region: selectedRegion || undefined,
+          sort: sortBy,
+          min_price: minPrice > 0 ? minPrice : undefined,
+          max_price: maxPrice < priceCeilingRef.current ? maxPrice : undefined,
+          max_delivery_days: maxDeliveryDays > 0 ? maxDeliveryDays : undefined,
+          experience: experienceParam,
+          limit: PAGE_SIZE,
+          offset: (currentPage - 1) * PAGE_SIZE,
+        },
+        { signal: controller.signal },
+      )
       .then((data) => {
+        if (controller.signal.aborted) return
         const mapped = data.items.map((s) => mapApiService(s, t('freelancer')))
         setServices(mapped)
         setTotalCount(data.total)
@@ -245,13 +261,28 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
         ])
       })
       .catch((e) => {
+        if (controller.signal.aborted) return
         setServices([])
         setHasMore(false)
         setTotalCount(0)
         setLoadError(e)
       })
-      .finally(() => setLoading(false))
-  }, [debouncedSearch, selectedCategory, selectedRegion, currentPage, sortBy, minPrice, maxPrice, maxDeliveryDays, experienceParam, reloadTick, t])
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    return () => controller.abort()
+  }, [
+    debouncedSearch,
+    selectedCategory,
+    selectedRegion,
+    currentPage,
+    sortBy,
+    priceFilterTick,
+    maxDeliveryDays,
+    experienceParam,
+    reloadTick,
+    t,
+  ])
 
   const categories = [
     { id: 'all', label: t('cat_all') },
@@ -301,7 +332,7 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, selectedCategory, selectedRegion, minPrice, maxPrice, maxDeliveryDays, sortBy, experienceFilters])
+  }, [debouncedSearch, selectedCategory, selectedRegion, priceFilterTick, maxDeliveryDays, sortBy, experienceFilters])
 
   const paginatedServices = filteredServices
 
@@ -313,9 +344,9 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
     setSelectedRegion('')
     setExperienceFilters([])
     setMaxDeliveryDays(0)
-    setPriceRange([0, priceCeiling])
+    handlePriceRangeChange([0, priceCeiling])
     router.replace(pathname, { scroll: false })
-  }, [pathname, priceCeiling, router])
+  }, [handlePriceRangeChange, pathname, priceCeiling, router])
 
   const categoryLabel = (id: string) => {
     const key = CATEGORY_KEYS[id]
@@ -382,7 +413,7 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
           min={0}
           max={priceCeiling}
           values={priceRange}
-          onChange={setPriceRange}
+          onChange={handlePriceRangeChange}
           histogram={priceHistogram}
           fromLabel={t('service_from')}
           toLabel={t('price_to')}
@@ -483,7 +514,10 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
             ]
       }
     >
-      <IshborProtectionStrip compact className="mb-5" />
+      <div className="mb-5 space-y-3">
+        <IshborProtectionStrip compact showLearnMore />
+        <MarketplaceTrustMetrics compact />
+      </div>
       <div className="catalog-shell">
         {!hideHeader && (
           <div className="catalog-shell-head">
@@ -522,7 +556,7 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
                 ) : (
                   <span className="catalog-results-count-pill">
                     {loading ? (
-                      t('loading_data')
+                      <span className="inline-block h-4 w-24 animate-pulse rounded-full bg-[var(--color-bg-muted)]" aria-label={t('loading_data')} />
                     ) : (
                       <>
                         {servicesFoundParts[0]}
@@ -534,9 +568,12 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
                 )}
 
                 <div className="catalog-toolbar-sort">
-                  <span className="catalog-toolbar-sort-label">{t('sort_label')}</span>
+                  <span id="services-catalog-sort-label" className="catalog-toolbar-sort-label">
+                    {t('sort_label')}
+                  </span>
                   <Select
                     value={sortBy}
+                    aria-labelledby="services-catalog-sort-label"
                     onChange={(e) => setSortBy(e.target.value)}
                     options={[
                       { value: 'popular', label: t('sort_popular') },
@@ -585,13 +622,13 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
                 {minPrice > 0 && (
                   <FilterChip
                     label={`≥ ${formatPrice(minPrice)}`}
-                    onRemove={() => setPriceRange(([_, high]) => [0, high])}
+                    onRemove={() => handlePriceRangeChange([0, maxPrice])}
                   />
                 )}
                 {maxPrice < priceCeiling && (
                   <FilterChip
                     label={`≤ ${formatPrice(maxPrice)}`}
-                    onRemove={() => setPriceRange(([low]) => [low, priceCeiling])}
+                    onRemove={() => handlePriceRangeChange([minPrice, priceCeiling])}
                   />
                 )}
                 {maxDeliveryDays > 0 && (
@@ -617,6 +654,12 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
                 onRetry={() => setReloadTick((n) => n + 1)}
                 className="mb-4"
               />
+            ) : loading && services.length === 0 ? (
+              <div className="catalog-grid">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
             ) : loading && !showSkeleton ? null : loading ? (
               <div className="catalog-grid">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -624,21 +667,24 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
                 ))}
               </div>
             ) : filteredServices.length === 0 ? (
-              <EmptyState
-                icon={<Search />}
-                title={hasActiveFilters ? t('no_services_found') : t('catalog_empty_discovery_title')}
-                description={hasActiveFilters ? t('no_services_desc') : t('catalog_empty_discovery_desc')}
-                action={
-                  hasActiveFilters
-                    ? { label: t('clear_filters'), onClick: resetFilters }
-                    : { label: t('catalog_empty_browse_freelancers'), onClick: () => router.push(PATHS.freelancers) }
-                }
-                secondaryAction={
-                  hasActiveFilters
-                    ? { label: t('catalog_empty_browse_freelancers'), onClick: () => router.push(PATHS.freelancers) }
-                    : { label: t('catalog_empty_post_project'), onClick: () => router.push(PATHS.postProject), variant: 'outline' }
-                }
-              />
+              <div className="max-w-lg mx-auto w-full">
+                <EmptyState
+                  icon={<Search />}
+                  title={hasActiveFilters ? t('no_services_found') : t('catalog_empty_discovery_title')}
+                  description={hasActiveFilters ? t('no_services_desc') : t('catalog_empty_discovery_desc')}
+                  action={
+                    hasActiveFilters
+                      ? { label: t('clear_filters'), onClick: resetFilters }
+                      : { label: t('catalog_empty_browse_freelancers'), onClick: () => router.push(PATHS.freelancers) }
+                  }
+                  secondaryAction={
+                    hasActiveFilters
+                      ? { label: t('catalog_empty_browse_freelancers'), onClick: () => router.push(PATHS.freelancers) }
+                      : { label: t('catalog_empty_post_project'), onClick: () => router.push(PATHS.postProject), variant: 'outline' }
+                  }
+                />
+                {debouncedSearch ? <SearchDiscoveryHints query={debouncedSearch} /> : null}
+              </div>
             ) : (
               <>
                 <div className="catalog-grid">
@@ -656,6 +702,7 @@ function ServicesCatalogContent({ hideHeader = false }: { hideHeader?: boolean }
                       thumbnailUrl={service.thumbnailUrl}
                       deliveryDays={service.deliveryDays}
                       view="kwork"
+                      isPro={service.sellerVerified}
                       isSaved={isServiceSaved(service.id)}
                       onSave={() => {
                         if (!isLoggedIn) {

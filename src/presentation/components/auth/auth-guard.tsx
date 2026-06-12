@@ -47,18 +47,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (
       !isAuthLoading &&
       isLoggedIn &&
-      profile &&
-      !profile.is_admin &&
-      profile.onboarding_completed === false &&
-      path &&
-      !path.startsWith(PATHS.onboarding) &&
-      !isAdminPath(path)
-    ) {
-      router.replace(PATHS.onboarding)
-    }
-    if (
-      !isAuthLoading &&
-      isLoggedIn &&
       profile?.onboarding_completed === true &&
       path.startsWith(PATHS.onboarding)
     ) {

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Send, Shield } from 'lucide-react'
+import { BadgeCheck, Lock, Send, Shield } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PATHS } from '@/domain/constants/routes'
 import { BrandLogo } from '@/presentation/components/layout/brand-logo'
@@ -30,8 +30,22 @@ export function Footer() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="site-footer mt-auto border-t border-[var(--ishbor-border)] bg-[var(--neutral-0)]">
+    <footer className="site-footer mt-auto border-t border-[var(--ishbor-border)] bg-[var(--surface-raised)]">
       <div className="layout-container max-w-[1280px] py-10 md:py-12">
+        <div className="footer-trust-ribbon" role="list" aria-label={t('landing_buyer_protection')}>
+          <span className="footer-trust-ribbon__item" role="listitem">
+            <Shield className="h-4 w-4" aria-hidden />
+            {t('trust_escrow')}
+          </span>
+          <span className="footer-trust-ribbon__item" role="listitem">
+            <BadgeCheck className="h-4 w-4" aria-hidden />
+            {t('trust_item_cert')}
+          </span>
+          <span className="footer-trust-ribbon__item" role="listitem">
+            <Lock className="h-4 w-4" aria-hidden />
+            {t('trust_commission')}
+          </span>
+        </div>
         <div className="footer-grid">
           <div className="footer-brand">
             <BrandLogo variant="footer" href={PATHS.home} />

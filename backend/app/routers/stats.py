@@ -1,11 +1,18 @@
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from app.client_ip import get_client_ip
 from app.database import get_supabase_admin
+from app.rate_limit import check_rate_limit
 from app.db_utils import run_query
 from app.postgrest_embed import SERVICE_FREELANCER_PROFILE
+from app.catalog_quality import (
+    filter_quality_freelancer_rows,
+    filter_quality_service_rows,
+    is_catalog_quality_title,
+)
 from app.review_stats import batch_min_service_prices, batch_review_stats, batch_trust_scores
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -24,7 +31,7 @@ def _build_public_activity(supabase, limit: int = 6) -> list[dict]:
     )
     for row in completed_orders.data or []:
         title = (row.get("services") or {}).get("title") or ""
-        if not title:
+        if not title or not is_catalog_quality_title(title):
             continue
         events.append(
             {
@@ -45,7 +52,7 @@ def _build_public_activity(supabase, limit: int = 6) -> list[dict]:
     )
     for row in new_services.data or []:
         title = row.get("title") or ""
-        if not title:
+        if not title or not is_catalog_quality_title(title):
             continue
         events.append(
             {
@@ -65,7 +72,10 @@ _STATS_CACHE_AT = 0
 _STATS_TTL = 300  # 5 minut
 
 @router.get("/public")
-def public_stats():
+def public_stats(request: Request):
+    ip = get_client_ip(request)
+    if not check_rate_limit(f"stats_public:{ip}", max_hits=30):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Juda ko'p so'rov")
     global _STATS_CACHE, _STATS_CACHE_AT
     now = time.time()
     if _STATS_CACHE and (now - _STATS_CACHE_AT < _STATS_TTL):
@@ -117,11 +127,12 @@ def public_stats():
         lambda: supabase.table("services")
         .select(f"id, title, price, category, freelancer_id, {SERVICE_FREELANCER_PROFILE}(full_name)")
         .eq("is_hidden", False)
+        .eq("moderation_status", "approved")
         .order("created_at", desc=True)
-        .limit(8)
+        .limit(24)
         .execute()
     )
-    service_rows = top_services.data or []
+    service_rows = filter_quality_service_rows(top_services.data or [])[:8]
     service_freelancer_ids = list({s["freelancer_id"] for s in service_rows if s.get("freelancer_id")})
     service_review_stats = batch_review_stats(supabase, service_freelancer_ids)
     enriched_services = []
@@ -146,7 +157,7 @@ def public_stats():
         .execute()
     )
 
-    freelancer_rows = top_freelancers.data or []
+    freelancer_rows = filter_quality_freelancer_rows(top_freelancers.data or [])
     freelancer_ids = [f["id"] for f in freelancer_rows]
     review_stats = batch_review_stats(supabase, freelancer_ids)
     min_prices = batch_min_service_prices(supabase, freelancer_ids)

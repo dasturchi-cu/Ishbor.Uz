@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from postgrest.exceptions import APIError
 
+from app.client_ip import get_client_ip
 from app.config import settings
 from app.supabase_instrumentation import reset_request_route, set_request_route
 from app.origin_guard import validate_origin
@@ -168,7 +169,10 @@ async def origin_guard(request: Request, call_next):
 @app.middleware("http")
 async def light_rate_limit(request: Request, call_next):
     path = request.url.path
-    ip = request.client.host if request.client else "unknown"
+    ip = get_client_ip(request)
+    if path.startswith("/api/v1"):
+        if not check_rate_limit(f"global:{ip}", max_hits=300):
+            return JSONResponse(status_code=429, content={"detail": "Juda ko'p so'rov. Biroz kuting."})
     if request.method == "GET" and any(path.startswith(p) for p in _RATE_GET_PATHS):
         bucket_key = f"api:{ip}:{path}"
         if not check_rate_limit(bucket_key, max_hits=30):

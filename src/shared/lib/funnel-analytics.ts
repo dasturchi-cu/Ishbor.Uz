@@ -7,7 +7,9 @@ export type FunnelEvent =
   | 'funnel_register_view'
   | 'funnel_register_role_select'
   | 'funnel_register_step2'
+  | 'funnel_register_complete'
   | 'funnel_browse_catalog'
+  | 'funnel_checkout_started'
 
 export type ActivationEvent = 'employer_first_action' | 'candidate_first_listing' | 'onboarding_complete'
 

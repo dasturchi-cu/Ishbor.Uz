@@ -4,7 +4,6 @@ import '@/presentation/styles/route-catalog.css'
 import { useApp } from '@/application/providers/app-provider'
 import { MarketplaceCatalogHero } from '@/presentation/components/layout/marketplace-catalog-hero'
 import { MarketplaceDiscoverNav } from '@/presentation/components/layout/marketplace-discover-nav'
-import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import { ProjectsCatalog } from '@/presentation/features/projects/projects-catalog'
 import { PATHS } from '@/domain/constants/routes'
 
@@ -27,9 +26,8 @@ export function ProjectsLandingPage() {
         }}
         trustLine={t('projects_hero_trust')}
       />
-      <div className="layout-container max-w-[1280px] space-y-4 pt-4 md:pt-6">
+      <div className="layout-container max-w-[1280px] pt-4 md:pt-6">
         <MarketplaceDiscoverNav active="projects" />
-        <TrustStrip />
       </div>
       <ProjectsCatalog hideHeader />
     </>

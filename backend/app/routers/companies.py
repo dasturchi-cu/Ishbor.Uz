@@ -2,21 +2,27 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.database import get_supabase_admin
 from app.db_utils import run_query
-from app.deps import UserAuthDep
-from app.schemas_platform import CompanyOwnerCreate, CompanyOwnerUpdate, CompanyResponse
+from app.deps import OptionalUserId, UserAuthDep
+from app.schemas_platform import CompanyOwnerCreate, CompanyOwnerUpdate, CompanyPublicResponse, CompanyResponse
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
+_PUBLIC_COMPANY_COLUMNS = (
+    "id, name, slug, description, logo_url, website, region, employee_count, "
+    "is_verified, is_featured, is_published, stir_verified, created_at, updated_at"
+)
 
-@router.get("", response_model=list[CompanyResponse])
+
+@router.get("", response_model=list[CompanyPublicResponse])
 def list_companies(
     region: str | None = None,
     featured: bool | None = None,
     limit: int = Query(default=24, le=100),
     offset: int = Query(default=0, ge=0),
+    user_id: OptionalUserId = None,
 ):
     supabase = get_supabase_admin()
-    query = supabase.table("companies").select("*").eq("is_published", True)
+    query = supabase.table("companies").select(_PUBLIC_COMPANY_COLUMNS).eq("is_published", True)
     if region:
         query = query.eq("region", region)
     if featured is True:
@@ -89,12 +95,12 @@ def update_my_company(company_id: str, payload: CompanyOwnerUpdate, auth: UserAu
     return result.data[0]
 
 
-@router.get("/{slug}", response_model=CompanyResponse)
-def get_company(slug: str):
+@router.get("/{slug}", response_model=CompanyPublicResponse)
+def get_company(slug: str, user_id: OptionalUserId = None):
     supabase = get_supabase_admin()
     result = run_query(
         lambda: supabase.table("companies")
-        .select("*")
+        .select(_PUBLIC_COMPANY_COLUMNS)
         .eq("slug", slug)
         .eq("is_published", True)
         .single()

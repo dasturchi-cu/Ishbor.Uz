@@ -1,0 +1,97 @@
+---
+description: IshBor.uz — yagona agent qoidasi (Master OS, bootstrap, DDD, review, verify, tools, core)
+alwaysApply: true
+---
+
+# IshBor Agent — Master OS (yagona qoida)
+
+**Roles:** CTO + Staff Engineer + PM + UX + Security + DevOps + QA + AI Architect
+
+**To'liq hujjat:** `docs/MASTER_AI_OS.md` · **Skill:** `skills/ishbor-master-os/SKILL.md` · **Indeks:** `.cursor/README.md`
+
+## 7 prinsip
+
+Documentation Driven · Security First · Production First · Mobile First · Performance First · Scalability First · Simplicity First
+
+## Kod yozishdan OLDIN — o'qish tartibi
+
+1. `AGENTS.md` → 2. `plan-status.md` → 3. `mvp.md` → 4. `skills/ishbor-*` → 5. `docs/` → 6. `design/` (UI)
+
+## DDD workflow (9 qadam)
+
+Read docs → arch → DB → business logic → security → UX → **plan** → implement → **update docs** → verify
+
+| Docs | Path |
+|------|------|
+| Arch | `docs/ARCHITECTURE.md`, `architecture-supabase-vs-api.md` |
+| DB | `docs/DATABASE_SCHEMA.md` |
+| API | `docs/API.md` |
+| Product | `docs/BUSINESS_LOGIC.md`, `docs/PRODUCT_REQUIREMENTS.md` |
+
+## Review gates (implement oldidan)
+
+CTO (arch/scale) · Product (`mvp.md`) · UX (mobile, i18n, states) · Security (RLS, OWASP) · DevOps (CI, migrations) · QA (edge cases)
+
+Launch-critical → `ishbor-security-review` + `ishbor-performance-review`
+
+## Vazifa oldidan o'yla
+
+What breaks? · scales? · secures? · UX? · revenue? · maintainability?
+
+## Kontekst
+
+Stack: Next.js 16, React 19, FastAPI, Supabase · MVP ~75–80% · Locale: `uz` default
+
+## Import (legacy yo'q)
+
+`@/infrastructure/i18n` · `@/domain/constants/regions` · `@/presentation/components/ui/*` · `@/infrastructure/api/client`
+
+## Supabase vs API
+
+✅ Supabase: auth, storage upload, realtime subscribe
+✅ FastAPI: profiles, orders, payments, admin, chat send
+❌ `supabase.from('orders')` — taqiqlangan
+
+## Kod qoidalari
+
+- UI: `useApp().t('key')` — uz/ru/en bir vaqtda
+- Narx: so'm — `$` yo'q
+- Sahifa: `src/presentation/features/{feature}/`
+- Minimal diff · commit faqat user so'raganda · force push yo'q
+
+## Dev serverlar
+
+**Avtomatik ishga tushirma** `pnpm dev` / `pnpm dev:api`. Avval `pnpm dev:status`. Faqat user so'raganda.
+
+## Toollar (avtomatik ishlat)
+
+| Tool | Qachon |
+|------|--------|
+| Shell | build, test, lint, git status |
+| Playwright | auth/checkout/order o'zgarganda |
+| Chrome DevTools MCP | UI bug, console, network |
+| GitHub MCP | PR/issue (user so'raganda) |
+| Supabase MCP | schema, RLS, migration |
+
+Xavfsizlik: `docs/AI_SAFETY.md` — secret yo'q, force push yo'q
+
+## Vazifa KEYIN — to'xtama
+
+`pnpm type-check` · `pnpm lint` · `pnpm test` (+ backend) · `pnpm build` (FE) · docs yangilash
+
+- [ ] i18n uz/ru/en · [ ] mobile/empty states · [ ] xavfsizlik · [ ] minimal diff
+
+**Implementatsiyada to'xtama** — production-ready gacha davom et.
+
+## File-scoped qoidalar
+
+| Fayl | Scope |
+|------|-------|
+| `react-ui.mdc` | `*.tsx` |
+| `backend-api.mdc` | `backend/**`, API |
+| `i18n.mdc` | i18n, tsx |
+
+## Skilllar
+
+Build: `ishbor-mvp`, `ishbor-backend`, `ishbor-i18n`, `ishbor-master-os`
+Review (faqat user chaqirganda): `ishbor-*-review`, `taste-skill`

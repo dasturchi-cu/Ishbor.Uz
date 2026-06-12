@@ -89,7 +89,9 @@ FUNNEL_EVENTS = frozenset(
         "funnel_register_view",
         "funnel_register_role_select",
         "funnel_register_step2",
+        "funnel_register_complete",
         "funnel_browse_catalog",
+        "funnel_checkout_started",
     }
 )
 
@@ -253,6 +255,15 @@ def _empty_admin_analytics(days: int = 30) -> dict[str, Any]:
         "revenue_series": revenue_series,
         "commission_series": commission_series,
         "top_searches": [],
+        "login_events": 0,
+        "service_views": 0,
+        "freelancer_views": 0,
+        "project_views": 0,
+        "checkout_started_events": 0,
+        "payment_attempt_events": 0,
+        "payment_succeeded_events": 0,
+        "message_started_events": 0,
+        "funnel_report": {"period_days": days, "stages": [], "summary": {}},
     }
 
 
@@ -309,6 +320,17 @@ def _build_admin_analytics(days: int = 30) -> dict[str, Any]:
     activation_employer = _count_events("employer_first_action")
     activation_candidate = _count_events("candidate_first_listing")
     top_searches = _top_search_terms(since)
+    from app.analytics_funnel import build_funnel_report
+
+    funnel_report = build_funnel_report(since, days)
+    logins = _count_events("login")
+    service_views = _count_events("service_view")
+    freelancer_views = _count_events("freelancer_view")
+    project_views = _count_events("project_view")
+    checkout_started = _count_events("checkout_started") + _count_events("funnel_checkout_started")
+    payment_attempts = _count_events("payment_attempt")
+    payment_succeeded = _count_events("payment_succeeded")
+    messages_started = _count_events("message_started")
 
     users_by_day: dict[str, int] = defaultdict(int)
     revenue_by_day: dict[str, int] = defaultdict(int)
@@ -353,6 +375,15 @@ def _build_admin_analytics(days: int = 30) -> dict[str, Any]:
         "revenue_series": revenue_series,
         "commission_series": commission_series,
         "top_searches": top_searches,
+        "login_events": logins,
+        "service_views": service_views,
+        "freelancer_views": freelancer_views,
+        "project_views": project_views,
+        "checkout_started_events": checkout_started,
+        "payment_attempt_events": payment_attempts,
+        "payment_succeeded_events": payment_succeeded,
+        "message_started_events": messages_started,
+        "funnel_report": funnel_report,
     }
 
 
@@ -419,12 +450,24 @@ def broadcast_notification(
         }
         for row in rows
     ]
+    from app.notification_service import deliver_notification_channels
+
     batch_size = 200
     sent = 0
     for i in range(0, len(payload), batch_size):
         chunk = payload[i : i + batch_size]
         run_query(lambda c=chunk: admin.table("notifications").insert(c).execute())
         sent += len(chunk)
+    for row in rows:
+        try:
+            deliver_notification_channels(
+                row["id"],
+                title,
+                body,
+                ntype="broadcast",
+            )
+        except Exception:
+            pass
     return sent
 
 

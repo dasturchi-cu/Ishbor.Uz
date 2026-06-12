@@ -77,16 +77,18 @@
           "primary-light": { "value": "{IshBor.color.brand.50}", "type": "color" }
         },
         "dark": {
-          "bg": { "value": "{IshBor.color.neutral.900}", "type": "color" },
-          "bg-subtle": { "value": "{IshBor.color.neutral.800}", "type": "color" },
-          "bg-muted": { "value": "{IshBor.color.neutral.700}", "type": "color" },
-          "border": { "value": "{IshBor.color.neutral.700}", "type": "color" },
-          "border-strong": { "value": "{IshBor.color.neutral.600}", "type": "color" },
-          "text": { "value": "{IshBor.color.neutral.100}", "type": "color" },
-          "text-sub": { "value": "{IshBor.color.neutral.400}", "type": "color" },
-          "text-muted": { "value": "{IshBor.color.neutral.500}", "type": "color" },
-          "primary": { "value": "{IshBor.color.brand.500}", "type": "color" },
-          "primary-light": { "value": "{IshBor.color.brand.900}", "type": "color" }
+          "bg": { "value": "#161a21", "type": "color", "description": "Canvas — not pure black" },
+          "bg-subtle": { "value": "#12151a", "type": "color", "description": "Base layer" },
+          "bg-muted": { "value": "#1a1f28", "type": "color" },
+          "raised": { "value": "#1e232b", "type": "color", "description": "Cards" },
+          "overlay": { "value": "#262b35", "type": "color", "description": "Modals/dropdowns" },
+          "border": { "value": "#30363d", "type": "color" },
+          "border-strong": { "value": "#484f58", "type": "color" },
+          "text": { "value": "#e8edf3", "type": "color" },
+          "text-sub": { "value": "#b4bcc6", "type": "color" },
+          "text-muted": { "value": "#8b949e", "type": "color" },
+          "primary": { "value": "{IshBor.color.brand.400}", "type": "color" },
+          "primary-light": { "value": "#1e2a3d", "type": "color" }
         }
       }
     },

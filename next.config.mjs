@@ -62,6 +62,7 @@ const nextConfig = {
       { source: '/settings', destination: '/dashboard/settings', permanent: true },
       { source: '/messages', destination: '/dashboard/messages', permanent: true },
       { source: '/services/create', destination: '/dashboard/services/new', permanent: true },
+      { source: '/projects/new', destination: '/post-project', permanent: true },
       { source: '/notifications', destination: '/dashboard/notifications', permanent: true },
       { source: '/freelancer', destination: '/freelancers', permanent: true },
     ]
@@ -84,6 +85,7 @@ const nextConfig = {
       'https://www.googletagmanager.com',
       'https://www.google-analytics.com',
       'https://va.vercel-scripts.com',
+      'https://challenges.cloudflare.com',
     ].join(' ')
     const connectSrc = [
       "'self'",
@@ -108,6 +110,7 @@ const nextConfig = {
           "img-src 'self' data: blob: https://*.supabase.co https://www.google-analytics.com",
           "font-src 'self' data:",
           `connect-src ${connectSrc}`,
+          "frame-src 'self' https://challenges.cloudflare.com",
           "frame-ancestors 'self'",
           "base-uri 'self'",
           "form-action 'self'",

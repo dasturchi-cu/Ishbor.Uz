@@ -9,6 +9,7 @@ def test_route_key_matches_checkout():
     assert _route_key("/api/v1/payments/orders/abc/checkout", "GET") is None
     assert _route_key("/api/v1/orders", "POST") == "/api/v1/orders"
     assert _route_key("/api/v1/payments/withdrawals", "POST") == "/api/v1/payments/withdrawals"
+    assert _route_key("/api/v1/projects", "POST") == "/api/v1/projects"
 
 
 def test_normalize_key():

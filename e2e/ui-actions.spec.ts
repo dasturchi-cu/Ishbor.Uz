@@ -79,7 +79,7 @@ test.describe('ui actions — interactive smoke', () => {
       test.skip(true, 'Backend not running')
     }
     await page.goto('/cv-builder', { waitUntil: 'domcontentloaded', timeout: 60_000 })
-    const email = `e2e-${Date.now()}@ishbor.test`
+    const email = `e2e-${Date.now()}@example.com`
     const res = await request.post('/api/v1/waitlist', {
       data: { email, source: 'e2e-ui-actions' },
     })

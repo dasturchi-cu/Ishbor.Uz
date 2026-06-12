@@ -7,7 +7,7 @@ def test_check_rate_limit_uses_postgres_when_no_redis(monkeypatch):
     monkeypatch.setattr(rl.settings, "redis_url", "")
     calls: list[str] = []
 
-    def fake_postgres(key: str, *, max_hits: int) -> bool:
+    def fake_postgres(key: str, *, max_hits: int, window_seconds: int = 60) -> bool:
         calls.append(key)
         return True
 
@@ -19,10 +19,10 @@ def test_check_rate_limit_uses_postgres_when_no_redis(monkeypatch):
 def test_check_rate_limit_prefers_redis(monkeypatch):
     monkeypatch.setattr(rl.settings, "redis_url", "redis://localhost:6379/0")
 
-    def fake_redis(key: str, *, max_hits: int) -> bool:
+    def fake_redis(key: str, *, max_hits: int, window_seconds: int = 60) -> bool:
         return True
 
-    def fake_postgres(key: str, *, max_hits: int) -> bool:
+    def fake_postgres(key: str, *, max_hits: int, window_seconds: int = 60) -> bool:
         raise AssertionError("Postgres should not be called when Redis succeeds")
 
     monkeypatch.setattr(rl, "_check_redis", fake_redis)

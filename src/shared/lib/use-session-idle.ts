@@ -6,11 +6,11 @@ import { getSupabase, isSupabaseConfigured } from '@/infrastructure/supabase/cli
 const IDLE_MS = (Number(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES) || 120) * 60 * 1000
 const EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const
 
-export function useSessionIdleTimeout() {
+export function useSessionIdleTimeout(enabled = true) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
+    if (!enabled || !isSupabaseConfigured()) return
 
     const reset = () => {
       if (timer.current) clearTimeout(timer.current)
@@ -30,5 +30,5 @@ export function useSessionIdleTimeout() {
         window.removeEventListener(ev, reset)
       }
     }
-  }, [])
+  }, [enabled])
 }

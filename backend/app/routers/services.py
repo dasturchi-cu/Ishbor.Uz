@@ -3,11 +3,18 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, R
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.deps import OptionalUserId, UserAuthDep
-from app.search_utils import sanitize_search_term
+from app.search_query import (
+    MAX_SEARCH_SCAN,
+    apply_search_tokens,
+    sort_by_relevance,
+    tokenize_search,
+)
 from app.schemas import ServiceCreate, ServiceListResponse, ServiceResponse, ServiceUpdate
 from app.review_stats import batch_review_stats
 from app.platform_services import track_activation_once
 from app.service_packages import default_packages
+from app.catalog_quality import filter_quality_service_rows
+from app.platform_services import track_analytics_event
 from app.service_experience import (
     MAX_EXPERIENCE_SCAN,
     filter_service_rows_by_experience,
@@ -66,6 +73,7 @@ def list_services(
     supabase = get_supabase_admin()
     experience_levels = parse_experience_param(experience)
     use_experience_filter = bool(experience_levels)
+    search_tokens = tokenize_search(search)
 
     def build_query():
         query = (
@@ -79,9 +87,8 @@ def list_services(
             query = query.eq("category", category)
         if region:
             query = query.eq("region", region)
-        safe_search = sanitize_search_term(search)
-        if safe_search:
-            query = query.or_(f"title.ilike.%{safe_search}%,description.ilike.%{safe_search}%")
+        if search_tokens:
+            query = apply_search_tokens(query, search_tokens, ["title", "description", "category"])
         if min_price is not None:
             query = query.gte("price", min_price)
         if max_price is not None:
@@ -128,15 +135,28 @@ def list_services(
                         r.get("price") or 0,
                     )
                 )
+            filtered = filter_quality_service_rows(filtered)
             total = len(filtered)
             page = filtered[offset : offset + limit]
             return ServiceListResponse(items=page, total=total)
 
         query = build_query()
-        result = query.range(offset, offset + limit - 1).execute()
+        result = query.range(0, MAX_SEARCH_SCAN - 1).execute()
         rows = result.data or []
-        rows, _stats_map = enrich_rows(rows)
-        return ServiceListResponse(items=rows, total=result.count or 0)
+        rows, stats_map = enrich_rows(rows)
+        rows = filter_quality_service_rows(rows)
+        if search_tokens:
+            rows = sort_by_relevance(rows, search)
+        elif sort == "rating":
+            rows.sort(
+                key=lambda r: (
+                    -(stats_map.get(r.get("freelancer_id") or "", (0.0, 0))[0]),
+                    -(stats_map.get(r.get("freelancer_id") or "", (0.0, 0))[1]),
+                ),
+            )
+        total = len(rows)
+        page = rows[offset : offset + limit]
+        return ServiceListResponse(items=page, total=total)
 
     result = run_query(fetch)
     response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=120"
@@ -181,11 +201,16 @@ def record_service_view(
     run_query(
         lambda: supabase.rpc("increment_service_view_count", {"p_service_id": service_id}).execute()
     )
+    track_analytics_event(
+        "service_view",
+        user_id=user_id,
+        properties={"service_id": service_id},
+    )
     return None
 
 
 @router.get("/{service_id}", response_model=ServiceResponse)
-def get_service(service_id: str):
+def get_service(service_id: str, user_id: OptionalUserId = None):
     supabase = get_supabase_admin()
     result = run_query(
         lambda: supabase.table("services")

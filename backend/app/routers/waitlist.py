@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
+from app.captcha_service import captcha_required, verify_turnstile
+from app.client_ip import get_client_ip
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 
@@ -10,10 +12,13 @@ router = APIRouter(prefix="/waitlist", tags=["waitlist"])
 class WaitlistCreate(BaseModel):
     email: EmailStr
     source: str = Field(default="general", max_length=64)
+    turnstile_token: str | None = Field(default=None, max_length=2048)
 
 
 @router.post("", status_code=status.HTTP_204_NO_CONTENT)
-def join_waitlist(payload: WaitlistCreate):
+def join_waitlist(payload: WaitlistCreate, request: Request):
+    if captcha_required() and not verify_turnstile(payload.turnstile_token, get_client_ip(request)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="captcha_failed")
     email = payload.email.strip().lower()
     if not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email kerak")

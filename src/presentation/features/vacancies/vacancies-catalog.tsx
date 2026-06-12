@@ -137,7 +137,7 @@ export function VacanciesCatalog({ hideHeader = false }: { hideHeader?: boolean 
         </div>
       )}
 
-      <IshborProtectionStrip compact className="mb-5" />
+      {!hideHeader ? <IshborProtectionStrip compact className="mb-5" /> : null}
 
       {showForm && (
         <Card className="mb-6 space-y-4 p-5">

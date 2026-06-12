@@ -1,0 +1,293 @@
+/**
+ * Marketplace visual v2 — Kwork / Fiverr / Upwork-inspired polish.
+ * Cards, heroes, trust, spacing, conversion hierarchy.
+ */
+
+/* ─── Page canvas ─── */
+.page-wrapper.layout-container {
+  --ishbor-bg: var(--neutral-50);
+}
+
+#services-catalog,
+#freelancers-catalog,
+#projects-catalog {
+  background: var(--neutral-50);
+}
+
+/* ─── Header elevation ─── */
+.ishbor-site-header {
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--ishbor-border) 80%, transparent),
+    0 4px 24px rgb(15 23 42 / 0.04);
+}
+
+.ishbor-header-search,
+.ishbor-hero-search {
+  border-radius: 999px !important;
+  border: 1px solid color-mix(in srgb, var(--ishbor-border) 90%, transparent) !important;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.ishbor-header-search:focus-within,
+.ishbor-hero-search:focus-within {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--ishbor-border)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+/* ─── Catalog heroes — stronger hierarchy ─── */
+.marketplace-catalog-hero {
+  padding: 2.25rem 0 2.5rem;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--color-primary) 7%, var(--neutral-0)) 0%,
+    var(--neutral-0) 42%,
+    var(--neutral-50) 100%
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--ishbor-border) 75%, transparent);
+}
+
+.marketplace-catalog-hero__title {
+  max-width: 20ch;
+  font-size: clamp(1.625rem, 3.5vw, 2.125rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.marketplace-catalog-hero__subtitle {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--ishbor-text-sub);
+}
+
+.marketplace-catalog-hero__trust {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--success) 20%, var(--ishbor-border));
+  background: color-mix(in srgb, var(--success-bg) 60%, var(--neutral-0));
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success-dark);
+}
+
+/* ─── Trust strip — pill bar ─── */
+.trust-strip {
+  gap: 10px 20px;
+  padding: 0.625rem 1rem;
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in srgb, var(--ishbor-border) 70%, transparent);
+  background: var(--neutral-0);
+  box-shadow: var(--shadow-xs);
+}
+
+.trust-strip-item {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ishbor-text-sub);
+}
+
+.trust-strip-item svg {
+  color: var(--color-primary);
+}
+
+/* ─── Catalog grid — airier, premium gap ─── */
+.catalog-grid {
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .catalog-grid {
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .catalog-grid {
+    gap: 22px;
+  }
+}
+
+/* ─── Service cards — Kwork-style ─── */
+.ishbor-service-card {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--ishbor-border) 88%, transparent);
+  background: var(--neutral-0);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.03);
+  overflow: hidden;
+}
+
+.ishbor-service-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--ishbor-border));
+  box-shadow: 0 8px 28px rgb(37 99 235 / 0.1), 0 2px 8px rgb(15 23 42 / 0.06);
+  transform: translateY(-2px);
+}
+
+.ishbor-service-card:hover .ishbor-service-card__title {
+  color: var(--color-primary);
+}
+
+.ishbor-service-card__media {
+  border-bottom: 1px solid color-mix(in srgb, var(--ishbor-border) 50%, transparent);
+}
+
+.ishbor-service-card__body {
+  padding: 0.875rem 1rem 1rem;
+  gap: 0.625rem;
+}
+
+.ishbor-service-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  min-height: 2.7em;
+}
+
+.ishbor-service-card__footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--ishbor-border) 65%, transparent);
+}
+
+.ishbor-service-card__price-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ishbor-text-muted);
+}
+
+.ishbor-service-card__price {
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ishbor-service-card__escrow-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ishbor-text-muted);
+}
+
+/* ─── Freelancer cards — profile-first ─── */
+.ishbor-freelancer-card {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--ishbor-border) 88%, transparent);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.03);
+}
+
+.ishbor-freelancer-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--ishbor-border));
+  box-shadow: 0 8px 28px rgb(37 99 235 / 0.08);
+  transform: translateY(-2px);
+}
+
+.ishbor-freelancer-card__header {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 6%, var(--neutral-0)) 0%,
+    var(--neutral-0) 72%
+  );
+}
+
+.ishbor-freelancer-card__footer {
+  border-top: 1px solid color-mix(in srgb, var(--ishbor-border) 65%, transparent);
+  background: var(--neutral-0);
+}
+
+/* ─── Project cards — Upwork-style list rows ─── */
+.project-catalog-card {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--ishbor-border) 88%, transparent);
+  border-left-width: 3px;
+  border-left-color: color-mix(in srgb, var(--color-primary) 25%, var(--ishbor-border));
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.project-catalog-card:hover {
+  border-left-color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 20%, var(--ishbor-border));
+  box-shadow: 0 6px 24px rgb(37 99 235 / 0.08);
+  transform: translateY(-1px);
+}
+
+.project-catalog-card .text-\[18px\] {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Filter panel ─── */
+.catalog-filter-panel {
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgb(15 23 42 / 0.06);
+}
+
+.catalog-filter-option--active {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--neutral-0));
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ─── Results bar ─── */
+.catalog-results-count-pill {
+  border-radius: 999px;
+  padding: 0.375rem 0.875rem;
+  background: var(--neutral-0);
+  border: 1px solid var(--ishbor-border);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ─── Footer — grounded ─── */
+.site-footer {
+  background: linear-gradient(180deg, var(--neutral-0) 0%, var(--neutral-50) 100%);
+  border-top: 1px solid color-mix(in srgb, var(--ishbor-border) 80%, transparent);
+}
+
+.footer-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ishbor-text);
+}
+
+/* ─── Landing hero refresh ─── */
+.ishbor-landing-hero {
+  background: linear-gradient(
+    180deg,
+    var(--neutral-0) 0%,
+    color-mix(in srgb, var(--color-primary) 3%, var(--neutral-50)) 100%
+  );
+}
+
+.landing-hero-title {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  line-height: 1.05;
+}
+
+/* ─── Marketplace discover nav pills ─── */
+.jobs-discover-nav__item {
+  border-radius: 999px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: var(--transition);
+}
+
+.jobs-discover-nav__item--active {
+  background: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 10px rgb(37 99 235 / 0.28);
+}

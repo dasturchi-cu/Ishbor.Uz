@@ -246,8 +246,6 @@
     color: rgba(255, 255, 255, 0.88);
   }
 
-  .auth-brand-testimonial {
-
   .auth-brand-testimonial p {
     margin: 0.75rem 0 0;
     font-size: 0.875rem;
@@ -413,6 +411,29 @@
     font-size: 0.875rem;
     line-height: 1.5;
     color: var(--ishbor-text-muted);
+  }
+
+  .auth-mobile-trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .auth-mobile-trust__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: var(--r-full);
+    border: 1px solid var(--ishbor-border);
+    background: var(--color-bg-subtle);
+    padding: 0.35rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ishbor-text-sub);
   }
 
   .auth-step-badge {

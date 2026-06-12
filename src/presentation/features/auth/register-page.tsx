@@ -29,6 +29,7 @@ import { cn } from '@/shared/lib/utils'
 import { toast } from '@/presentation/components/ui/toast'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { trackFunnelEvent } from '@/shared/lib/funnel-analytics'
+import { TurnstileWidget, isTurnstileEnabled } from '@/presentation/components/auth/turnstile-widget'
 
 function RegisterPageContent() {
   const { t, setCurrentUserRole, refreshProfile } = useApp()
@@ -52,6 +53,7 @@ function RegisterPageContent() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   useEffect(() => {
     storeReferralRef(searchParams.get('ref'))
@@ -138,11 +140,19 @@ function RegisterPageContent() {
       return
     }
 
+    if (isTurnstileEnabled() && !captchaToken) {
+      setErrors({ submit: t('error_captcha_required') })
+      return
+    }
+
     setLoading(true)
     setErrors({})
     const selectedRole = role || 'freelancer'
 
     try {
+      if (isTurnstileEnabled()) {
+        await api.auditRegisterPrecheck(formData.email, captchaToken ?? undefined)
+      }
       const supabase = getSupabase()
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
@@ -208,6 +218,7 @@ function RegisterPageContent() {
         if (formData.city.trim()) {
           sessionStorage.setItem('ishbor-register-region', formData.city.trim())
         }
+        trackFunnelEvent('funnel_register_complete', { role: selectedRole })
         api
           .auditRegister()
           .catch((e) => ignoreWithLog(e, { scope: 'auth', apiPath: '/api/v1/platform/audit/register' }))
@@ -259,10 +270,10 @@ function RegisterPageContent() {
     return (
       <div className="auth-layout">
         <AuthBrandPanel />
-        <a href="#register-form" className="skip-link">
+        <a href="#main-content" className="skip-link">
           {t('skip_to_content')}
         </a>
-        <div className="auth-page-panel">
+        <main id="main-content" tabIndex={-1} className="auth-page-panel outline-none">
           <div className="auth-page-inner form-shell max-w-lg">
             <Link href={PATHS.home} className="auth-back-link show-mobile">
               <ArrowLeft className="h-4 w-4" />
@@ -334,7 +345,7 @@ function RegisterPageContent() {
           </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     )
   }
@@ -342,11 +353,11 @@ function RegisterPageContent() {
   return (
     <div className="auth-layout">
       <AuthBrandPanel />
-      <a href="#register-form" className="skip-link">
+      <a href="#main-content" className="skip-link">
         {t('skip_to_content')}
       </a>
 
-      <div className="auth-page-panel">
+      <main id="main-content" tabIndex={-1} className="auth-page-panel outline-none">
         <div className="auth-page-inner form-shell">
           <Link href={PATHS.home} className="auth-back-link show-mobile">
             <ArrowLeft className="h-4 w-4" />
@@ -474,6 +485,9 @@ function RegisterPageContent() {
                 error={errors.city}
                 inputSize="lg"
               />
+              {isTurnstileEnabled() && (
+                <TurnstileWidget onToken={(token) => setCaptchaToken(token)} />
+              )}
               {successMessage && (
                 <Alert variant="success">
                   <p>{successMessage}</p>
@@ -508,7 +522,7 @@ function RegisterPageContent() {
           </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

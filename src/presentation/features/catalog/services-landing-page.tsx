@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { MarketplaceCatalogHero } from '@/presentation/components/layout/marketplace-catalog-hero'
 import { MarketplaceDiscoverNav } from '@/presentation/components/layout/marketplace-discover-nav'
-import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import { ServicesCatalog } from '@/presentation/features/catalog/services-catalog'
 import { PATHS } from '@/domain/constants/routes'
-import { loginPath } from '@/shared/lib/auth-redirect'
+import { registerPath } from '@/shared/lib/auth-redirect'
 
 export function ServicesLandingPage() {
   const { t, isLoggedIn, currentUserRole } = useApp()
@@ -16,7 +15,7 @@ export function ServicesLandingPage() {
 
   const handleCreateService = () => {
     if (!isLoggedIn) {
-      router.push(loginPath(PATHS.createService))
+      router.push(registerPath(PATHS.createService))
       return
     }
     if (currentUserRole !== 'freelancer') {
@@ -25,6 +24,17 @@ export function ServicesLandingPage() {
     }
     router.push(PATHS.createService)
   }
+
+  const secondaryAction =
+    isLoggedIn && currentUserRole === 'freelancer'
+      ? {
+          label: t('services_hero_create'),
+          onClick: handleCreateService,
+        }
+      : {
+          label: t('services_hero_sell'),
+          href: registerPath(PATHS.createService),
+        }
 
   return (
     <>
@@ -36,15 +46,11 @@ export function ServicesLandingPage() {
           label: t('services_hero_browse'),
           onClick: () => document.getElementById('services-catalog')?.scrollIntoView({ behavior: 'smooth' }),
         }}
-        secondaryAction={{
-          label: t('services_hero_create'),
-          onClick: handleCreateService,
-        }}
+        secondaryAction={secondaryAction}
         trustLine={t('services_hero_trust')}
       />
-      <div className="layout-container max-w-[1280px] space-y-4 pt-4 md:pt-6">
+      <div className="layout-container max-w-[1280px] pt-4 md:pt-6">
         <MarketplaceDiscoverNav active="services" />
-        <TrustStrip />
       </div>
       <ServicesCatalog hideHeader />
     </>

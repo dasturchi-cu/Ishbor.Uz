@@ -18,6 +18,23 @@ export function resolveReturnTo(searchParams: URLSearchParams, fallback: string)
   return raw
 }
 
+const ORDER_DRAFT_PREFIX = 'ishbor-order-draft:'
+
+export function serviceOrderReturnPath(
+  serviceId: string,
+  opts?: { pkg?: string; resumeCheckout?: boolean },
+): string {
+  const params = new URLSearchParams()
+  if (opts?.pkg) params.set('pkg', opts.pkg)
+  if (opts?.resumeCheckout) params.set('order', '1')
+  const qs = params.toString()
+  return `/services/${serviceId}${qs ? `?${qs}` : ''}`
+}
+
+export function orderDraftStorageKey(serviceId: string): string {
+  return `${ORDER_DRAFT_PREFIX}${serviceId}`
+}
+
 export function resolvePostAuthDestination(
   searchParams: URLSearchParams,
   profile: { is_admin?: boolean; role?: string; onboarding_completed?: boolean } | null | undefined,

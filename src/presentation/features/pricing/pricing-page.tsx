@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Check } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
+import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import { Button } from '@/presentation/components/ui/button'
 import { PATHS } from '@/domain/constants/routes'
 import {
@@ -42,10 +43,11 @@ export function PricingPage() {
 
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-[24px] font-bold text-[var(--ishbor-text)] sm:text-[28px]">{t('nav_pricing')}</h1>
-        <p className="mt-2 text-[14px] text-[var(--ishbor-text-muted)]">{t('pricing_subtitle')}</p>
-      </div>
+      <header className="mb-6 text-center">
+        <h1 className="text-[24px] font-bold tracking-tight text-[var(--ishbor-text)] sm:text-[28px]">{t('nav_pricing')}</h1>
+        <p className="mx-auto mt-2 max-w-lg text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{t('pricing_subtitle')}</p>
+      </header>
+      <TrustStrip className="mb-8" />
 
       <div className="mx-auto grid max-w-[480px] gap-5">
         {PLANS.map((plan) => (
@@ -92,9 +94,12 @@ export function PricingPage() {
 
       <div className="mx-auto mt-8 flex max-w-[560px] flex-col items-center gap-3 text-center">
         <Link href={PATHS.services}>
-          <Button variant="outline" size="sm">
+          <Button variant="primary" size="lg" className="min-w-[200px]">
             {t('browse_services')}
           </Button>
+        </Link>
+        <Link href={PATHS.register} className="text-[14px] font-medium text-[var(--color-primary)] hover:underline">
+          {t('register')}
         </Link>
       </div>
     </PageWrapper>

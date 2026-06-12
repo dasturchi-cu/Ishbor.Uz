@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, status
 
 
 
@@ -8,7 +8,7 @@ from app.db_utils import run_query
 
 from app.deps import OptionalUserId, UserAuthDep
 
-from app.platform_services import track_activation_once
+from app.platform_services import track_activation_once, track_analytics_event
 from app.project_transitions import validate_project_transition
 
 from app.schemas import ProjectCreate, ProjectResponse, ProjectStatusUpdate, ProjectUpdate
@@ -93,23 +93,34 @@ def list_projects(
 
         query = query.lte("budget", budget_max)
 
-    if q:
-        from app.search_utils import sanitize_search_term
-
-        safe_search = sanitize_search_term(q)
-        if safe_search:
-            pattern = f"%{safe_search}%"
-            query = query.or_(f"title.ilike.{pattern},description.ilike.{pattern}")
-
-
-
-    result = run_query(
-
-        lambda: query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-
+    from app.catalog_quality import filter_quality_project_rows
+    from app.search_query import (
+        MAX_SEARCH_SCAN,
+        apply_search_tokens,
+        sort_by_relevance,
+        tokenize_search,
     )
 
-    rows = result.data or []
+    search_tokens = tokenize_search(q)
+    if search_tokens:
+        query = apply_search_tokens(query, search_tokens, ["title", "description", "category"])
+
+    if search_tokens:
+        result = run_query(
+            lambda: query.order("created_at", desc=True).range(0, MAX_SEARCH_SCAN - 1).execute()
+        )
+        rows = result.data or []
+        if not client_id:
+            rows = filter_quality_project_rows(rows)
+        rows = sort_by_relevance(rows, q)
+        rows = rows[offset : offset + limit]
+    else:
+        result = run_query(
+            lambda: query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        )
+        rows = result.data or []
+        if not client_id:
+            rows = filter_quality_project_rows(rows)
 
     if not rows:
 
@@ -194,6 +205,45 @@ def _project_contract_id(supabase, project_id: str, status: str) -> str | None:
     )
     if row.data:
         return row.data[0]["id"]
+    return None
+
+
+def _viewer_key(request: Request, user_id: str | None) -> str:
+    if user_id:
+        return f"user:{user_id}"
+    ip = request.client.host if request.client else "unknown"
+    return f"ip:{ip}"
+
+
+@router.post("/{project_id}/view", status_code=status.HTTP_204_NO_CONTENT)
+def record_project_view(
+    project_id: str,
+    request: Request,
+    user_id: OptionalUserId = None,
+):
+    supabase = get_supabase_admin()
+    existing = run_query(
+        lambda: supabase.table("projects").select("id").eq("id", project_id).limit(1).execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loyiha topilmadi")
+    dedup = run_query(
+        lambda: supabase.rpc(
+            "record_view_if_new",
+            {
+                "p_target_type": "project",
+                "p_target_id": project_id,
+                "p_viewer_key": _viewer_key(request, user_id),
+            },
+        ).execute()
+    )
+    if not dedup.data:
+        return None
+    track_analytics_event(
+        "project_view",
+        user_id=user_id,
+        properties={"project_id": project_id},
+    )
     return None
 
 

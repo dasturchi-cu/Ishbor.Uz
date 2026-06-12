@@ -1,0 +1,10 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IshBor.uz">
+  <rect width="1200" height="630" fill="#2563EB"/>
+  <rect x="80" y="80" width="1040" height="470" rx="32" fill="#1D4ED8"/>
+  <text x="120" y="280" fill="#FFFFFF" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="96" font-weight="800" letter-spacing="-2">IshBor.uz</text>
+  <text x="120" y="360" fill="#DBEAFE" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="40" font-weight="500">O&apos;zbekistondagi freelance marketplace</text>
+  <text x="120" y="430" fill="#BFDBFE" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="28" font-weight="400">Xizmatlar · Buyurtmalar · Chat</text>
+  <circle cx="1020" cy="315" r="120" fill="#3B82F6"/>
+  <path fill="#FFFFFF" d="M980 265h72c24.9 0 45 20.1 45 45v54h-36v-54c0-2-0.2-4-0.6-6l-54 54c1 0.2 2 0.3 3 0.3h54v36h-54c-24.9 0-45-20.1-45-45v-54h36v54c0 3.6 0.4 7.1 1.2 10.4l55-55c-2.4-0.4-4.9-0.6-7.2-0.6h-54v-36z"/>
+  <path fill="#FFFFFF" d="M915 395l-38-42h21l30 34v-34h15v52c0 7.8-9.6 11.6-15 8.4v-18.4z"/>
+</svg>

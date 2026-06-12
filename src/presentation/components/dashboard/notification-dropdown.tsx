@@ -21,6 +21,7 @@ import { markAllNotifsRead, markNotifRead } from '@/shared/lib/notification-read
 import { resolveNotifText } from '@/shared/lib/resolve-notif-body'
 import { formatRelativeTime } from '@/shared/lib/format-relative-time'
 import { useNotificationsFeed } from '@/application/providers/notifications-provider'
+import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/shared/lib/query-keys'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
@@ -60,6 +61,7 @@ export function NotificationDropdown() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const { notifications, ensureLoaded } = useNotificationsFeed()
+  const { notificationUnread } = useBadgeCounts()
 
   const items = fromApiNotifications(notifications, language)
 
@@ -71,7 +73,8 @@ export function NotificationDropdown() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const unread = items.filter((n) => n.unread).length
+  const feedUnread = items.filter((n) => n.unread).length
+  const unread = notifications.length > 0 ? feedUnread : notificationUnread
 
   const patchCache = (mapper: (rows: ApiNotification[]) => ApiNotification[]) => {
     queryClient.setQueryData<ApiNotification[]>(queryKeys.notifications, (prev) =>

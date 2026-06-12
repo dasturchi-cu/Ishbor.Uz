@@ -158,7 +158,7 @@ export function WalletTopupModal({ open, onClose, onSuccess }: WalletTopupModalP
 
   return (
 
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+    <div className="ps-modal-backdrop items-end sm:items-center">
 
       <div
 
@@ -166,7 +166,7 @@ export function WalletTopupModal({ open, onClose, onSuccess }: WalletTopupModalP
 
         aria-modal="true"
 
-        className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 shadow-lg"
+        className="ps-modal max-w-md"
 
       >
 
@@ -183,6 +183,13 @@ export function WalletTopupModal({ open, onClose, onSuccess }: WalletTopupModalP
         </div>
 
         <p className="mb-4 text-[13px] text-[var(--ishbor-text-muted)]">{t('wallet_topup_desc')}</p>
+
+        <p
+          className="mb-3 inline-flex items-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
+          role="status"
+        >
+          {t('payment_test_mode_badge')}
+        </p>
 
         <p className="mb-3 text-[12px] text-[var(--ishbor-text-muted)]">{t('payment_protected_note')}</p>
 

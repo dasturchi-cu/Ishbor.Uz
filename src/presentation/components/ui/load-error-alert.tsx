@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
@@ -43,9 +44,12 @@ export function LoadErrorAlert({
   return (
     <Alert variant="error" className={className}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span>{message}</span>
+        <span className="flex min-w-0 flex-1 items-start gap-2 text-[14px] leading-snug">
+          <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          {message}
+        </span>
         {onRetry ? (
-          <Button variant="outline" size="sm" onClick={() => void onRetry()}>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={() => void onRetry()}>
             {t('catalog_retry')}
           </Button>
         ) : null}

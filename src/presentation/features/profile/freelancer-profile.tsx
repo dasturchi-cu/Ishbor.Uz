@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Settings,
   Share2,
+  Shield,
   ShieldCheck,
   Star,
   Award,
@@ -48,6 +49,7 @@ import { UserX } from 'lucide-react'
 import { JsonLdBreadcrumb, JsonLdPerson } from '@/presentation/components/seo/json-ld'
 import { ReportModal } from '@/presentation/components/features/report-modal'
 import { ReputationBadge } from '@/presentation/components/features/reputation-badge'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 
 type ProfileTab = 'about' | 'services' | 'portfolio' | 'reviews'
 
@@ -189,7 +191,12 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
   }
 
   if (loading) {
-    return <SkeletonProfileHero />
+    return (
+      <>
+        <h1 className="sr-only">{t('loading_data')}</h1>
+        <SkeletonProfileHero />
+      </>
+    )
   }
 
   if (!profile) {
@@ -421,6 +428,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                 <p className="freelancer-profile-stat-label">{t('nav_services')}</p>
               </div>
             </div>
+            <IshborProtectionStrip compact showLearnMore className="mt-4" />
           </div>
         </section>
 
@@ -488,7 +496,7 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                         reviewCount={stats.reviewCount}
                         price={s.price}
                         category={s.category}
-                        isPro={false}
+                        isPro={profile.is_verified === true}
                         onClick={() => router.push(servicePath(s.id))}
                       />
                     ))}
@@ -627,6 +635,10 @@ export function FreelancerProfile({ profileId }: { profileId: string }) {
                   <li>
                     <Star className="h-4 w-4 shrink-0" aria-hidden />
                     {t('profile_guest_trust_reviews')}
+                  </li>
+                  <li>
+                    <Shield className="h-4 w-4 shrink-0 text-[var(--success)]" aria-hidden />
+                    {t('card_escrow_protected')}
                   </li>
                 </ul>
 

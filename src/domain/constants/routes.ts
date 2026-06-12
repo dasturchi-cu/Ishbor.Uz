@@ -83,6 +83,13 @@ export function dashboardOrderPath(id: string) {
   return `/dashboard/orders/${id}`
 }
 
+/** Reserved slugs — must not be treated as project IDs in /projects/[id]. */
+export const RESERVED_PROJECT_SLUGS = new Set(['new', 'create', 'edit'])
+
+export function isReservedProjectSlug(id: string): boolean {
+  return RESERVED_PROJECT_SLUGS.has(id.toLowerCase())
+}
+
 export function projectPath(id: string) {
   return `/projects/${id}`
 }

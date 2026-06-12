@@ -23,12 +23,12 @@ _UUID_RE = re.compile(
 
 @router.get("/channels")
 def notification_channels():
-    username = settings.telegram_bot_username.strip().lstrip("@") or None
+    bot_username = settings.telegram_bot_username.strip() if settings.telegram_enabled else None
     return {
         "email": bool(settings.resend_api_key.strip()),
         "sms": settings.sms_enabled,
         "telegram": settings.telegram_enabled,
-        "telegram_bot_username": username,
+        "telegram_bot_username": bot_username or None,
         "redis": settings.redis_enabled,
     }
 
@@ -97,6 +97,12 @@ async def telegram_webhook(
         .update({"telegram_chat_id": str(chat_id)})
         .eq("id", user_id)
         .execute()
+    )
+    from app.telegram_service import send_telegram
+
+    send_telegram(
+        str(chat_id),
+        "✅ IshBor.uz bilan ulandingiz!\nBuyurtma va xabar bildirishnomalari shu yerda keladi.",
     )
     return {"ok": True}
 
@@ -309,6 +315,18 @@ def _notification_dedupe_key(item: dict) -> str:
     return f"id:{item['id']}"
 
 
+def count_unread_notifications(supabase, user_id: str) -> int:
+    """Unread count aligned with GET /notifications (merged DB + synthetic)."""
+    db_items = _db_notifications(supabase, user_id)
+    synthetic = _synthetic_notifications(supabase, user_id)
+    merged = _merge_notification_items(db_items, synthetic)
+    dismissed_ids = _dismissed_ids_for_user(supabase, user_id)
+    merged = [item for item in merged if item["id"] not in dismissed_ids]
+    read_ids = _read_ids_for_user(supabase, user_id)
+    merged = _apply_read_state(merged, read_ids)
+    return sum(1 for item in merged if item.get("unread"))
+
+
 def _merge_notification_items(db_items: list[dict], synthetic: list[dict]) -> list[dict]:
     seen_ids = {item["id"] for item in db_items}
     seen_keys = {_notification_dedupe_key(item) for item in db_items}
@@ -413,7 +431,7 @@ def mark_all_notifications_read(auth: UserAuthDep):
     items = list_notifications(auth)
     if not items:
         return None
-    rows = [{"user_id": user_id, "notification_id": item["id"]} for item in items]
+    rows = [{"user_id": user_id, "notification_id": item.id} for item in items]
     try:
         run_query(
             lambda: supabase.table("notification_reads")

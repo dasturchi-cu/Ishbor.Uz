@@ -11,7 +11,7 @@
   --brand-800: #1E40AF;
   --brand-900: #1E3A5F;
 
-  /* Neutral — Slate palette */
+  /* Neutral — Slate palette (primitives, do not use directly in components) */
   --neutral-0: #FFFFFF;
   --neutral-50: #F8FAFC;
   --neutral-100: #F1F5F9;
@@ -23,6 +23,18 @@
   --neutral-700: #334155;
   --neutral-800: #1E293B;
   --neutral-900: #0F172A;
+
+  /* ─── Surface layers (light) — Telegram/GitHub-style elevation ─── */
+  --surface-base: var(--neutral-50);
+  --surface-canvas: var(--neutral-0);
+  --surface-raised: var(--neutral-0);
+  --surface-overlay: var(--neutral-0);
+  --surface-sunken: var(--neutral-100);
+  --surface-hover: var(--neutral-100);
+  --surface-active: var(--neutral-200);
+  --surface-border: var(--neutral-200);
+  --surface-border-subtle: color-mix(in srgb, var(--neutral-200) 72%, transparent);
+  --scrim: rgb(15 23 42 / 0.45);
 
   /* Semantic */
   --success-bg: #ECFDF5;
@@ -39,14 +51,14 @@
   --info-dark: #1E3A5F;
 
   /* Semantic aliases — use ONLY these in components */
-  --color-bg: var(--neutral-0);
-  --color-bg-subtle: var(--neutral-50);
-  --color-bg-muted: var(--neutral-100);
-  --color-border: var(--neutral-200);
+  --color-bg: var(--surface-canvas);
+  --color-bg-subtle: var(--surface-base);
+  --color-bg-muted: var(--surface-sunken);
+  --color-border: var(--surface-border);
   --color-border-strong: var(--neutral-300);
   --color-text: var(--neutral-900);
   --color-text-sub: var(--neutral-600);
-  --color-text-muted: var(--neutral-400);
+  --color-text-muted: var(--neutral-500);
 
   /* Primary */
   --color-primary: var(--brand-600);
@@ -54,8 +66,8 @@
   --color-primary-active: var(--brand-800);
   --color-primary-light: var(--brand-50);
   --color-primary-text: var(--brand-900);
-  --color-primary-disabled-bg: var(--brand-200);
-  --color-primary-disabled-text: var(--brand-300);
+  --color-primary-disabled-bg: var(--neutral-200);
+  --color-primary-disabled-text: var(--neutral-500);
   --color-on-primary: var(--neutral-0);
 
   /* Secondary — neutral actions, chips */
@@ -93,7 +105,7 @@
   --r-2xl: 28px;
   --r-full: 9999px;
 
-  /* Shadow — subtle elevation, no heavy drop shadows */
+  /* Shadow — subtle elevation */
   --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
@@ -138,21 +150,21 @@
   --btn-h-lg: 48px;
   --input-h: 40px;
 
-  /* Marketplace surface */
+  /* Marketplace surface aliases */
   --ishbor-border: var(--color-border);
   --ishbor-bg: var(--color-bg-subtle);
   --ishbor-text: var(--color-text);
   --ishbor-text-sub: var(--color-text-sub);
   --ishbor-text-muted: var(--color-text-muted);
-  --ishbor-search-bg: var(--neutral-100);
-  --body-bg: var(--neutral-0);
-  --body-bg-muted: var(--neutral-50);
+  --ishbor-search-bg: var(--surface-sunken);
+  --body-bg: var(--surface-canvas);
+  --body-bg-muted: var(--surface-base);
   --ishbor-header-h: 60px;
   --ishbor-nav-h: 42px;
   --ishbor-header-total: var(--ishbor-header-h);
   --layout-max-w: 1280px;
 
-  /* Motion — premium easing */
+  /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
   --duration-fast: 150ms;
@@ -166,29 +178,90 @@
     opacity var(--duration-normal) var(--ease-out);
 }
 
+/* ─── Dark theme — layered surfaces (never pure #000) ─── */
 .dark {
-  --ishbor-border: var(--neutral-700);
-  --ishbor-bg: var(--neutral-900);
-  --ishbor-text: var(--neutral-100);
-  --ishbor-text-muted: var(--neutral-400);
-  --ishbor-search-bg: var(--neutral-800);
-  --body-bg: var(--neutral-900);
-  --color-bg: var(--neutral-900);
-  --color-bg-subtle: var(--neutral-800);
-  --color-bg-muted: var(--neutral-700);
-  --color-border: var(--neutral-700);
-  --color-border-strong: var(--neutral-600);
-  --color-text: var(--neutral-100);
-  --color-text-sub: var(--neutral-400);
-  --color-text-muted: var(--neutral-500);
-  --color-primary: var(--brand-500);
-  --color-primary-hover: var(--brand-400);
-  --color-primary-light: color-mix(in srgb, var(--brand-900) 60%, var(--neutral-900));
+  /* Dark primitives (GitHub / Telegram inspired) */
+  --dm-base: #12151a;
+  --dm-canvas: #161a21;
+  --dm-subtle: #1a1f28;
+  --dm-raised: #1e232b;
+  --dm-overlay: #262b35;
+  --dm-sunken: #141820;
+  --dm-hover: #2a3039;
+  --dm-active: #323843;
+  --dm-border: #30363d;
+  --dm-border-subtle: #21262d;
+  --dm-text: #e8edf3;
+  --dm-text-sub: #b4bcc6;
+  --dm-text-muted: #8b949e;
+
+  /* Surface layers */
+  --surface-base: var(--dm-base);
+  --surface-canvas: var(--dm-canvas);
+  --surface-raised: var(--dm-raised);
+  --surface-overlay: var(--dm-overlay);
+  --surface-sunken: var(--dm-sunken);
+  --surface-hover: var(--dm-hover);
+  --surface-active: var(--dm-active);
+  --surface-border: var(--dm-border);
+  --surface-border-subtle: var(--dm-border-subtle);
+  --scrim: rgb(8 10 14 / 0.68);
+
+  /* Semantic mapping */
+  --color-bg: var(--surface-canvas);
+  --color-bg-subtle: var(--surface-base);
+  --color-bg-muted: var(--dm-subtle);
+  --color-border: var(--surface-border);
+  --color-border-strong: #484f58;
+  --color-text: var(--dm-text);
+  --color-text-sub: var(--dm-text-sub);
+  --color-text-muted: var(--dm-text-muted);
+
+  --color-primary: var(--brand-400);
+  --color-primary-hover: var(--brand-300);
+  --color-primary-active: var(--brand-500);
+  --color-primary-light: color-mix(in srgb, var(--brand-500) 14%, var(--dm-raised));
   --color-primary-text: var(--brand-200);
-  --color-secondary: var(--neutral-800);
-  --color-secondary-hover: var(--neutral-700);
-  --color-secondary-text: var(--neutral-300);
-  --color-accent-light: color-mix(in srgb, var(--color-accent) 15%, var(--neutral-900));
-  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-card-hover: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --color-primary-disabled-bg: var(--dm-hover);
+  --color-primary-disabled-text: var(--dm-text-muted);
+  --color-on-primary: #ffffff;
+
+  --color-secondary: var(--dm-subtle);
+  --color-secondary-hover: var(--dm-hover);
+  --color-secondary-text: var(--dm-text-sub);
+
+  --color-accent-light: color-mix(in srgb, var(--color-accent) 18%, var(--dm-raised));
+
+  /* Semantic status (dark-readable) */
+  --success-bg: color-mix(in srgb, var(--success) 16%, var(--dm-raised));
+  --success-dark: #3fb950;
+  --warning-bg: color-mix(in srgb, var(--warning) 16%, var(--dm-raised));
+  --warning-dark: #e3b341;
+  --error-bg: color-mix(in srgb, var(--error) 16%, var(--dm-raised));
+  --error-dark: #f85149;
+  --info-bg: color-mix(in srgb, var(--info) 16%, var(--dm-raised));
+  --info-dark: #58a6ff;
+
+  /* Ishbor aliases */
+  --ishbor-border: var(--surface-border);
+  --ishbor-bg: var(--surface-base);
+  --ishbor-text: var(--color-text);
+  --ishbor-text-sub: var(--color-text-sub);
+  --ishbor-text-muted: var(--color-text-muted);
+  --ishbor-search-bg: var(--surface-sunken);
+  --body-bg: var(--surface-canvas);
+  --body-bg-muted: var(--surface-base);
+
+  /* Elevation & focus */
+  --rating-empty: var(--dm-hover);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.24);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.28), 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.32), 0 2px 4px rgb(0 0 0 / 0.22);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.4), 0 4px 8px rgb(0 0 0 / 0.24);
+  --shadow-card: 0 0 0 1px var(--surface-border-subtle), 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-primary) 22%, var(--surface-border)), 0 4px 16px rgb(0 0 0 / 0.28);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-400) 38%, transparent);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 0.04);
+
+  --overlay-dark: color-mix(in srgb, var(--dm-base) 78%, transparent);
 }

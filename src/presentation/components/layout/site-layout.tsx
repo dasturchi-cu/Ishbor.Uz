@@ -1,6 +1,8 @@
 'use client'
 
 import '@/presentation/styles/shell-chrome.css'
+import '@/presentation/styles/marketplace-visual-v2.css'
+import '@/presentation/styles/marketplace-world-class.css'
 import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { Header } from '@/presentation/components/layout/header'
@@ -69,7 +71,7 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
         {!hideFooter && <Footer />}
         {isLoggedIn && !onDashboard ? <MobileNav /> : !isLoggedIn ? <GuestMobileNav /> : null}
         {isLoggedIn ? <InboxRealtimeBridge /> : null}
-        <BrowserNotificationWatcher />
+        {isLoggedIn ? <BrowserNotificationWatcher /> : null}
         <SupabaseRequestAuditReporter />
         <Toaster />
       </div>

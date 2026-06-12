@@ -106,9 +106,10 @@ export function Header() {
                 >
                   {t('login')}
                 </Link>
-                <Link href={PATHS.register}>
-                  <Button variant="primary" size="md" className="px-4 font-semibold sm:px-5">
-                    {t('register')}
+                <Link href={PATHS.register} className="shrink-0">
+                  <Button variant="primary" size="sm" className="header-guest-register px-3 text-[13px] font-semibold sm:px-5 sm:text-[14px]">
+                    <span className="xs-register-short hidden">{t('register_short')}</span>
+                    <span className="xs-register-full">{t('register')}</span>
                   </Button>
                 </Link>
               </>
@@ -118,7 +119,7 @@ export function Header() {
               <div className="header-auth-cluster">
                 <Link
                   href={dashboardHref}
-                  className="hide-mobile rounded-full border border-[var(--ishbor-border)] bg-[var(--neutral-0)] px-4 py-2 text-[13px] font-semibold text-[var(--ishbor-text)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                  className="hide-mobile rounded-full border border-[var(--ishbor-border)] bg-[var(--surface-raised)] px-4 py-2 text-[13px] font-semibold text-[var(--ishbor-text)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
                 >
                   {t('nav_dashboard')}
                 </Link>
@@ -130,15 +131,17 @@ export function Header() {
               </div>
             )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="show-mobile h-11 w-11 shrink-0"
-              onClick={() => router.push(PATHS.services)}
-              aria-label={t('header_search_placeholder')}
-            >
-              <Search className="h-5 w-5" />
-            </Button>
+            {!isHome && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="show-mobile h-11 w-11 shrink-0"
+                onClick={() => router.push(PATHS.services)}
+                aria-label={t('header_search_placeholder')}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -167,11 +170,11 @@ export function Header() {
             role="dialog"
             aria-modal="true"
             aria-label={t('nav_main_menu')}
-            className="drawer-panel show-mobile fixed inset-y-0 right-0 z-50 border-l border-[var(--ishbor-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
+            className="drawer-panel show-mobile fixed inset-y-0 right-0 z-50 border-l border-[var(--ishbor-border)] bg-[var(--surface-overlay)] p-5 shadow-[var(--shadow-lg)]"
           >
             <div className="mb-4 flex items-center justify-between">
               <HeaderLogo href={PATHS.home} compact className="pointer-events-none" />
-              <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} aria-label={t('close')}>
+              <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => setMobileOpen(false)} aria-label={t('close')}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
@@ -258,7 +261,7 @@ function MobileLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--ishbor-text)] hover:bg-[var(--ishbor-bg)]"
+      className="flex min-h-11 items-center rounded-lg px-3 py-3 text-sm font-medium text-[var(--ishbor-text)] hover:bg-[var(--ishbor-bg)]"
     >
       {children}
     </Link>

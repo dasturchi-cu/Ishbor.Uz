@@ -17,19 +17,20 @@ _APPLICATION_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
-def _enrich_application(row: dict, supabase) -> dict:
+def _enrich_application(row: dict) -> dict:
+    admin = get_supabase_admin()
     freelancer = run_query(
-        lambda: supabase.table("profiles")
+        lambda: admin.table("profiles")
         .select("id, full_name, specialty, region, avatar_url")
         .eq("id", row["freelancer_id"])
-        .single()
+        .maybe_single()
         .execute()
     )
     project = run_query(
-        lambda: supabase.table("projects")
+        lambda: admin.table("projects")
         .select("id, title, client_id, status, budget")
         .eq("id", row["project_id"])
-        .single()
+        .maybe_single()
         .execute()
     )
     return {
@@ -105,7 +106,7 @@ def create_application(payload: ApplicationCreate, auth: UserAuthDep):
             body="Yangi ariza keldi",
             href=f"/projects/{payload.project_id}",
         )
-    return _enrich_application(row, supabase)
+    return _enrich_application(row)
 
 
 @router.get("/mine", response_model=list[ApplicationResponse])
@@ -119,7 +120,7 @@ def list_my_applications(auth: UserAuthDep):
         .order("created_at", desc=True)
         .execute()
     )
-    return [_enrich_application(row, supabase) for row in (result.data or [])]
+    return [_enrich_application(row) for row in (result.data or [])]
 
 
 @router.get("/project/{project_id}", response_model=list[ApplicationResponse])
@@ -141,7 +142,7 @@ def list_project_applications(project_id: str, auth: UserAuthDep):
         .order("created_at", desc=True)
         .execute()
     )
-    return [_enrich_application(row, supabase) for row in (result.data or [])]
+    return [_enrich_application(row) for row in (result.data or [])]
 
 
 @router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -259,4 +260,4 @@ def update_application_status(
             href=f"/dashboard/contracts/{contract_id}" if contract_id else "/dashboard/orders",
         )
 
-    return _enrich_application(row, supabase)
+    return _enrich_application(row)

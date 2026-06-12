@@ -41,7 +41,7 @@ def _get_redis():
         return None
 
 
-def _check_redis(bucket_key: str, *, max_hits: int) -> bool | None:
+def _check_redis(bucket_key: str, *, max_hits: int, window_seconds: int) -> bool | None:
     client = _get_redis()
     if client is None:
         return None
@@ -52,7 +52,7 @@ def _check_redis(bucket_key: str, *, max_hits: int) -> bool | None:
         pipe.ttl(key)
         count, ttl = pipe.execute()
         if ttl == -1:
-            client.expire(key, _WINDOW_SECONDS)
+            client.expire(key, window_seconds)
         return int(count) <= max_hits
     except Exception as exc:
         logger.warning("Redis rate limit error: %s", exc)
@@ -62,9 +62,9 @@ def _check_redis(bucket_key: str, *, max_hits: int) -> bool | None:
         return None
 
 
-def _check_postgres(bucket_key: str, *, max_hits: int) -> bool:
+def _check_postgres(bucket_key: str, *, max_hits: int, window_seconds: int) -> bool:
     supabase = get_supabase_admin()
-    window_start = (datetime.now(UTC) - timedelta(seconds=_WINDOW_SECONDS)).isoformat()
+    window_start = (datetime.now(UTC) - timedelta(seconds=window_seconds)).isoformat()
 
     try:
         run_query(
@@ -96,9 +96,14 @@ def _check_postgres(bucket_key: str, *, max_hits: int) -> bool:
         return False
 
 
-def check_rate_limit(bucket_key: str, *, max_hits: int = _MAX_HITS) -> bool:
+def check_rate_limit(
+    bucket_key: str,
+    *,
+    max_hits: int = _MAX_HITS,
+    window_seconds: int = _WINDOW_SECONDS,
+) -> bool:
     """Return True if request is allowed."""
-    redis_ok = _check_redis(bucket_key, max_hits=max_hits)
+    redis_ok = _check_redis(bucket_key, max_hits=max_hits, window_seconds=window_seconds)
     if redis_ok is not None:
         return redis_ok
-    return _check_postgres(bucket_key, max_hits=max_hits)
+    return _check_postgres(bucket_key, max_hits=max_hits, window_seconds=window_seconds)

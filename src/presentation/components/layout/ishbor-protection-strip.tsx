@@ -1,7 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { CreditCard, Shield, CheckCircle2 } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
+import { PATHS } from '@/domain/constants/routes'
 import { cn } from '@/shared/lib/utils'
 import type { TranslationKey } from '@/infrastructure/i18n'
 
@@ -15,17 +17,26 @@ const STEPS: { icon: typeof Shield; labelKey: TranslationKey }[] = [
 export function IshborProtectionStrip({
   className,
   compact,
+  showLearnMore,
 }: {
   className?: string
   compact?: boolean
+  showLearnMore?: boolean
 }) {
   const { t } = useApp()
 
   return (
     <div className={cn('ishbor-protection-strip', compact && 'ishbor-protection-strip--compact', className)}>
-      <div className="ishbor-protection-strip__badge">
-        <Shield className="h-4 w-4 shrink-0" aria-hidden />
-        <span>{t('protected_payment_label')}</span>
+      <div className="ishbor-protection-strip__head">
+        <div className="ishbor-protection-strip__badge">
+          <Shield className="h-4 w-4 shrink-0" aria-hidden />
+          <span>{t('protected_payment_label')}</span>
+        </div>
+        {showLearnMore ? (
+          <Link href={PATHS.buyerProtection} className="ishbor-protection-strip__learn-more">
+            {t('marketplace_trust_learn_more')} →
+          </Link>
+        ) : null}
       </div>
       <ol className="ishbor-protection-strip__steps" aria-label={t('protected_payment_label')}>
         {STEPS.map(({ icon: Icon, labelKey }, i) => (

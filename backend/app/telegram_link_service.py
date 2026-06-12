@@ -14,23 +14,31 @@ from app.config import settings
 _TOKEN_TTL_SEC = 900
 
 
-def _link_secret() -> str:
+def _link_secret() -> str | None:
     secret = settings.telegram_webhook_secret.strip() or settings.supabase_jwt_secret.strip()
     if secret:
         return secret
+    if settings.is_production:
+        return None
     return "ishbor-dev-telegram-link-only"
 
 
 def create_telegram_link_token(user_id: str) -> str:
+    secret = _link_secret()
+    if not secret:
+        raise RuntimeError("Telegram link secret is not configured")
     uid = uuid.UUID(user_id)
     exp = int(time.time()) + _TOKEN_TTL_SEC
     payload = uid.bytes + struct.pack(">I", exp)
-    sig = hmac.new(_link_secret().encode(), payload, hashlib.sha256).digest()[:8]
+    sig = hmac.new(secret.encode(), payload, hashlib.sha256).digest()[:8]
     raw = payload + sig
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
 def verify_telegram_link_token(token: str) -> str | None:
+    secret = _link_secret()
+    if not secret:
+        return None
     if not token or len(token) > 64:
         return None
     try:
@@ -43,7 +51,7 @@ def verify_telegram_link_token(token: str) -> str | None:
         exp = struct.unpack(">I", payload[16:20])[0]
         if exp < int(time.time()):
             return None
-        expected = hmac.new(_link_secret().encode(), payload, hashlib.sha256).digest()[:8]
+        expected = hmac.new(secret.encode(), payload, hashlib.sha256).digest()[:8]
         if not hmac.compare_digest(expected, sig):
             return None
         return str(uid)

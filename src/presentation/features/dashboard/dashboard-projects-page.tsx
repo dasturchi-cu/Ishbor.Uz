@@ -22,6 +22,7 @@ import {
 } from '@/shared/lib/marketplace-status'
 import { captureActionError } from '@/shared/lib/action-error'
 import { toast } from '@/presentation/components/ui/toast'
+import { clearDashboardSummaryCache } from '@/shared/lib/dashboard-summary-cache'
 
 export function DashboardProjectsPage() {
   const { t } = useApp()
@@ -55,8 +56,9 @@ export function DashboardProjectsPage() {
 
   useEffect(() => {
     if (!ready) return
+    if (justPosted) clearDashboardSummaryCache('client')
     loadProjects()
-  }, [loadProjects, ready])
+  }, [loadProjects, ready, justPosted])
 
   const projectStatusLabel = (status: string) =>
     marketplaceStatusLabel(PROJECT_STATUS_KEYS, status, t)

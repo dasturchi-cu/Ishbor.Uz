@@ -24,7 +24,7 @@ export function EmptyState({ icon, title, description, action, secondaryAction, 
           )}
         </div>
         {action && (
-          <Button variant={action.variant ?? 'outline'} size="sm" onClick={action.onClick} className="shrink-0">
+          <Button variant={action.variant ?? 'outline'} size="md" onClick={action.onClick} className="min-h-[44px] shrink-0">
             {action.label}
           </Button>
         )}

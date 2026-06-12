@@ -68,7 +68,7 @@ export function CompaniesCatalog({ hideHeader = false }: { hideHeader?: boolean 
         </div>
       )}
 
-      <IshborProtectionStrip compact className="mb-5" />
+      {!hideHeader ? <IshborProtectionStrip compact className="mb-5" /> : null}
 
       {loadError ? (
         <LoadErrorAlert error={loadError} scope="companies" onRetry={loadCompanies} className="mb-4" />

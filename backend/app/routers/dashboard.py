@@ -8,6 +8,7 @@ from app.db_utils import run_query
 from app.deps import UserAuthDep, UserAuthWithProfileDep
 from app.review_stats import batch_review_stats
 from app.routers.reviews import _enrich_reviews, _enrich_reviews_freelancer
+from app.routers.notifications import count_unread_notifications
 from app.timing_log import timed
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -21,14 +22,10 @@ def _stats_from_reviews(reviews: list[dict]) -> dict:
 
 
 def _notification_unread_count(supabase, user_id: str) -> int:
-    result = run_query(
-        lambda: supabase.table("notifications")
-        .select("id", count="exact")
-        .eq("user_id", user_id)
-        .is_("read_at", "null")
-        .execute()
-    )
-    return int(result.count or 0)
+    try:
+        return count_unread_notifications(supabase, user_id)
+    except Exception:
+        return 0
 
 
 def _build_badges(supabase, user_id: str) -> dict:

@@ -7,12 +7,12 @@ import {
   writeProfileCache,
   type CachedProfile,
 } from '@/infrastructure/supabase/middleware-profile-cache'
+import { fetchSessionFlags } from '@/infrastructure/supabase/middleware-session-flags'
 
 const PROTECTED_PREFIXES = [
   '/dashboard',
   '/admin',
   '/onboarding',
-  '/post-project',
   '/wallet',
   '/settings',
   '/services/create',
@@ -108,27 +108,18 @@ export async function updateSession(request: NextRequest) {
     const cached = await readProfileCache(request, user!.id)
     if (cached) return cached
 
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (!accessToken) return null
+
     trackMiddlewareSupabaseRequest({
-      queryName: 'profiles.select',
+      queryName: 'api.session-flags',
       pathname,
       component: 'proxy.ts/profile-flags',
     })
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_banned, onboarding_completed, is_admin, role')
-      .eq('id', user!.id)
-      .maybeSingle()
+    const flags = await fetchSessionFlags(accessToken)
+    if (!flags) return null
 
-    if (!profile) return null
-
-    const role = profile.role === 'client' ? 'client' : profile.role === 'freelancer' ? 'freelancer' : undefined
-
-    const flags: CachedProfile = {
-      is_banned: Boolean(profile.is_banned),
-      is_admin: Boolean(profile.is_admin),
-      onboarding_completed: Boolean(profile.onboarding_completed),
-      role,
-    }
     profileFresh = flags
     return flags
   }
@@ -162,23 +153,17 @@ export async function updateSession(request: NextRequest) {
       return withProfileCache(NextResponse.redirect(deniedUrl))
     }
 
-    if (profile?.is_banned) {
+    if (profile?.is_banned || profile?.is_suspended) {
       await supabase.auth.signOut()
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
-      loginUrl.searchParams.set('banned', '1')
+      loginUrl.searchParams.set(profile?.is_banned ? 'banned' : 'suspended', '1')
       return withProfileCache(NextResponse.redirect(loginUrl))
     }
 
     const onDashboard =
       pathname === '/dashboard' || pathname.startsWith('/dashboard/')
     const onOnboarding = pathname === '/onboarding' || pathname.startsWith('/onboarding/')
-
-    if (onDashboard && profile && profile.onboarding_completed === false && !profile.is_admin) {
-      const onboardingUrl = request.nextUrl.clone()
-      onboardingUrl.pathname = '/onboarding'
-      return withProfileCache(NextResponse.redirect(onboardingUrl))
-    }
 
     if (onOnboarding && profile?.onboarding_completed === true) {
       return withProfileCache(NextResponse.redirect(new URL('/', request.url)))

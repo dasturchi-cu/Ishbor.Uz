@@ -16,6 +16,7 @@ from app.database import (
 )
 from app.db_utils import run_query
 from app.supabase_instrumentation import reset_request_component, set_request_component
+from app.session_idle import enforce_and_touch_session_idle
 from app.timing_log import timed
 
 security = HTTPBearer(auto_error=False)
@@ -38,6 +39,10 @@ class UserAuth:
                     detail=str(exc),
                 ) from exc
         return self._supabase
+
+    @property
+    def token(self) -> str:
+        return self._token
 
 
 @dataclass
@@ -104,6 +109,17 @@ def _fetch_guard_row(user_id: str) -> dict | None:
     return data[0] if data else None
 
 
+def _jwt_email_verified(payload: dict) -> bool:
+    verified = payload.get("email_verified")
+    if verified is not None:
+        return bool(verified)
+    app_meta = payload.get("app_metadata") or {}
+    if app_meta.get("email_verified") is not None:
+        return bool(app_meta.get("email_verified"))
+    user_meta = payload.get("user_metadata") or {}
+    return bool(user_meta.get("email_verified"))
+
+
 def require_user_auth(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> UserAuth:
@@ -117,6 +133,12 @@ def require_user_auth(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
 
+    if settings.require_email_verified and not _jwt_email_verified(payload):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email tasdiqlanmagan",
+        )
+
     if not settings.supabase_url.strip() or not _is_jwt_supabase_key(settings.supabase_anon_key.strip()):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -126,6 +148,7 @@ def require_user_auth(
     with timed("auth.profile_guard_deduped", user_id=user_id):
         guard = fetch_profile_guard_deduped(user_id, lambda: _fetch_guard_row(user_id))
     _enforce_profile_guard(guard)
+    enforce_and_touch_session_idle(user_id)
 
     return UserAuth(user_id=user_id, _token=token)
 
@@ -143,6 +166,12 @@ def require_user_auth_with_profile(
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Noto'g'ri token")
+
+    if settings.require_email_verified and not _jwt_email_verified(payload):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email tasdiqlanmagan",
+        )
 
     if not settings.supabase_url.strip() or not _is_jwt_supabase_key(settings.supabase_anon_key.strip()):
         raise HTTPException(
@@ -173,6 +202,7 @@ def require_user_auth_with_profile(
         },
     )
     _enforce_profile_guard(guard)
+    enforce_and_touch_session_idle(user_id)
 
     return UserAuthWithProfile(user_id=user_id, _token=token, profile=profile)
 
@@ -202,6 +232,7 @@ def get_optional_user_id(
     if cached is not None:
         if cached.is_banned:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob bloklangan")
+        _enforce_profile_guard(cached)
         return user_id
 
     try:
@@ -213,27 +244,24 @@ def get_optional_user_id(
             .limit(1)
             .execute()
         )
+    except HTTPException:
+        raise
     except Exception:
         return None
     data = row.data or []
-    profile_row = data[0] if data else None
+    if not data:
+        return None
+    profile_row = data[0]
     guard = fetch_profile_guard_deduped(user_id, lambda: profile_row)
-    if guard.is_banned:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob bloklangan")
+    _enforce_profile_guard(guard)
     return user_id
 
 
 def get_optional_user_id_light(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> str | None:
-    """JWT sub only — profil DB so'rovisiz (username check kabi yengil endpointlar)."""
-    if credentials is None:
-        return None
-    try:
-        payload = verify_supabase_token(credentials.credentials)
-    except HTTPException:
-        return None
-    return payload.get("sub")
+    """Optional auth with ban/suspend guard (delegates to get_optional_user_id)."""
+    return get_optional_user_id(credentials)
 
 
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]

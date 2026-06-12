@@ -1,0 +1,44 @@
+---
+description: React and Next.js UI conventions for IshBor.uz
+globs: **/*.{tsx,jsx}
+alwaysApply: false
+---
+
+# React / UI Rules
+
+## Components
+- Pages: `src/presentation/features/{feature}/`
+- Layout: `src/presentation/components/layout/`
+- UI primitives: `src/presentation/components/ui/` (shadcn)
+
+## Pattern
+```tsx
+'use client'
+import { useApp } from '@/application/providers/app-provider'
+
+export function MyPage() {
+  const { t } = useApp()
+  return <h1>{t('page_title')}</h1>
+}
+```
+
+## Navigation
+- Use Next.js App Router: `useRouter()` + `PATHS` from `@/domain/constants/routes`
+- Do not add footer inside landing features (global Footer exists)
+
+## Style
+- Tokens: `src/presentation/styles/tokens.css`
+- Container: `container-responsive`
+- Card: shadcn `Card`
+
+## Forms
+- Input: shadcn `Input`
+- Select on auth: `className="select-auth"`
+- Errors: i18n keys (`error_required`, ...)
+
+## Do not
+- Hardcode English/Uzbek text
+- Use `$` for currency
+- Import from `@/components/*` or `@/lib/*`
+
+Docs: `docs/UI_UX_GUIDELINES.md`, `docs/DESIGN_SYSTEM.md`

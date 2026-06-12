@@ -7,6 +7,7 @@ import { Alert } from '@/presentation/components/ui/alert'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import type { PaymentCheckoutPhase, PaymentProvider } from '@/domain/constants/payment-checkout'
 import {
+  isCheckoutAvailable,
   prefersLiveCheckout,
   resolveAvailableProviders,
 } from '@/domain/constants/payment-checkout'
@@ -15,6 +16,7 @@ import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { ApiPaymentsConfig } from '@/infrastructure/api/types'
 import { cn } from '@/shared/lib/utils'
 import { CreditCard, Loader2 } from 'lucide-react'
+import { useEmailVerificationGate } from '@/shared/lib/use-email-verification-gate'
 
 const STEPS: { phase: PaymentCheckoutPhase; labelKey: TranslationKey; liveOnly?: boolean }[] = [
   { phase: 'preparing', labelKey: 'payment_checkout_pending' },
@@ -53,6 +55,7 @@ export function PaymentCheckoutFlow({
   onRetry: () => void
 }) {
   const { t } = useApp()
+  const emailGate = useEmailVerificationGate()
   const [paymentsConfig, setPaymentsConfig] = useState<ApiPaymentsConfig | null>(null)
 
   useEffect(() => {
@@ -67,6 +70,7 @@ export function PaymentCheckoutFlow({
 
   const paymentsLive = prefersLiveCheckout(paymentsConfig)
   const providers = resolveAvailableProviders(paymentsConfig)
+  const checkoutAvailable = isCheckoutAvailable(paymentsConfig)
   const isLiveProvider = provider === 'click' || provider === 'payme'
   const steps = visibleSteps(isLiveProvider || phase === 'redirecting')
   const current = stepIndex(phase, isLiveProvider || phase === 'redirecting')
@@ -74,6 +78,16 @@ export function PaymentCheckoutFlow({
 
   return (
     <div className="space-y-3">
+      {paymentsConfig && !paymentsLive && (
+        <div
+          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
+          role="status"
+        >
+          <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
+          {t('payment_test_mode_badge')}
+        </div>
+      )}
+
       {phase !== 'idle' && (
         <ol className="flex flex-wrap items-center gap-2 sm:gap-0">
           {steps.map((step, i) => {
@@ -136,7 +150,15 @@ export function PaymentCheckoutFlow({
         <p className="text-[12px] text-[var(--ishbor-text-muted)]">{t('payment_checkout_processing_hint')}</p>
       )}
 
-      {showButtons && (
+      {showButtons && !checkoutAvailable && paymentsConfig && (
+        <Alert variant="error">{t('payment_checkout_unavailable')}</Alert>
+      )}
+
+      {showButtons && emailGate.blocked && (
+        <Alert variant="info">{t('verify_email_banner')}</Alert>
+      )}
+
+      {showButtons && checkoutAvailable && !emailGate.blocked && !emailGate.loading && (
         <div className="flex flex-wrap gap-2">
           {providers.includes('sandbox') && (
             <Button
@@ -167,7 +189,7 @@ export function PaymentCheckoutFlow({
         </div>
       )}
 
-      {showButtons && (
+      {showButtons && checkoutAvailable && !emailGate.blocked && !emailGate.loading && (
         <p className="text-[11px] text-[var(--ishbor-text-muted)]">
           {paymentsLive ? t('payment_live_mode_note') : t('payment_protected_note')} · {amountLabel}
         </p>

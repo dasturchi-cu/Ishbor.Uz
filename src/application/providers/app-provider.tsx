@@ -11,6 +11,7 @@ import { api } from '@/infrastructure/api/client'
 import { clearDebouncedInvalidations } from '@/shared/lib/query-invalidate-debounce'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import type { ApiProfile } from '@/infrastructure/api/types'
+import { useSessionIdleTimeout } from '@/shared/lib/use-session-idle'
 
 type UserRole = 'freelancer' | 'client'
 
@@ -86,6 +87,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const profileRef = useRef<ApiProfile | null>(profile)
   const refreshInflight = useRef<Promise<void> | null>(null)
 
+  useSessionIdleTimeout(isLoggedIn)
+
   useLayoutEffect(() => {
     profileRef.current = profile
   }, [profile])
@@ -127,6 +130,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (ui?.language === 'uz' || ui?.language === 'ru' || ui?.language === 'en') {
           setLanguage(ui.language)
           localStorage.setItem('language', ui.language)
+          document.documentElement.lang = ui.language
           if (ui.language !== 'uz' && !isLocaleChunkLoaded(ui.language)) {
             setLocaleReady(false)
             void loadLocaleChunk(ui.language).finally(() => setLocaleReady(true))
@@ -202,6 +206,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (savedTheme) setThemeState(savedTheme)
     if (savedLanguage) {
       setLanguage(savedLanguage)
+      document.documentElement.lang = savedLanguage
       if (savedLanguage !== 'uz' && !isLocaleChunkLoaded(savedLanguage)) {
         setLocaleReady(false)
         void loadLocaleChunk(savedLanguage).finally(() => setLocaleReady(true))
@@ -369,6 +374,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setLang = useCallback((lang: Language) => {
     setLanguage(lang)
     localStorage.setItem('language', lang)
+    document.documentElement.lang = lang
     if (lang !== 'uz' && !isLocaleChunkLoaded(lang)) {
       setLocaleReady(false)
       void loadLocaleChunk(lang).finally(() => setLocaleReady(true))
@@ -380,7 +386,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userId])
 
-  const translate = useCallback((key: TranslationKey) => t(language, key), [language, localeReady])
+  const translate = useCallback(
+    (key: TranslationKey) => {
+      if (!localeReady && language !== 'uz') {
+        return t('uz', key)
+      }
+      return t(language, key)
+    },
+    [language, localeReady],
+  )
 
   const contextValue = useMemo<AppContextType>(
     () => ({

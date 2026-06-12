@@ -202,6 +202,155 @@ a:focus-visible,
   border-radius: var(--r-card);
 }
 
+.ishbor-protection-strip__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.ishbor-protection-strip__learn-more {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.ishbor-protection-strip__learn-more:hover {
+  text-decoration: underline;
+}
+
+/* ─── Marketplace trust metrics (catalog social proof) ─── */
+.marketplace-trust-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--success) 22%, var(--ishbor-border));
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--success) 5%, var(--neutral-0));
+  font-size: var(--text-caption);
+}
+
+.marketplace-trust-metrics--compact {
+  padding: 0.625rem 0.875rem;
+}
+
+.marketplace-trust-metrics__escrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 700;
+  color: var(--success-dark);
+}
+
+.marketplace-trust-metrics__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.marketplace-trust-metrics__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+  color: var(--ishbor-text-sub);
+}
+
+.marketplace-trust-metrics__item svg {
+  color: var(--color-primary);
+}
+
+.marketplace-trust-metrics__link {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.marketplace-trust-metrics__link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 639px) {
+  .marketplace-trust-metrics__link {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* ─── Search discovery hints (empty / low recall) ─── */
+.search-discovery-hints {
+  margin-top: 1rem;
+  padding: 1rem 1.125rem;
+  border: 1px dashed color-mix(in srgb, var(--color-primary) 24%, var(--ishbor-border));
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--color-primary) 3%, var(--neutral-0));
+  text-align: left;
+}
+
+.search-discovery-hints__title {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--ishbor-text);
+}
+
+.search-discovery-hints__subtitle {
+  margin: 0.75rem 0 0.5rem;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--ishbor-text-muted);
+}
+
+.search-discovery-hints__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.625rem;
+}
+
+.search-discovery-hints__link {
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.search-discovery-hints__link:hover {
+  text-decoration: underline;
+}
+
+.search-discovery-hints__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.search-discovery-hints__chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--ishbor-border));
+  background: var(--neutral-0);
+  padding: 0.35rem 0.75rem;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--color-primary);
+  transition: var(--transition);
+}
+
+.search-discovery-hints__chip:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
 /* ─── Marketplace catalog heroes ─── */
 .marketplace-catalog-hero {
   border-bottom: 1px solid var(--ishbor-border);
@@ -305,12 +454,25 @@ a:focus-visible,
 
 /* ─── Freelancer / service cards ─── */
 .ishbor-service-card,
-.freelancer-card {
+.freelancer-card,
+.ishbor-freelancer-card {
   transition: var(--transition);
 }
 
+.ishbor-service-card .ishbor-service-card__body,
+.ishbor-service-card [class*='p-4'] {
+  padding: 1rem 1.125rem 1.125rem;
+}
+
 .ishbor-service-card:hover,
-.freelancer-card:hover {
+.freelancer-card:hover,
+.ishbor-freelancer-card:hover {
   border-color: color-mix(in srgb, var(--color-primary) 14%, var(--ishbor-border));
   box-shadow: var(--shadow-card-hover);
+}
+
+/* ─── Landing activity feed tap targets ─── */
+.landing-recent-activity-list li {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
 }

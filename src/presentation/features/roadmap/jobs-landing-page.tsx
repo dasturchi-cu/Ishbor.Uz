@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useApp } from '@/application/providers/app-provider'
 import { MarketplaceCatalogHero } from '@/presentation/components/layout/marketplace-catalog-hero'
 import { MarketplaceDiscoverNav } from '@/presentation/components/layout/marketplace-discover-nav'
-import { TrustStrip } from '@/presentation/components/layout/trust-strip'
 import { ProjectsCatalog } from '@/presentation/features/projects/projects-catalog'
 import { VacanciesCatalog } from '@/presentation/features/vacancies/vacancies-catalog'
 import { api } from '@/infrastructure/api/client'
@@ -86,9 +85,8 @@ export function JobsLandingPage() {
     return (
       <>
         <JobsVacanciesHero />
-        <div className="layout-container max-w-[1280px] space-y-4 pt-4 md:pt-6">
+        <div className="layout-container max-w-[1280px] pt-4 md:pt-6">
           <MarketplaceDiscoverNav active="jobs" />
-          <TrustStrip />
         </div>
         <div id="jobs-catalog">
           <VacanciesCatalog hideHeader />
@@ -100,9 +98,8 @@ export function JobsLandingPage() {
   return (
     <>
       <JobsProjectsHero />
-      <div className="layout-container max-w-[1280px] space-y-4 pt-4 md:pt-6">
+      <div className="layout-container max-w-[1280px] pt-4 md:pt-6">
         <MarketplaceDiscoverNav active="jobs" />
-        <TrustStrip />
       </div>
       <ProjectsCatalog hideHeader titleKey="jobs_catalog_title" subtitleKey="jobs_catalog_subtitle" />
     </>

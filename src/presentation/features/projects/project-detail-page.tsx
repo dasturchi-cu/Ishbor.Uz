@@ -30,6 +30,7 @@ import {
   projectStatusBadgeVariant,
 } from '@/shared/lib/marketplace-status'
 import { dashboardContract } from '@/domain/constants/routes'
+import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 
 export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const { t, isLoggedIn, isAuthLoading, currentUserRole, userId, language, profile } = useApp()
@@ -58,9 +59,13 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const loadProject = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    api
-      .getProject(projectId)
-      .then((p) => {
+    Promise.all([
+      api.getProject(projectId),
+      api
+        .recordProjectView(projectId)
+        .catch((e) => ignoreWithLog(e, { scope: 'analytics', apiPath: `/api/v1/projects/${projectId}/view` })),
+    ])
+      .then(([p]) => {
         setProject(p)
         setProposedBudget(String(p.budget))
         setEditTitle(p.title)
@@ -211,7 +216,8 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   if (loading) {
     return (
       <PageWrapper className="bg-[var(--ishbor-bg)] pt-5">
-        <div className="h-48 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" />
+        <h1 className="sr-only">{t('loading_data')}</h1>
+        <div className="h-48 animate-pulse rounded-xl bg-[var(--color-bg-muted)]" aria-hidden />
       </PageWrapper>
     )
   }

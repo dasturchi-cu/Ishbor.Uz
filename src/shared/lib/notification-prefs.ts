@@ -1,4 +1,5 @@
 const PREFS_KEY = 'ishbor-notification-prefs'
+export const BROWSER_NOTIF_KEY = 'ishbor_browser_notif'
 
 export interface NotificationPrefs {
   emailNewOrders: boolean
@@ -30,4 +31,14 @@ export function loadNotificationPrefs(): NotificationPrefs {
 export function saveNotificationPrefs(prefs: NotificationPrefs): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+}
+
+export function browserNotificationsEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(BROWSER_NOTIF_KEY) === '1'
+}
+
+export function setBrowserNotificationsEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(BROWSER_NOTIF_KEY, enabled ? '1' : '0')
 }

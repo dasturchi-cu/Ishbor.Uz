@@ -112,7 +112,7 @@ export function AdminLayout({
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex h-14 items-center gap-2 border-b border-white/10 px-4">
-        <span className="text-sm font-semibold tracking-tight text-white">IshBor Admin</span>
+        <span className="text-sm font-semibold tracking-tight text-white">{t('admin_brand')}</span>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3" aria-label={t('admin_panel')}>
         {ADMIN_NAV.map((item) => {

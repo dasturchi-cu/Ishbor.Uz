@@ -60,7 +60,7 @@ export function useDashboardSummary(
     initialData: cachedSummary,
     initialDataUpdatedAt: cachedUpdatedAt,
     staleTime: 60_000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     retry: 1,
   })
 

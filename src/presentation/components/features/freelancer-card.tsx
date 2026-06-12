@@ -86,7 +86,7 @@ export function FreelancerCard({
         className
       )}
     >
-      <div className="flex flex-1 flex-col items-center px-4 pb-3 pt-5 text-center">
+      <div className="ishbor-freelancer-card__header flex flex-1 flex-col items-center px-4 pb-3 pt-5 text-center">
         <div className="mb-3 shrink-0">
           <Avatar name={name} size={64} verified={isVerified} />
         </div>
@@ -101,7 +101,7 @@ export function FreelancerCard({
         </p>
       </div>
 
-      <div className="border-t border-[var(--ishbor-border)] bg-[var(--neutral-50)] px-4 py-3">
+      <div className="ishbor-freelancer-card__footer px-4 py-3.5">
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-center gap-2">
             <RatingLine

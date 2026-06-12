@@ -18,9 +18,9 @@ import { EmptyState } from '@/presentation/components/ui/empty-state'
 import { Avatar } from '@/presentation/components/ui/avatar'
 import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { Button } from '@/presentation/components/ui/button'
-import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { trackFunnelEvent } from '@/shared/lib/funnel-analytics'
 import { TrustStrip } from '@/presentation/components/layout/trust-strip'
+import { MarketplaceDiscoverNav } from '@/presentation/components/layout/marketplace-discover-nav'
 import {
   LandingCtaBanner,
   LandingHeroBadge,
@@ -30,23 +30,23 @@ import {
 
 const MarketplacePulse = dynamic(
   () => import('@/presentation/components/layout/marketplace-pulse').then((m) => m.MarketplacePulse),
-  { ssr: false }
+  { loading: () => null },
 )
 const LandingCategoryGrid = dynamic(
   () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingCategoryGrid),
-  { ssr: false }
+  { loading: () => <div className="h-32 w-full"><SkeletonCard /></div> },
 )
 const LandingFeaturedTabs = dynamic(
   () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingFeaturedTabs),
-  { ssr: false }
+  { loading: () => <div className="h-48 w-full"><SkeletonCard /></div> },
 )
 const LandingTopFreelancers = dynamic(
   () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingTopFreelancers),
-  { ssr: false }
+  { loading: () => <div className="h-48 w-full"><SkeletonCard /></div> },
 )
 const ServiceCard = dynamic(
   () => import('@/presentation/components/features/service-card').then((m) => m.ServiceCard),
-  { ssr: false }
+  { loading: () => <div className="h-40 w-full"><SkeletonCard /></div> },
 )
 
 const LandingRecentActivity = dynamic(
@@ -61,11 +61,6 @@ const LandingHowItWorks = dynamic(
   () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingHowItWorks),
   { ssr: false }
 )
-const LandingDarkTrust = dynamic(
-  () => import('@/presentation/features/landing/landing-sections').then((m) => m.LandingDarkTrust),
-  { ssr: false }
-)
-
 const EMPTY_STATS: ApiPublicStats = {
   freelancers: 0,
   clients: 0,
@@ -175,16 +170,10 @@ export function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [featuredTab, setFeaturedTab] = useState('all')
 
+  const [heroReady, setHeroReady] = useState(false)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const { hash, search } = window.location
-      if (hash.includes('type=recovery') || search.includes('type=recovery')) return
-    }
-    if (isAuthLoading || !isLoggedIn || !profile) return
-    if (!profile.onboarding_completed && !profile.is_admin) {
-      router.replace(PATHS.onboarding)
-    }
-  }, [isAuthLoading, isLoggedIn, profile, router])
+    setHeroReady(true)
+  }, [])
 
   const loadStats = useCallback(() => {
     setLoading(true)
@@ -255,21 +244,21 @@ export function LandingPage() {
 
               {!isAuthLoading && !isLoggedIn && (
                 <div className="landing-hero-actions mt-5">
-                  <Link href={PATHS.register} onClick={() => handleLandingCta('signup', 'hero')}>
-                    <Button variant="primary" size="lg" className="min-w-[140px] font-semibold">
-                      {t('register')}
+                  <Link href={PATHS.services} onClick={() => handleLandingCta('browse_catalog', 'hero')}>
+                    <Button variant="primary" size="lg" className="min-w-[160px] font-semibold">
+                      {t('browse_services')}
                     </Button>
                   </Link>
-                  <Link href={PATHS.services} onClick={() => handleLandingCta('browse_catalog', 'hero')}>
+                  <Link href={PATHS.register} onClick={() => handleLandingCta('signup', 'hero')}>
                     <Button variant="outline" size="lg" className="font-semibold">
-                      {t('browse_services')}
+                      {t('register')}
                     </Button>
                   </Link>
                 </div>
               )}
             </div>
 
-            {showFeaturedCard && featured && featuredName && (
+            {heroReady && showFeaturedCard && featured && featuredName && (
               <HeroSpotlightCard
                 featured={featured}
                 featuredName={featuredName}
@@ -282,7 +271,8 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="layout-container max-w-[1280px] py-4 md:py-5">
+      <section className="layout-container max-w-[1280px] space-y-4 py-4 md:py-5">
+        <MarketplaceDiscoverNav />
         <TrustStrip />
       </section>
 
@@ -290,7 +280,6 @@ export function LandingPage() {
         <div className="layout-container max-w-[1280px] space-y-4 pb-4">
           <LandingStatsRow stats={stats} />
           <MarketplacePulse stats={stats} />
-          <IshborProtectionStrip compact />
         </div>
       )}
 
@@ -355,6 +344,7 @@ export function LandingPage() {
                   reviewCount={(svc.profiles as { review_count?: number } | null)?.review_count ?? 0}
                   price={svc.price}
                   category={svc.category}
+                  isPro={(svc.profiles as { is_verified?: boolean } | null)?.is_verified === true}
                   onClick={() => router.push(servicePath(svc.id))}
                 />
               ))}
@@ -370,8 +360,6 @@ export function LandingPage() {
       <LandingRecentActivity stats={stats} />
 
       <LandingTestimonials />
-
-      <LandingDarkTrust />
 
       <LandingCtaBanner />
     </div>

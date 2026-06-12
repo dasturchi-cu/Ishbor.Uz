@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
@@ -27,6 +28,8 @@ import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
 import { toast } from '@/presentation/components/ui/toast'
 import { SkeletonFormPanel } from '@/presentation/components/ui/skeleton'
 import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
+import { clearDashboardSummaryCache } from '@/shared/lib/dashboard-summary-cache'
+import { queryKeys } from '@/shared/lib/query-keys'
 
 type UploadedFile = { url: string; name: string }
 
@@ -98,7 +101,10 @@ function formatFieldError(
 export function PostProject() {
   const { t, userId, isLoggedIn, isAuthLoading, language, currentUserRole, profile, refreshProfile, mergeProfile } = useApp()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const submitLockRef = useRef(false)
+  const idempotencyKeyRef = useRef<string | null>(null)
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState(POST_PROJECT_INITIAL_FORM)
   const draftHydrated = useRef(false)
@@ -266,6 +272,8 @@ export function PostProject() {
   }
 
   const submitProject = async (asDraft: boolean) => {
+    if (submitLockRef.current || submitting) return
+
     const allErrs = validateAll()
     if (Object.keys(allErrs).length > 0) {
       setFieldErrors(allErrs)
@@ -277,12 +285,17 @@ export function PostProject() {
 
     const budget = parseInt(formData.budget.replace(/\D/g, ''), 10)
 
+    submitLockRef.current = true
     setSubmitting(true)
     setError('')
     setFieldErrors({})
+    if (!idempotencyKeyRef.current && typeof crypto !== 'undefined' && crypto.randomUUID) {
+      idempotencyKeyRef.current = crypto.randomUUID()
+    }
     try {
       if (currentUserRole !== 'client') {
         setError(t('client_only_order'))
+        submitLockRef.current = false
         return
       }
       const roleSync = await ensureProfileRole('client', profile)
@@ -292,24 +305,32 @@ export function PostProject() {
           : t('role_sync_failed')
         setError(msg)
         toast.error(msg)
+        submitLockRef.current = false
+        idempotencyKeyRef.current = null
         return
       }
       mergeProfile(roleSync.profile)
 
-      await api.createProject({
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        category: formData.category,
-        skills: formData.skills,
-        budget,
-        budget_type: formData.budgetType,
-        deadline: resolveDeadlineIso(formData.deadlineDays),
-        level: formData.level,
-        region: formData.city,
-        attachment_urls: attachments.map((a) => a.url),
-        is_public: !asDraft,
-      })
+      await api.createProject(
+        {
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          category: formData.category,
+          skills: formData.skills,
+          budget,
+          budget_type: formData.budgetType,
+          deadline: resolveDeadlineIso(formData.deadlineDays),
+          level: formData.level,
+          region: formData.city,
+          attachment_urls: attachments.map((a) => a.url),
+          is_public: !asDraft,
+        },
+        idempotencyKeyRef.current ?? undefined,
+      )
       draft.clear()
+      clearDashboardSummaryCache('client')
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardSummary('client') })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardHome('client') })
       if (asDraft) {
         toast.success(t('project_saved_draft'))
         router.push(PATHS.dashboardProjects)
@@ -318,6 +339,8 @@ export function PostProject() {
         router.push(`${PATHS.dashboardProjects}?posted=1`)
       }
     } catch (e) {
+      submitLockRef.current = false
+      idempotencyKeyRef.current = null
       if (e instanceof ApiError) {
         setError(mapAuthErrorMessage(e.message, t))
       } else {

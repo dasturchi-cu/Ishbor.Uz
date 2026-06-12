@@ -1,5 +1,13 @@
 import type { TranslationKey } from '@/infrastructure/i18n'
 
+/** SSR-safe integer grouping (avoids Intl locale hydration mismatch). */
+function formatSomInteger(amount: number): string {
+  const sign = amount < 0 ? '-' : ''
+  const digits = Math.abs(Math.round(amount)).toString()
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0')
+  return `${sign}${grouped} so'm`
+}
+
 export function formatPrice(amount: number): string {
   if (amount >= 1_000_000_000) {
     return `${(amount / 1_000_000_000).toFixed(1).replace(/\.0$/, '')} mlrd so'm`
@@ -7,7 +15,7 @@ export function formatPrice(amount: number): string {
   if (amount >= 1_000_000) {
     return `${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')} mln so'm`
   }
-  return `${new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 0 }).format(amount)} so'm`
+  return formatSomInteger(amount)
 }
 
 const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {

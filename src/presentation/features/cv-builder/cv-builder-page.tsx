@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useApp } from '@/application/providers/app-provider'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
+import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { Textarea } from '@/presentation/components/ui/textarea'
@@ -106,21 +107,34 @@ export function CvBuilderPage() {
 
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-8">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-[var(--ishbor-text)] sm:text-[24px]">{t('cv_builder_title')}</h1>
-        <p className="mt-1 text-[14px] text-[var(--ishbor-text-muted)]">{t('cv_builder_subtitle')}</p>
-        {!isLoggedIn && (
-          <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">
-            <Link href={PATHS.login} className="text-[var(--color-primary)] hover:underline">
-              {t('login')}
-            </Link>{' '}
-            — {t('cv_builder_profile_cta')}
-          </p>
-        )}
-      </div>
+      <header className="mb-6 text-center sm:text-left">
+        <h1 className="text-xl font-bold tracking-tight text-[var(--ishbor-text)] sm:text-[24px]">{t('cv_builder_title')}</h1>
+        <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{t('cv_builder_subtitle')}</p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+          {!isLoggedIn ? (
+            <Link href={PATHS.register}>
+              <Button variant="primary" size="md">
+                {t('register')}
+              </Button>
+            </Link>
+          ) : (
+            <Link href={PATHS.dashboardProfile}>
+              <Button variant="primary" size="md">
+                {t('nav_profile')}
+              </Button>
+            </Link>
+          )}
+          <Link href={PATHS.freelancers}>
+            <Button variant="outline" size="md">
+              {t('nav_freelancers')}
+            </Button>
+          </Link>
+        </div>
+      </header>
+      <IshborProtectionStrip compact className="mb-6" />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-xl border border-[var(--ishbor-border)] bg-white p-4 dark:bg-[var(--neutral-900)]">
+        <div className="surface-panel space-y-4 p-4">
           <Input value={form.fullName} onChange={(e) => update({ fullName: e.target.value })} placeholder={t('settings_your_name')} />
           <Input value={form.headline} onChange={(e) => update({ headline: e.target.value })} placeholder={t('cv_builder_headline')} />
           <Input value={form.contacts} onChange={(e) => update({ contacts: e.target.value })} placeholder={t('cv_builder_contacts_ph')} />
@@ -128,7 +142,7 @@ export function CvBuilderPage() {
           <Textarea value={form.experience} onChange={(e) => update({ experience: e.target.value })} rows={5} placeholder={t('cv_builder_experience_label')} />
           <Textarea value={form.education} onChange={(e) => update({ education: e.target.value })} rows={3} placeholder={t('cv_builder_education_label')} />
         </div>
-        <div className="rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-50)] p-4 dark:bg-[var(--neutral-900)]">
+        <div className="surface-panel bg-[var(--surface-sunken)] p-4">
           <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--ishbor-text)]">{preview || t('cv_builder_preview_empty')}</pre>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outline" onClick={handleCopy}>

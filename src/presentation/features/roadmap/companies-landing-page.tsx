@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useApp } from '@/application/providers/app-provider'
+import '@/presentation/styles/route-catalog.css'
 import { MarketplaceCatalogHero } from '@/presentation/components/layout/marketplace-catalog-hero'
+import { MarketplaceDiscoverNav } from '@/presentation/components/layout/marketplace-discover-nav'
 import { FreelancersCatalog } from '@/presentation/features/freelancers/freelancers-catalog'
 import { CompaniesCatalog } from '@/presentation/features/companies/companies-catalog'
 import { api } from '@/infrastructure/api/client'
@@ -47,6 +49,9 @@ export function CompaniesLandingPage() {
     return (
       <>
         <CompaniesHero />
+        <div className="layout-container max-w-[1280px] pt-4 md:pt-6">
+          <MarketplaceDiscoverNav />
+        </div>
         <div id="companies-catalog">
           <CompaniesCatalog hideHeader />
         </div>
@@ -55,9 +60,12 @@ export function CompaniesLandingPage() {
   }
 
   return (
-    <FreelancersCatalog
-      titleKey="companies_catalog_title"
-      subtitleKey="companies_catalog_subtitle"
-    />
+    <>
+      <CompaniesHero />
+      <div className="layout-container max-w-[1280px] pt-4 md:pt-6">
+        <MarketplaceDiscoverNav />
+      </div>
+      <FreelancersCatalog hideHeader titleKey="companies_catalog_title" subtitleKey="companies_catalog_subtitle" />
+    </>
   )
 }

@@ -102,6 +102,10 @@ export function WalletPage() {
   const [withdrawing, setWithdrawing] = useState(false)
   const [partialLoadError, setPartialLoadError] = useState(false)
   const [topupOpen, setTopupOpen] = useState(false)
+  const [freelancerExtras, setFreelancerExtras] = useState<{
+    withdrawals: ApiWithdrawalRequest[]
+    bankAccounts: ApiBankAccount[]
+  } | null>(null)
 
   const isClient = currentUserRole === 'client'
   const isFreelancer = currentUserRole === 'freelancer'
@@ -115,49 +119,58 @@ export function WalletPage() {
     reload: loadWallet,
   } = useProtectedLoader(async () => {
     setPartialLoadError(false)
-    const [ord, ledgerRes, tx] = await Promise.all([
+    const [summary, ord] = await Promise.all([
+      api.getWalletSummary().catch((e) => {
+        ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/payments/wallet/summary' })
+        setPartialLoadError(true)
+        return {
+          wallet_balance: profile?.wallet_balance ?? 0,
+          recent_ledger: [] as ApiLedgerEntry[],
+          recent_transactions_count: 0,
+        }
+      }),
       api.listOrders().catch((e) => {
         ignoreWithLog(e, { scope: 'orders', apiPath: '/api/v1/orders' })
         setPartialLoadError(true)
         return [] as ApiOrder[]
       }),
-      api.listLedgerEntries(50).catch((e) => {
-        ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/wallet/ledger' })
-        setPartialLoadError(true)
-        return { items: [] as ApiLedgerEntry[] }
-      }),
-      api.listTransactions().catch((e) => {
-        ignoreWithLog(e, { scope: 'payments', apiPath: '/api/v1/transactions' })
-        setPartialLoadError(true)
-        return [] as ApiTransaction[]
-      }),
     ])
-    await refreshProfile().catch((e) =>
-      ignoreWithLog(e, { scope: 'profile', apiPath: '/api/v1/profiles/me' })
-    )
-    const withdrawals = isFreelancer
-      ? await api.listWithdrawals().catch((e) => {
-          ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/withdrawals' })
-          return [] as ApiWithdrawalRequest[]
-        })
-      : ([] as ApiWithdrawalRequest[])
-    const bankAccounts = isFreelancer
-      ? await api.listBankAccounts().catch((e) => {
-          ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/bank-accounts' })
-          return [] as ApiBankAccount[]
-        })
-      : ([] as ApiBankAccount[])
     return {
       orders: ord,
-      ledgerEntries: ledgerRes.items ?? [],
-      transactions: tx,
-      withdrawals,
-      bankAccounts,
+      ledgerEntries: summary.recent_ledger ?? [],
+      transactions: [] as ApiTransaction[],
+      walletBalance: summary.wallet_balance,
+      withdrawals: [] as ApiWithdrawalRequest[],
+      bankAccounts: [] as ApiBankAccount[],
     }
-  }, [currentUserRole, refreshProfile, isFreelancer])
+  }, [currentUserRole, profile?.wallet_balance])
 
-  const withdrawals = walletData?.withdrawals ?? []
-  const bankAccounts = walletData?.bankAccounts ?? []
+  useEffect(() => {
+    if (!isFreelancer) {
+      setFreelancerExtras(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const [withdrawals, bankAccounts] = await Promise.all([
+        api.listWithdrawals().catch((e) => {
+          ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/withdrawals' })
+          return [] as ApiWithdrawalRequest[]
+        }),
+        api.listBankAccounts().catch((e) => {
+          ignoreWithLog(e, { scope: 'wallet', apiPath: '/api/v1/bank-accounts' })
+          return [] as ApiBankAccount[]
+        }),
+      ])
+      if (!cancelled) setFreelancerExtras({ withdrawals, bankAccounts })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isFreelancer, walletData?.walletBalance])
+
+  const withdrawals = freelancerExtras?.withdrawals ?? walletData?.withdrawals ?? []
+  const bankAccounts = freelancerExtras?.bankAccounts ?? walletData?.bankAccounts ?? []
   const hasVerifiedBank = bankAccounts.some((a) => a.is_verified)
   const hasPendingBank = bankAccounts.length > 0 && !hasVerifiedBank
 
@@ -213,7 +226,7 @@ export function WalletPage() {
       else if (o.status === 'pending') pendingSum += o.amount
     }
     const computed = isFreelancer ? completedSum : completedSum + activeSum + pendingSum
-    const dbBalance = profile?.wallet_balance
+    const dbBalance = walletData?.walletBalance ?? profile?.wallet_balance
     const resolved =
       isFreelancer
         ? dbBalance != null
@@ -225,7 +238,7 @@ export function WalletPage() {
     return { active: activeSum, pending: pendingSum, balance: resolved }
   }, [walletData, isFreelancer, profile?.wallet_balance])
 
-  const displayBalance = isClient ? (profile?.wallet_balance ?? balance) : balance
+  const displayBalance = walletData?.walletBalance ?? (isClient ? (profile?.wallet_balance ?? balance) : balance)
   const escrowTotal = active + pending
 
   const recentTx = useMemo((): LedgerRow[] => {

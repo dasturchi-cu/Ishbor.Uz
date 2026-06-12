@@ -18,6 +18,14 @@ def test_health_live(client):
     assert response.json()["status"] == "ok"
 
 
+def test_payments_config_includes_checkout_available(client):
+    response = client.get("/api/v1/payments/config")
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body.keys()) == {"sandbox_allowed", "checkout_available"}
+    assert isinstance(body["checkout_available"], bool)
+
+
 def test_health_ready_unconfigured(client, monkeypatch):
     from app.config import settings
 
@@ -50,9 +58,23 @@ def test_public_stats_includes_commission(client, monkeypatch):
         def execute(self):
             return _CountResult()
 
+    class _RpcQuery:
+        def __init__(self, data):
+            self._data = data
+
+        def execute(self):
+            return type("RpcResult", (), {"data": self._data})()
+
     class _FakeSupabase:
         def table(self, _name):
             return _FakeQuery()
+
+        def rpc(self, name, *_args, **_kwargs):
+            if name == "get_reviews_aggregate":
+                return _RpcQuery({"avg_rating": 4.5, "count": 10})
+            if name == "get_service_category_counts":
+                return _RpcQuery({"web": 3})
+            raise AssertionError(f"unexpected rpc: {name}")
 
     monkeypatch.setattr(stats_router, "get_supabase_admin", lambda: _FakeSupabase())
     monkeypatch.setattr(stats_router, "batch_review_stats", lambda *_a, **_k: {})
@@ -82,9 +104,8 @@ def test_payments_config(client):
     response = client.get("/api/v1/payments/config")
     assert response.status_code == 200
     body = response.json()
-    assert "providers" in body
-    assert isinstance(body["providers"], list)
     assert "sandbox_allowed" in body
+    assert "checkout_available" in body
 
 
 def test_admin_disputes_require_auth(client):
@@ -163,10 +184,7 @@ def test_notification_channels(client):
     response = client.get("/api/v1/notifications/channels")
     assert response.status_code == 200
     body = response.json()
-    assert "email" in body
-    assert "sms" in body
-    assert "telegram" in body
-    assert "redis" in body
+    assert set(body.keys()) == {"email", "sms", "telegram", "telegram_bot_username", "redis"}
 
 
 def test_dashboard_summary_requires_auth(client):

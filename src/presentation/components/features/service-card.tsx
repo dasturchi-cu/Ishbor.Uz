@@ -4,6 +4,8 @@
 
 import {
 
+  BadgeCheck,
+
   Bookmark,
 
   Briefcase,
@@ -16,6 +18,8 @@ import {
 
   PenLine,
 
+  Shield,
+
   Star,
 
   TrendingUp,
@@ -27,6 +31,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { useApp } from '@/application/providers/app-provider'
+import type { TranslationKey } from '@/infrastructure/i18n'
 
 import { Avatar } from '@/presentation/components/ui/avatar'
 
@@ -99,6 +104,19 @@ const THUMBNAIL_THEMES: Record<string, { from: string; to: string; icon: LucideI
 
   design: { from: 'var(--neutral-50)', to: 'var(--neutral-100)', icon: Briefcase, tint: 'var(--neutral-600)' },
 
+}
+
+const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
+  web: 'cat_web',
+  mobile: 'cat_mobile',
+  uiux: 'cat_uiux',
+  graphic: 'kwork_cat_design',
+  writing: 'kwork_cat_writing',
+  seo: 'kwork_cat_seo',
+  smm: 'kwork_cat_smm',
+  video: 'kwork_cat_video',
+  design: 'kwork_cat_business',
+  business: 'kwork_cat_business',
 }
 
 
@@ -267,6 +285,8 @@ export function ServiceCard({
 
   const showDeliveryMeta = deliveryDays != null && deliveryDays > 0
   const showFastDelivery = showDeliveryMeta && deliveryDays <= 2
+  const categoryKey = CATEGORY_LABEL_KEYS[category.toLowerCase()]
+  const categoryLabel = categoryKey ? t(categoryKey) : category
 
 
 
@@ -384,6 +404,10 @@ export function ServiceCard({
           imagePriority={imagePriority}
         />
 
+        {categoryLabel ? (
+          <span className="ishbor-service-card__category">{categoryLabel}</span>
+        ) : null}
+
         {onSave && (
 
           <button
@@ -428,9 +452,9 @@ export function ServiceCard({
 
 
 
-      <div className="ishbor-service-card__body flex flex-1 flex-col gap-2.5">
+      <div className="ishbor-service-card__body flex flex-1 flex-col">
 
-        <h3 className="ishbor-service-card__title line-clamp-2 break-words text-[14px] font-semibold leading-snug text-[var(--ishbor-text)] transition-colors">
+        <h3 className="ishbor-service-card__title line-clamp-2 break-words text-[var(--ishbor-text)] transition-colors">
 
           {title}
 
@@ -452,38 +476,35 @@ export function ServiceCard({
 
           <span className="min-w-0 truncate text-[12px] text-[var(--ishbor-text-muted)]">{sellerName}</span>
 
-          {isPro && (
-            <span className="shrink-0 rounded bg-[var(--success-bg)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--success-dark)]">
-              {t('profile_pro_badge')}
-            </span>
-          )}
+          {isPro ? (
+            <BadgeCheck
+              className="h-3.5 w-3.5 shrink-0 text-[var(--color-primary)]"
+              aria-label={t('badge_verified')}
+            />
+          ) : null}
 
         </div>
 
 
 
-        <div className="ishbor-service-card__footer mt-auto flex items-center justify-between gap-2">
-
-          <p className="truncate text-[16px] font-bold leading-none tracking-tight text-[var(--color-primary)]">
-
-            {formatPrice(price)}
-
+        <div className="ishbor-service-card__footer mt-auto">
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <p className="ishbor-service-card__price-label">{t('service_from')}</p>
+              <p className="ishbor-service-card__price truncate">{formatPrice(price)}</p>
+            </div>
+            <RatingBlock
+              rating={rating}
+              reviewCount={reviewCount}
+              reviewLabel={reviewLabel}
+              noReviewsLabel={noReviewsLabel}
+              compact
+            />
+          </div>
+          <p className="ishbor-service-card__escrow-hint">
+            <Shield className="h-3 w-3 shrink-0 text-[var(--success)]" aria-hidden />
+            {t('card_escrow_protected')}
           </p>
-
-          <RatingBlock
-
-            rating={rating}
-
-            reviewCount={reviewCount}
-
-            reviewLabel={reviewLabel}
-
-            noReviewsLabel={noReviewsLabel}
-
-            compact
-
-          />
-
         </div>
 
       </div>

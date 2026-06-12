@@ -88,11 +88,17 @@ export function isApiConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_API_URL)
 }
 
+function idempotencyHeaders(key?: string): Record<string, string> {
+  const resolved =
+    key ??
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : null)
+  return resolved ? { 'Idempotency-Key': resolved } : {}
+}
+
 function paymentIdempotencyHeaders(): Record<string, string> {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return { 'Idempotency-Key': crypto.randomUUID() }
-  }
-  return {}
+  return idempotencyHeaders()
 }
 
 const RETRYABLE_STATUSES = new Set([0, 408, 429, 502, 503])
@@ -279,7 +285,7 @@ export const api = {
     experience?: string
     limit?: number
     offset?: number
-  }) => {
+  }, init?: RequestInit) => {
     const q = new URLSearchParams()
     if (params?.category) q.set('category', params.category)
     if (params?.region) q.set('region', params.region)
@@ -292,7 +298,7 @@ export const api = {
     if (params?.limit != null) q.set('limit', String(params.limit))
     if (params?.offset != null) q.set('offset', String(params.offset))
     const qs = q.toString()
-    return apiFetch<ApiServiceList>(`/api/v1/services${qs ? `?${qs}` : ''}`)
+    return apiFetch<ApiServiceList>(`/api/v1/services${qs ? `?${qs}` : ''}`, init)
   },
   getService: (id: string) => apiFetch<ApiService>(`/api/v1/services/${id}`),
   recordServiceView: (serviceId: string) =>
@@ -392,11 +398,20 @@ export const api = {
     return apiFetch<ApiProject[]>(`/api/v1/projects${qs ? `?${qs}` : ''}`)
   },
   getProject: (id: string) => apiFetch<ApiProject>(`/api/v1/projects/${id}`),
-  createProject: (data: ProjectCreateInput) =>
-    apiFetch<ApiProject>('/api/v1/projects', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  recordProjectView: (projectId: string) =>
+    apiFetch<void>(`/api/v1/projects/${projectId}/view`, { method: 'POST' }),
+  createProject: (data: ProjectCreateInput, idempotencyKey?: string) =>
+    apiFetch<ApiProject>(
+      '/api/v1/projects',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: idempotencyHeaders(idempotencyKey),
+      },
+      0,
+      false,
+      { maxAttempts: 1, timeoutMs: WRITE_TIMEOUT_MS },
+    ),
   updateProject: (id: string, data: Partial<ProjectCreateInput>) =>
     apiFetch<ApiProject>(`/api/v1/projects/${id}`, {
       method: 'PATCH',
@@ -909,8 +924,20 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ bucket, path }),
     }),
-  auditLogin: () => apiFetch<void>('/api/v1/platform/audit/login', { method: 'POST' }),
+  auditLogin: () =>
+    apiFetch<void>('/api/v1/security/audit/login-authed', { method: 'POST', body: JSON.stringify({ success: true }) }),
   auditRegister: () => apiFetch<void>('/api/v1/platform/audit/register', { method: 'POST' }),
+  auditRegisterPrecheck: (email: string, captcha_token?: string) =>
+    apiFetch<void>('/api/v1/security/audit/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, captcha_token }),
+    }),
+  getWalletSummary: () =>
+    apiFetch<{
+      wallet_balance: number
+      recent_ledger: import('./types').ApiLedgerEntry[]
+      recent_transactions_count: number
+    }>('/api/v1/payments/wallet/summary'),
   sendPhoneOtp: (phone: string) =>
     apiFetch<void>('/api/v1/security/phone/send', {
       method: 'POST',
@@ -921,6 +948,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ phone, code }),
     }),
+  getSecurityConfig: () =>
+    apiFetch<{ require_email_verified: boolean; session_idle_minutes: number }>(
+      '/api/v1/security/config',
+    ),
   auditLoginAttempt: (success: boolean, email?: string, captcha_token?: string) =>
     apiFetch<void>('/api/v1/security/audit/login', {
       method: 'POST',

@@ -39,22 +39,25 @@ export function BuyerProtectionPage() {
     load()
   }, [])
 
-  if (loading) return <PageWrapper><LoadingBlock className="py-20" /></PageWrapper>
-
   const doc = data?.document
 
   return (
     <PageWrapper className="bg-[var(--ishbor-bg)] pt-6 md:pt-10">
       <div className="mx-auto max-w-[800px]">
-        {loadError ? (
-          <LoadErrorAlert error={loadError} scope="generic" onRetry={load} className="mb-6" />
-        ) : null}
-
         <div className="mb-8 text-center">
           <Shield className="mx-auto mb-3 h-12 w-12 text-[var(--color-primary)]" aria-hidden />
           <h1 className="text-2xl font-bold text-[var(--ishbor-text)]">{t('buyer_protection_title')}</h1>
           <p className="mt-2 text-[14px] text-[var(--ishbor-text-muted)]">{t('buyer_protection_subtitle')}</p>
         </div>
+
+        {loading ? <LoadingBlock className="py-12" /> : null}
+
+        {!loading && loadError ? (
+          <LoadErrorAlert error={loadError} scope="generic" onRetry={load} className="mb-6" />
+        ) : null}
+
+        {!loading && !loadError ? (
+          <>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <article className="surface-panel p-4 text-center">
@@ -95,6 +98,8 @@ export function BuyerProtectionPage() {
             {t('nav_services')}
           </Link>
         </p>
+          </>
+        ) : null}
       </div>
     </PageWrapper>
   )

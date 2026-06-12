@@ -87,6 +87,23 @@ def _send_sms(user_id: str, body: str) -> None:
         logger.warning("SMS send error to=%s: %s", user_id, exc)
 
 
+def deliver_notification_channels(
+    user_id: str,
+    title: str,
+    body: str,
+    *,
+    ntype: Literal["order", "message", "review", "broadcast"],
+    urgent: bool = False,
+) -> None:
+    """Email / SMS / Telegram — in-app row must already exist (or be synthetic)."""
+    if ntype in ("order", "message", "review", "broadcast"):
+        _send_email(user_id, title, body, promotions=ntype == "broadcast")
+    if urgent and ntype in ("order", "message"):
+        _send_sms(user_id, f"{title}: {body}")
+    if ntype in ("order", "message", "review", "broadcast"):
+        _send_telegram(user_id, f"{title}\n{body}")
+
+
 def _send_telegram(user_id: str, body: str) -> None:
     try:
         _, _, chat_id, prefs = _load_user_contact(user_id)
@@ -110,6 +127,11 @@ def create_notification(
     href: str | None = None,
     urgent: bool = False,
 ) -> None:
+    if type == "message":
+        _, _, _, prefs = _load_user_contact(user_id)
+        if prefs.get("chatMuted"):
+            return
+
     admin = get_supabase_admin()
     try:
         admin.table("notifications").insert(
@@ -121,14 +143,9 @@ def create_notification(
                 "href": href,
             }
         ).execute()
-        if type in ("order", "message", "review", "broadcast"):
-            _send_email(user_id, title, body)
-        if urgent and type in ("order", "message"):
-            _send_sms(user_id, f"{title}: {body}")
-        if type in ("order", "message", "review", "broadcast"):
-            _send_telegram(user_id, f"{title}\n{body}")
-    except Exception:
-        pass
+        deliver_notification_channels(user_id, title, body, ntype=type, urgent=urgent)
+    except Exception as exc:
+        logger.warning("create_notification failed user=%s type=%s: %s", user_id, type, exc)
 
 
 def notify_order_status(

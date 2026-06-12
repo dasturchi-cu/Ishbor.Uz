@@ -13,7 +13,8 @@ _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 def validate_origin(request: Request) -> JSONResponse | None:
     if request.method in _SAFE_METHODS:
         return None
-    if not settings.is_production:
+    env = settings.environment.strip().lower()
+    if env not in ("production", "prod", "staging"):
         return None
 
     path = request.url.path

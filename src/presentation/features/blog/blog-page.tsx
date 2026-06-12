@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { Button } from '@/presentation/components/ui/button'
+import '@/presentation/styles/route-catalog.css'
 import { useApp } from '@/application/providers/app-provider'
+import { MarketplaceCatalogHero } from '@/presentation/components/layout/marketplace-catalog-hero'
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
 import { PATHS } from '@/domain/constants/routes'
 
@@ -14,16 +15,16 @@ export function BlogPage() {
   const { t } = useApp()
 
   return (
-    <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
-      <div className="surface-panel mb-5 px-4 py-3.5 sm:px-5 sm:py-4">
-        <h1 className="text-xl font-bold tracking-tight text-[var(--ishbor-text)] sm:text-[22px]">
-          {t('nav_blog')}
-        </h1>
-        <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)] sm:text-[14px]">
-          {t('blog_subtitle')}
-        </p>
-      </div>
-
+    <>
+      <MarketplaceCatalogHero
+        badge={t('nav_blog')}
+        title={t('nav_blog')}
+        subtitle={t('blog_subtitle')}
+        primaryAction={{ label: t('browse_services'), href: PATHS.services }}
+        secondaryAction={{ label: t('register'), href: PATHS.register, variant: 'outline' }}
+        trustLine={t('trust_escrow')}
+      />
+      <PageWrapper className="bg-[var(--ishbor-bg)] pt-5 md:pt-6">
       <div className="space-y-3">
         {POSTS.map((post) => (
           <article key={post.slug} className="surface-panel p-4 transition-[var(--transition)] sm:p-5">
@@ -49,11 +50,7 @@ export function BlogPage() {
         ))}
       </div>
 
-      <div className="mt-8 text-center">
-        <Link href={PATHS.services}>
-          <Button variant="outline">{t('browse_services')}</Button>
-        </Link>
-      </div>
-    </PageWrapper>
+      </PageWrapper>
+    </>
   )
 }

@@ -73,12 +73,8 @@ export function TermsConsentGate({ children }: { children: React.ReactNode }) {
     <>
       {children}
       {blocked && !checking && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-6 shadow-lg"
-          >
+        <div className="ps-modal-backdrop z-[70]">
+          <div role="dialog" aria-modal="true" className="ps-modal max-w-md">
             <h2 className="text-lg font-bold text-[var(--ishbor-text)]">{t('terms_consent_title')}</h2>
             <p className="mt-2 text-[13px] text-[var(--ishbor-text-muted)]">{t('terms_consent_desc')}</p>
             <div className="mt-4 flex flex-wrap gap-3 text-[13px]">

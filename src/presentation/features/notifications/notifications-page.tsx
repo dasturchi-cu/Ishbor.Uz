@@ -111,7 +111,7 @@ export function NotificationsPage() {
             type="button"
             onClick={() => setFilter(f)}
             className={cn(
-              'rounded-full px-4 py-1.5 text-[13px] font-medium transition',
+              'min-h-[44px] rounded-full px-4 py-2.5 text-[13px] font-medium transition',
               filter === f
                 ? 'bg-[var(--color-primary)] text-white'
                 : 'bg-[var(--color-bg-muted)] text-[var(--ishbor-text-muted)] hover:text-[var(--ishbor-text)]'

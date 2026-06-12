@@ -1,3 +1,4 @@
+import json
 import logging
 
 from datetime import datetime, timezone
@@ -37,7 +38,9 @@ from app.schemas_platform import (
     VerificationCreate,
     VerificationResponse,
 )
+from app.client_ip import get_client_ip
 from app.config import settings
+from app.rate_limit import check_rate_limit
 from app.supabase_instrumentation import get_stats, get_top10, is_debug_enabled, merge_client_events, reset_stats
 
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -310,12 +313,22 @@ def delete_draft(draft_key: str, auth: UserAuthDep):
     return None
 
 
+_FUNNEL_PROPERTIES_MAX_BYTES = 4096
+
+
 @router.post("/analytics/funnel", status_code=status.HTTP_204_NO_CONTENT)
 def track_funnel_event(payload: AnalyticsTrack, request: Request, user_id: OptionalUserId = None):
     if payload.event_name not in FUNNEL_EVENTS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Noto'g'ri funnel hodisasi")
     if not user_id and not payload.session_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="session_id talab qilinadi")
+    if payload.session_id and len(payload.session_id) > 64:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="session_id juda uzun")
+    ip = get_client_ip(request)
+    if not check_rate_limit(f"funnel:{ip}", max_hits=60):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Juda ko'p so'rov")
+    if len(json.dumps(payload.properties, default=str)) > _FUNNEL_PROPERTIES_MAX_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="properties juda katta")
     track_analytics_event(
         payload.event_name,
         user_id=user_id,
@@ -425,11 +438,12 @@ def list_feature_flags():
     return result.data or []
 
 
-@router.post("/audit/login", status_code=status.HTTP_204_NO_CONTENT)
-def audit_login(auth: UserAuthDep, request: Request, background_tasks: BackgroundTasks):
-    background_tasks.add_task(log_audit, actor_id=auth.user_id, action="login", request=request)
-    background_tasks.add_task(log_activity, auth.user_id, "login", "Tizimga kirildi", href="/dashboard")
-    return None
+@router.post("/audit/login")
+def audit_login():
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Deprecated — use POST /api/v1/security/audit/login-authed for authenticated login audit",
+    )
 
 
 @router.post("/audit/register", status_code=status.HTTP_204_NO_CONTENT)
@@ -440,13 +454,23 @@ def audit_register(auth: UserAuthDep, request: Request, background_tasks: Backgr
     return None
 
 
+_CLIENT_ERROR_META_MAX_BYTES = 2048
+
+
 @router.post("/client-errors", status_code=status.HTTP_204_NO_CONTENT)
 def report_client_error(
     payload: ClientErrorReport,
     request: Request,
     user_id: OptionalUserId = None,
 ):
+    if not user_id:
+        ip = get_client_ip(request)
+        if not check_rate_limit(f"client_error:{ip}", max_hits=10):
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Juda ko'p so'rov")
     meta = payload.model_dump(exclude_none=True)
+    encoded = json.dumps(meta, default=str)
+    if len(encoded) > _CLIENT_ERROR_META_MAX_BYTES:
+        meta = {k: str(v)[:200] for k, v in meta.items()}
     _client_error_logger.warning(
         "client_error scope=%s status=%s api_path=%s page=%s msg=%s",
         payload.scope,

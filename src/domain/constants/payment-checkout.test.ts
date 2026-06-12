@@ -3,6 +3,7 @@ import {
   availablePaymentProviders,
   defaultPaymentProvider,
   intentStatusToPhase,
+  isCheckoutAvailable,
   isPaymentsLiveEnabled,
   isTerminalIntentStatus,
   paymentCheckoutStorageKey,
@@ -61,6 +62,29 @@ describe('payment-checkout', () => {
         payme_enabled: false,
         live_available: true,
         providers: ['click'],
+      }),
+    ).toBe(true)
+  })
+
+  it('detects checkout availability from backend config', () => {
+    expect(
+      isCheckoutAvailable({
+        sandbox_allowed: false,
+        click_enabled: false,
+        payme_enabled: false,
+        live_available: false,
+        checkout_available: false,
+        providers: [],
+      }),
+    ).toBe(false)
+    expect(
+      isCheckoutAvailable({
+        sandbox_allowed: true,
+        click_enabled: false,
+        payme_enabled: false,
+        live_available: false,
+        checkout_available: true,
+        providers: ['sandbox'],
       }),
     ).toBe(true)
   })

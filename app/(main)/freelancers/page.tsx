@@ -1,4 +1,4 @@
-import { FreelancersCatalog } from '@/presentation/features/freelancers/freelancers-catalog'
+import { FreelancersLandingPage } from '@/presentation/features/freelancers/freelancers-landing-page'
 import { buildPageMetadata } from '@/shared/lib/seo'
 
 export const metadata = buildPageMetadata(
@@ -8,5 +8,5 @@ export const metadata = buildPageMetadata(
 )
 
 export default function FreelancersPage() {
-  return <FreelancersCatalog />
+  return <FreelancersLandingPage />
 }

@@ -199,10 +199,7 @@ export function ClientDashboard() {
                   </button>
                 )
               })}
-              <Link
-                href={PATHS.dashboardOrders}
-                className="inline-flex items-center gap-1 pt-1 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
-              >
+              <Link href={PATHS.dashboardOrders} className="dashboard-panel-footer-link">
                 {t('view_all_orders')}
                 <ChevronRight className="h-4 w-4" />
               </Link>
@@ -239,10 +236,7 @@ export function ClientDashboard() {
                   </p>
                 </Link>
               ))}
-              <Link
-                href={PATHS.dashboardProjects}
-                className="inline-flex items-center gap-1 pt-1 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
-              >
+              <Link href={PATHS.dashboardProjects} className="dashboard-panel-footer-link">
                 {t('view_all_projects')}
                 <ChevronRight className="h-4 w-4" />
               </Link>

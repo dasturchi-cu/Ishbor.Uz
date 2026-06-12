@@ -10,11 +10,11 @@ const CHECK_KEYS = ['auth_check_1', 'auth_check_2', 'auth_check_3'] as const
 export function AuthMobileTrust() {
   const { t } = useApp()
   return (
-    <ul className="show-mobile mb-5 space-y-2 rounded-lg border border-[var(--ishbor-border)] bg-[var(--color-bg-subtle)] p-4">
+    <ul className="auth-mobile-trust show-mobile" aria-label={t('auth_trust_early_note')}>
       {CHECK_KEYS.map((key) => (
-        <li key={key} className="flex items-start gap-2 text-[12px] text-[var(--ishbor-text-muted)]">
-          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-primary)]" aria-hidden />
-          {t(key)}
+        <li key={key} className="auth-mobile-trust__chip">
+          <Check className="h-3 w-3 shrink-0 text-[var(--color-primary)]" aria-hidden />
+          <span>{t(key)}</span>
         </li>
       ))}
     </ul>

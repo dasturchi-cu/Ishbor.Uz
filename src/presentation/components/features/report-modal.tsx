@@ -57,9 +57,9 @@ export function ReportModal({ targetType, targetId, onClose }: ReportModalProps)
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="ps-modal-backdrop z-[80]" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-5 shadow-[var(--shadow-lg)]"
+        className="ps-modal max-w-md"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

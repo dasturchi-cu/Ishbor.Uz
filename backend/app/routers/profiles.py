@@ -11,11 +11,23 @@ REFERRAL_BONUS = 50_000
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 
-from app.deps import OptionalUserId, OptionalUserIdLight, UserAuthDep
+from app.auth.jwt_verify import verify_supabase_token
+from app.config import settings
+from app.deps import OptionalUserId, OptionalUserIdLight, UserAuthDep, _jwt_email_verified
 
 from app.analytics_service import build_user_analytics
 from app.profile_service import ensure_profile_row, update_profile_row
 from app.review_stats import batch_review_stats, batch_trust_scores
+from app.catalog_quality import filter_quality_freelancer_rows
+from app.platform_services import track_analytics_event
+from app.search_query import (
+    MAX_SEARCH_SCAN,
+    apply_search_tokens,
+    expand_tokens,
+    relevance_score,
+    sort_by_relevance,
+    tokenize_search,
+)
 from app.timing_log import timed
 
 from app.schemas import (
@@ -27,6 +39,7 @@ from app.schemas import (
     ProfileUpdate,
     ReferralApply,
     ReferralStatsResponse,
+    SessionFlagsResponse,
     UiPreferencesUpdate,
     UsernameCheckResponse,
 )
@@ -145,6 +158,31 @@ def referral_stats(auth: UserAuthDep):
         "count": all_refs.count or 0,
         "bonus_earned": (credited.count or 0) * REFERRAL_BONUS,
     }
+
+
+@router.get("/session-flags", response_model=SessionFlagsResponse)
+def session_flags(auth: UserAuthDep):
+    result = run_query(
+        lambda: get_supabase_admin()
+        .table("profiles")
+        .select("is_banned, is_admin, onboarding_completed, role, is_suspended")
+        .eq("id", auth.user_id)
+        .limit(1)
+        .execute()
+    )
+    row = (result.data or [None])[0]
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil topilmadi")
+    payload = verify_supabase_token(auth.token)
+    return SessionFlagsResponse(
+        is_banned=bool(row.get("is_banned")),
+        is_admin=bool(row.get("is_admin")),
+        onboarding_completed=bool(row.get("onboarding_completed")),
+        role=row.get("role"),
+        is_suspended=bool(row.get("is_suspended")),
+        email_verified=_jwt_email_verified(payload),
+        require_email_verified=settings.require_email_verified,
+    )
 
 
 @router.get("/me/analytics")
@@ -399,40 +437,58 @@ def list_freelancers(
     sort: str | None = Query(default=None),
     limit: int = Query(default=24, le=50),
     offset: int = Query(default=0, ge=0),
+    user_id: OptionalUserId = None,
 ):
 
     supabase = get_supabase_admin()
+    search_tokens = tokenize_search(q)
 
-    query = supabase.table(_PUBLIC_PROFILE_TABLE).select(_PUBLIC_PROFILE_COLUMNS)
-    if region:
-        query = query.eq("region", region)
-    if specialty:
-        query = query.ilike("specialty", f"%{specialty}%")
-    if q:
-        from app.search_utils import sanitize_search_term
+    def build_query():
+        query = supabase.table(_PUBLIC_PROFILE_TABLE).select(_PUBLIC_PROFILE_COLUMNS)
+        if region:
+            query = query.eq("region", region)
+        if specialty:
+            query = query.ilike("specialty", f"%{specialty}%")
+        if search_tokens:
+            query = apply_search_tokens(
+                query,
+                search_tokens,
+                ["full_name", "specialty", "bio", "username"],
+            )
+        return query.order("created_at", desc=True)
 
-        safe_search = sanitize_search_term(q)
-        if safe_search:
-            pattern = f"%{safe_search}%"
-            query = query.or_(f"full_name.ilike.{pattern},specialty.ilike.{pattern},bio.ilike.{pattern}")
+    rows: list[dict] = []
+    if search_tokens:
+        result = run_query(lambda: build_query().range(0, MAX_SEARCH_SCAN - 1).execute())
+        rows = result.data or []
+        seen_ids = {row["id"] for row in rows}
+        for term in expand_tokens(search_tokens)[:6]:
+            skill_result = run_query(
+                lambda t=term: supabase.table(_PUBLIC_PROFILE_TABLE)
+                .select(_PUBLIC_PROFILE_COLUMNS)
+                .contains("skills", [t])
+                .limit(24)
+                .execute()
+            )
+            for row in skill_result.data or []:
+                if row["id"] not in seen_ids:
+                    seen_ids.add(row["id"])
+                    rows.append(row)
+    else:
+        result = run_query(
+            lambda: build_query().range(offset, offset + limit - 1).execute()
+        )
+        rows = result.data or []
 
-    result = run_query(
-        lambda: query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-    )
-
-    rows = result.data or []
+    rows = filter_quality_freelancer_rows(rows)
 
     ids = [row["id"] for row in rows]
-
     stats_map = batch_review_stats(supabase, ids)
     trust_map = batch_trust_scores(supabase, ids)
 
     profiles = []
-
     for row in rows:
-
         avg, count = stats_map.get(row["id"], (0.0, 0))
-
         profiles.append({
             **row,
             "avg_rating": avg,
@@ -440,7 +496,14 @@ def list_freelancers(
             "trust_score": trust_map.get(row["id"], 0),
         })
 
-    if sort == "rating":
+    if search_tokens:
+        profiles = sort_by_relevance(
+            profiles,
+            q,
+            score_fn=lambda row: relevance_score(row, search_tokens),
+        )
+        profiles = profiles[offset : offset + limit]
+    elif sort == "rating":
         profiles.sort(key=lambda p: (p.get("avg_rating") or 0, p.get("review_count") or 0), reverse=True)
     elif sort == "reviews":
         profiles.sort(key=lambda p: p.get("review_count") or 0, reverse=True)
@@ -482,13 +545,17 @@ def record_profile_view(
     if not dedup.data:
         return None
     run_query(lambda: supabase.rpc("increment_profile_view_count", {"p_profile_id": resolved_id}).execute())
+    track_analytics_event(
+        "freelancer_view",
+        user_id=user_id,
+        properties={"profile_id": resolved_id},
+    )
     return None
 
 
 @router.get("/{profile_id}", response_model=ProfilePublicResponse)
 
-def get_profile(profile_id: str):
-
+def get_profile(profile_id: str, user_id: OptionalUserId = None):
     supabase = get_supabase_admin()
     row = _fetch_public_profile_row(supabase, profile_id)
     resolved_id = row["id"]

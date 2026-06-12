@@ -36,11 +36,6 @@ type NotificationsContextValue = {
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null)
 
-function browserNotifWantsFeed(): boolean {
-  if (typeof window === 'undefined' || !('Notification' in window)) return false
-  return Notification.permission === 'granted'
-}
-
 export function NotificationsProvider({
   userId,
   isLoggedIn,
@@ -56,10 +51,7 @@ export function NotificationsProvider({
   const [forced, setForced] = useState(false)
 
   const onNotificationsPage = pathname === PATHS.notifications || pathname.startsWith(`${PATHS.notifications}/`)
-  const shouldLoad =
-    forced ||
-    onNotificationsPage ||
-    (isLoggedIn && browserNotifWantsFeed())
+  const shouldLoad = forced || onNotificationsPage || isLoggedIn
 
   const canFetch = isLoggedIn && ready && authed && Boolean(userId) && shouldLoad
   const shouldLoadRef = useRef(shouldLoad)
@@ -98,11 +90,6 @@ export function NotificationsProvider({
   const ensureLoaded = useCallback(() => {
     setForced(true)
   }, [])
-
-  useEffect(() => {
-    if (!isLoggedIn || !browserNotifWantsFeed()) return
-    setForced(true)
-  }, [isLoggedIn])
 
   const { data, isLoading, isError, error, refetch } = query
 

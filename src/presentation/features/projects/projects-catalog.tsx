@@ -7,17 +7,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
-import Link from 'next/link'
-
 import { useApp } from '@/application/providers/app-provider'
+import { ProjectCard } from '@/presentation/components/features/project-card'
 
 import { PageWrapper } from '@/presentation/components/layout/page-wrapper'
 
 import { IshborProtectionStrip } from '@/presentation/components/layout/ishbor-protection-strip'
+import { MarketplaceTrustMetrics } from '@/presentation/components/layout/marketplace-trust-metrics'
 
 import { EmptyState } from '@/presentation/components/ui/empty-state'
+import { SearchDiscoveryHints } from '@/presentation/components/features/search-discovery-hints'
 
 import { Button } from '@/presentation/components/ui/button'
+import { Badge } from '@/presentation/components/ui/badge'
 
 import { Input } from '@/presentation/components/ui/input'
 
@@ -35,13 +37,12 @@ import { PATHS, projectPath } from '@/domain/constants/routes'
 
 import { UZ_REGIONS } from '@/domain/constants/regions'
 
-import { formatPrice } from '@/shared/lib/format'
-
-import { Briefcase } from 'lucide-react'
+import { Briefcase, Search, SlidersHorizontal, X } from 'lucide-react'
+import { useEscapeClose } from '@/shared/lib/use-escape-close'
+import { useFocusTrap } from '@/shared/lib/use-focus-trap'
+import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 
 import type { TranslationKey } from '@/infrastructure/i18n'
-
-import { Badge } from '@/presentation/components/ui/badge'
 
 import {
 
@@ -153,8 +154,12 @@ export function ProjectsCatalog({
   const [reloadTick, setReloadTick] = useState(0)
 
   const pageSize = 12
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filterDrawerRef = useRef<HTMLDivElement>(null)
 
-
+  useEscapeClose(filterOpen, () => setFilterOpen(false))
+  useFocusTrap(filterOpen, filterDrawerRef)
+  useBodyScrollLock(filterOpen)
 
   useEffect(() => {
 
@@ -323,11 +328,67 @@ export function ProjectsCatalog({
 
   }
 
+  const activeFilterCount = [region, category, budgetMin.trim(), budgetMax.trim()].filter(Boolean).length
 
+  const filterFields = (
+    <>
+      <div className="catalog-toolbar-sort min-w-0 flex-1">
+        <span className="catalog-toolbar-sort-label">{t('region')}</span>
+        <Select
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+          options={[
+            { value: '', label: t('filter_all_regions') },
+            ...UZ_REGIONS.map((r) => ({ value: r, label: r })),
+          ]}
+          wrapperClassName="min-w-0 flex-1"
+          className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+          aria-label={t('region')}
+        />
+      </div>
+      <div className="catalog-toolbar-sort min-w-0 flex-1">
+        <span className="catalog-toolbar-sort-label">{t('category')}</span>
+        <Select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          options={CATEGORY_OPTIONS.map((opt) => ({
+            value: opt.value,
+            label: t(opt.labelKey),
+          }))}
+          wrapperClassName="min-w-0 flex-1"
+          className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+          aria-label={t('category')}
+        />
+      </div>
+      <div className="catalog-toolbar-sort min-w-0 flex-1">
+        <span className="catalog-toolbar-sort-label">{t('filter_budget_from')}</span>
+        <Input
+          value={budgetMin}
+          onChange={(e) => setBudgetMin(e.target.value)}
+          inputMode="numeric"
+          placeholder={t('budget_placeholder_min')}
+          className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+        />
+      </div>
+      <div className="catalog-toolbar-sort min-w-0 flex-1">
+        <span className="catalog-toolbar-sort-label">{t('filter_budget_to')}</span>
+        <Input
+          value={budgetMax}
+          onChange={(e) => setBudgetMax(e.target.value)}
+          inputMode="numeric"
+          placeholder={t('budget_placeholder_max')}
+          className="!h-full !min-h-0 !border-0 !bg-transparent !p-0 !shadow-none focus:!shadow-none"
+        />
+      </div>
+    </>
+  )
 
   return (
 
-    <PageWrapper id="projects-catalog" className="bg-[var(--ishbor-bg)] pt-6 md:pt-8">
+    <PageWrapper
+      id={hideHeader ? 'projects-catalog' : 'projects-catalog'}
+      className={hideHeader ? 'bg-[var(--ishbor-bg)] pt-4 md:pt-5' : 'bg-[var(--ishbor-bg)] pt-6 md:pt-8'}
+    >
 
       {!hideHeader && (
 
@@ -341,115 +402,68 @@ export function ProjectsCatalog({
 
       )}
 
-      <IshborProtectionStrip compact className="mb-5" />
-
-
-
-      <div className="mb-4 flex flex-col gap-3">
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-
-          <Input
-
-            value={search}
-
-            onChange={(e) => setSearch(e.target.value)}
-
-            placeholder={t('project_search_ph')}
-
-            className="sm:max-w-xs"
-
-          />
-
-          <Select
-
-            value={region}
-
-            onChange={(e) => setRegion(e.target.value)}
-
-            className="select-auth sm:max-w-[200px]"
-
-            options={[
-
-              { value: '', label: t('filter_all_regions') },
-
-              ...UZ_REGIONS.map((r) => ({ value: r, label: r })),
-
-            ]}
-
-          />
-
-          <Select
-
-            value={category}
-
-            onChange={(e) => setCategory(e.target.value)}
-
-            className="select-auth sm:max-w-[200px]"
-
-            options={CATEGORY_OPTIONS.map((opt) => ({
-
-              value: opt.value,
-
-              label: t(opt.labelKey),
-
-            }))}
-
-          />
-
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-
-          <Input
-
-            value={budgetMin}
-
-            onChange={(e) => setBudgetMin(e.target.value)}
-
-            label={t('filter_budget_from')}
-
-            inputMode="numeric"
-
-            placeholder="100 000"
-
-            className="sm:max-w-[160px]"
-
-          />
-
-          <Input
-
-            value={budgetMax}
-
-            onChange={(e) => setBudgetMax(e.target.value)}
-
-            label={t('filter_budget_to')}
-
-            inputMode="numeric"
-
-            placeholder="5 000 000"
-
-            className="sm:max-w-[160px]"
-
-          />
-
-        </div>
-
+      <div className="mb-5 space-y-3">
+        <IshborProtectionStrip compact showLearnMore />
+        <MarketplaceTrustMetrics compact />
       </div>
 
 
 
-      {!initialLoading && !catalogFetchError && projects.length > 0 && (
+      <div className="mb-4">
+        <div className="catalog-toolbar">
+          <div className="catalog-toolbar-search relative">
+            <div className="catalog-toolbar-search-field">
+              <Search className="h-4 w-4" />
+              <input
+                type="search"
+                className="ishbor-search-input"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('project_search_ph')}
+                aria-label={t('project_search_ph')}
+              />
+            </div>
+            <button
+              type="button"
+              className="catalog-toolbar-search-btn"
+              aria-label={t('show_search_results')}
+              onClick={() => document.getElementById('project-results')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
 
-        <p className="mb-3 text-[13px] text-[var(--ishbor-text-muted)]">
+          <div className="hide-mobile catalog-toolbar-actions">{filterFields}</div>
 
-          {t('projects_results_count').replace('{n}', String(projects.length))}
+          <div className="show-mobile shrink-0">
+            <Button
+              variant="outline"
+              size="md"
+              className="catalog-toolbar-filter-btn"
+              onClick={() => setFilterOpen(true)}
+              leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+              aria-label={t('filter')}
+            >
+              {activeFilterCount > 0 ? (
+                <Badge variant="primary" className="ml-0.5">
+                  {activeFilterCount}
+                </Badge>
+              ) : null}
+            </Button>
+          </div>
+        </div>
+      </div>
 
-          {hasMore ? '+' : ''}
-
-        </p>
-
-      )}
+      <p id="project-results" className="mb-4 min-h-[20px] px-0.5 text-[13px] text-[var(--ishbor-text-sub)]">
+        {initialLoading ? (
+          <span className="inline-block h-4 w-36 animate-pulse rounded-full bg-[var(--color-bg-muted)]" aria-label={t('loading_data')} />
+        ) : !catalogFetchError && projects.length > 0 ? (
+          <span className="catalog-results-count-pill inline-flex">
+            {t('projects_results_count').replace('{n}', String(projects.length))}
+            {hasMore ? '+' : ''}
+          </span>
+        ) : null}
+      </p>
 
 
 
@@ -497,96 +511,57 @@ export function ProjectsCatalog({
 
       ) : projects.length === 0 ? (
 
-        <EmptyState
-
-          icon={<Briefcase />}
-
-          title={hasActiveFilters ? t('no_projects_filtered') : t('no_projects_yet')}
-
-          description={hasActiveFilters ? t('no_services_desc') : t('projects_empty_desc')}
-
-          action={
-            hasActiveFilters
-              ? { label: t('clear_filters'), onClick: () => {
-                  setSearch('')
-                  setDebouncedSearch('')
-                  setRegion('')
-                  setCategory('')
-                  setBudgetMin('')
-                  setBudgetMax('')
-                  router.replace(pathname, { scroll: false })
-                } }
-              : { label: t('post_project'), onClick: () => router.push(PATHS.postProject) }
-          }
-
-          secondaryAction={
-            hasActiveFilters
-              ? undefined
-              : {
-                  label: t('nav_freelancers'),
-                  onClick: () => router.push(PATHS.freelancers),
-                  variant: 'outline',
-                }
-          }
-
-        />
+        <div className="mx-auto w-full max-w-lg">
+          <EmptyState
+            icon={<Briefcase />}
+            title={hasActiveFilters ? t('no_projects_filtered') : t('no_projects_yet')}
+            description={hasActiveFilters ? t('no_projects_filtered_desc') : t('projects_empty_desc')}
+            action={
+              hasActiveFilters
+                ? {
+                    label: t('clear_filters'),
+                    onClick: () => {
+                      setSearch('')
+                      setDebouncedSearch('')
+                      setRegion('')
+                      setCategory('')
+                      setBudgetMin('')
+                      setBudgetMax('')
+                      router.replace(pathname, { scroll: false })
+                    },
+                  }
+                : { label: t('post_project'), onClick: () => router.push(PATHS.postProject) }
+            }
+            secondaryAction={
+              hasActiveFilters
+                ? undefined
+                : {
+                    label: t('nav_freelancers'),
+                    onClick: () => router.push(PATHS.freelancers),
+                    variant: 'outline',
+                  }
+            }
+          />
+          {debouncedSearch ? <SearchDiscoveryHints query={debouncedSearch} /> : null}
+        </div>
 
       ) : (
 
         <div className="space-y-3">
 
           {projects.map((p) => (
-
-            <Link key={p.id} href={projectPath(p.id)} className="project-catalog-card group block">
-
-              <div className="flex flex-wrap items-start justify-between gap-3">
-
-                <div className="min-w-0 flex-1">
-
-                  <div className="flex flex-wrap items-center gap-2">
-
-                    <h2 className="text-[17px] font-bold text-[var(--ishbor-text)] transition group-hover:text-[var(--color-primary)]">{p.title}</h2>
-
-                    <Badge variant={projectStatusBadgeVariant(p.status)} size="xs">
-
-                      {marketplaceStatusLabel(PROJECT_STATUS_KEYS, p.status, t)}
-
-                    </Badge>
-
-                  </div>
-
-                  <p className="mt-1.5 line-clamp-2 text-[14px] leading-relaxed text-[var(--ishbor-text-muted)]">{p.description}</p>
-
-                  <p className="mt-2.5 text-[12px] font-medium text-[var(--ishbor-text-sub)]">
-
-                    {p.region}
-
-                    <span className="mx-1.5 text-[var(--ishbor-text-muted)]">·</span>
-
-                    {categoryLabel(p.category)}
-
-                    {(p.application_count ?? 0) > 0 && (
-
-                      <>
-
-                        <span className="mx-1.5 text-[var(--ishbor-text-muted)]">·</span>
-
-                        {t('project_applications_count').replace('{n}', String(p.application_count))}
-
-                      </>
-
-                    )}
-
-                  </p>
-
-                </div>
-
-                <p className="text-[18px] font-bold tabular-nums text-[var(--color-primary)]">{formatPrice(p.budget)}</p>
-
-              </div>
-
-            </Link>
-
+            <ProjectCard
+              key={p.id}
+              href={projectPath(p.id)}
+              title={p.title}
+              description={p.description}
+              budget={p.budget}
+              region={p.region}
+              categoryLabel={categoryLabel(p.category)}
+              statusLabel={marketplaceStatusLabel(PROJECT_STATUS_KEYS, p.status, t)}
+              statusVariant={projectStatusBadgeVariant(p.status)}
+              applicationCount={p.application_count ?? 0}
+            />
           ))}
 
           {hasMore && (
@@ -605,6 +580,30 @@ export function ProjectsCatalog({
 
         </div>
 
+      )}
+
+      {filterOpen && (
+        <>
+          <div className="drawer-backdrop show-mobile" onClick={() => setFilterOpen(false)} aria-hidden />
+          <div
+            ref={filterDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('filter')}
+            className="drawer-panel show-mobile fixed inset-y-0 right-0 z-50 overflow-y-auto border-l border-[var(--ishbor-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-lg)]"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[16px] font-bold text-[var(--ishbor-text)]">{t('filter')}</h2>
+              <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => setFilterOpen(false)} aria-label={t('close')}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex flex-col gap-4">{filterFields}</div>
+            <Button variant="primary" className="mt-6 w-full" onClick={() => setFilterOpen(false)}>
+              {t('show_search_results')}
+            </Button>
+          </div>
+        </>
       )}
 
     </PageWrapper>

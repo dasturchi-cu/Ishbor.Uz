@@ -1,0 +1,537 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e208] [cursor=pointer]:
+    - img [ref=e209]
+  - alert [ref=e212]
+  - generic [ref=e213]:
+    - link "Asosiy kontentga o'tish" [ref=e214] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e215]:
+      - generic [ref=e217]:
+        - link "ISHBOR PROFESSIONAL XIZMATLAR" [ref=e218] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e219]: ISHBOR
+          - generic [ref=e221]: PROFESSIONAL XIZMATLAR
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - img [ref=e227]
+            - textbox "Xizmat qidiring..." [ref=e230]
+          - button "Xizmat qidiring..." [ref=e231] [cursor=pointer]:
+            - img [ref=e232]
+        - generic [ref=e236]:
+          - link "Bosh sahifa" [ref=e237] [cursor=pointer]:
+            - /url: /dashboard
+          - button "Bildirishnomalar" [ref=e239]:
+            - img [ref=e240]
+          - link "0 so'm" [ref=e243] [cursor=pointer]:
+            - /url: /dashboard/wallet
+            - img [ref=e245]
+            - generic [ref=e248]: 0 so'm
+          - button "Language" [ref=e250] [cursor=pointer]:
+            - img [ref=e251]
+            - generic [ref=e254]: UZ
+            - img [ref=e255]
+          - button "Profil" [ref=e258] [cursor=pointer]:
+            - generic [ref=e260]: DV
+            - img [ref=e261]
+      - navigation "Kategoriyalar" [ref=e263]:
+        - generic [ref=e265]:
+          - link "Xizmatlar" [ref=e266] [cursor=pointer]:
+            - /url: /services
+          - link "Freelancerlar" [ref=e267] [cursor=pointer]:
+            - /url: /freelancers
+          - link "Loyiha bozori" [ref=e268] [cursor=pointer]:
+            - /url: /projects
+          - link "Ish e'lonlari" [ref=e269] [cursor=pointer]:
+            - /url: /jobs
+          - link "Kompaniyalar" [ref=e270] [cursor=pointer]:
+            - /url: /companies
+    - main [ref=e271]:
+      - generic [ref=e273]:
+        - text: Xizmatlar
+        - heading "Kerakli xizmatni toping" [level=1] [ref=e274]
+        - paragraph [ref=e275]: Tasdiqlangan freelancerlar. Narx va muddat ko'rinadi — buyurtma bir bosishda.
+        - generic [ref=e276]:
+          - button "Katalogni ko'rish" [ref=e277]
+          - button "Xizmat yaratish" [ref=e278]
+        - paragraph [ref=e279]: Escrow himoyasi va moderatsiyadan o'tgan xizmatlar.
+      - navigation "Bozor bo'limlari" [ref=e281]:
+        - link "Xizmatlar" [ref=e282] [cursor=pointer]:
+          - /url: /services
+          - img [ref=e283]
+          - text: Xizmatlar
+        - link "Freelancerlar" [ref=e285] [cursor=pointer]:
+          - /url: /freelancers
+          - img [ref=e286]
+          - text: Freelancerlar
+        - link "Loyihalar" [ref=e291] [cursor=pointer]:
+          - /url: /projects
+          - img [ref=e292]
+          - text: Loyihalar
+        - link "Ish e'lonlari" [ref=e294] [cursor=pointer]:
+          - /url: /jobs
+          - img [ref=e295]
+          - text: Ish e'lonlari
+      - generic [ref=e299]:
+        - generic [ref=e301]:
+          - generic [ref=e302]:
+            - button "Dizayn" [ref=e303] [cursor=pointer]:
+              - img [ref=e305]
+              - generic [ref=e311]: Dizayn
+            - generic:
+              - generic:
+                - generic:
+                  - link "Logo va brending":
+                    - /url: /services?cat=graphic
+                  - link "UI/UX dizayn":
+                    - /url: /services?cat=uiux
+                  - link "Ijtimoiy tarmoq dizayni":
+                    - /url: /services?cat=graphic
+                  - link "Banner va reklama":
+                    - /url: /services?cat=graphic
+                  - link "Illustratsiya":
+                    - /url: /services?cat=graphic
+                  - link "Prezentatsiya dizayn":
+                    - /url: /services?cat=graphic
+                - link "Barchasini ko'rish":
+                  - /url: /services?cat=graphic
+                  - text: Barchasini ko'rish
+                  - img
+          - generic [ref=e312]:
+            - button "Dasturlash" [ref=e313] [cursor=pointer]:
+              - img [ref=e315]
+              - generic [ref=e319]: Dasturlash
+            - generic:
+              - generic:
+                - generic:
+                  - link "Veb-sayt yaratish":
+                    - /url: /services?cat=web
+                  - link "Landing page":
+                    - /url: /services?cat=web
+                  - link "Mobil ilovalar":
+                    - /url: /services?cat=mobile
+                  - link "WordPress":
+                    - /url: /services?cat=web
+                  - link "Skriptlar va botlar":
+                    - /url: /services?cat=web
+                  - link "IT yordam":
+                    - /url: /services?cat=web
+                - link "Barchasini ko'rish":
+                  - /url: /services?cat=web
+                  - text: Barchasini ko'rish
+                  - img
+          - generic [ref=e320]:
+            - button "Yozuv" [ref=e321] [cursor=pointer]:
+              - img [ref=e323]
+              - generic [ref=e325]: Yozuv
+            - generic:
+              - generic:
+                - generic:
+                  - link "Reklama matnlari":
+                    - /url: /services?cat=writing
+                  - link "Maqola va blog":
+                    - /url: /services?cat=writing
+                  - link "Tarjima":
+                    - /url: /services?cat=writing
+                  - link "Tahrir va korrektura":
+                    - /url: /services?cat=writing
+                  - link "SMM matnlar":
+                    - /url: /services?cat=writing
+                  - link "Texnik hujjatlar":
+                    - /url: /services?cat=writing
+                - link "Barchasini ko'rish":
+                  - /url: /services?cat=writing
+                  - text: Barchasini ko'rish
+                  - img
+          - generic [ref=e326]:
+            - button "SEO" [ref=e327] [cursor=pointer]:
+              - img [ref=e329]
+              - generic [ref=e332]: SEO
+            - generic:
+              - generic:
+                - generic:
+                  - link "SEO audit":
+                    - /url: /services?cat=seo
+                  - link "Kalit so'z tadqiqoti":
+                    - /url: /services?cat=seo
+                  - link "Linkbuilding":
+                    - /url: /services?cat=seo
+                  - link "Mahalliy SEO":
+                    - /url: /services?cat=seo
+                  - link "Analitika sozlash":
+                    - /url: /services?cat=seo
+                  - link "SEO matnlar":
+                    - /url: /services?cat=seo
+                - link "Barchasini ko'rish":
+                  - /url: /services?cat=seo
+                  - text: Barchasini ko'rish
+                  - img
+          - generic [ref=e333]:
+            - button "SMM va Marketing" [ref=e334] [cursor=pointer]:
+              - img [ref=e336]
+              - generic [ref=e339]: SMM va Marketing
+            - generic:
+              - generic:
+                - generic:
+                  - link "SMM strategiya":
+                    - /url: /services?cat=smm
+                  - link "Target reklama":
+                    - /url: /services?cat=smm
+                  - link "Jamoa boshqaruvi":
+                    - /url: /services?cat=smm
+                  - link "Influencer marketing":
+                    - /url: /services?cat=smm
+                  - link "Kontent reja":
+                    - /url: /services?cat=smm
+                  - link "Brend SMM":
+                    - /url: /services?cat=smm
+                - link "Barchasini ko'rish":
+                  - /url: /services?cat=smm
+                  - text: Barchasini ko'rish
+                  - img
+          - generic [ref=e340]:
+            - button "Video" [ref=e341] [cursor=pointer]:
+              - img [ref=e343]
+              - generic [ref=e346]: Video
+            - generic:
+              - generic:
+                - generic:
+                  - link "Video montaj":
+                    - /url: /services?cat=video
+                  - link "Motion dizayn":
+                    - /url: /services?cat=video
+                  - link "Intro va outro":
+                    - /url: /services?cat=video
+                  - link "Reels va Shorts":
+                    - /url: /services?cat=video
+                  - link "Rang va ovoz":
+                    - /url: /services?cat=video
+                  - link "Animatsiya":
+                    - /url: /services?cat=video
+                - link "Barchasini ko'rish":
+                  - /url: /services?cat=video
+                  - text: Barchasini ko'rish
+                  - img
+          - generic [ref=e347]:
+            - button "Dizayn va Gʻoya" [ref=e348] [cursor=pointer]:
+              - img [ref=e350]
+              - generic [ref=e353]: Dizayn va Gʻoya
+            - generic:
+              - generic:
+                - generic:
+                  - link "Biznes maslahat":
+                    - /url: /services?cat=design
+                  - link "Bozor tadqiqoti":
+                    - /url: /services?cat=design
+                  - link "Moliya va hisob":
+                    - /url: /services?cat=design
+                  - link "HR va recruiting":
+                    - /url: /services?cat=design
+                  - link "Huquqiy xizmatlar":
+                    - /url: /services?cat=design
+                  - link "Biznes prezentatsiya":
+                    - /url: /services?cat=design
+                - link "Barchasini ko'rish":
+                  - /url: /services?cat=design
+                  - text: Barchasini ko'rish
+                  - img
+        - generic [ref=e354]:
+          - generic [ref=e356]:
+            - heading "Filtrlar" [level=2] [ref=e358]
+            - generic [ref=e359]:
+              - button "Kategoriya" [expanded] [ref=e360] [cursor=pointer]:
+                - generic [ref=e361]: Kategoriya
+                - img [ref=e363]
+              - generic [ref=e366]:
+                - generic [ref=e367] [cursor=pointer]:
+                  - radio "Barchasi" [checked] [ref=e368]
+                  - text: Barchasi
+                - generic [ref=e369] [cursor=pointer]:
+                  - radio "Web Dasturlash" [ref=e370]
+                  - text: Web Dasturlash
+                - generic [ref=e371] [cursor=pointer]:
+                  - radio "Mobil Dasturlash" [ref=e372]
+                  - text: Mobil Dasturlash
+                - generic [ref=e373] [cursor=pointer]:
+                  - radio "UI/UX Dizayn" [ref=e374]
+                  - text: UI/UX Dizayn
+                - generic [ref=e375] [cursor=pointer]:
+                  - radio "Grafik Dizayn" [ref=e376]
+                  - text: Grafik Dizayn
+                - generic [ref=e377] [cursor=pointer]:
+                  - radio "Kontent Yozish" [ref=e378]
+                  - text: Kontent Yozish
+                - generic [ref=e379] [cursor=pointer]:
+                  - radio "Video Montaj" [ref=e380]
+                  - text: Video Montaj
+                - generic [ref=e381] [cursor=pointer]:
+                  - radio "SEO" [ref=e382]
+                  - text: SEO
+                - generic [ref=e383] [cursor=pointer]:
+                  - radio "SMM va Marketing" [ref=e384]
+                  - text: SMM va Marketing
+                - generic [ref=e385] [cursor=pointer]:
+                  - radio "Dizayn va Gʻoya" [ref=e386]
+                  - text: Dizayn va Gʻoya
+            - button "Narx oralig'i" [ref=e388] [cursor=pointer]:
+              - generic [ref=e389]: Narx oralig'i
+              - img [ref=e391]
+            - button "Yetkazish muddati" [ref=e394] [cursor=pointer]:
+              - generic [ref=e395]: Yetkazish muddati
+              - img [ref=e397]
+            - button "Viloyat" [ref=e400] [cursor=pointer]:
+              - generic [ref=e401]: Viloyat
+              - img [ref=e403]
+            - button "Daraja" [ref=e406] [cursor=pointer]:
+              - generic [ref=e407]: Daraja
+              - img [ref=e409]
+          - generic [ref=e411]:
+            - generic [ref=e412]:
+              - generic [ref=e416]:
+                - img [ref=e417]
+                - textbox "Xizmatlarni qidirish..." [ref=e420]
+              - generic [ref=e421]:
+                - generic [ref=e422]:
+                  - strong [ref=e423]: "13"
+                  - text: ta xizmat topildi
+                - generic [ref=e424]:
+                  - generic [ref=e425]: Saralash
+                  - combobox [ref=e428] [cursor=pointer]:
+                    - option "Eng mashhur" [selected]
+                    - option "Yangi"
+                    - option "Eng yuqori reyting"
+                    - option "Tez yetkazish"
+                    - option "Narx ↑"
+                    - option "Narx ↓"
+            - generic [ref=e429]:
+              - button "test — 1.1 mlrd so'm" [ref=e430] [cursor=pointer]:
+                - generic [ref=e431]:
+                  - generic [ref=e432]:
+                    - generic [ref=e434]: T
+                    - img [ref=e436]
+                  - button "Saqlash" [ref=e439]:
+                    - img [ref=e440]
+                - generic [ref=e442]:
+                  - heading "test" [level=3] [ref=e443]
+                  - paragraph [ref=e444]: 5 kunda tayyor
+                  - generic [ref=e445]:
+                    - generic [ref=e447]: T
+                    - generic [ref=e448]: tes
+                  - generic [ref=e449]:
+                    - generic [ref=e450]:
+                      - img [ref=e451]
+                      - text: Escrow himoyasi
+                    - generic [ref=e453]:
+                      - paragraph [ref=e454]: 1.1 mlrd so'm
+                      - generic [ref=e455]: Yangi
+              - button "ma suka — 150 000 so'm" [ref=e456] [cursor=pointer]:
+                - generic [ref=e457]:
+                  - generic [ref=e458]:
+                    - generic [ref=e460]: M
+                    - img [ref=e462]
+                  - button "Saqlash" [ref=e466]:
+                    - img [ref=e467]
+                - generic [ref=e469]:
+                  - heading "ma suka" [level=3] [ref=e470]
+                  - paragraph [ref=e471]: 5 kunda tayyor
+                  - generic [ref=e472]:
+                    - generic [ref=e474]: M
+                    - generic [ref=e475]: Muhammadsodiq
+                  - generic [ref=e476]:
+                    - generic [ref=e477]:
+                      - img [ref=e478]
+                      - text: Escrow himoyasi
+                    - generic [ref=e480]:
+                      - paragraph [ref=e481]: 150 000 so'm
+                      - generic [ref=e482]: Yangi
+              - button "sadsad — 32 132 so'm" [ref=e483] [cursor=pointer]:
+                - generic [ref=e484]:
+                  - img "sadsad" [ref=e486]
+                  - button "Saqlash" [ref=e487]:
+                    - img [ref=e488]
+                - generic [ref=e490]:
+                  - heading "sadsad" [level=3] [ref=e491]
+                  - paragraph [ref=e492]: Tez yetkazish 24s
+                  - generic [ref=e493]:
+                    - generic [ref=e495]: L
+                    - generic [ref=e496]: Labsdsads
+                  - generic [ref=e497]:
+                    - generic [ref=e498]:
+                      - img [ref=e499]
+                      - text: Escrow himoyasi
+                    - generic [ref=e501]:
+                      - paragraph [ref=e502]: 32 132 so'm
+                      - generic [ref=e503]: Yangi
+              - button "tesd — 50 000 so'm" [ref=e504] [cursor=pointer]:
+                - generic [ref=e505]:
+                  - img "tesd" [ref=e507]
+                  - button "Saqlash" [ref=e508]:
+                    - img [ref=e509]
+                - generic [ref=e511]:
+                  - heading "tesd" [level=3] [ref=e512]
+                  - paragraph [ref=e513]: 5 kunda tayyor
+                  - generic [ref=e514]:
+                    - generic [ref=e516]: L
+                    - generic [ref=e517]: Labsdsads
+                  - generic [ref=e518]:
+                    - generic [ref=e519]:
+                      - img [ref=e520]
+                      - text: Escrow himoyasi
+                    - generic [ref=e522]:
+                      - paragraph [ref=e523]: 50 000 so'm
+                      - generic [ref=e524]: Yangi
+              - button "testfdsssssssss — 12.3 mln so'm" [ref=e525] [cursor=pointer]:
+                - generic [ref=e526]:
+                  - img "testfdsssssssss" [ref=e528]
+                  - button "Saqlash" [ref=e529]:
+                    - img [ref=e530]
+                - generic [ref=e532]:
+                  - heading "testfdsssssssss" [level=3] [ref=e533]
+                  - paragraph [ref=e534]: 5 kunda tayyor
+                  - generic [ref=e535]:
+                    - generic [ref=e537]: L
+                    - generic [ref=e538]: Labsdsads
+                  - generic [ref=e539]:
+                    - generic [ref=e540]:
+                      - img [ref=e541]
+                      - text: Escrow himoyasi
+                    - generic [ref=e543]:
+                      - paragraph [ref=e544]: 12.3 mln so'm
+                      - generic [ref=e545]: Yangi
+              - button "sddsads — 111 111 so'm" [ref=e546] [cursor=pointer]:
+                - generic [ref=e547]:
+                  - generic [ref=e548]:
+                    - generic [ref=e550]: M
+                    - img [ref=e552]
+                  - button "Saqlash" [ref=e556]:
+                    - img [ref=e557]
+                - generic [ref=e559]:
+                  - heading "sddsads" [level=3] [ref=e560]
+                  - paragraph [ref=e561]: 5 kunda tayyor
+                  - generic [ref=e562]:
+                    - generic [ref=e564]: M
+                    - generic [ref=e565]: Muhammadsodiq
+                  - generic [ref=e566]:
+                    - generic [ref=e567]:
+                      - img [ref=e568]
+                      - text: Escrow himoyasi
+                    - generic [ref=e570]:
+                      - paragraph [ref=e571]: 111 111 so'm
+                      - generic [ref=e572]: Yangi
+              - button "TES — 11.1 mln so'm" [ref=e573] [cursor=pointer]:
+                - generic [ref=e574]:
+                  - generic [ref=e575]:
+                    - generic [ref=e577]: T
+                    - img [ref=e579]
+                  - button "Saqlash" [ref=e583]:
+                    - img [ref=e584]
+                - generic [ref=e586]:
+                  - heading "TES" [level=3] [ref=e587]
+                  - paragraph [ref=e588]: 5 kunda tayyor
+                  - generic [ref=e589]:
+                    - generic [ref=e591]: T
+                    - generic [ref=e592]: test
+                  - generic [ref=e593]:
+                    - generic [ref=e594]:
+                      - img [ref=e595]
+                      - text: Escrow himoyasi
+                    - generic [ref=e597]:
+                      - paragraph [ref=e598]: 11.1 mln so'm
+                      - generic [ref=e599]: Yangi
+              - button "test — 1.1 mlrd so'm" [ref=e600] [cursor=pointer]:
+                - generic [ref=e601]:
+                  - generic [ref=e602]:
+                    - generic [ref=e604]: T
+                    - img [ref=e606]
+                  - button "Saqlash" [ref=e610]:
+                    - img [ref=e611]
+                - generic [ref=e613]:
+                  - heading "test" [level=3] [ref=e614]
+                  - paragraph [ref=e615]: 5 kunda tayyor
+                  - generic [ref=e616]:
+                    - generic [ref=e618]: T
+                    - generic [ref=e619]: test
+                  - generic [ref=e620]:
+                    - generic [ref=e621]:
+                      - img [ref=e622]
+                      - text: Escrow himoyasi
+                    - generic [ref=e624]:
+                      - paragraph [ref=e625]: 1.1 mlrd so'm
+                      - generic [ref=e626]: Yangi
+              - button "tead — 12.3 mln so'm" [ref=e627] [cursor=pointer]:
+                - generic [ref=e628]:
+                  - img "tead" [ref=e630]
+                  - button "Saqlash" [ref=e631]:
+                    - img [ref=e632]
+                - generic [ref=e634]:
+                  - heading "tead" [level=3] [ref=e635]
+                  - paragraph [ref=e636]: 5 kunda tayyor
+                  - generic [ref=e637]:
+                    - generic [ref=e639]: D
+                    - generic [ref=e640]: dasdsa
+                  - generic [ref=e641]:
+                    - generic [ref=e642]:
+                      - img [ref=e643]
+                      - text: Escrow himoyasi
+                    - generic [ref=e645]:
+                      - paragraph [ref=e646]: 12.3 mln so'm
+                      - generic [ref=e647]: Yangi
+            - navigation "Sahifa 1 / …" [ref=e648]:
+              - button "Orqaga" [disabled]:
+                - generic:
+                  - img
+                - text: Orqaga
+              - generic [ref=e649]: Sahifa 1 / 2
+              - button "Davom etish" [ref=e650]:
+                - text: Davom etish
+                - img [ref=e652]
+    - contentinfo [ref=e654]:
+      - generic [ref=e655]:
+        - generic [ref=e656]:
+          - generic [ref=e657]:
+            - link "IshBor.uz" [ref=e658] [cursor=pointer]:
+              - /url: /
+            - paragraph [ref=e659]: O'zbek tilidagi freelance marketplace — xizmat toping, buyurtma bering, natija oling.
+            - generic [ref=e660]:
+              - link "Telegram" [ref=e661] [cursor=pointer]:
+                - /url: https://t.me/ishboruz
+                - img [ref=e662]
+              - link "Instagram" [ref=e665] [cursor=pointer]:
+                - /url: https://instagram.com/ishboruz
+                - img [ref=e666]
+          - generic [ref=e669]:
+            - heading "Sahifalar" [level=4] [ref=e670]
+            - list [ref=e671]:
+              - listitem [ref=e672]:
+                - link "Xizmatlar" [ref=e673] [cursor=pointer]:
+                  - /url: /services
+              - listitem [ref=e674]:
+                - link "Freelancerlar" [ref=e675] [cursor=pointer]:
+                  - /url: /freelancers
+              - listitem [ref=e676]:
+                - link "Loyihalar" [ref=e677] [cursor=pointer]:
+                  - /url: /projects
+              - listitem [ref=e678]:
+                - link "Blog" [ref=e679] [cursor=pointer]:
+                  - /url: /blog
+              - listitem [ref=e680]:
+                - link "Narxlar" [ref=e681] [cursor=pointer]:
+                  - /url: /pricing
+              - listitem [ref=e682]:
+                - link "Yordam markazi" [ref=e683] [cursor=pointer]:
+                  - /url: /help
+          - generic [ref=e684]:
+            - heading "Xaridor himoyasi" [level=4] [ref=e685]
+            - paragraph [ref=e686]: To'lovlar escrow himoyasi bilan — ish qabul qilinmaguncha mablag' uzatilmaydi.
+            - link "Xaridor himoyasi" [ref=e687] [cursor=pointer]:
+              - /url: /buyer-protection
+              - img [ref=e688]
+              - text: Xaridor himoyasi
+        - generic [ref=e690]:
+          - paragraph [ref=e691]: © 2026 IshBor.uz
+          - generic [ref=e692]:
+            - link "Foydalanish shartlari" [ref=e693] [cursor=pointer]:
+              - /url: /terms
+            - link "Maxfiylik siyosati" [ref=e694] [cursor=pointer]:
+              - /url: /privacy
+            - generic [ref=e695]: Barcha huquqlar himoyalangan
+    - region "Notifications alt+T"

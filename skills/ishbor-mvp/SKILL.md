@@ -9,7 +9,7 @@ description: IshBor.uz MVP feature ishlab chiqish tartibi. Use when building aut
 1. [AGENTS.md](../../AGENTS.md) — kod qoidalari
 2. [plan-status.md](../../plan-status.md) — hozirgi holat
 3. [mvp.md](../../mvp.md) — scope va sprint rejasi
-4. [.cursor/rules/agent-bootstrap.mdc](../../.cursor/rules/agent-bootstrap.mdc) — to'liq indeks
+4. [.cursor/rules/ishbor-agent.mdc](../../.cursor/rules/ishbor-agent.mdc) — yagona agent qoidasi
 
 ## MVP bosqichlari (tartib bo'yicha)
 

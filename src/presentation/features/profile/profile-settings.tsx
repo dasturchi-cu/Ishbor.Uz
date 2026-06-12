@@ -28,7 +28,12 @@ import { isSupabaseConfigured } from '@/infrastructure/supabase/client'
 import { updatePassword } from '@/infrastructure/auth/password'
 import { mapAuthErrorMessage } from '@/infrastructure/auth/error-messages'
 import { toast } from '@/presentation/components/ui/toast'
-import { loadNotificationPrefs, saveNotificationPrefs } from '@/shared/lib/notification-prefs'
+import {
+  browserNotificationsEnabled,
+  loadNotificationPrefs,
+  saveNotificationPrefs,
+  setBrowserNotificationsEnabled,
+} from '@/shared/lib/notification-prefs'
 import { profileUpdateSchema } from '@/domain/validators/profile'
 import { AiSuggestButton } from '@/presentation/components/ui/ai-suggest-button'
 import { NotificationChannelStatus } from '@/presentation/components/layout/notification-channel-status'
@@ -45,6 +50,7 @@ import { LoadErrorAlert } from '@/presentation/components/ui/load-error-alert'
 import { captureLoadError } from '@/shared/lib/load-error'
 import { captureActionError } from '@/shared/lib/action-error'
 import { ignoreWithLog } from '@/shared/lib/ignore-with-log'
+import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
 
 const VERIFICATION_TYPE_KEYS: Record<string, TranslationKey> = {
   employer: 'verification_type_employer',
@@ -186,7 +192,7 @@ export function ProfileSettings() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setBrowserNotif(localStorage.getItem('ishbor_browser_notif') === '1')
+    setBrowserNotif(browserNotificationsEnabled())
   }, [])
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -372,12 +378,13 @@ export function ProfileSettings() {
     return () => clearTimeout(id)
   }, [username, profile?.username, profile?.id, userId, t])
 
+  const profilePath = userId
+    ? freelancerPath({ id: userId, username: profile?.username ?? username })
+    : PATHS.services
   const profileLink =
     userId && typeof window !== 'undefined'
-      ? `${window.location.origin}${freelancerPath({ id: userId, username: profile?.username ?? username })}`
-      : userId
-        ? freelancerPath({ id: userId, username: profile?.username ?? username })
-        : PATHS.services
+      ? `${window.location.origin}${profilePath}`
+      : profilePath
 
   const handlePasswordUpdate = async () => {
     if (!newPassword || newPassword.length < 8) {
@@ -411,9 +418,7 @@ export function ProfileSettings() {
       }
     }
     setBrowserNotif(enabled)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ishbor_browser_notif', enabled ? '1' : '0')
-    }
+    setBrowserNotificationsEnabled(enabled)
   }
 
   const handleSave = async () => {
@@ -516,10 +521,14 @@ export function ProfileSettings() {
           <div className="settings-panel">
             {activeTab === 'general' && (
               <>
+                <ReferralBanner className="mb-4" />
                 <p className="text-[13px] leading-relaxed text-[var(--ishbor-text)]">
                   {t('settings_profile_link')}{' '}
-                  <Link href={profileLink} className="font-medium text-[var(--color-primary)] hover:underline">
-                    {profileLink}
+                  <Link
+                    href={profileLink}
+                    className="settings-profile-url-link font-medium text-[var(--color-primary)] hover:underline"
+                  >
+                    {profilePath}
                   </Link>
                 </p>
 

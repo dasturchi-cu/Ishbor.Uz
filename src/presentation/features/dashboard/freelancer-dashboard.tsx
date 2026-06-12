@@ -134,10 +134,7 @@ export function FreelancerDashboard() {
         : { label: t('dash_action_find_orders'), href: PATHS.projects }
 
   const viewAllServicesLink = (
-    <Link
-      href={PATHS.dashboardServices}
-      className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
-    >
+    <Link href={PATHS.dashboardServices} className="dashboard-panel-footer-link">
       {t('view_all_services')}
       <ChevronRight className="h-4 w-4" />
     </Link>
@@ -236,10 +233,7 @@ export function FreelancerDashboard() {
                   </button>
                 )
               })}
-              <Link
-                href={PATHS.dashboardOrders}
-                className="inline-flex items-center gap-1 pt-1 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
-              >
+              <Link href={PATHS.dashboardOrders} className="dashboard-panel-footer-link">
                 {t('view_all_orders')}
                 <ChevronRight className="h-4 w-4" />
               </Link>

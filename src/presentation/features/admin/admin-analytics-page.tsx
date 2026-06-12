@@ -17,6 +17,26 @@ const AdminCharts = dynamic(
 )
 import { useAuthReady } from '@/shared/lib/use-auth-ready'
 import { captureLoadError } from '@/shared/lib/load-error'
+import type { TranslationKey } from '@/infrastructure/i18n'
+
+const FUNNEL_STAGE_KEYS: Record<string, TranslationKey> = {
+  register_views: 'admin_funnel_stage_register_views',
+  registrations: 'admin_funnel_stage_registrations',
+  logins: 'admin_funnel_stage_logins',
+  profile_completion: 'admin_funnel_stage_profile_completion',
+  discovery_views: 'admin_funnel_stage_discovery_views',
+  checkout_started: 'admin_funnel_stage_checkout_started',
+  payment_attempts: 'admin_funnel_stage_payment_attempts',
+  payment_succeeded: 'admin_funnel_stage_payment_succeeded',
+  messages_started: 'admin_funnel_stage_messages_started',
+}
+
+const FUNNEL_SUMMARY_KEYS: Record<string, TranslationKey> = {
+  signup_rate: 'admin_funnel_summary_signup_rate',
+  onboarding_rate: 'admin_funnel_summary_onboarding_rate',
+  checkout_rate: 'admin_funnel_summary_checkout_rate',
+  payment_conversion: 'admin_funnel_summary_payment_conversion',
+}
 
 export function AdminAnalyticsPage() {
   const { t } = useApp()
@@ -84,6 +104,14 @@ export function AdminAnalyticsPage() {
               { label: t('admin_activation_onboarding'), value: String(analytics.activation_onboarding ?? 0) },
               { label: t('admin_activation_employer'), value: String(analytics.activation_employer ?? 0) },
               { label: t('admin_activation_candidate'), value: String(analytics.activation_candidate ?? 0) },
+              { label: t('admin_analytics_logins'), value: String(analytics.login_events ?? 0) },
+              { label: t('admin_analytics_service_views'), value: String(analytics.service_views ?? 0) },
+              { label: t('admin_analytics_freelancer_views'), value: String(analytics.freelancer_views ?? 0) },
+              { label: t('admin_analytics_project_views'), value: String(analytics.project_views ?? 0) },
+              { label: t('admin_analytics_checkout_started'), value: String(analytics.checkout_started_events ?? 0) },
+              { label: t('admin_analytics_payment_attempts'), value: String(analytics.payment_attempt_events ?? 0) },
+              { label: t('admin_analytics_payment_succeeded'), value: String(analytics.payment_succeeded_events ?? 0) },
+              { label: t('admin_analytics_messages_started'), value: String(analytics.message_started_events ?? 0) },
             ].map((item) => (
               <Card key={item.label} className="admin-kpi-card p-4">
                 <p className="text-[11px] uppercase text-[var(--admin-muted)]">{item.label}</p>
@@ -113,6 +141,52 @@ export function AdminAnalyticsPage() {
                             : 'admin_search_surface_other'
                       )}{' '}
                       · {row.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {(analytics.funnel_report?.stages?.length ?? 0) > 0 && (
+            <Card className="mb-6 p-5">
+              <h2 className="mb-4 text-[13px] font-semibold uppercase text-[var(--admin-muted)]">
+                {t('admin_funnel_report_title')}
+              </h2>
+              <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {Object.entries(analytics.funnel_report!.summary).map(([key, value]) => {
+                  const labelKey = FUNNEL_SUMMARY_KEYS[key]
+                  if (!labelKey) return null
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-lg border border-[var(--admin-border)] px-3 py-2"
+                    >
+                      <p className="text-[11px] uppercase text-[var(--admin-muted)]">{t(labelKey)}</p>
+                      <p className="mt-1 text-xl font-bold">{value}%</p>
+                    </div>
+                  )
+                })}
+              </div>
+              <ul className="space-y-2">
+                {analytics.funnel_report!.stages.map((stage) => (
+                  <li
+                    key={stage.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--admin-border)] px-3 py-2 text-[13px]"
+                  >
+                    <span className="font-medium text-[var(--admin-text)]">
+                      {t(FUNNEL_STAGE_KEYS[stage.id] ?? 'admin_analytics_section')}
+                    </span>
+                    <span className="text-[var(--admin-muted)]">
+                      {stage.count}
+                      {stage.rate_from_previous != null
+                        ? ` · ${stage.rate_from_previous}% ${t('admin_funnel_from_previous')}`
+                        : ''}
+                      {stage.breakdown
+                        ? ` · ${Object.entries(stage.breakdown)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(', ')}`
+                        : ''}
                     </span>
                   </li>
                 ))}

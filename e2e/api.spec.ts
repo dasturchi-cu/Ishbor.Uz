@@ -16,7 +16,7 @@ test.describe('api proxy', () => {
       test.skip(true, 'Backend API not running — start backend on port 8002 for this test')
     }
     const body = await res.json()
-    expect(Array.isArray(body.providers)).toBe(true)
     expect(typeof body.sandbox_allowed).toBe('boolean')
+    expect(typeof body.checkout_available).toBe('boolean')
   })
 })

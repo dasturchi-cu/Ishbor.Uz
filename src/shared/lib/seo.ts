@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ishbor.uz'
 
-export const DEFAULT_OG_IMAGE = `${SITE}/icon.svg`
+export const DEFAULT_OG_IMAGE = `${SITE}/og-image.svg`
 
 export function pageUrl(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`
@@ -18,7 +18,7 @@ export function ogImageUrls(imageUrl?: string | null): string[] {
   return ogImages(imageUrl).map((i) => i.url)
 }
 
-/** Canonical + hreflang for client-side i18n (same URL, language in AppProvider). */
+/** Canonical URL metadata (language is client-side via AppProvider — no fake hreflang). */
 export function buildPageMetadata(
   path: string,
   title: string,
@@ -47,14 +47,13 @@ export function buildPageMetadata(
 }
 
 export function pageAlternates(path: string): NonNullable<Metadata['alternates']> {
-  const url = pageUrl(path)
+  return { canonical: pageUrl(path) }
+}
+
+/** Private/authenticated routes — noindex but allow follow for signed-in UX. */
+export function noIndexMetadata(extra?: Metadata): Metadata {
   return {
-    canonical: url,
-    languages: {
-      uz: url,
-      ru: url,
-      en: url,
-      'x-default': url,
-    },
+    robots: { index: false, follow: false },
+    ...extra,
   }
 }

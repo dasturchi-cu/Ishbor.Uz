@@ -620,6 +620,8 @@ export interface ApiPaymentsConfig {
 
   live_available: boolean
 
+  checkout_available: boolean
+
   providers: ('sandbox' | 'click' | 'payme')[]
 
 }
@@ -1008,6 +1010,19 @@ export interface ApiHealthReady {
   }
 }
 
+export interface ApiAdminFunnelStage {
+  id: string
+  count: number
+  rate_from_previous?: number | null
+  breakdown?: Record<string, number>
+}
+
+export interface ApiAdminFunnelReport {
+  period_days: number
+  stages: ApiAdminFunnelStage[]
+  summary: Record<string, number>
+}
+
 export interface ApiAdminAnalytics {
   period_days: number
   new_users: number
@@ -1024,6 +1039,15 @@ export interface ApiAdminAnalytics {
   activation_onboarding?: number
   activation_employer?: number
   activation_candidate?: number
+  login_events?: number
+  service_views?: number
+  freelancer_views?: number
+  project_views?: number
+  checkout_started_events?: number
+  payment_attempt_events?: number
+  payment_succeeded_events?: number
+  message_started_events?: number
+  funnel_report?: ApiAdminFunnelReport
   users_series?: ApiAdminAnalyticsSeriesPoint[]
   revenue_series?: ApiAdminAnalyticsSeriesPoint[]
   commission_series?: ApiAdminAnalyticsSeriesPoint[]

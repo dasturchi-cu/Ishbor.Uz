@@ -1,0 +1,39 @@
+---
+description: Backend and API — Supabase + FastAPI
+globs: backend/**/*,src/infrastructure/api/**/*,supabase/**/*
+alwaysApply: false
+---
+
+# Backend Rules (Supabase + FastAPI)
+
+## Stack
+- **Supabase** — PostgreSQL, Auth (JWT), RLS, Storage, Realtime
+- **FastAPI** — business logic (`backend/app/`)
+- **Next.js** — frontend; `api.*` client → FastAPI
+
+## Architecture
+```
+Next.js → Supabase Auth (login/register/session)
+Next.js → FastAPI /api/v1/* (Bearer JWT)
+FastAPI → Supabase PostgreSQL (service_role + RPC)
+```
+
+## Conventions
+- Routers: `backend/app/routers/`
+- Services: `backend/app/*_service.py`
+- Auth: `deps.require_user_auth`
+- Financial writes: service_role + RPC only — never client UPDATE on orders/ledger
+
+## Frontend imports
+- Supabase (auth/storage/realtime): `@/infrastructure/supabase/client`
+- Business API: `@/infrastructure/api/client`
+
+## Migrations
+`supabase/migrations/` — apply with `pnpm db:push`
+
+## Security
+- Service role key backend only
+- Never commit `.env`
+- Document endpoints in `docs/API_REFERENCE.md`
+
+Skill: `skills/ishbor-backend/SKILL.md`

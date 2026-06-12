@@ -14,11 +14,13 @@ type StorageImageProps = {
 
 export function StorageImage({ src, alt, className, fallbackClassName }: StorageImageProps) {
   const storage = resolvePrivateStorageLocation(src)
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(storage ? null : src)
-  const [loading, setLoading] = useState(Boolean(storage))
+  const storageKey = storage ? `${storage.bucket}:${storage.path}` : null
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(storageKey ? null : src)
+  const [loading, setLoading] = useState(Boolean(storageKey))
 
   useEffect(() => {
-    if (!storage) {
+    const loc = resolvePrivateStorageLocation(src)
+    if (!loc) {
       setResolvedUrl(src)
       setLoading(false)
       return
@@ -26,7 +28,7 @@ export function StorageImage({ src, alt, className, fallbackClassName }: Storage
     let cancelled = false
     setLoading(true)
     api
-      .getStorageSignedUrl(storage.bucket, storage.path)
+      .getStorageSignedUrl(loc.bucket, loc.path)
       .then((res) => {
         if (!cancelled) setResolvedUrl(res.url)
       })
@@ -40,7 +42,7 @@ export function StorageImage({ src, alt, className, fallbackClassName }: Storage
     return () => {
       cancelled = true
     }
-  }, [src, storage?.bucket, storage?.path])
+  }, [src, storageKey])
 
   if (loading) {
     return <div className={fallbackClassName ?? className} aria-hidden />

@@ -5,8 +5,21 @@ from postgrest.exceptions import APIError
 
 from app.database import get_supabase_admin
 from app.ledger_service import record_escrow_hold, record_escrow_refund, record_escrow_release
+from app.platform_services import track_analytics_event
 from app.receipt_service import create_payment_receipt
 from app.supabase_rpc import map_rpc_error, rpc_row
+
+
+def _track_payment_succeeded(order: dict, *, provider: str, user_id: str) -> None:
+    track_analytics_event(
+        "payment_succeeded",
+        user_id=user_id,
+        properties={
+            "order_id": order.get("id"),
+            "provider": provider,
+            "amount": order.get("amount"),
+        },
+    )
 
 
 def hold_escrow(_supabase, order: dict, user_id: str, provider: str, provider_ref: str | None = None) -> dict:
@@ -36,6 +49,7 @@ def hold_escrow(_supabase, order: dict, user_id: str, provider: str, provider_re
         create_payment_receipt(row, provider=provider, provider_ref=provider_ref)
     except Exception:
         pass
+    _track_payment_succeeded(row, provider=provider, user_id=user_id)
     return row
 
 
@@ -77,6 +91,7 @@ def pay_order_from_wallet(_supabase, order: dict, user_id: str) -> dict:
         create_payment_receipt(row, provider="wallet", provider_ref=None)
     except Exception:
         pass
+    _track_payment_succeeded(row, provider="wallet", user_id=user_id)
     return row
 
 

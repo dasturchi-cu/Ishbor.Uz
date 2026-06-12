@@ -28,24 +28,27 @@ export function MarketplaceDiscoverNav({
   active,
   className,
 }: {
-  active: MarketplaceDiscoverSurface
+  /** Omit on home — no tab highlighted */
+  active?: MarketplaceDiscoverSurface
   className?: string
 }) {
   const { t } = useApp()
 
   return (
-    <nav className={cn('jobs-discover-nav', className)} aria-label={t('marketplace_discover_nav')}>
-      {DISCOVER_ITEMS.map(({ id, href, labelKey, icon: Icon }) => (
-        <Link
-          key={id}
-          href={href}
-          className={cn('jobs-discover-nav__item', active === id && 'jobs-discover-nav__item--active')}
-          aria-current={active === id ? 'page' : undefined}
-        >
-          <Icon className="h-4 w-4 shrink-0" aria-hidden />
-          {t(labelKey)}
-        </Link>
-      ))}
-    </nav>
+    <div className="discover-nav-scroll">
+      <nav className={cn('jobs-discover-nav', className)} aria-label={t('marketplace_discover_nav')}>
+        {DISCOVER_ITEMS.map(({ id, href, labelKey, icon: Icon }) => (
+          <Link
+            key={id}
+            href={href}
+            className={cn('jobs-discover-nav__item', active === id && 'jobs-discover-nav__item--active')}
+            aria-current={active === id ? 'page' : undefined}
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+            {t(labelKey)}
+          </Link>
+        ))}
+      </nav>
+    </div>
   )
 }

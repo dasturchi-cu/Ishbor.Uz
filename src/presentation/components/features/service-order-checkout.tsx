@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Clock, Shield, X } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
+import { loginPath, registerPath } from '@/shared/lib/auth-redirect'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Badge } from '@/presentation/components/ui/badge'
 import type { TranslationKey } from '@/infrastructure/i18n'
@@ -15,6 +17,7 @@ import {
 } from '@/domain/constants/commission'
 import { formatPrice } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/utils'
+import { PATHS } from '@/domain/constants/routes'
 
 const STEPS = [
   { id: 1, labelKey: 'checkout_step_summary' as TranslationKey },
@@ -41,6 +44,7 @@ export function ServiceOrderCheckout({
   ordering,
   error,
   modalRef,
+  guestAuthReturnTo,
 }: {
   open: boolean
   title: string
@@ -53,6 +57,8 @@ export function ServiceOrderCheckout({
   ordering: boolean
   error: string
   modalRef: React.RefObject<HTMLDivElement | null>
+  /** When set, step 3 shows login/register instead of pay (guest preview checkout). */
+  guestAuthReturnTo?: string
 }) {
   const { t } = useApp()
   const [step, setStep] = useState(1)
@@ -136,6 +142,12 @@ export function ServiceOrderCheckout({
                 <div className="min-w-0">
                   <p className="ishbor-order-modal__trust-title">{t('checkout_escrow_title')}</p>
                   <p className="ishbor-order-modal__trust-desc">{t('commission_escrow_note')}</p>
+                  <Link
+                    href={PATHS.buyerProtection}
+                    className="mt-1 inline-flex text-[12px] font-semibold text-[var(--color-primary)] hover:underline"
+                  >
+                    {t('marketplace_trust_learn_more')} →
+                  </Link>
                 </div>
               </div>
               <p className="text-[13px] leading-relaxed text-[var(--ishbor-text-muted)]">{t('checkout_step_summary_hint')}</p>
@@ -209,6 +221,19 @@ export function ServiceOrderCheckout({
             <Button variant="primary" fullWidth onClick={goNext}>
               {t('checkout_next_step')}
             </Button>
+          ) : guestAuthReturnTo ? (
+            <div className="flex w-full flex-col gap-2">
+              <Link href={loginPath(guestAuthReturnTo)} className="block w-full">
+                <Button variant="primary" fullWidth className="ishbor-order-cta" leftIcon={<Shield className="h-4 w-4" />}>
+                  {t('checkout_guest_login')}
+                </Button>
+              </Link>
+              <Link href={registerPath(guestAuthReturnTo)} className="block w-full">
+                <Button variant="outline" fullWidth>
+                  {t('checkout_guest_register')}
+                </Button>
+              </Link>
+            </div>
           ) : (
             <Button
               variant="primary"

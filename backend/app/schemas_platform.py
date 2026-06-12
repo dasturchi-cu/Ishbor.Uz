@@ -279,6 +279,19 @@ class AdminSearchTerm(BaseModel):
     count: int
 
 
+class AdminFunnelStage(BaseModel):
+    id: str
+    count: int
+    rate_from_previous: float | None = None
+    breakdown: dict[str, int] | None = None
+
+
+class AdminFunnelReport(BaseModel):
+    period_days: int
+    stages: list[AdminFunnelStage] = Field(default_factory=list)
+    summary: dict[str, float] = Field(default_factory=dict)
+
+
 class AdminAnalyticsResponse(BaseModel):
     period_days: int
     new_users: int
@@ -299,6 +312,15 @@ class AdminAnalyticsResponse(BaseModel):
     revenue_series: list[AdminAnalyticsSeriesPoint] = Field(default_factory=list)
     commission_series: list[AdminAnalyticsSeriesPoint] = Field(default_factory=list)
     top_searches: list[AdminSearchTerm] = Field(default_factory=list)
+    login_events: int = 0
+    service_views: int = 0
+    freelancer_views: int = 0
+    project_views: int = 0
+    checkout_started_events: int = 0
+    payment_attempt_events: int = 0
+    payment_succeeded_events: int = 0
+    message_started_events: int = 0
+    funnel_report: AdminFunnelReport | None = None
 
 
 class AdminOverviewResponse(BaseModel):
@@ -383,7 +405,7 @@ class CompanyUpdate(BaseModel):
     is_published: bool | None = None
 
 
-class CompanyResponse(BaseModel):
+class CompanyPublicResponse(BaseModel):
     id: str
     name: str
     slug: str
@@ -391,13 +413,16 @@ class CompanyResponse(BaseModel):
     logo_url: str | None = None
     website: str | None = None
     region: str | None = None
-    owner_id: str | None = None
     employee_count: int | None = None
     is_verified: bool = False
     is_featured: bool = False
     is_published: bool = False
-    stir: str | None = None
-    stir_document_url: str | None = None
     stir_verified: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class CompanyResponse(CompanyPublicResponse):
+    owner_id: str | None = None
+    stir: str | None = None
+    stir_document_url: str | None = None

@@ -28,8 +28,8 @@ export function ConfirmModal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border border-[var(--ishbor-border)] bg-[var(--neutral-0)] p-6 shadow-[var(--shadow-lg)]">
+    <div className="ps-modal-backdrop z-[100]">
+      <div className="ps-modal max-w-md">
         <h3 className="text-[16px] font-bold text-[var(--ishbor-text)]">{title}</h3>
         {description && <p className="mt-2 text-[14px] text-[var(--ishbor-text-muted)]">{description}</p>}
         <div className="mt-6 flex justify-end gap-2">

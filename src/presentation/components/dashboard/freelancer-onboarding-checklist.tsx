@@ -113,7 +113,7 @@ export function FreelancerOnboardingChecklist({
               href={step.href}
               onClick={step.id === 'birja' ? markBirjaSeen : undefined}
               className={cn(
-                'flex items-center gap-3 rounded-[var(--r-md)] border px-3 py-2.5 text-[13px] transition',
+                'flex min-h-[44px] items-center gap-3 rounded-[var(--r-md)] border px-3 py-2.5 text-[13px] transition',
                 step.done
                   ? 'border-[var(--success)]/30 bg-[var(--success-bg)] text-[var(--ishbor-text-muted)]'
                   : 'border-[var(--ishbor-border)] bg-[var(--neutral-50)] text-[var(--ishbor-text)] hover:border-[color-mix(in_srgb,var(--color-primary)_25%,var(--ishbor-border))] hover:bg-[var(--neutral-0)]'

@@ -36,6 +36,7 @@ import { useBadgeCounts } from '@/application/providers/badge-counts-provider'
 import { useAdminDeniedToast } from '@/shared/lib/use-admin-denied-toast'
 import { VerifyEmailBanner } from '@/presentation/components/dashboard/verify-email-banner'
 import { ReferralBanner } from '@/presentation/components/layout/referral-banner'
+import { OnboardingBanner } from '@/presentation/components/layout/onboarding-banner'
 import { SuspendedBanner } from '@/presentation/components/layout/suspended-banner'
 import type { TranslationKey } from '@/infrastructure/i18n'
 import { formatDashboardHeaderDate } from '@/shared/lib/format-date'
@@ -236,7 +237,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="mt-4">
             <div className="flex items-center justify-between text-[11px] text-[var(--ishbor-text-muted)]">
               <span>{t('profile_completion').replace('{n}', String(completion))}</span>
-              <Link href={PATHS.dashboardProfile} onClick={onNavigate} className="font-medium text-[var(--color-primary)]">
+              <Link
+                href={PATHS.dashboardProfile}
+                onClick={onNavigate}
+                className="dashboard-sidebar-balance-link font-medium text-[var(--color-primary)]"
+              >
                 {t('profile_complete_link')}
               </Link>
             </div>
@@ -260,7 +265,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     href={href}
                     onClick={onNavigate}
                     className={cn(
-                      'relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition',
+                      'dashboard-nav-link relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition',
                       active
                         ? 'border-l-[3px] border-l-[var(--color-primary)] bg-[var(--brand-50)] pl-[9px] font-semibold text-[var(--color-primary)]'
                         : 'border-l-[3px] border-l-transparent text-[var(--ishbor-text-muted)] hover:bg-[var(--neutral-50)] hover:text-[var(--ishbor-text)]'
@@ -284,14 +289,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="mt-auto border-t border-[var(--ishbor-border)] p-3">
         <Link
           href={PATHS.help}
-          className="mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-[var(--ishbor-text-muted)] hover:bg-[var(--neutral-50)]"
+          className="dashboard-nav-link mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-[var(--ishbor-text-muted)] hover:bg-[var(--neutral-50)]"
         >
           <HelpCircle className="h-4 w-4" /> {t('nav_help_center')}
         </Link>
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-[var(--error)] hover:bg-[var(--error-bg)]"
+          className="dashboard-nav-link flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-[var(--error)] hover:bg-[var(--error-bg)]"
         >
           <LogOut className="h-4 w-4" /> {t('nav_logout')}
         </button>
@@ -345,7 +350,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="show-mobile h-9 w-9 shrink-0 md:hidden"
+                className="show-mobile h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 md:hidden"
                 onClick={() => setMobileOpen(true)}
                 aria-label={t('open_menu')}
               >
@@ -374,6 +379,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               {!isHome && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} className="mb-4" />}
               <SuspendedBanner />
               <VerifyEmailBanner />
+              <OnboardingBanner />
               {isHome && <ReferralBanner className="mb-4" />}
               {children}
             </div>

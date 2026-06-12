@@ -1,0 +1,34 @@
+---
+description: i18n and translation rules — src/infrastructure/i18n
+globs: src/infrastructure/i18n/**,**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# i18n Rules
+
+## Source
+`src/infrastructure/i18n/` — domain chunks + index
+
+## New key
+1. Add to `uz`
+2. Add same key to `ru` and `en`
+3. `TranslationKey` type updates automatically
+
+## Usage
+```tsx
+const { t } = useApp()
+t('my_new_key')
+```
+
+## Rules
+- Never duplicate keys (e.g. two `completed`)
+- Key names: `snake_case`, English identifier
+- Uzbek: Latin script, `o'` apostrophe
+- Prices in so'm — not `$`
+
+## Verify
+```bash
+pnpm type-check
+```
+
+Skill: `skills/ishbor-i18n/SKILL.md`

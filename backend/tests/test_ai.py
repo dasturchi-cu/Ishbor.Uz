@@ -1,5 +1,5 @@
-def test_ai_suggest_project_description(client):
-    response = client.post(
+def test_ai_suggest_project_description(authed_ai_client):
+    response = authed_ai_client.post(
         "/api/v1/ai/suggest",
         json={
             "kind": "project_description",
@@ -16,8 +16,8 @@ def test_ai_suggest_project_description(client):
     assert "Landing page" in body["text"]
 
 
-def test_ai_suggest_service_description(client):
-    response = client.post(
+def test_ai_suggest_service_description(authed_ai_client):
+    response = authed_ai_client.post(
         "/api/v1/ai/suggest",
         json={
             "kind": "service_description",
@@ -31,8 +31,8 @@ def test_ai_suggest_service_description(client):
     assert "Logo dizayn" in response.json()["text"]
 
 
-def test_ai_suggest_cover_letter(client):
-    response = client.post(
+def test_ai_suggest_cover_letter(authed_ai_client):
+    response = authed_ai_client.post(
         "/api/v1/ai/suggest",
         json={
             "kind": "cover_letter",
@@ -46,8 +46,8 @@ def test_ai_suggest_cover_letter(client):
     assert "Mobil ilova" in response.json()["text"]
 
 
-def test_ai_suggest_service_title(client):
-    response = client.post(
+def test_ai_suggest_service_title(authed_ai_client):
+    response = authed_ai_client.post(
         "/api/v1/ai/suggest",
         json={"kind": "service_title", "category": "web", "region": "Toshkent", "language": "uz"},
     )
@@ -55,8 +55,8 @@ def test_ai_suggest_service_title(client):
     assert "veb" in response.json()["text"].lower() or "web" in response.json()["text"].lower()
 
 
-def test_ai_suggest_profile_bio(client):
-    response = client.post(
+def test_ai_suggest_profile_bio(authed_ai_client):
+    response = authed_ai_client.post(
         "/api/v1/ai/suggest",
         json={
             "kind": "profile_bio",
@@ -70,9 +70,17 @@ def test_ai_suggest_profile_bio(client):
     assert "UI dizayner" in response.json()["text"]
 
 
-def test_ai_suggest_requires_title(client):
-    response = client.post(
+def test_ai_suggest_requires_title(authed_ai_client):
+    response = authed_ai_client.post(
         "/api/v1/ai/suggest",
         json={"kind": "project_description", "title": "", "language": "uz"},
     )
     assert response.status_code == 400
+
+
+def test_ai_suggest_requires_auth(client):
+    response = client.post(
+        "/api/v1/ai/suggest",
+        json={"kind": "service_title", "category": "web", "language": "uz"},
+    )
+    assert response.status_code == 401

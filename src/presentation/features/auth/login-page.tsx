@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { useApp } from '@/application/providers/app-provider'
 import { AuthPageBrand } from '@/presentation/components/layout/brand-logo'
+import { AuthBrandPanel, AuthMobileTrust } from '@/presentation/components/auth/auth-brand-panel'
 import { Alert } from '@/presentation/components/ui/alert'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
@@ -194,13 +195,14 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="auth-layout auth-layout--compact">
-      <a href="#login-form" className="skip-link">
+    <div className="auth-layout">
+      <AuthBrandPanel />
+      <a href="#main-content" className="skip-link">
         {t('skip_to_content')}
       </a>
-      <div className="auth-page-panel">
+      <main id="main-content" tabIndex={-1} className="auth-page-panel outline-none">
         <div className="auth-page-inner">
-          <Link href={PATHS.home} className="auth-back-link">
+          <Link href={PATHS.home} className="auth-back-link show-mobile">
             <ArrowLeft className="h-4 w-4" />
             {t('nav_home')}
           </Link>
@@ -208,10 +210,11 @@ function LoginPageContent() {
           <AuthPageBrand href={PATHS.home} />
 
           <div className="auth-form-card">
+            <AuthMobileTrust />
             <header className="auth-form-header">
               <h1>{t('login_title')}</h1>
               <p>{t('login_subtitle')}</p>
-              <p className="mt-1 text-[13px] text-[var(--ishbor-text-muted)]">{t('login_trust_hint')}</p>
+              <p className="mt-1 text-[13px] text-[var(--ishbor-text-sub)]">{t('login_trust_hint')}</p>
             </header>
 
           {error && (
@@ -355,7 +358,7 @@ function LoginPageContent() {
           </p>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

@@ -1,13 +1,16 @@
 'use client'
 
-import { Lock, Shield, Zap } from 'lucide-react'
+import Link from 'next/link'
+import { BadgeCheck, Lock, Shield, Zap } from 'lucide-react'
 import { useApp } from '@/application/providers/app-provider'
+import { PATHS } from '@/domain/constants/routes'
 
 export function TrustStrip({ className }: { className?: string }) {
   const { t } = useApp()
 
   const items = [
     { icon: Shield, label: t('trust_escrow') },
+    { icon: BadgeCheck, label: t('trust_item_cert') },
     { icon: Lock, label: t('trust_commission') },
     { icon: Zap, label: t('trust_withdrawal') },
   ]
@@ -23,6 +26,12 @@ export function TrustStrip({ className }: { className?: string }) {
         ))}
       </ul>
       <p className="mt-2 text-[11px] text-[var(--ishbor-text-muted)]">{t('escrow_after_payment')}</p>
+      <Link
+        href={PATHS.buyerProtection}
+        className="mt-2 inline-flex text-[12px] font-semibold text-[var(--color-primary)] hover:underline"
+      >
+        {t('marketplace_trust_learn_more')} →
+      </Link>
     </div>
   )
 }

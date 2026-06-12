@@ -1,4 +1,5 @@
 @import '../src/presentation/styles/tokens.css';
+@import '../src/presentation/styles/theme-dark.css';
 @import 'tailwindcss';
 @import 'shadcn/tailwind.css';
 
@@ -51,9 +52,9 @@
 :root {
   --background: var(--body-bg);
   --foreground: var(--color-text);
-  --card: var(--neutral-0);
+  --card: var(--surface-raised);
   --card-foreground: var(--color-text);
-  --popover: var(--color-bg);
+  --popover: var(--surface-overlay);
   --popover-foreground: var(--color-text);
   --primary: var(--color-primary);
   --primary-foreground: var(--neutral-0);
@@ -86,9 +87,9 @@
 .dark {
   --background: var(--color-bg);
   --foreground: var(--color-text);
-  --card: var(--color-bg-subtle);
+  --card: var(--surface-raised);
   --card-foreground: var(--color-text);
-  --popover: var(--color-bg-subtle);
+  --popover: var(--surface-overlay);
   --popover-foreground: var(--color-text);
   --primary: var(--color-primary);
   --primary-foreground: var(--neutral-0);
@@ -122,6 +123,11 @@
     box-sizing: border-box;
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply font-sans scroll-smooth;
+    overflow-x: clip;
+    max-width: 100%;
+  }
   body {
     font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background-color: var(--body-bg);
@@ -130,10 +136,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    overflow-x: clip;
+    max-width: 100%;
     @apply text-foreground;
-  }
-  html {
-    @apply font-sans scroll-smooth;
   }
   h1,
   h2,

@@ -93,7 +93,13 @@ export interface PaymentsConfigSnapshot {
   click_enabled: boolean
   payme_enabled: boolean
   live_available: boolean
+  checkout_available?: boolean
   providers: PaymentProvider[]
+}
+
+export function isCheckoutAvailable(config?: PaymentsConfigSnapshot | null): boolean {
+  if (config?.checkout_available != null) return config.checkout_available
+  return resolveAvailableProviders(config).length > 0
 }
 
 export function resolveAvailableProviders(config?: PaymentsConfigSnapshot | null): PaymentProvider[] {

@@ -19,7 +19,7 @@ Ushbu ro‘yxat — UI/API/DB o‘rtasida **yarim ulanmagan** joylar (employer v
 | 6 | Auth race: order detail, marketplace, bank accounts | `useProtectedLoader` qo‘llash | ✅ |
 | 7 | Chat inbox: 3 API merge + duplicate thread | `messages-page`, `unified-chat` | ✅ |
 | 8 | `profiles.py` `/me/role` dublikat endpoint | `backend/app/routers/profiles.py` | ✅ |
-| 9 | `get_optional_user_id` — barcha ochiq endpointlar | `deps.py` + `public_freelancer_profiles` view | ⚠️ (asosiy endpointlar ✅) |
+| 9 | `get_optional_user_id` — barcha ochiq endpointlar | `deps.py` + `public_freelancer_profiles` view | ✅ |
 | 10 | `apiFetch` GET retry + 401 token refresh | `client.ts` | ✅ |
 | 11 | Dashboard sahifalar `useAuthReady` | admin + dashboard asosiy sahifalar | ✅ (~99%) |
 | 12 | Admin verify tugmasi client (employer) uchun | `admin-page.tsx` | ✅ |
@@ -43,7 +43,7 @@ Ushbu ro‘yxat — UI/API/DB o‘rtasida **yarim ulanmagan** joylar (employer v
 | 23 | Service moderatsiya: tahrirdan keyin `pending` | `services.py` + admin flow | ✅ |
 | 24 | Dispute resolve `run_query` | `admin.py` | ✅ |
 | 25 | KYC hujjat ko‘rish (verification `document_urls`) | `admin-verification-queue` | ✅ |
-| 26 | User impersonation (support) | reja | ❌ |
+| 26 | User impersonation (support) | reja | ⏸️ deferred sprint |
 | 27 | Audit log export CSV | `admin-dashboard`, `admin-moderation-tabs` | ✅ |
 | 28 | Admin revenue charts to‘ldirish | `admin-charts.tsx` + `platform_services.py` | ✅ |
 | 29 | Platform health dashboard | `admin-health-panel.tsx` + `/health/ready` | ✅ |

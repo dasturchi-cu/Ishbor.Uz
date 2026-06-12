@@ -6,6 +6,21 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 MAX_MONEY = 2_147_483_647
 
 
+class SessionFlagsResponse(BaseModel):
+    is_banned: bool = False
+    is_admin: bool = False
+    onboarding_completed: bool = False
+    role: Literal["freelancer", "client"] | None = None
+    is_suspended: bool = False
+    email_verified: bool = True
+    require_email_verified: bool = False
+
+
+class SecurityConfigResponse(BaseModel):
+    require_email_verified: bool = False
+    session_idle_minutes: int = 120
+
+
 class ProfileResponse(BaseModel):
     id: str
     role: Literal["freelancer", "client"]

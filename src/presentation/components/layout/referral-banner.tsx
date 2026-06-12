@@ -60,7 +60,7 @@ export function ReferralBanner({ className }: { className?: string }) {
   const share = async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        await navigator.share({ title: 'IshBor.uz', text: t('referral_desc'), url: link })
+        await navigator.share({ title: t('referral_share_title'), text: t('referral_desc'), url: link })
         return
       } catch {
         /* user cancelled */
@@ -97,12 +97,12 @@ export function ReferralBanner({ className }: { className?: string }) {
           )}
         </div>
       </div>
-      <div className="flex shrink-0 gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={share}>
+      <div className="referral-banner-actions shrink-0">
+        <Button variant="outline" size="md" className="min-h-[44px] w-full gap-1.5 sm:w-auto" onClick={share}>
           <Share2 className="h-3.5 w-3.5" />
           {t('referral_share')}
         </Button>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={copy}>
+        <Button variant="outline" size="md" className="min-h-[44px] w-full gap-1.5 sm:w-auto" onClick={copy}>
           <Copy className="h-3.5 w-3.5" />
           {copied ? t('referral_copied') : t('referral_copy')}
         </Button>

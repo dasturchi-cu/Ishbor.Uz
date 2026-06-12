@@ -7,6 +7,7 @@ from typing import Literal
 
 from fastapi import HTTPException, status
 
+from app.config import settings
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 
@@ -19,8 +20,11 @@ _ROLE_RANK: dict[str, int] = {
     "super_admin": 4,
 }
 
-_CACHE_TTL_SEC = 30.0
 _role_cache: dict[str, tuple[str | None, float]] = {}
+
+
+def _cache_ttl_sec() -> float:
+    return 5.0 if settings.is_production else 30.0
 
 
 def _resolve_role(row: dict | None) -> str | None:
@@ -37,7 +41,7 @@ def _resolve_role(row: dict | None) -> str | None:
 def get_admin_role(user_id: str) -> str | None:
     now = time.monotonic()
     cached = _role_cache.get(user_id)
-    if cached and now - cached[1] < _CACHE_TTL_SEC:
+    if cached and now - cached[1] < _cache_ttl_sec():
         return cached[0]
 
     supabase = get_supabase_admin()

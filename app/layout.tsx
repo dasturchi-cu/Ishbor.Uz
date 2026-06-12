@@ -4,7 +4,8 @@ import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/application/providers/app-provider'
 import { PasswordRecoveryRedirect } from '@/presentation/components/auth/password-recovery-redirect'
-import { JsonLdOrganization } from '@/presentation/components/seo/json-ld'
+import { JsonLdOrganization, JsonLdWebSite } from '@/presentation/components/seo/json-ld'
+import { DEFAULT_OG_IMAGE } from '@/shared/lib/seo'
 import { GoogleAnalytics } from '@/presentation/components/analytics/google-analytics'
 
 const inter = Inter({
@@ -38,13 +39,13 @@ export const metadata: Metadata = {
     siteName: 'IshBor.uz',
     locale: 'uz_UZ',
     type: 'website',
-    images: [{ url: `${SITE_URL}/icon.svg`, width: 512, height: 512, alt: 'IshBor.uz' }],
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: 'IshBor.uz' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'IshBor.uz',
     description: "O'zbekistondagi freelance marketplace",
-    images: [`${SITE_URL}/icon.svg`],
+    images: [DEFAULT_OG_IMAGE],
   },
   manifest: '/manifest.json',
   icons: {
@@ -52,12 +53,6 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: SITE_URL,
-    languages: {
-      uz: SITE_URL,
-      ru: SITE_URL,
-      en: SITE_URL,
-      'x-default': SITE_URL,
-    },
   },
 }
 
@@ -80,6 +75,7 @@ export default function RootLayout({
           }}
         />
         <JsonLdOrganization />
+        <JsonLdWebSite />
       </head>
       <body className="font-sans antialiased">
         <AppProvider>

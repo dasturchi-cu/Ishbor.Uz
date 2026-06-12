@@ -25,6 +25,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { FreelancerCard } from '@/presentation/components/features/freelancer-card'
 import { api } from '@/infrastructure/api/client'
 import { trackFunnelEvent } from '@/shared/lib/funnel-analytics'
+import { formatCompactStat } from '@/shared/lib/format-stat'
 
 const HOW_STEPS: { titleKey: TranslationKey; descKey: TranslationKey }[] = [
   { titleKey: 'how_step1_title', descKey: 'how_step1_desc' },
@@ -49,11 +50,6 @@ const FEATURE_TABS: { id: string; labelKey: TranslationKey; cats: string[] }[] =
   { id: 'video', labelKey: 'kwork_cat_video', cats: ['video'] },
 ]
 
-function formatStat(n: number, emptyLabel: string): string {
-  if (n <= 0) return emptyLabel
-  return n >= 1000 ? `${Math.round(n / 100) / 10}k+`.replace('.0k', 'k') : `${n}+`
-}
-
 export function LandingHeroBadge() {
   const { t } = useApp()
   return (
@@ -64,19 +60,30 @@ export function LandingHeroBadge() {
   )
 }
 
+const TRUST_FALLBACK_ITEMS: { icon: LucideIcon; labelKey: TranslationKey }[] = [
+  { icon: Shield, labelKey: 'trust_escrow' },
+  { icon: Award, labelKey: 'trust_item_cert' },
+  { icon: CreditCard, labelKey: 'trust_item_pay' },
+]
+
 export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
   const { t } = useApp()
   const items = [
     stats.services > 0 && {
-      value: formatStat(stats.services, ''),
+      value: formatCompactStat(stats.services, ''),
       label: t('landing_stat_services'),
     },
+    stats.completed_orders != null &&
+      stats.completed_orders > 0 && {
+        value: formatCompactStat(stats.completed_orders, ''),
+        label: t('landing_stat_orders'),
+      },
     stats.freelancers > 0 && {
-      value: formatStat(stats.freelancers, ''),
+      value: formatCompactStat(stats.freelancers, ''),
       label: t('landing_stat_freelancers'),
     },
     stats.review_count > 0 && {
-      value: formatStat(stats.review_count, ''),
+      value: formatCompactStat(stats.review_count, ''),
       label: t('landing_stat_reviews'),
     },
     stats.avg_rating > 0 && {
@@ -85,7 +92,20 @@ export function LandingStatsRow({ stats }: { stats: ApiPublicStats }) {
     },
   ].filter((item): item is { value: string; label: string } => Boolean(item))
 
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    return (
+      <div className="landing-stats-grid landing-stats-grid--trust">
+        {TRUST_FALLBACK_ITEMS.map(({ icon: Icon, labelKey }) => (
+          <div key={labelKey} className="landing-stats-card landing-stats-card--trust">
+            <Icon className="mx-auto mb-2 h-5 w-5 text-[var(--color-primary)]" aria-hidden />
+            <p className="landing-stats-label text-[13px] font-semibold text-[var(--ishbor-text)]">
+              {t(labelKey)}
+            </p>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -134,12 +154,11 @@ export function LandingHowItWorks() {
 
 export function LandingCategoryGrid({ stats }: { stats: ApiPublicStats }) {
   const { t } = useApp()
-  const router = useRouter()
 
   return (
     <section className="layout-container max-w-[1280px] py-10 md:py-12">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <h2 className="landing-section-heading mb-0 text-left">{t('categories_browse_title')}</h2>
+      <div className="mb-6 flex min-w-0 items-center justify-between gap-2">
+        <h2 className="landing-section-heading mb-0 min-w-0 flex-1 text-left">{t('categories_browse_title')}</h2>
         <Link
           href={PATHS.services}
           className="flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
@@ -153,10 +172,9 @@ export function LandingCategoryGrid({ stats }: { stats: ApiPublicStats }) {
           const count = stats.category_counts?.[item.cat] ?? 0
           const Icon = item.icon
           return (
-            <button
+            <Link
               key={item.slug}
-              type="button"
-              onClick={() => router.push(`${PATHS.services}?cat=${item.cat}`)}
+              href={`${PATHS.services}?cat=${item.cat}`}
               className="landing-category-card"
             >
               <span className="landing-category-card-icon">
@@ -168,7 +186,7 @@ export function LandingCategoryGrid({ stats }: { stats: ApiPublicStats }) {
                   ? `${count} ${t('services_count_suffix')}`
                   : t('category_explore_cta')}
               </span>
-            </button>
+            </Link>
           )
         })}
       </div>
@@ -326,10 +344,14 @@ export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link href={PATHS.register}>
-                <Button variant="primary">{t('register')}</Button>
+                <Button variant="primary" size="sm">
+                  {t('register')}
+                </Button>
               </Link>
               <Link href={PATHS.freelancers}>
-                <Button variant="outline">{t('nav_freelancers')}</Button>
+                <Button variant="outline" size="sm">
+                  {t('nav_freelancers')}
+                </Button>
               </Link>
             </div>
           </div>
@@ -341,8 +363,8 @@ export function LandingTopFreelancers({ stats }: { stats: ApiPublicStats }) {
   return (
     <section className="page-section">
       <div className="layout-container max-w-[1280px]">
-        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="landing-section-heading mb-0 text-left">{t('featured_freelancers')}</h2>
+        <div className="mb-5 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="landing-section-heading mb-0 min-w-0 text-left">{t('featured_freelancers')}</h2>
           <Link
             href={PATHS.freelancers}
             className="flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-[var(--color-primary)] hover:underline"
@@ -380,7 +402,7 @@ export function LandingRecentActivity({ stats }: { stats: ApiPublicStats }) {
   return (
     <section className="layout-container max-w-[1280px] py-6 md:py-8">
       <h2 className="landing-section-heading mb-4 text-left">{t('landing_recent_activity_title')}</h2>
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="landing-recent-activity-list grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {events.slice(0, 6).map((event) => {
           const label =
             event.kind === 'order_completed'
@@ -449,7 +471,7 @@ export function LandingCtaBanner() {
           </h2>
           <p className="mt-2 text-[15px] leading-relaxed text-[var(--ishbor-text-muted)]">{t('cta_banner_sub')}</p>
         </div>
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
           {!isAuthLoading && !isLoggedIn ? (
             <Button
               variant="primary"
@@ -467,6 +489,12 @@ export function LandingCtaBanner() {
               {t('browse_services')}
             </Button>
           )}
+          <Link
+            href={PATHS.buyerProtection}
+            className="text-center text-[13px] font-semibold text-[var(--color-primary)] hover:underline sm:px-2"
+          >
+            {t('landing_buyer_protection')} →
+          </Link>
         </div>
       </div>
     </section>

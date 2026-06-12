@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from app.catalog_quality import is_catalog_quality_text
 from app.database import get_supabase_admin
 from app.db_utils import run_query
 from app.notification_service import create_notification
@@ -58,7 +59,9 @@ def recent_public_reviews(limit: int = Query(default=6, le=12)):
     reviews = [
         r
         for r in (result.data or [])
-        if r.get("comment") and str(r["comment"]).strip() and r.get("is_verified", True)
+        if r.get("comment")
+        and is_catalog_quality_text(str(r["comment"]).strip())
+        and r.get("is_verified", True)
     ]
     reviews = reviews[:limit]
     if not reviews:
