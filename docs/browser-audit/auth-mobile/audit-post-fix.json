@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-06-12T16:21:00.000Z",
+  "totalChecks": 40,
+  "overflowCount": 0,
+  "viewports": [320, 375, 390, 768, 1024],
+  "pages": [
+    "freelancer-dashboard",
+    "client-dashboard",
+    "messages",
+    "wallet",
+    "notifications",
+    "settings",
+    "profile",
+    "orders"
+  ],
+  "mobileSmallTargetRemaining": 9,
+  "mobileSmallSurfaces": ["freelancer-dashboard", "client-dashboard", "settings"],
+  "clientDashboard320Stable": true,
+  "verdict": "PASS — no P0 overflow; P1 touch targets fixed"
+}
