@@ -37,6 +37,7 @@ playwright-report/
 blob-report/
 coverage/
 .lighthouseci/
+.playwright-mcp/
 
 # Legacy empty dirs at repo root (Windows lock residue)
 /components/
